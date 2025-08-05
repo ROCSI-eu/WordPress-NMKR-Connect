@@ -115,53 +115,59 @@ jQuery(document).ready(function($) {
       })
       .done(response => {
         try {
-          const { progress, current_item, in_progress, error, live_metrics } = response;
-          
-          // Guard against undefined progress - use 0 if not a valid number
-          const validProgress = (typeof progress === 'number' && !isNaN(progress)) ? progress : 0;
-          
-          // Update progress bar
-          $('#nmkr-sync-progress-bar')
-            .css('width', validProgress + '%')
-            .text(validProgress + '%')
-            .attr('aria-valuenow', validProgress);
-          
-          // Update current item status  
-          if (current_item) {
-            $('#status-message').html('<div class="status-header">' + current_item + '</div>');
-          }
-          
-          // Handle error state
-          if (error && error.trim() !== '') {
-            handleError(error);
-            return;
-          }
-          
-          // Update live metrics if available
-          if (live_metrics) {
-            updateActiveMetrics(live_metrics);
-          }
-          
-          // Handle completion
-          if (validProgress === 100) {
-            clearTimeout(pollTimeoutId);
-            isFetching = false;
-            handleComplete();
-            return;
-          }
-          
-          // Adaptive polling interval logic based on progress changes
-          if (validProgress > lastStepsCompleted) {
-            currentPollingInterval = Math.max(
-              currentPollingInterval * decreaseFactor,
-              minPollingInterval
-            );
-            lastStepsCompleted = validProgress;
+          if (response.success && response.data) {
+            const { progress, current_item, in_progress, error, live_metrics } = response.data;
+            
+            // Guard against undefined progress - use 0 if not a valid number
+            const validProgress = (typeof progress === 'number' && !isNaN(progress)) ? progress : 0;
+            
+            // Update progress bar
+            $('#nmkr-sync-progress-bar')
+              .css('width', validProgress + '%')
+              .text(validProgress + '%')
+              .attr('aria-valuenow', validProgress);
+            
+            // Update current item status  
+            if (current_item) {
+              $('#status-message').html('<div class="status-header">' + current_item + '</div>');
+            }
+            
+            // Handle error state
+            if (error && error.trim() !== '') {
+              handleError(error);
+              return;
+            }
+            
+            // Update live metrics if available
+            if (live_metrics) {
+              updateActiveMetrics(live_metrics);
+            }
+            
+            // Handle completion
+            if (validProgress === 100) {
+              clearTimeout(pollTimeoutId);
+              isFetching = false;
+              handleComplete();
+              return;
+            }
+            
+            // Adaptive polling interval logic based on progress changes
+            if (validProgress > lastStepsCompleted) {
+              currentPollingInterval = Math.max(
+                currentPollingInterval * decreaseFactor,
+                minPollingInterval
+              );
+              lastStepsCompleted = validProgress;
+            } else {
+              currentPollingInterval = Math.min(
+                currentPollingInterval * increaseFactor,
+                maxPollingInterval
+              );
+            }
           } else {
-            currentPollingInterval = Math.min(
-              currentPollingInterval * increaseFactor,
-              maxPollingInterval
-            );
+            // Handle unsuccessful response
+            handleError('Invalid response from server');
+            return;
           }
         } catch (e) {
           handleError('Invalid JSON');
