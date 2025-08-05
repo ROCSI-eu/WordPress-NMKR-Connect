@@ -22,14 +22,6 @@ jQuery(document).ready(function($) {
     
     // Get sync profile settings
     const batchSize = options.batch_size || 10;
-    const batchDelay = options.batch_delay || 1;
-    
-
-    
-    const maxErrorCount = options.sync_max_errors || 5;
-    
-    // Calculate adaptive thresholds based on profile settings
-    const maxConsecutiveErrorsWithProgress = Math.max(3, Math.min(10, Math.ceil(batchSize * 0.5))); // 3-10 based on batch size
     
     const progressBar = $('#nmkr-sync-progress-bar');
     const progressContainer = $('#nmkr-sync-progress-container');
@@ -112,6 +104,9 @@ jQuery(document).ready(function($) {
 
     // Handle sync button click - moved from dashboard UI
     syncButton.off('click').on('click', function() {
+        // Reset error state immediately when starting fresh sync
+        hasError = false;
+        
         // Prevent double-clicks by immediately disabling the button
         syncButton.prop('disabled', true);
         
