@@ -68,7 +68,6 @@ function nmkr_start_sync_handler() {
             delete_transient('nmkr_sync_performance_metrics');
             delete_transient('nmkr_current_sync_stats_live');
             
-            nmkr_update_sync_progress(0, 100, '⏳ Initializing synchronization');
             update_option('nmkr_sync_error', ''); // Clear any previous errors
             update_option('nmkr_sync_in_progress', true);
             set_transient('nmkr_sync_in_progress', true, NMKR_SYNC_TRANSIENT_TTL);
@@ -728,7 +727,8 @@ function nmkr_restart_sync_batch_handler() {
     
     // Update progress info to show recovery (maintain current progress)
     $current_progress = get_option('nmkr_sync_progress', 0);
-    nmkr_update_sync_progress($current_progress, 100, 'Recovering synchronization process');
+    $total_items     = get_option('nmkr_sync_total_items', 0);
+    nmkr_update_sync_progress( $current_progress, $total_items, 'Recovering synchronization process' );
     
     // Schedule a new immediate batch job
     if (!wp_next_scheduled('nmkr_process_batch_hook')) {
