@@ -192,7 +192,7 @@ function nmkr_sync_projects(&$sync_log, &$completed_steps, $total_steps) {
             $project_uid = isset($project['uid']) ? $project['uid'] : 
                           (isset($project['uid']) ? $project['uid'] : null);
             
-            // Update progress for PROCESSING_PROJECTS
+            // Update progress for project processing
             nmkr_update_sync_progress(
                 $project_count, 
                 count($valid_projects),
@@ -240,7 +240,7 @@ function nmkr_sync_projects(&$sync_log, &$completed_steps, $total_steps) {
             $project_count++;
         }
         
-        // Complete PROCESSING_PROJECTS stage
+        // Complete project processing phase
         nmkr_update_sync_progress(
             count($valid_projects), 
             count($valid_projects),
