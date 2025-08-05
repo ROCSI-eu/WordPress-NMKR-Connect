@@ -63,9 +63,31 @@ jQuery(document).ready(function($) {
         }
     }
 
-    // Error handling function for sync operations
-    function handleError(errorMessage) {
+    // Unified error handling function for sync operations
+    function handleError(reason) {
+        // Set error state flags
+        hasError = true;
+        isFetching = false;
+        syncInProgress = false;
+        
+        // Clear any pending polling timeout
+        if (pollTimeoutId) {
+            clearTimeout(pollTimeoutId);
+            pollTimeoutId = null;
+        }
+        
+        // Update button state on error
+        updateButtonState();
+        
+        // Update error message display
+        const errorMessage = reason || 'Unknown error occurred';
         $('#status-message').text('❌ Failed to start synchronization: ' + errorMessage);
+        $('#nmkr-sync-error').text('Sync failed: ' + errorMessage).show();
+        
+        // Ensure sync button is enabled
+        syncButton.prop('disabled', false);
+        
+        // Perform UI teardown
         teardownSyncUI();
     }
 
@@ -220,18 +242,7 @@ jQuery(document).ready(function($) {
       fetchProgress();
     }
 
-    function handleError(reason) {
-      hasError = true;
-      isFetching = false;
-      syncInProgress = false;
-      clearTimeout(pollTimeoutId);
-      
-      // Update button state on error
-      updateButtonState();
-      
-      $('#nmkr-sync-error').text('Sync failed: ' + reason).show();
-      syncButton.prop('disabled', false);
-    }
+
 
     function handleComplete() {
       syncInProgress = false;
