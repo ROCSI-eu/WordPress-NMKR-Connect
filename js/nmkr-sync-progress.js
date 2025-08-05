@@ -5,20 +5,20 @@ jQuery(document).ready(function($) {
     let pollTimeoutId;
     let isFetching = false;
     let hasError = false;
-    let xhr;
+    let startXhr, pollXhr, stopXhr;
     let syncInProgress = false;
     
-    // Unified polling interval for smooth UX (2s consistent polling)
-    const unifiedPollingInterval = 2000; // 2 seconds for all polling
-    let currentPollingInterval = unifiedPollingInterval;
-    const minPollingInterval = unifiedPollingInterval;      // 2 seconds
-    const maxPollingInterval = unifiedPollingInterval;     // 2 seconds (no adaptive backoff)
-    const increaseFactor = 1.0;           // no backoff for smooth UX
-    const decreaseFactor = 1.0;          // no speedup needed
-    let lastStepsCompleted = 0;
+    // Get settings from WordPress (unified object)
+    const options = nmkrSyncProgress.options || {};
     
-    // Get settings from WordPress
-    const options = nmkrSyncSettings || {};
+    // Initialize from Synchronization Profile settings
+    const unifiedPollingInterval = options.sync_initial_interval || 2000;    // e.g. 1000 ms
+    let currentPollingInterval = unifiedPollingInterval;
+    const minPollingInterval = options.sync_initial_interval || 2000;        // lower bound
+    const maxPollingInterval = options.sync_max_interval || 2000;            // upper bound
+    const increaseFactor = options.sync_interval_increase || 1.0;           // e.g. 2.0×
+    const decreaseFactor = options.sync_interval_decrease || 1.0;           // e.g. 0.5×
+    let lastStepsCompleted = 0;
     
     // Get sync profile settings
     const batchSize = options.batch_size || 10;
@@ -66,30 +66,45 @@ jQuery(document).ready(function($) {
         isFetching = false;
         syncInProgress = false;
         
-        // Clear any pending polling timeout
-        if (pollTimeoutId) {
-            clearTimeout(pollTimeoutId);
-            pollTimeoutId = null;
-        }
-        
         // Update button state on error
         updateButtonState();
         
         // Update error message display
         const errorMessage = reason || 'Unknown error occurred';
-        $('#status-message').text('❌ Failed to start synchronization: ' + errorMessage);
+        $('#status-message').text('❌ Synchronization error: ' + errorMessage);
         $('#nmkr-sync-error').text('Sync failed: ' + errorMessage).show();
         
         // Ensure sync button is enabled
         syncButton.prop('disabled', false);
         
-        // Perform UI teardown
+        // Perform UI teardown (includes stopping polling)
         teardownSyncUI();
     }
 
     // DRY cleanup helper to avoid code duplication
     function teardownSyncUI() {
-        stopProgressPolling();
+        // Reset sync state flags immediately
+        syncInProgress = false;
+        
+        // Abort any in-flight XHR requests before stopping polling
+        if (pollXhr && pollXhr.readyState !== 4) {
+            pollXhr.abort();
+            pollXhr = null;
+        }
+        
+        // Abort start sync request if still in progress
+        if (startXhr && startXhr.readyState !== 4) {
+            startXhr.abort();
+            startXhr = null;
+        }
+        
+        // Abort stop sync request if still in progress
+        if (stopXhr && stopXhr.readyState !== 4) {
+            stopXhr.abort();
+            stopXhr = null;
+        }
+        
+        stopPolling();
         $('#nmkr-sync-progress-container, #active-sync-metrics').hide();
         $('#nmkr-stop-sync-button').hide();
         $('#nmkr-sync-button').show().prop('disabled', false);
@@ -97,14 +112,19 @@ jQuery(document).ready(function($) {
 
     // Handle sync button click - moved from dashboard UI
     syncButton.off('click').on('click', function() {
-        // Immediately queue background sync
-        $.post(
-            nmkrSyncProgress.ajax_url,
-            {
+        // Prevent double-clicks by immediately disabling the button
+        syncButton.prop('disabled', true);
+        
+        // Immediately queue background sync with explicit timeout
+        startXhr = $.ajax({
+            url: nmkrSyncProgress.ajax_url,
+            method: 'POST',
+            data: {
                 action: 'nmkr_start_sync',
                 nonce: nmkrSyncProgress.nonce
-            }
-        )
+            },
+            timeout: 10000
+        })
         .done(function(response) {
             if (response.success) {
                 // Begin polling live metrics
@@ -114,6 +134,7 @@ jQuery(document).ready(function($) {
             }
         })
         .fail(function(xhr, status) {
+            if (status === 'abort') return;
             handleError(status || 'network error');
         });
     });
@@ -121,10 +142,16 @@ jQuery(document).ready(function($) {
     // Handle stop sync button click
     stopSyncButton.off('click').on('click', function() {
         stopSyncButton.prop('disabled', true);
-        $.post(nmkrSyncProgress.ajax_url, {
+        stopXhr = $.post(nmkrSyncProgress.ajax_url, {
             action: 'nmkr_stop_sync',
             nonce: nmkrSyncProgress.nonce
-        }).always(() => {
+        })
+        .fail(function(xhr, status) {
+            if (status === 'abort') return;
+            // Even if stop fails, we should still teardown the UI
+            console.warn('Stop sync request failed:', status);
+        })
+        .always(() => {
             teardownSyncUI();
         });
         $('#status-message').text('⏹️ Stopping Synchronization…');
@@ -133,7 +160,7 @@ jQuery(document).ready(function($) {
     function fetchProgress() {
       if (isFetching || hasError) return;
       isFetching = true;
-      xhr = $.ajax({
+      pollXhr = $.ajax({
         url: nmkrSyncProgress.ajax_url,
         method: 'POST',
         dataType: 'json',
@@ -172,8 +199,7 @@ jQuery(document).ready(function($) {
             
             // Handle completion
             if (validProgress === 100) {
-              clearTimeout(pollTimeoutId);
-              isFetching = false;
+              stopPolling();
               handleComplete();
               return;
             }
@@ -191,6 +217,13 @@ jQuery(document).ready(function($) {
                 maxPollingInterval
               );
             }
+            
+            // Schedule next poll only on success with proper bounds
+            const nextInterval = Math.min(
+              Math.max(currentPollingInterval, minPollingInterval),
+              maxPollingInterval
+            );
+            pollTimeoutId = setTimeout(fetchProgress, nextInterval);
           } else {
             // Handle unsuccessful response
             handleError('Invalid response from server');
@@ -202,20 +235,22 @@ jQuery(document).ready(function($) {
         }
       })
       .fail((jqXHR, status) => {
-        if (status === 'timeout' && xhr) {
-          xhr.abort();
+        if (status === 'abort') {
+          // intentional cancel — do nothing
+          return;
+        }
+        if (status === 'timeout' && pollXhr) {
+          pollXhr.abort();
         }
         handleError(status);
       })
       .always(() => {
         isFetching = false;
-        if (!hasError) {
-          pollTimeoutId = setTimeout(fetchProgress, currentPollingInterval);
-        }
       });
     }
 
     function startSyncPolling() {
+      // Reset error state when starting fresh sync
       hasError = false;
       syncInProgress = true;
       
@@ -225,7 +260,7 @@ jQuery(document).ready(function($) {
       // Reset adaptive polling state
       lastStepsCompleted = 0;
       currentPollingInterval = minPollingInterval;
-      clearTimeout(pollTimeoutId);
+      stopPolling();
       
       // Hide start button and show stop button immediately
       syncButton.hide();
@@ -266,21 +301,24 @@ jQuery(document).ready(function($) {
     
     // Ensure timeout is cleared when page is unloaded
     $(window).on('beforeunload', () => {
-        if (pollTimeoutId) {
-            clearTimeout(pollTimeoutId);
-        }
+        if (pollXhr && pollXhr.readyState !== 4) pollXhr.abort();
+        if (startXhr && startXhr.readyState !== 4) startXhr.abort();
+        if (stopXhr && stopXhr.readyState !== 4) stopXhr.abort();
+        stopPolling();
     });
 
 
 
-    // Function to stop progress polling
-    function stopProgressPolling() {
+    // Helper function to stop polling
+    function stopPolling() {
         if (pollTimeoutId) {
             clearTimeout(pollTimeoutId);
             pollTimeoutId = null;
         }
         isFetching = false;
     }
+
+
 
 
 
@@ -339,8 +377,8 @@ jQuery(document).ready(function($) {
             color: #0073aa;
         }
         
-        .status-warning {
-            color: #ffb900;
+        .status-neutral {
+            color: #666;
         }
         
         .status-excellent {
@@ -745,8 +783,6 @@ jQuery(document).ready(function($) {
         }
         // --- End Robustify ---
 
-        if (!performanceData) return;
-
         // Log data for debugging
         if (window.console && window.console.debug) {
             console.debug('Performance Stats:', performanceData);
@@ -1027,17 +1063,13 @@ jQuery(document).ready(function($) {
                 (performanceHtml ? performanceHtml : '')
             );
         } else {
-            // For regular info messages, only update the phase label span
-            if (status === 'info') {
-                // $('#nmkr-sync-phase-label').text(message);
-            } else {
-                statusMessage.html(
-                    '<div class="status-header status-' + status + '">' + message + '</div>' +
-                    (progressHtml ? progressHtml : '') +
-                    (timestampHtml ? timestampHtml : '') +
-                    (performanceHtml ? performanceHtml : '')
-                );
-            }
+            // For regular info messages, display the full status message
+            statusMessage.html(
+                '<div class="status-header status-' + status + '">' + message + '</div>' +
+                (progressHtml ? progressHtml : '') +
+                (timestampHtml ? timestampHtml : '') +
+                (performanceHtml ? performanceHtml : '')
+            );
         }
     };
 
@@ -1093,8 +1125,6 @@ jQuery(document).ready(function($) {
             if (progressContainer.is(':visible')) {
                 setTimeout(() => {
                     progressContainer.hide();
-                    // Remove any animation classes
-                    progressContainer.removeClass('syncing');
                     // Clear progress details
                     statusMessage.find('.progress-details').remove();
                     // Hide active sync response time

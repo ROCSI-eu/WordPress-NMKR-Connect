@@ -40,60 +40,15 @@ function nmkr_start_sync_handler() {
         // Log UI status update for starting sync
         nmkr_log_ui_status('UI: User clicked Start Synchronization button - initializing sync process', 'info');
         
-        // ** 1. Clear any existing sync jobs **
-        try {
-            $cleanup_result = nmkr_clear_sync_jobs('sync_start', true);
-            
-            if (!$cleanup_result['success']) {
-                throw new Exception('Failed to clear existing sync jobs: ' . $cleanup_result['message']);
-            }
-        } catch (Exception $e) {
-            $error_details = NMKR_Sync_Common_Errors::cleanupFailed($e->getMessage());
-            nmkr_log_data_sync('AJAX Handler Error: Cleanup failed - ' . $e->getMessage(), 'error');
-            nmkr_log_ui_status('UI: Failed to initialize sync process - showing error message to user', 'error');
-            
-            wp_send_json_error(array(
-                'message' => $error_details['message'],
-                'error_code' => $error_details['code'],
-                'technical_details' => $error_details['context'],
-                'formatted_display' => $error_details['formatted_display']
-            ));
-            return;
-        }
-        
-        // ** 2. Set initial progress options/transient **
-        try {
-            // Clean up any old metrics transients to ensure clean state
-            delete_transient('nmkr_active_sync_metrics');
-            delete_transient('nmkr_sync_performance_metrics');
-            delete_transient('nmkr_current_sync_stats_live');
-            
-            update_option('nmkr_sync_error', ''); // Clear any previous errors
-            update_option('nmkr_sync_in_progress', true);
-            set_transient('nmkr_sync_in_progress', true, NMKR_SYNC_TRANSIENT_TTL);
-            
-            // Log UI status update for progress bar and status
-            nmkr_log_ui_status('UI: Changed status to "⏳ Starting Sync Process", showing progress bar at 0%', 'info');
-            nmkr_log_ui_status('UI: Hiding "Start Synchronization" button, showing "Stop Synchronization" button', 'info');
-        } catch (Exception $e) {
-            nmkr_log_data_sync('AJAX Handler Error: Failed to reset progress options - ' . $e->getMessage(), 'error');
-            wp_send_json_error(array(
-                'message' => 'Failed to initialize sync progress tracking',
-                'error_code' => 'progress_init_failed',
-                'technical_details' => $e->getMessage()
-            ));
-            return;
-        }
-        
-        // ** 3. Schedule the sync to run in the background via WP-Cron **
+        // Schedule the sync to run in the background via WP-Cron
         wp_schedule_single_event(time(), 'nmkr_execute_sync_background');
         
-        // ** 4. Let the client know we queued the job successfully **
+        // Let the client know we queued the job successfully
         wp_send_json_success();
         return;
         
     } catch (Exception $e) {
-        // ** FINAL CATCH: Handle any unexpected errors in AJAX handler itself **
+        // Handle any unexpected errors in AJAX handler itself
         $error_msg = 'Critical error in sync AJAX handler: ' . $e->getMessage();
         nmkr_log_data_sync($error_msg, 'error', array(
             'exception' => $e->getMessage(),
@@ -913,6 +868,44 @@ function nmkr_execute_sync_background_job() {
         'memory_limit' => ini_get('memory_limit'),
         'max_execution_time' => ini_get('max_execution_time')
     ));
+    
+    // ** 1. Clear any existing sync jobs **
+    try {
+        $cleanup_result = nmkr_clear_sync_jobs('sync_start', true);
+        
+        if (!$cleanup_result['success']) {
+            throw new Exception('Failed to clear existing sync jobs: ' . $cleanup_result['message']);
+        }
+    } catch (Exception $e) {
+        $error_details = NMKR_Sync_Common_Errors::cleanupFailed($e->getMessage());
+        nmkr_log_data_sync('Background Job Error: Cleanup failed - ' . $e->getMessage(), 'error');
+        update_option('nmkr_sync_error', $error_details['formatted_display']);
+        update_option('nmkr_sync_in_progress', false);
+        delete_transient('nmkr_sync_in_progress');
+        return;
+    }
+    
+    // ** 2. Set initial progress options/transient **
+    try {
+        // Clean up any old metrics transients to ensure clean state
+        delete_transient('nmkr_active_sync_metrics');
+        delete_transient('nmkr_sync_performance_metrics');
+        delete_transient('nmkr_current_sync_stats_live');
+        
+        update_option('nmkr_sync_error', ''); // Clear any previous errors
+        update_option('nmkr_sync_in_progress', true);
+        set_transient('nmkr_sync_in_progress', true, NMKR_SYNC_TRANSIENT_TTL);
+        
+        // Log UI status update for progress bar and status
+        nmkr_log_ui_status('UI: Changed status to "⏳ Starting Sync Process", showing progress bar at 0%', 'info');
+        nmkr_log_ui_status('UI: Hiding "Start Synchronization" button, showing "Stop Synchronization" button', 'info');
+    } catch (Exception $e) {
+        nmkr_log_data_sync('Background Job Error: Failed to reset progress options - ' . $e->getMessage(), 'error');
+        update_option('nmkr_sync_error', 'Failed to initialize sync progress tracking');
+        update_option('nmkr_sync_in_progress', false);
+        delete_transient('nmkr_sync_in_progress');
+        return;
+    }
     
     // Update stage to indicate background processing has begun
     nmkr_update_sync_progress(0, 100, 'Background job launched');
