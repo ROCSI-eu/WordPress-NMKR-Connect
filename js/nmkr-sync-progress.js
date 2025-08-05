@@ -151,11 +151,8 @@ jQuery(document).ready(function($) {
             // Guard against undefined progress - use 0 if not a valid number
             const validProgress = (typeof progress === 'number' && !isNaN(progress)) ? progress : 0;
             
-            // Update progress bar
-            $('#nmkr-sync-progress-bar')
-              .css('width', validProgress + '%')
-              .text(validProgress + '%')
-              .attr('aria-valuenow', validProgress);
+            // Update progress bar using helper function
+            updateProgressBar(validProgress);
             
             // Update current item status  
             if (current_item) {
