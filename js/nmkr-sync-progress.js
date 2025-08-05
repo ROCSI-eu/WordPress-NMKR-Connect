@@ -2,7 +2,6 @@
 
 jQuery(document).ready(function($) {
     // Consolidated polling state variables
-    const POLL_INTERVAL = 5000;
     let pollTimeoutId;
     let isFetching = false;
     let hasError = false;
@@ -25,10 +24,7 @@ jQuery(document).ready(function($) {
     const batchSize = options.batch_size || 10;
     const batchDelay = options.batch_delay || 1;
     
-    // Sync completion tracking to prevent repeated polling
-    const syncPolling = {
-        completedHandled: false // Track if completion has been handled
-    };
+
     
     const maxErrorCount = options.sync_max_errors || 5;
     
@@ -120,6 +116,18 @@ jQuery(document).ready(function($) {
         .fail(function(xhr, status) {
             handleError(status || 'network error');
         });
+    });
+
+    // Handle stop sync button click
+    stopSyncButton.off('click').on('click', function() {
+        stopSyncButton.prop('disabled', true);
+        $.post(nmkrSyncProgress.ajax_url, {
+            action: 'nmkr_stop_sync',
+            nonce: nmkrSyncProgress.nonce
+        }).always(() => {
+            teardownSyncUI();
+        });
+        $('#status-message').text('⏹️ Stopping Synchronization…');
     });
 
     function fetchProgress() {
@@ -277,25 +285,7 @@ jQuery(document).ready(function($) {
         isFetching = false;
     }
 
-    // Function to reset polling state
-    function resetPolling() {
-        // Clear any existing timeout
-        if (pollTimeoutId) {
-            clearTimeout(pollTimeoutId);
-            pollTimeoutId = null;
-        }
-        
-        // Reset polling flags
-        isFetching = false;
-        hasError = false;
-        
-        // Reset the polling interval to the unified default
-        currentPollingInterval = unifiedPollingInterval;
-        
-        // Note: We no longer set syncInProgress = false here
-        // as that should only happen when we know sync is actually complete
-        // or explicitly stopped by the user
-    }
+
 
 
 
@@ -689,7 +679,7 @@ jQuery(document).ready(function($) {
                 type: type,
                 request_type: 'completed', // Always request completed stats, never active ones
                 force_refresh: type === 'manual_stop' || type === 'sync_completed',
-                _ajax_nonce: nmkrSyncProgress.nonce
+                nonce: nmkrSyncProgress.nonce
             },
             success: function(response) {
                 if (response.success && response.data) {
