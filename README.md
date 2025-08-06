@@ -27,8 +27,8 @@ The **WordPress NMKR Connect** plugin is designed to empower website owners and 
 
 ## Requirements 📝
 
-- **WordPress 5.8+**: This plugin is compatible with WordPress versions 5.0 and above.
-- **PHP 7.3+**: Ensure that your server meets the minimum PHP requirement.
+- **WordPress 5.8+**: This plugin is compatible with WordPress versions 5.8 and above.
+- **PHP 7.4+**: Ensure that your server meets the minimum PHP requirement (as specified in composer.json).
 - **NMKR API Key**: You'll need to register for an API key from [NMKR](https://www.nmkr.io/) to enable the plugin's functionality.
 
 ## Development & Contributions 🤝
