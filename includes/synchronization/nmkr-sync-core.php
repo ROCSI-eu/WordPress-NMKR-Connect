@@ -192,7 +192,7 @@ function nmkr_sync_projects(&$sync_log, &$completed_steps, $total_steps) {
             $project_uid = isset($project['uid']) ? $project['uid'] : 
                           (isset($project['uid']) ? $project['uid'] : null);
             
-            // Update progress for PROCESSING_PROJECTS
+            // Update progress for project processing
             nmkr_update_sync_progress(
                 $project_count, 
                 count($valid_projects),
@@ -240,7 +240,7 @@ function nmkr_sync_projects(&$sync_log, &$completed_steps, $total_steps) {
             $project_count++;
         }
         
-        // Complete PROCESSING_PROJECTS stage
+        // Complete project processing phase
         nmkr_update_sync_progress(
             count($valid_projects), 
             count($valid_projects),
@@ -804,8 +804,7 @@ function nmkr_sync_data() {
         $sync_data['tracking'] = $tracking;
         nmkr_save_sync_data($sync_data);
         
-        // Reset progress and clear any previous errors - will be updated once total steps are known
-        nmkr_update_sync_progress(0, $total_steps, 'Preparing to fetch project data');
+        // Clear any previous errors - will be updated once total steps are known
         update_option('nmkr_sync_error', '');
         update_option('nmkr_sync_total_items', 0);
         update_option('nmkr_sync_current_count', 0);
@@ -839,6 +838,9 @@ function nmkr_sync_data() {
             }
             
             $sync_log[] = 'Total sync steps calculated: ' . $total_steps;
+            
+            // Reset progress and clear any previous errors - now that total steps are known
+            nmkr_update_sync_progress(0, $total_steps, 'Preparing to fetch project data');
             
             // Initialize progress with proper total steps
             nmkr_update_sync_progress(0, $total_steps, '⏳ Starting synchronization process');

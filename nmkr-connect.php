@@ -225,22 +225,6 @@ function nmkr_enqueue_admin_assets($hook) {
         // Then enqueue the main progress script with constants as dependency
         wp_enqueue_script('nmkr-sync-progress', plugin_dir_url(__FILE__) . 'js/nmkr-sync-progress.js', array('jquery', 'nmkr-sync-status-constants'), '1.0', true);
         
-        // Localize the script with sync settings
-        $options = get_option('nmkr_connect_options', array());
-        wp_localize_script(
-            'nmkr-sync-progress',
-            'nmkrSyncSettings',
-            array(
-                'sync_initial_interval'   => isset($options['sync_initial_interval']) ? $options['sync_initial_interval'] : 1000,
-                'sync_max_interval'       => isset($options['sync_max_interval'])   ? $options['sync_max_interval']   : 30000,
-                'sync_interval_increase'  => isset($options['sync_interval_increase']) ? $options['sync_interval_increase'] : 2.0,
-                'sync_interval_decrease'  => isset($options['sync_interval_decrease']) ? $options['sync_interval_decrease'] : 0.5,
-                'sync_max_errors'         => isset($options['sync_max_errors'])      ? $options['sync_max_errors']      : 3,
-                'batch_size'              => isset($options['batch_size'])           ? $options['batch_size']           : 10,
-                'batch_delay'             => isset($options['batch_delay'])          ? $options['batch_delay']          : 1,
-            )
-          );
-
         // Localize the script with runtime sync controls
         wp_localize_script(
             'nmkr-sync-progress',
@@ -249,6 +233,15 @@ function nmkr_enqueue_admin_assets($hook) {
                 'ajax_url' => admin_url( 'admin-ajax.php' ),
                 'nonce'    => wp_create_nonce( 'nmkr_sync_nonce' ),
                 'resume'   => false,
+                'options'  => array(
+                    'sync_initial_interval'   => isset($options['sync_initial_interval']) ? $options['sync_initial_interval'] : 1000,
+                    'sync_max_interval'       => isset($options['sync_max_interval'])   ? $options['sync_max_interval']   : 30000,
+                    'sync_interval_increase'  => isset($options['sync_interval_increase']) ? $options['sync_interval_increase'] : 2.0,
+                    'sync_interval_decrease'  => isset($options['sync_interval_decrease']) ? $options['sync_interval_decrease'] : 0.5,
+                    'sync_max_errors'         => isset($options['sync_max_errors'])      ? $options['sync_max_errors']      : 3,
+                    'batch_size'              => isset($options['batch_size'])           ? $options['batch_size']           : 10,
+                    'batch_delay'             => isset($options['batch_delay'])          ? $options['batch_delay']          : 1,
+                )
             )
         );
     }

@@ -1478,9 +1478,6 @@ function nmkr_render_dashboard_scripts($dashboard_nonce) {
                 });
             }
             
-            // Track refresh intervals
-            let activeMetricsInterval;
-            
             // Logging throttling mechanism
             let lastLogTime = 0;
             let logQueue = [];
@@ -1539,18 +1536,11 @@ function nmkr_render_dashboard_scripts($dashboard_nonce) {
                             }
                         });
                         
-                        // Show active sync metrics container and start refreshing
+                        // Show active sync metrics container
                         $('#active-sync-metrics').show();
-                        activeMetricsInterval = setInterval(refreshActiveMetrics, 2000);
                     }
                 }
             });
-            
-            let progressPollingInterval = null;
-            
-
-            
-
             
             // Handle stop sync button click
             $('#nmkr-stop-sync-button').on('click', function() {
@@ -1570,10 +1560,7 @@ function nmkr_render_dashboard_scripts($dashboard_nonce) {
                 
                 $('#status-message').text('⏹️ Stopping Synchronization...');
                 
-                // Stop refreshing active metrics and hide container
-                if (activeMetricsInterval) {
-                    clearInterval(activeMetricsInterval);
-                }
+                // Hide active metrics container
                 $('#active-sync-metrics').hide();
                 
                 $.ajax({
@@ -1590,10 +1577,6 @@ function nmkr_render_dashboard_scripts($dashboard_nonce) {
                             $('#status-message').text('✅ Synchronization stopped successfully');
                             
                             // Clean up UI state
-                            if (activeMetricsInterval) {
-                                clearInterval(activeMetricsInterval);
-                                activeMetricsInterval = null;
-                            }
                             $('#nmkr-sync-progress-container, #active-sync-metrics').hide();
                             $('#nmkr-stop-sync-button').hide();
                             $('#nmkr-sync-button').show().prop('disabled', false);
@@ -1609,16 +1592,8 @@ function nmkr_render_dashboard_scripts($dashboard_nonce) {
                             $('#nmkr-stop-sync-button').prop('disabled', false);
                             
                             // Keep polling active since sync is likely still running on server
-                            // Only clean up active metrics interval but maintain progress polling
-                            if (activeMetricsInterval) {
-                                clearInterval(activeMetricsInterval);
-                                activeMetricsInterval = null;
-                            }
-                            
                             // Show active metrics again since sync is still running
                             $('#active-sync-metrics').show();
-                            // Restart active metrics interval since sync is still running
-                            activeMetricsInterval = setInterval(refreshActiveMetrics, 2000);
                             
                             // Log critical stop failure (essential)
                             $.ajax({
@@ -1640,16 +1615,8 @@ function nmkr_render_dashboard_scripts($dashboard_nonce) {
                         $('#nmkr-stop-sync-button').prop('disabled', false);
                         
                         // Keep polling active since sync is likely still running on server
-                        // Only clean up active metrics interval but maintain progress polling
-                        if (activeMetricsInterval) {
-                            clearInterval(activeMetricsInterval);
-                            activeMetricsInterval = null;
-                        }
-                        
                         // Show active metrics again since sync is still running
                         $('#active-sync-metrics').show();
-                        // Restart active metrics interval since sync is still running
-                        activeMetricsInterval = setInterval(refreshActiveMetrics, 2000);
                         
                         // Log critical network error (essential)
                         $.ajax({
@@ -1671,10 +1638,6 @@ function nmkr_render_dashboard_scripts($dashboard_nonce) {
             // Custom event handler for sync completion (namespaced to avoid conflicts)
             $(document).on('nmkr:sync:completed', function() {
                 // Clean up UI state
-                if (activeMetricsInterval) {
-                    clearInterval(activeMetricsInterval);
-                    activeMetricsInterval = null;
-                }
                 $('#nmkr-sync-progress-container, #active-sync-metrics').hide();
                 $('#nmkr-stop-sync-button').hide();
                 $('#nmkr-sync-button').show().prop('disabled', false);
@@ -1686,10 +1649,6 @@ function nmkr_render_dashboard_scripts($dashboard_nonce) {
             // Custom event handler for sync stop (namespaced to avoid conflicts)
             $(document).on('nmkr:sync:stopped', function() {
                 // Clean up UI state
-                if (activeMetricsInterval) {
-                    clearInterval(activeMetricsInterval);
-                    activeMetricsInterval = null;
-                }
                 $('#nmkr-sync-progress-container, #active-sync-metrics').hide();
                 $('#nmkr-stop-sync-button').hide();
                 $('#nmkr-sync-button').show().prop('disabled', false);
