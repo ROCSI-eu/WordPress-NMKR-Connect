@@ -40,6 +40,9 @@ function nmkr_start_sync_handler() {
         // Log UI status update for starting sync
         nmkr_log_ui_status('UI: User clicked Start Synchronization button - initializing sync process', 'info');
         
+        update_option('nmkr_sync_in_progress', true);
+        set_transient('nmkr_sync_in_progress', true, HOUR_IN_SECONDS);
+        
         // Schedule the sync to run in the background via WP-Cron
         wp_schedule_single_event(time(), 'nmkr_execute_sync_background');
         
@@ -435,8 +438,14 @@ function nmkr_sync_progress_handler() {
         'error'        => (string) $error
     );
     
-    // Include live metrics when sync is actively running
-    if ($sync_in_progress_flag && $progress < 100) {
+    // Include live metrics when sync is actively running (remove in_progress gate)
+    if ($progress > 0 && $progress < 100) {
+        // Get current sync stats for live metrics (fixes variable scope issue)
+        $current_stats = nmkr_get_sync_stats();
+        if (!$current_stats) {
+            $current_stats = array();
+        }
+        
         $response_data['live_metrics'] = array(
             'total_projects' => $current_stats['total_projects'] ?? 0,
             'total_tokens' => $current_stats['total_tokens'] ?? 0,
@@ -987,4 +996,4 @@ function nmkr_execute_sync_background_job() {
         update_option('nmkr_sync_in_progress', false);
         delete_transient('nmkr_sync_in_progress');
     }
-} 
+}  

@@ -199,26 +199,29 @@ jQuery(document).ready(function($) {
               return;
             }
             
-            // Adaptive polling interval logic based on progress changes
-            if (validProgress > lastStepsCompleted) {
-              currentPollingInterval = Math.max(
-                currentPollingInterval * decreaseFactor,
-                minPollingInterval
-              );
-              lastStepsCompleted = validProgress;
-            } else {
-              currentPollingInterval = Math.min(
-                currentPollingInterval * increaseFactor,
+            // This ensures we don't stop polling due to timing issues with in_progress flag
+            if (in_progress || validProgress < 100) {
+              // Adaptive polling interval logic based on progress changes
+              if (validProgress > lastStepsCompleted) {
+                currentPollingInterval = Math.max(
+                  currentPollingInterval * decreaseFactor,
+                  minPollingInterval
+                );
+                lastStepsCompleted = validProgress;
+              } else {
+                currentPollingInterval = Math.min(
+                  currentPollingInterval * increaseFactor,
+                  maxPollingInterval
+                );
+              }
+              
+              // Schedule next poll only on success with proper bounds
+              const nextInterval = Math.min(
+                Math.max(currentPollingInterval, minPollingInterval),
                 maxPollingInterval
               );
+              pollTimeoutId = setTimeout(fetchProgress, nextInterval);
             }
-            
-            // Schedule next poll only on success with proper bounds
-            const nextInterval = Math.min(
-              Math.max(currentPollingInterval, minPollingInterval),
-              maxPollingInterval
-            );
-            pollTimeoutId = setTimeout(fetchProgress, nextInterval);
           } else {
             // Handle unsuccessful response
             handleError('Invalid response from server');

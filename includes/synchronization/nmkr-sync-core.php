@@ -949,6 +949,7 @@ function nmkr_sync_data() {
                 $successful_details++;
                 $total_successful_tokens++;
                 $token_details_synced++; // Increment token details counter
+                $completed_steps++; // CRITICAL FIX: Increment for successful tokens
             }
             // Handle WP_Error results
             else if (is_wp_error($result)) {
@@ -1283,4 +1284,4 @@ function nmkr_log_sync_summary(&$sync_log, $project_uids, $token_project_map, $s
 add_action('nmkr_process_batch_hook', 'nmkr_process_next_batch');
 
 // Note: Background sync execution hook is defined in nmkr-sync-ajax-handlers.php
-// add_action('nmkr_execute_sync_background', 'nmkr_execute_sync_background_job');  
+// add_action('nmkr_execute_sync_background', 'nmkr_execute_sync_background_job');    
