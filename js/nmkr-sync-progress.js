@@ -166,9 +166,11 @@ jQuery(document).ready(function($) {
         }
       })
       .done(response => {
+        window.lastSyncResponse = response;
+        
         try {
           if (response.success && response.data) {
-            const { progress, current_item, in_progress, error, live_metrics } = response.data;
+            const { progress, current_item, in_progress, error, live_metrics, finished, aborted } = response.data;
             
             // Guard against undefined progress - use 0 if not a valid number
             const validProgress = (typeof progress === 'number' && !isNaN(progress)) ? progress : 0;
@@ -192,15 +194,14 @@ jQuery(document).ready(function($) {
               updateActiveMetrics(live_metrics);
             }
             
-            // Only treat 100% as final complete when the backend is no longer in_progress
-            if (validProgress === 100 && !in_progress) {
+            if (response.data.finished === true) {
               stopPolling();
               handleComplete();
               return;
             }
             
-            // This ensures we don't stop polling due to timing issues with in_progress flag
-            if (in_progress || validProgress < 100) {
+            // Always continue polling unless explicitly finished
+            if (true) {
               // Adaptive polling interval logic based on progress changes
               if (validProgress > lastStepsCompleted) {
                 currentPollingInterval = Math.max(
@@ -289,6 +290,15 @@ jQuery(document).ready(function($) {
       
       $('#nmkr-sync-complete').show();
       syncButton.prop('disabled', false);
+      
+      const lastResponse = window.lastSyncResponse;
+      if (lastResponse && lastResponse.data) {
+        if (lastResponse.data.finished === true) {
+          $('#status-message').text('✅ Synchronization completed successfully');
+        } else if (lastResponse.data.aborted === true) {
+          $('#status-message').text('⚠️ Synchronization was manually stopped by user');
+        }
+      }
     }
 
     if (nmkrSyncProgress.resume) {

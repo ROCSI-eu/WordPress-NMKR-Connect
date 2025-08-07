@@ -986,19 +986,6 @@ function nmkr_sync_data() {
         // Step 5: Finalizing with smooth progress updates
         $sync_log[] = 'Step 5: Starting finalization process';
         
-        // Set FINALIZING stage at the start of finalization
-        // Smooth progress updates to 100%
-        for ($i = 0; $i <= 10; $i++) {
-            $finalize_progress = $completed_steps + ($i * (($total_steps - $completed_steps) / 10));
-            nmkr_update_sync_progress((int)$finalize_progress, $total_steps, '✨ Finalizing synchronization');
-            
-            // Optional: simulate slight delay if needed (50ms)
-            if (defined('NMKR_SYNC_SLEEP_TIME') && NMKR_SYNC_SLEEP_TIME > 0) {
-                usleep(NMKR_SYNC_SLEEP_TIME);
-            }
-        }
-        
-        // Explicitly emit final progress
         nmkr_update_sync_progress($total_steps, $total_steps, '✨ Finalizing synchronization');
         
         $sync_log[] = 'Step 5 complete: Finalization finished';
@@ -1028,6 +1015,9 @@ function nmkr_sync_data() {
         nmkr_update_sync_progress($total_steps, $total_steps, '✅ Synchronization Completed');
         update_option('nmkr_sync_in_progress', false);
         delete_transient('nmkr_sync_in_progress');
+        
+        // Clear user stopped flag for successful completion
+        update_option('nmkr_sync_user_stopped', false);
         
         // Save final metrics to database (single authoritative path)
         $live = get_transient('nmkr_current_sync_stats_live');
@@ -1188,6 +1178,8 @@ function nmkr_start_sync() {
     set_transient('nmkr_sync_in_progress', true, HOUR_IN_SECONDS);
     update_option('nmkr_sync_stop_requested', false);
     
+    update_option('nmkr_sync_user_stopped', false);
+    
     // Initialize the sync process in background
     // Schedule sync to run in background instead of direct synchronous call
     try {
@@ -1284,4 +1276,4 @@ function nmkr_log_sync_summary(&$sync_log, $project_uids, $token_project_map, $s
 add_action('nmkr_process_batch_hook', 'nmkr_process_next_batch');
 
 // Note: Background sync execution hook is defined in nmkr-sync-ajax-handlers.php
-// add_action('nmkr_execute_sync_background', 'nmkr_execute_sync_background_job');    
+// add_action('nmkr_execute_sync_background', 'nmkr_execute_sync_background_job');        

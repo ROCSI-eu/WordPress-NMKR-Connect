@@ -431,31 +431,33 @@ function nmkr_sync_progress_handler() {
     
     // Enhanced AJAX response with unified progress data and live metrics
     $sync_in_progress_flag = (bool) get_option('nmkr_sync_in_progress', false);
+    $user_requested_abort = (bool) get_option('nmkr_sync_user_stopped', false);
+    
     $response_data = array(
         'in_progress'  => $sync_in_progress_flag,
         'progress'     => (int)  $progress,
         'current_item' => (string) $current_item,
-        'error'        => (string) $error
+        'error'        => (string) $error,
+        'aborted'      => $user_requested_abort,
+        'finished'     => ($progress === 100 && !$user_requested_abort)
     );
     
-    // Include live metrics when sync is actively running (remove in_progress gate)
-    if ($progress > 0 && $progress < 100) {
-        // Get current sync stats for live metrics (fixes variable scope issue)
-        $current_stats = nmkr_get_sync_stats();
-        if (!$current_stats) {
-            $current_stats = array();
-        }
-        
-        $response_data['live_metrics'] = array(
-            'total_projects' => $current_stats['total_projects'] ?? 0,
-            'total_tokens' => $current_stats['total_tokens'] ?? 0,
-            'total_sync_duration' => $current_stats['total_duration'] ?? 0,
-            'total_api_time' => $current_stats['total_api_time'] ?? 0,
-            'average_response_time' => $current_stats['average_time'] ?? 0,
-            'api_requests' => $current_stats['request_count'] ?? 0,
-            'memory_usage' => $current_stats['memory_used'] ?? 0
-        );
+    // Always include live metrics in heartbeat payload
+    // Get current sync stats for live metrics (fixes variable scope issue)
+    $current_stats = nmkr_get_sync_stats();
+    if (!$current_stats) {
+        $current_stats = array();
     }
+    
+    $response_data['live_metrics'] = array(
+        'total_projects' => $current_stats['total_projects'] ?? 0,
+        'total_tokens' => $current_stats['total_tokens'] ?? 0,
+        'total_sync_duration' => $current_stats['total_duration'] ?? 0,
+        'total_api_time' => $current_stats['total_api_time'] ?? 0,
+        'average_response_time' => $current_stats['average_time'] ?? 0,
+        'api_requests' => $current_stats['request_count'] ?? 0,
+        'memory_usage' => $current_stats['memory_used'] ?? 0
+    );
 
     // Delete the live stats transient only when sync is finalized
     if ($progress === 100) {
@@ -549,6 +551,8 @@ function nmkr_stop_sync_handler() {
     // Always mark sync as not in progress to avoid stuck state
     update_option('nmkr_sync_in_progress', false);
     delete_transient('nmkr_sync_in_progress');
+    
+    update_option('nmkr_sync_user_stopped', true);
     
     // IMPORTANT: Manually unschedule all cron events first (before calling nmkr_clear_sync_jobs)
     // This provides an additional layer of assurance that cron jobs will be stopped
@@ -996,4 +1000,4 @@ function nmkr_execute_sync_background_job() {
         update_option('nmkr_sync_in_progress', false);
         delete_transient('nmkr_sync_in_progress');
     }
-}  
+}        
