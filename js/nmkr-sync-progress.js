@@ -118,7 +118,7 @@ jQuery(document).ready(function($) {
                 action: 'nmkr_start_sync',
                 nonce: nmkrSyncProgress.nonce
             },
-            timeout: 60000
+            timeout: 300000
         })
         .done(function(response) {
             if (response.success) {
@@ -159,7 +159,7 @@ jQuery(document).ready(function($) {
         url: nmkrSyncProgress.ajax_url,
         method: 'POST',
         dataType: 'json',
-        timeout: 60000,
+        timeout: 300000,
         data: {
           action: 'nmkr_sync_progress',
           nonce: nmkrSyncProgress.nonce
