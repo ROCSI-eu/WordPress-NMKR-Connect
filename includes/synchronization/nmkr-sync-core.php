@@ -192,13 +192,6 @@ function nmkr_sync_projects(&$sync_log, &$completed_steps, $total_steps) {
             $project_uid = isset($project['uid']) ? $project['uid'] : 
                           (isset($project['uid']) ? $project['uid'] : null);
             
-            // Update progress for project processing
-            nmkr_update_sync_progress(
-                $project_count, 
-                count($valid_projects),
-                "🗂️ Processing project: " . ($project_uid ?: $project_name)
-            );
-            
             nmkr_update_sync_progress($completed_steps, $total_steps, '🗂️ Processing Project: ' . $project_name);
             
             // Validate project UID
@@ -240,12 +233,6 @@ function nmkr_sync_projects(&$sync_log, &$completed_steps, $total_steps) {
             $project_count++;
         }
         
-        // Complete project processing phase
-        nmkr_update_sync_progress(
-            count($valid_projects), 
-            count($valid_projects),
-            "🗂️ Projects processing complete"
-        );
         
         $sync_log[] = 'Project synchronization complete. Success: ' . $successful_projects . ', Failed: ' . $failed_projects;
         nmkr_log_data_sync('Project synchronization complete. Success: ' . $successful_projects . ', Failed: ' . $failed_projects);
@@ -613,7 +600,6 @@ function nmkr_sync_token_details($token_uid, $project_uid, &$sync_log, &$complet
             }
             
             $sync_log[] = 'SUCCESS: Stored details for token UID: ' . $token_uid;
-            $completed_steps++; // Increment completed steps on successful storage
             nmkr_update_sync_progress($completed_steps, $total_steps, 'Processing token details - Token: ' . $token_uid);
             return true;
         } catch (Exception $e) {
@@ -1297,4 +1283,4 @@ function nmkr_log_sync_summary(&$sync_log, $project_uids, $token_project_map, $s
 add_action('nmkr_process_batch_hook', 'nmkr_process_next_batch');
 
 // Note: Background sync execution hook is defined in nmkr-sync-ajax-handlers.php
-// add_action('nmkr_execute_sync_background', 'nmkr_execute_sync_background_job'); 
+// add_action('nmkr_execute_sync_background', 'nmkr_execute_sync_background_job');  
