@@ -162,26 +162,6 @@ function nmkr_sync_progress_handler() {
     // Get the current batch processing status
     $sync_data = nmkr_get_sync_data();
     
-    // Handle completed state - if progress is 100% and sync_in_progress is false, we're done
-    $sync_in_progress = get_option('nmkr_sync_in_progress', false);
-    if ($progress == 100 && !$sync_in_progress) {
-        // Log UI status update for completion state
-        nmkr_log_ui_status('UI: Reporting completed sync state to frontend', 'debug');
-        
-        wp_send_json_success(array(
-            'progress' => 100,
-            'performance' => $current_stats,
-            'current_item' => 'Synchronization was manually stopped by user',
-            'total_items' => 0,
-            'current_count' => 0,
-            'error' => '',
-            'batch_info' => [],
-            'cron_status' => ['has_running_jobs' => false, 'next_scheduled' => false],
-            'is_recovery' => $is_recovery,
-            'last_update_time' => $last_update_time
-        ));
-        return;
-    }
     
     // Normal progress reporting for active sync (throttled)
     static $progress_poll_count = 0;
@@ -191,8 +171,12 @@ function nmkr_sync_progress_handler() {
         // Log UI status update for error state (always log errors)
         nmkr_log_ui_status('UI: Reporting sync error state to frontend: ' . $error, 'warning');
     } else if ($progress == 100) {
-        // Log UI status update for completed state (always log completion)
-        nmkr_log_ui_status('UI: Reporting completed sync state to frontend - 100% complete', 'debug');
+        // Log UI status update for completed state (only once per completion)
+        static $completion_logged = false;
+        if (!$completion_logged) {
+            nmkr_log_ui_status('UI: Reporting completed sync state to frontend - 100% complete', 'debug');
+            $completion_logged = true;
+        }
     } else if ($progress < 100) {
         // Log UI status update for normal progress reporting (throttled)
         if (!nmkr_should_throttle_logs() || $progress_poll_count % 10 === 0) {
@@ -1000,4 +984,4 @@ function nmkr_execute_sync_background_job() {
         update_option('nmkr_sync_in_progress', false);
         delete_transient('nmkr_sync_in_progress');
     }
-}        
+}            
