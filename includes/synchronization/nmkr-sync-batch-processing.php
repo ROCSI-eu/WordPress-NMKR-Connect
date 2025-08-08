@@ -347,7 +347,8 @@ function nmkr_process_next_batch() {
     
     // Check if we're making progress by looking at last updated values
     $last_progress = isset($sync_data['last_progress']) ? $sync_data['last_progress'] : 0;
-    $current_progress = get_option('nmkr_sync_progress', 0);
+    $current_progress_raw = get_transient('nmkr_sync_progress');
+    $current_progress = ($current_progress_raw !== false) ? (int) $current_progress_raw : 0;
     $failed_attempts = isset($sync_data['failed_attempts']) ? $sync_data['failed_attempts'] : 0;
     $last_token_processed = isset($sync_data['last_token_processed']) ? $sync_data['last_token_processed'] : null;
     $last_token_timestamp = isset($sync_data['last_update_time']) ? $sync_data['last_update_time'] : 0;
@@ -882,4 +883,4 @@ function nmkr_process_next_batch() {
     // Removed fallback mechanism to prevent duplicate database inserts
 
     return $status;
-} 
+}  

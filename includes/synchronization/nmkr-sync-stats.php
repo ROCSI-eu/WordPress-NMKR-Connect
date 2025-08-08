@@ -100,6 +100,11 @@ function nmkr_save_sync_metrics($metrics) {
         'created_at' => nmkr_get_timestamp()
     );
 
+    // Validate timing relationships to prevent unit conversion bugs
+    if ($data['total_api_time'] > $data['total_sync_duration'] && $data['total_sync_duration'] > 0) {
+        nmkr_log_data_sync('⚠️ Warning: total_api_time (' . $data['total_api_time'] . 's) exceeds total_sync_duration (' . $data['total_sync_duration'] . 's). This may indicate a unit conversion issue.', 'warning');
+    }
+
     // Insert the data
     if ($wpdb->insert($table_name, $data)) {
         nmkr_log_data_sync('✅ Sync metrics saved successfully.');
@@ -249,4 +254,4 @@ function nmkr_get_recent_sync_stats($limit = 10) {
     }
     
     return $stats;
-} 
+}   

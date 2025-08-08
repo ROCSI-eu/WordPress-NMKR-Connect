@@ -29,27 +29,34 @@ function nmkr_update_sync_progress($steps_completed, $total_steps, $current_item
         : 0;
     
     // Ensure progress never goes backward
-    $current_progress = get_option('nmkr_sync_progress', 0);
+    $current_progress = get_transient('nmkr_sync_progress');
+    $current_progress = ($current_progress !== false) ? $current_progress : 0;
     $percent = max($current_progress, $percent);
     
     // Ensure progress is between 0 and 100
     $percent = max(0, min(100, $percent));
     
-    // Update WordPress options with progress information
+    // Update WordPress transients with progress information (better cross-process visibility)
+    set_transient('nmkr_sync_progress', $percent, 3600);
+    set_transient('nmkr_sync_current_item', $current_item, 3600);
+    set_transient('nmkr_sync_current_count', $steps_completed, 3600);
+    set_transient('nmkr_sync_total_items', $total_steps, 3600);
+    
+    // Record the time of this progress update
+    set_transient('nmkr_last_progress_update_time', time(), 3600);
+    set_transient('nmkr_last_progress_value', $percent, 3600);
+    
     update_option('nmkr_sync_progress', $percent);
     update_option('nmkr_sync_current_item', $current_item);
     update_option('nmkr_sync_current_count', $steps_completed);
-    update_option('nmkr_sync_total_items', $total_steps);
-    
-    // Record the time of this progress update
-    update_option('nmkr_last_progress_update_time', time());
-    update_option('nmkr_last_progress_value', $percent);
     
     // Update sync heartbeat to indicate active progress updates
     nmkr_update_sync_heartbeat();
     
     // Log the progress update
     nmkr_log_data_sync('Progress: ' . $percent . '% (' . $steps_completed . '/' . $total_steps . ')');
+    
+    nmkr_log_ui_status('TRANSIENT WRITE: Progress ' . $percent . '% written to transient by process ' . getmypid(), 'debug');
     
     // Log UI status update
     $ui_message = sprintf(
@@ -100,6 +107,7 @@ function nmkr_sync_data_complete($success = true, $error_message = '') {
         // Set progress to 100% using consistent completion model
         nmkr_update_sync_progress(100, 100, '✅ Synchronization Completed');
         update_option('nmkr_sync_status', 'completed');
+        set_transient('nmkr_sync_status', 'completed', 3600);
         
         // Log completion success
         nmkr_log_data_sync('Sync process completed successfully');
@@ -118,6 +126,8 @@ function nmkr_sync_data_complete($success = true, $error_message = '') {
         nmkr_update_sync_progress(0, 100, '❌ Synchronization Failed: ' . $error_message);
         update_option('nmkr_sync_error', $error_message);
         update_option('nmkr_sync_status', 'failed');
+        set_transient('nmkr_sync_error', $error_message, 3600);
+        set_transient('nmkr_sync_status', 'failed', 3600);
         
         // Log completion failure
         nmkr_log_data_sync('Sync process failed: ' . $error_message, 'error');
@@ -157,4 +167,4 @@ function nmkr_sync_data_complete($success = true, $error_message = '') {
     }
     
     return $status;
-} 
+}    

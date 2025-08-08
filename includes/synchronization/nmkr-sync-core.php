@@ -192,13 +192,6 @@ function nmkr_sync_projects(&$sync_log, &$completed_steps, $total_steps) {
             $project_uid = isset($project['uid']) ? $project['uid'] : 
                           (isset($project['uid']) ? $project['uid'] : null);
             
-            // Update progress for project processing
-            nmkr_update_sync_progress(
-                $project_count, 
-                count($valid_projects),
-                "🗂️ Processing project: " . ($project_uid ?: $project_name)
-            );
-            
             nmkr_update_sync_progress($completed_steps, $total_steps, '🗂️ Processing Project: ' . $project_name);
             
             // Validate project UID
@@ -240,12 +233,6 @@ function nmkr_sync_projects(&$sync_log, &$completed_steps, $total_steps) {
             $project_count++;
         }
         
-        // Complete project processing phase
-        nmkr_update_sync_progress(
-            count($valid_projects), 
-            count($valid_projects),
-            "🗂️ Projects processing complete"
-        );
         
         $sync_log[] = 'Project synchronization complete. Success: ' . $successful_projects . ', Failed: ' . $failed_projects;
         nmkr_log_data_sync('Project synchronization complete. Success: ' . $successful_projects . ', Failed: ' . $failed_projects);
@@ -613,7 +600,6 @@ function nmkr_sync_token_details($token_uid, $project_uid, &$sync_log, &$complet
             }
             
             $sync_log[] = 'SUCCESS: Stored details for token UID: ' . $token_uid;
-            $completed_steps++; // Increment completed steps on successful storage
             nmkr_update_sync_progress($completed_steps, $total_steps, 'Processing token details - Token: ' . $token_uid);
             return true;
         } catch (Exception $e) {
@@ -963,6 +949,7 @@ function nmkr_sync_data() {
                 $successful_details++;
                 $total_successful_tokens++;
                 $token_details_synced++; // Increment token details counter
+                $completed_steps++; // CRITICAL FIX: Increment for successful tokens
             }
             // Handle WP_Error results
             else if (is_wp_error($result)) {
@@ -999,19 +986,6 @@ function nmkr_sync_data() {
         // Step 5: Finalizing with smooth progress updates
         $sync_log[] = 'Step 5: Starting finalization process';
         
-        // Set FINALIZING stage at the start of finalization
-        // Smooth progress updates to 100%
-        for ($i = 0; $i <= 10; $i++) {
-            $finalize_progress = $completed_steps + ($i * (($total_steps - $completed_steps) / 10));
-            nmkr_update_sync_progress((int)$finalize_progress, $total_steps, '✨ Finalizing synchronization');
-            
-            // Optional: simulate slight delay if needed (50ms)
-            if (defined('NMKR_SYNC_SLEEP_TIME') && NMKR_SYNC_SLEEP_TIME > 0) {
-                usleep(NMKR_SYNC_SLEEP_TIME);
-            }
-        }
-        
-        // Explicitly emit final progress
         nmkr_update_sync_progress($total_steps, $total_steps, '✨ Finalizing synchronization');
         
         $sync_log[] = 'Step 5 complete: Finalization finished';
@@ -1041,6 +1015,10 @@ function nmkr_sync_data() {
         nmkr_update_sync_progress($total_steps, $total_steps, '✅ Synchronization Completed');
         update_option('nmkr_sync_in_progress', false);
         delete_transient('nmkr_sync_in_progress');
+        
+        // Clear user stopped flag for successful completion
+        update_option('nmkr_sync_user_stopped', false);
+        set_transient('nmkr_sync_user_stopped', false, 3600);
         
         // Save final metrics to database (single authoritative path)
         $live = get_transient('nmkr_current_sync_stats_live');
@@ -1201,6 +1179,9 @@ function nmkr_start_sync() {
     set_transient('nmkr_sync_in_progress', true, HOUR_IN_SECONDS);
     update_option('nmkr_sync_stop_requested', false);
     
+    update_option('nmkr_sync_user_stopped', false);
+    set_transient('nmkr_sync_user_stopped', false, 3600);
+    
     // Initialize the sync process in background
     // Schedule sync to run in background instead of direct synchronous call
     try {
@@ -1297,4 +1278,4 @@ function nmkr_log_sync_summary(&$sync_log, $project_uids, $token_project_map, $s
 add_action('nmkr_process_batch_hook', 'nmkr_process_next_batch');
 
 // Note: Background sync execution hook is defined in nmkr-sync-ajax-handlers.php
-// add_action('nmkr_execute_sync_background', 'nmkr_execute_sync_background_job'); 
+// add_action('nmkr_execute_sync_background', 'nmkr_execute_sync_background_job');                                

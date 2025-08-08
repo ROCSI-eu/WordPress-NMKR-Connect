@@ -40,6 +40,25 @@ function nmkr_start_sync_handler() {
         // Log UI status update for starting sync
         nmkr_log_ui_status('UI: User clicked Start Synchronization button - initializing sync process', 'info');
         
+        delete_transient('nmkr_sync_progress');
+        delete_transient('nmkr_sync_current_item');
+        delete_transient('nmkr_sync_current_count');
+        delete_transient('nmkr_sync_total_items');
+        delete_transient('nmkr_last_progress_update_time');
+        delete_transient('nmkr_last_progress_value');
+        delete_transient('nmkr_sync_user_stopped');
+        
+        // Initialize progress to 0% for fresh start
+        set_transient('nmkr_sync_progress', 0, 3600);
+        set_transient('nmkr_sync_current_item', 'Initializing synchronization...', 3600);
+        set_transient('nmkr_sync_current_count', 0, 3600);
+        set_transient('nmkr_sync_user_stopped', false, 3600);
+        
+        nmkr_log_ui_status('TRANSIENT CLEANUP: Cleared stale progress transients and initialized to 0%', 'debug');
+        
+        update_option('nmkr_sync_in_progress', true);
+        set_transient('nmkr_sync_in_progress', true, HOUR_IN_SECONDS);
+        
         // Schedule the sync to run in the background via WP-Cron
         wp_schedule_single_event(time(), 'nmkr_execute_sync_background');
         
@@ -96,19 +115,45 @@ function nmkr_cleanup_sync_jobs_handler() {
  * AJAX handler for getting sync progress
  */
 function nmkr_sync_progress_handler() {
+    // Verify nonce for security
+    check_ajax_referer('nmkr_sync_nonce', 'nonce');
+    
+    nmkr_log_ui_status('AJAX HANDLER: nmkr_sync_progress_handler called by process ' . getmypid(), 'debug');
+    
     try {
         // ** ENHANCED ERROR HANDLING: Parameter Validation **
         $is_recovery = isset($_POST['recovery']) && $_POST['recovery'];
         
-        // ** LIGHTWEIGHT OPTION RETRIEVAL: Read only from options/transients **
         try {
-            $progress = get_option('nmkr_sync_progress', 0);
-            $current_item = get_option('nmkr_sync_current_item', '');
+            $progress_raw = get_transient('nmkr_sync_progress');
+            $progress_raw = ($progress_raw !== false) ? $progress_raw : 0;
+            $progress_int = (int) $progress_raw;
+            $progress = $progress_int;
+            $current_item = get_transient('nmkr_sync_current_item');
+            $current_item = ($current_item !== false) ? $current_item : '';
+            $current_count = get_transient('nmkr_sync_current_count');
+            $current_count = ($current_count !== false) ? $current_count : 0;
+            $error = get_transient('nmkr_sync_error');
+            $error = ($error !== false) ? $error : '';
+            $last_update_time = get_transient('nmkr_last_progress_update_time');
+            $last_update_time = ($last_update_time !== false) ? $last_update_time : 0;
+            
+            // Log transient read for cross-process debugging
+            nmkr_log_ui_status('TRANSIENT READ: Progress ' . $progress . '% read from transient by AJAX process ' . getmypid(), 'debug');
+            
+            if ($progress === 0 && $current_count > 0) {
+                global $wpdb;
+                // Force commit any pending transactions to ensure fresh reads
+                $wpdb->query('COMMIT');
+                $db_progress = $wpdb->get_var("SELECT option_value FROM {$wpdb->options} WHERE option_name = 'nmkr_sync_progress'");
+                if ($db_progress !== null && (int)$db_progress > 0) {
+                    $progress = (int)$db_progress;
+                    nmkr_log_ui_status('UI: Used direct DB read for progress due to transient issue - Progress: ' . $progress . '%', 'debug');
+                }
+            }
+            
             // Use consistent 100-based denominator instead of potentially stale cache
             $total_items = 100;
-            $current_count = get_option('nmkr_sync_current_count', 0);
-            $error = get_option('nmkr_sync_error', '');
-            $last_update_time = get_option('nmkr_last_progress_update_time', 0);
             
             // Get performance stats from transient (lightweight read)
             $current_stats = get_transient('nmkr_current_sync_stats_live');
@@ -159,26 +204,6 @@ function nmkr_sync_progress_handler() {
     // Get the current batch processing status
     $sync_data = nmkr_get_sync_data();
     
-    // Handle completed state - if progress is 100% and sync_in_progress is false, we're done
-    $sync_in_progress = get_option('nmkr_sync_in_progress', false);
-    if ($progress == 100 && !$sync_in_progress) {
-        // Log UI status update for completion state
-        nmkr_log_ui_status('UI: Reporting completed sync state to frontend', 'debug');
-        
-        wp_send_json_success(array(
-            'progress' => 100,
-            'performance' => $current_stats,
-            'current_item' => 'Synchronization was manually stopped by user',
-            'total_items' => 0,
-            'current_count' => 0,
-            'error' => '',
-            'batch_info' => [],
-            'cron_status' => ['has_running_jobs' => false, 'next_scheduled' => false],
-            'is_recovery' => $is_recovery,
-            'last_update_time' => $last_update_time
-        ));
-        return;
-    }
     
     // Normal progress reporting for active sync (throttled)
     static $progress_poll_count = 0;
@@ -188,17 +213,22 @@ function nmkr_sync_progress_handler() {
         // Log UI status update for error state (always log errors)
         nmkr_log_ui_status('UI: Reporting sync error state to frontend: ' . $error, 'warning');
     } else if ($progress == 100) {
-        // Log UI status update for completed state (always log completion)
-        nmkr_log_ui_status('UI: Reporting completed sync state to frontend - 100% complete', 'debug');
+        // Log UI status update for completed state (only once per completion)
+        static $completion_logged = false;
+        if (!$completion_logged) {
+            nmkr_log_ui_status('UI: Reporting completed sync state to frontend - 100% complete', 'debug');
+            $completion_logged = true;
+        }
     } else if ($progress < 100) {
         // Log UI status update for normal progress reporting (throttled)
         if (!nmkr_should_throttle_logs() || $progress_poll_count % 10 === 0) {
             $log_message = sprintf(
-                'UI: Reporting sync progress to frontend - Progress: %.1f%%, Item: %s, Count: %d/%d',
+                'UI: Reporting sync progress to frontend - Progress: %.1f%%, Item: %s, Count: %d/%d (Transients used: %s)',
                 $progress,
                 $current_item,
                 $current_count,
-                $total_items
+                $total_items,
+                'yes'
             );
             nmkr_log_ui_status($log_message, 'debug');
         }
@@ -220,7 +250,8 @@ function nmkr_sync_progress_handler() {
             $progress > 0 && $progress < 100 && empty($error)) {
         
         // Check when the sync started
-        $sync_start_time = get_option('nmkr_sync_start_time', 0);
+        $sync_start_time_raw = get_transient('nmkr_sync_start_time');
+        $sync_start_time = ($sync_start_time_raw !== false) ? $sync_start_time_raw : 0;
         $current_time = time();
         $time_since_start = $current_time - $sync_start_time;
         
@@ -424,32 +455,43 @@ function nmkr_sync_progress_handler() {
     }
     
     // Check if sync is near completion
-    $near_completion = get_option('nmkr_sync_near_completion', false);
+    $near_completion_raw = get_transient('nmkr_sync_near_completion');
+    $near_completion = ($near_completion_raw !== false) ? $near_completion_raw : false;
     
     // Enhanced AJAX response with unified progress data and live metrics
-    $sync_in_progress_flag = (bool) get_option('nmkr_sync_in_progress', false);
+    $sync_in_progress_raw = get_transient('nmkr_sync_in_progress');
+    $sync_in_progress_flag = ($sync_in_progress_raw !== false) ? (bool) $sync_in_progress_raw : false;
+    $user_requested_abort = get_transient('nmkr_sync_user_stopped');
+    $user_requested_abort = ($user_requested_abort !== false) ? (bool) $user_requested_abort : false;
+    
     $response_data = array(
         'in_progress'  => $sync_in_progress_flag,
-        'progress'     => (int)  $progress,
+        'progress'     => $progress_int,
         'current_item' => (string) $current_item,
-        'error'        => (string) $error
+        'error'        => (string) $error,
+        'aborted'      => $user_requested_abort,
+        'finished'     => ($progress_int === 100 && !$user_requested_abort),
     );
     
-    // Include live metrics when sync is actively running
-    if ($sync_in_progress_flag && $progress < 100) {
-        $response_data['live_metrics'] = array(
-            'total_projects' => $current_stats['total_projects'] ?? 0,
-            'total_tokens' => $current_stats['total_tokens'] ?? 0,
-            'total_sync_duration' => $current_stats['total_duration'] ?? 0,
-            'total_api_time' => $current_stats['total_api_time'] ?? 0,
-            'average_response_time' => $current_stats['average_time'] ?? 0,
-            'api_requests' => $current_stats['request_count'] ?? 0,
-            'memory_usage' => $current_stats['memory_used'] ?? 0
-        );
+    // Always include live metrics in heartbeat payload
+    // Get current sync stats for live metrics (fixes variable scope issue)
+    $current_stats = nmkr_get_sync_stats();
+    if (!$current_stats) {
+        $current_stats = array();
     }
+    
+    $response_data['live_metrics'] = array(
+        'total_projects' => $current_stats['total_projects'] ?? 0,
+        'total_tokens' => $current_stats['total_tokens'] ?? 0,
+        'total_sync_duration' => $current_stats['total_duration'] ?? 0,
+        'total_api_time' => $current_stats['total_api_time'] ?? 0,
+        'average_response_time' => $current_stats['average_time'] ?? 0,
+        'api_requests' => $current_stats['request_count'] ?? 0,
+        'memory_usage' => $current_stats['memory_used'] ?? 0
+    );
 
     // Delete the live stats transient only when sync is finalized
-    if ($progress === 100) {
+    if ($progress_int === 100) {
         delete_transient('nmkr_current_sync_stats_live');
         
         // Clean up old metrics transients to ensure clean state for next sync
@@ -490,8 +532,10 @@ function nmkr_stop_sync_handler() {
     $sync_data = nmkr_get_sync_data();
     
     // Get current sync stage and status
-    $current_item = get_option('nmkr_sync_current_item', '');
-    $current_progress = get_option('nmkr_sync_progress', 0);
+    $current_item = get_transient('nmkr_sync_current_item');
+    $current_item = ($current_item !== false) ? $current_item : '';
+    $current_progress_raw = get_transient('nmkr_sync_progress');
+    $current_progress = ($current_progress_raw !== false) ? (int) $current_progress_raw : 0;
     
     // Check database for active syncs if no sync data found
     if (!$sync_data) {
@@ -540,6 +584,9 @@ function nmkr_stop_sync_handler() {
     // Always mark sync as not in progress to avoid stuck state
     update_option('nmkr_sync_in_progress', false);
     delete_transient('nmkr_sync_in_progress');
+    
+    update_option('nmkr_sync_user_stopped', true);
+    set_transient('nmkr_sync_user_stopped', true, 3600);
     
     // IMPORTANT: Manually unschedule all cron events first (before calling nmkr_clear_sync_jobs)
     // This provides an additional layer of assurance that cron jobs will be stopped
@@ -666,7 +713,9 @@ function nmkr_restart_sync_batch_handler() {
     $sync_data = nmkr_get_sync_data();
     
     // Check if there's an active sync
-    if (!$sync_data || !get_option('nmkr_sync_in_progress', false)) {
+    $sync_in_progress_check = get_transient('nmkr_sync_in_progress');
+    $sync_in_progress_check = ($sync_in_progress_check !== false) ? (bool) $sync_in_progress_check : false;
+    if (!$sync_data || !$sync_in_progress_check) {
         // No active sync to restart
         wp_send_json_error(array(
             'message' => 'No active synchronization to restart',
@@ -681,8 +730,10 @@ function nmkr_restart_sync_batch_handler() {
     nmkr_save_sync_data($sync_data);
     
     // Update progress info to show recovery (maintain current progress)
-    $current_progress = get_option('nmkr_sync_progress', 0);
-    $total_items     = get_option('nmkr_sync_total_items', 0);
+    $current_progress_raw = get_transient('nmkr_sync_progress');
+    $current_progress = ($current_progress_raw !== false) ? (int) $current_progress_raw : 0;
+    $total_items_raw = get_transient('nmkr_sync_total_items');
+    $total_items = ($total_items_raw !== false) ? (int) $total_items_raw : 0;
     nmkr_update_sync_progress( $current_progress, $total_items, 'Recovering synchronization process' );
     
     // Schedule a new immediate batch job
@@ -892,6 +943,20 @@ function nmkr_execute_sync_background_job() {
         delete_transient('nmkr_sync_performance_metrics');
         delete_transient('nmkr_current_sync_stats_live');
         
+        delete_transient('nmkr_sync_progress');
+        delete_transient('nmkr_sync_current_item');
+        delete_transient('nmkr_sync_current_count');
+        delete_transient('nmkr_sync_total_items');
+        delete_transient('nmkr_last_progress_update_time');
+        delete_transient('nmkr_last_progress_value');
+        
+        // Initialize progress to 0% for fresh start
+        set_transient('nmkr_sync_progress', 0, 3600);
+        set_transient('nmkr_sync_current_item', 'Initializing synchronization...', 3600);
+        set_transient('nmkr_sync_current_count', 0, 3600);
+        
+        nmkr_log_ui_status('BACKGROUND JOB: Cleared stale progress transients and initialized to 0%', 'debug');
+        
         update_option('nmkr_sync_error', ''); // Clear any previous errors
         update_option('nmkr_sync_in_progress', true);
         set_transient('nmkr_sync_in_progress', true, NMKR_SYNC_TRANSIENT_TTL);
@@ -987,4 +1052,4 @@ function nmkr_execute_sync_background_job() {
         update_option('nmkr_sync_in_progress', false);
         delete_transient('nmkr_sync_in_progress');
     }
-} 
+}                                                                                                                                                                                                                                                                                                                                
