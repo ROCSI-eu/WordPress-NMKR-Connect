@@ -115,6 +115,9 @@ function nmkr_cleanup_sync_jobs_handler() {
  * AJAX handler for getting sync progress
  */
 function nmkr_sync_progress_handler() {
+    // Verify nonce for security
+    check_ajax_referer('nmkr_sync_nonce', 'nonce');
+    
     nmkr_log_ui_status('AJAX HANDLER: nmkr_sync_progress_handler called by process ' . getmypid(), 'debug');
     
     try {
@@ -1049,4 +1052,4 @@ function nmkr_execute_sync_background_job() {
         update_option('nmkr_sync_in_progress', false);
         delete_transient('nmkr_sync_in_progress');
     }
-}                                                                                                                                                                                                                                                                
+}                                                                                                                                                                                                                                                                                                                                
