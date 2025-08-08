@@ -155,6 +155,9 @@ jQuery(document).ready(function($) {
     function fetchProgress() {
       if (isFetching || hasError) return;
       isFetching = true;
+      
+      console.log('JS: Sending AJAX request for sync progress at', new Date().toISOString());
+      
       pollXhr = $.ajax({
         url: nmkrSyncProgress.ajax_url,
         method: 'POST',
@@ -167,6 +170,7 @@ jQuery(document).ready(function($) {
       })
       .done(response => {
         window.lastSyncResponse = response;
+        console.log('JS: Received AJAX response:', response);
         
         try {
           if (response.success && response.data) {
