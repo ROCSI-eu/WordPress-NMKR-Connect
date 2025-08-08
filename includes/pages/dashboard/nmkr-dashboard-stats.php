@@ -101,8 +101,10 @@ function nmkr_get_sync_statistics() {
  */
 function nmkr_get_active_sync_metrics() {
     // Check if sync is currently in progress
-    $progress = get_option('nmkr_sync_progress', 0);
-    $error = get_option('nmkr_sync_error', '');
+    $progress = get_transient('nmkr_sync_progress');
+    $progress = ($progress !== false) ? $progress : 0;
+    $error = get_transient('nmkr_sync_error');
+    $error = ($error !== false) ? $error : '';
     $is_sync_in_progress = ($progress > 0 && $progress < 100 && empty($error));
     
     if (!$is_sync_in_progress) {
@@ -114,7 +116,7 @@ function nmkr_get_active_sync_metrics() {
     
     // Default metrics - ensure we always have values 
     $default_response = array(
-        'progress' => get_option('nmkr_sync_progress', 0),
+        'progress' => ($progress !== false) ? $progress : 0,
         'average_response_time' => '0.00ms',
         'response_time_class' => 'status-excellent',
         'api_requests' => '0',
@@ -148,7 +150,7 @@ function nmkr_get_active_sync_metrics() {
     
     // Return formatted and color-coded metrics
     return array(
-        'progress' => get_option('nmkr_sync_progress', 0),
+        'progress' => ($progress !== false) ? $progress : 0,
         'average_response_time' => $formatted_avg_response_time,
         'response_time_class' => $response_time_class,
         'api_requests' => $formatted_api_requests,
@@ -185,4 +187,4 @@ function nmkr_get_memory_color_class($mb) {
     } else {
         return 'status-critical'; // Red
     }
-} 
+}  

@@ -40,6 +40,22 @@ function nmkr_start_sync_handler() {
         // Log UI status update for starting sync
         nmkr_log_ui_status('UI: User clicked Start Synchronization button - initializing sync process', 'info');
         
+        delete_transient('nmkr_sync_progress');
+        delete_transient('nmkr_sync_current_item');
+        delete_transient('nmkr_sync_current_count');
+        delete_transient('nmkr_sync_total_items');
+        delete_transient('nmkr_last_progress_update_time');
+        delete_transient('nmkr_last_progress_value');
+        delete_transient('nmkr_sync_user_stopped');
+        
+        // Initialize progress to 0% for fresh start
+        set_transient('nmkr_sync_progress', 0, 3600);
+        set_transient('nmkr_sync_current_item', 'Initializing synchronization...', 3600);
+        set_transient('nmkr_sync_current_count', 0, 3600);
+        set_transient('nmkr_sync_user_stopped', false, 3600);
+        
+        nmkr_log_ui_status('TRANSIENT CLEANUP: Cleared stale progress transients and initialized to 0%', 'debug');
+        
         update_option('nmkr_sync_in_progress', true);
         set_transient('nmkr_sync_in_progress', true, HOUR_IN_SECONDS);
         
@@ -510,8 +526,10 @@ function nmkr_stop_sync_handler() {
     $sync_data = nmkr_get_sync_data();
     
     // Get current sync stage and status
-    $current_item = get_option('nmkr_sync_current_item', '');
-    $current_progress = get_option('nmkr_sync_progress', 0);
+    $current_item = get_transient('nmkr_sync_current_item');
+    $current_item = ($current_item !== false) ? $current_item : '';
+    $current_progress_raw = get_transient('nmkr_sync_progress');
+    $current_progress = ($current_progress_raw !== false) ? (int) $current_progress_raw : 0;
     
     // Check database for active syncs if no sync data found
     if (!$sync_data) {
@@ -704,8 +722,10 @@ function nmkr_restart_sync_batch_handler() {
     nmkr_save_sync_data($sync_data);
     
     // Update progress info to show recovery (maintain current progress)
-    $current_progress = get_option('nmkr_sync_progress', 0);
-    $total_items     = get_option('nmkr_sync_total_items', 0);
+    $current_progress_raw = get_transient('nmkr_sync_progress');
+    $current_progress = ($current_progress_raw !== false) ? (int) $current_progress_raw : 0;
+    $total_items_raw = get_transient('nmkr_sync_total_items');
+    $total_items = ($total_items_raw !== false) ? (int) $total_items_raw : 0;
     nmkr_update_sync_progress( $current_progress, $total_items, 'Recovering synchronization process' );
     
     // Schedule a new immediate batch job
@@ -915,6 +935,20 @@ function nmkr_execute_sync_background_job() {
         delete_transient('nmkr_sync_performance_metrics');
         delete_transient('nmkr_current_sync_stats_live');
         
+        delete_transient('nmkr_sync_progress');
+        delete_transient('nmkr_sync_current_item');
+        delete_transient('nmkr_sync_current_count');
+        delete_transient('nmkr_sync_total_items');
+        delete_transient('nmkr_last_progress_update_time');
+        delete_transient('nmkr_last_progress_value');
+        
+        // Initialize progress to 0% for fresh start
+        set_transient('nmkr_sync_progress', 0, 3600);
+        set_transient('nmkr_sync_current_item', 'Initializing synchronization...', 3600);
+        set_transient('nmkr_sync_current_count', 0, 3600);
+        
+        nmkr_log_ui_status('BACKGROUND JOB: Cleared stale progress transients and initialized to 0%', 'debug');
+        
         update_option('nmkr_sync_error', ''); // Clear any previous errors
         update_option('nmkr_sync_in_progress', true);
         set_transient('nmkr_sync_in_progress', true, NMKR_SYNC_TRANSIENT_TTL);
@@ -1010,4 +1044,4 @@ function nmkr_execute_sync_background_job() {
         update_option('nmkr_sync_in_progress', false);
         delete_transient('nmkr_sync_in_progress');
     }
-}                                
+}                                                                                                                                

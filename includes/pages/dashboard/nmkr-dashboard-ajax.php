@@ -41,7 +41,8 @@ function nmkr_check_api_status() {
     
     // Check if a sync is currently in progress
     $sync_in_progress = get_option('nmkr_sync_in_progress', false);
-    $progress = get_option('nmkr_sync_progress', 0);
+    $progress = get_transient('nmkr_sync_progress');
+    $progress = ($progress !== false) ? (int) $progress : 0;
     $error = get_option('nmkr_sync_error', '');
     
     // If there's a potential stuck state, clear it
@@ -140,7 +141,10 @@ function nmkr_get_sync_statistics_ajax() {
         if ($performance_data) {
             // Format all 7 metrics for the expanded active panel
             $formatted_metrics = array(
-                'progress' => get_option('nmkr_sync_progress', 0),
+                'progress' => (function() {
+                    $progress = get_transient('nmkr_sync_progress');
+                    return ($progress !== false) ? (int) $progress : 0;
+                })(),
                 
                 // Progress metrics (newly added to active panel)
                 'total_projects' => $performance_data['total_projects'] ?? 0,
@@ -417,4 +421,4 @@ function nmkr_clear_section_logs_ajax() {
     }
     
     wp_die();
-} 
+}  

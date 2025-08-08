@@ -154,7 +154,7 @@ jQuery(document).ready(function($) {
     });
 
     function fetchProgress() {
-      if (isFetching || hasError) return;
+      if (isFetching) return;
       isFetching = true;
       
       console.log('JS: Sending AJAX request for sync progress at', new Date().toISOString());

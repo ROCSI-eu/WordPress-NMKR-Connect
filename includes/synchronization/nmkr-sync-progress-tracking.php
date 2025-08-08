@@ -29,7 +29,8 @@ function nmkr_update_sync_progress($steps_completed, $total_steps, $current_item
         : 0;
     
     // Ensure progress never goes backward
-    $current_progress = get_option('nmkr_sync_progress', 0);
+    $current_progress = get_transient('nmkr_sync_progress');
+    $current_progress = ($current_progress !== false) ? $current_progress : 0;
     $percent = max($current_progress, $percent);
     
     // Ensure progress is between 0 and 100
@@ -166,4 +167,4 @@ function nmkr_sync_data_complete($success = true, $error_message = '') {
     }
     
     return $status;
-}  
+}    

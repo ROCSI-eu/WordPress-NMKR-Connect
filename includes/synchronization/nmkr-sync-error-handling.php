@@ -285,7 +285,8 @@ function nmkr_force_stop_sync($context = 'force_stop') {
  */
 function nmkr_check_sync_health() {
     // Get sync progress data
-    $progress = get_option('nmkr_sync_progress', 0);
+    $progress_raw = get_transient('nmkr_sync_progress');
+    $progress = ($progress_raw !== false) ? (int) $progress_raw : 0;
     $start_time = get_option('nmkr_sync_start_time', 0);
     $current_time = time();
     $time_elapsed = $start_time > 0 ? $current_time - $start_time : 0;
@@ -370,4 +371,4 @@ function nmkr_check_sync_health() {
             'long_running_timeout' => $long_running_timeout
         )
     );
-} 
+}  
