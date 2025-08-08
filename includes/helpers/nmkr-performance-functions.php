@@ -179,7 +179,7 @@ function nmkr_log_performance_data($performance_data) {
 
 // Track performance metrics for the current sync operation
 function nmkr_track_api_request($start_time, $end_time) {
-    $duration = ($end_time - $start_time) * 1000; // Convert to milliseconds
+    $duration = ($end_time - $start_time); // Keep in seconds
     
     // Get current stats
     $current_stats = get_transient('nmkr_current_sync_stats_live');
@@ -217,7 +217,7 @@ function nmkr_get_sync_stats() {
     // Calculate average response time from individual API request times
     $average_time = 0;
     if ($stats['request_count'] > 0 && !empty($stats['request_times'])) {
-        $average_time = round(array_sum($stats['request_times']) / $stats['request_count'], 2);
+        $average_time = round(array_sum($stats['request_times']) / $stats['request_count'] * 1000, 2); // Convert to milliseconds for display
     }
     
     $performance_data = array(
@@ -242,12 +242,12 @@ function nmkr_format_performance_metrics($perf) {
     
     // Format duration
     if (isset($perf['duration'])) {
-        $metrics[] = sprintf("Duration: %.2fms", max(0, $perf['duration']));
+        $metrics[] = sprintf("Duration: %.2fs", max(0, $perf['duration']));
     }
     
     // Format API time
     if (isset($perf['total_api_time'])) {
-        $metrics[] = sprintf("API: %.2fms", max(0, $perf['total_api_time']));
+        $metrics[] = sprintf("API: %.2fs", max(0, $perf['total_api_time']));
     }
     
     // Format request count
@@ -275,7 +275,7 @@ function nmkr_format_performance_metrics($perf) {
 
 // Function to track API request failure
 function nmkr_track_api_failure($start_time, $end_time) {
-    $duration = ($end_time - $start_time) * 1000; // Convert to milliseconds
+    $duration = ($end_time - $start_time); // Keep in seconds
     
     // Get current stats
     $current_stats = get_transient('nmkr_current_sync_stats_live');
@@ -312,7 +312,7 @@ function nmkr_get_performance_metrics($stats) {
     // Calculate average response time from individual API request times
     $average_time = 0;
     if ($stats['request_count'] > 0 && !empty($stats['request_times'])) {
-        $average_time = array_sum($stats['request_times']) / $stats['request_count']; // In seconds
+        $average_time = array_sum($stats['request_times']) / $stats['request_count'] * 1000; // Convert to milliseconds for display
     }
     
     $performance_data = array(
