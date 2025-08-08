@@ -875,7 +875,7 @@ function nmkr_render_sync_statistics_panel($initial_stats) {
                     <span class="legend-dot status-critical"></span> Critical
                 </div>
                 <p class="legend-desc">
-                    <small>Response Time: &lt;0.5s (Excellent), &lt;1s (Good), &lt;2s (Warning), &gt;2s (Critical)</small><br>
+                    <small>Response Time: &lt;500ms (Excellent), &lt;1000ms (Good), &lt;2000ms (Warning), &gt;2000ms (Critical)</small><br>
                     <small>Memory Usage: &lt;50MB (Excellent), &lt;100MB (Good), &lt;200MB (Warning), &gt;200MB (Critical)</small>
                 </p>
             </div>
@@ -1990,4 +1990,4 @@ function nmkr_render_dashboard_scripts($dashboard_nonce) {
         });
     </script>
     <?php
-} 
+}  
