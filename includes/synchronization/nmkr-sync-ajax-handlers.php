@@ -105,7 +105,9 @@ function nmkr_sync_progress_handler() {
         
         // ** LIGHTWEIGHT OPTION RETRIEVAL: Read only from options/transients **
         try {
-            $progress = get_option('nmkr_sync_progress', 0);
+            $progress_raw = get_option('nmkr_sync_progress', 0);
+            $progress_int = (int) $progress_raw;
+            $progress = $progress_int;
             $current_item = get_option('nmkr_sync_current_item', '');
             // Use consistent 100-based denominator instead of potentially stale cache
             $total_items = 100;
@@ -419,11 +421,11 @@ function nmkr_sync_progress_handler() {
     
     $response_data = array(
         'in_progress'  => $sync_in_progress_flag,
-        'progress'     => (int)  $progress,
+        'progress'     => $progress_int,
         'current_item' => (string) $current_item,
         'error'        => (string) $error,
         'aborted'      => $user_requested_abort,
-        'finished'     => ($progress === 100 && !$user_requested_abort)
+        'finished'     => ($progress_int === 100 && !$user_requested_abort),
     );
     
     // Always include live metrics in heartbeat payload
@@ -444,7 +446,7 @@ function nmkr_sync_progress_handler() {
     );
 
     // Delete the live stats transient only when sync is finalized
-    if ($progress === 100) {
+    if ($progress_int === 100) {
         delete_transient('nmkr_current_sync_stats_live');
         
         // Clean up old metrics transients to ensure clean state for next sync
