@@ -217,7 +217,7 @@ function nmkr_get_sync_stats() {
     // Calculate average response time from individual API request times
     $average_time = 0;
     if ($stats['request_count'] > 0 && !empty($stats['request_times'])) {
-        $average_time = round(array_sum($stats['request_times']) / $stats['request_count'] * 1000, 2); // Convert to milliseconds for display
+        $average_time = round(array_sum($stats['request_times']) / $stats['request_count'], 2); // Keep in seconds for display
     }
     
     $performance_data = array(
@@ -257,7 +257,7 @@ function nmkr_format_performance_metrics($perf) {
     
     // Format average time
     if (isset($perf['average_time'])) {
-        $metrics[] = sprintf("Avg: %.2fms", max(0, $perf['average_time']));
+        $metrics[] = sprintf("Avg: %.2fs", max(0, $perf['average_time']));
     }
     
     // Format memory (ensure positive value and proper unit)
@@ -312,7 +312,7 @@ function nmkr_get_performance_metrics($stats) {
     // Calculate average response time from individual API request times
     $average_time = 0;
     if ($stats['request_count'] > 0 && !empty($stats['request_times'])) {
-        $average_time = array_sum($stats['request_times']) / $stats['request_count'] * 1000; // Convert to milliseconds for display
+        $average_time = array_sum($stats['request_times']) / $stats['request_count']; // Keep in seconds for display
     }
     
     $performance_data = array(

@@ -644,10 +644,10 @@ jQuery(document).ready(function($) {
     // Function to get response time color class
     const getResponseTimeColorClass = (time) => {
         if (time === undefined || time === null) return 'status-neutral';
-        if (time < 500) return 'status-excellent';  // < 500ms
-        if (time < 1000) return 'status-good';      // < 1000ms (1s)
-        if (time < 2000) return 'status-warning';   // < 2000ms (2s)
-        return 'status-critical';                   // >= 2000ms (2s)
+        if (time < 0.5) return 'status-excellent';  // < 0.5s
+        if (time < 1) return 'status-good';         // < 1s
+        if (time < 2) return 'status-warning';      // < 2s
+        return 'status-critical';                   // >= 2s
     };
 
     // Function to format average response time

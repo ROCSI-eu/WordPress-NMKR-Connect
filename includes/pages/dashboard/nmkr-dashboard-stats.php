@@ -83,9 +83,7 @@ function nmkr_get_sync_statistics() {
         'total_sync_duration' => number_format($last_sync_metrics['total_sync_duration'], 2) . 's',
         'total_api_time' => number_format($last_sync_metrics['total_api_time'], 2) . 's',
         'average_response_time' => $last_sync_metrics['average_response_time'] > 0 ? 
-            ($last_sync_metrics['average_response_time'] < 1 ? 
-                number_format($last_sync_metrics['average_response_time'] * 1000, 2) . 'ms' : 
-                number_format($last_sync_metrics['average_response_time'], 2) . 's') : '-',
+            number_format($last_sync_metrics['average_response_time'], 2) . 's' : '-',
         'api_requests' => $last_sync_metrics['api_requests'],
         'memory_usage' => $last_sync_metrics['memory_usage'] . 'MB',
         'response_time_class' => nmkr_get_response_time_color_class($last_sync_metrics['average_response_time']),
@@ -117,7 +115,7 @@ function nmkr_get_active_sync_metrics() {
     // Default metrics - ensure we always have values 
     $default_response = array(
         'progress' => ($progress !== false) ? $progress : 0,
-        'average_response_time' => '0.00ms',
+        'average_response_time' => '0.00s',
         'response_time_class' => 'status-excellent',
         'api_requests' => '0',
         'memory_usage' => '0.00MB',
@@ -132,9 +130,7 @@ function nmkr_get_active_sync_metrics() {
     // Format average response time
     $avg_response_time = isset($current_metrics['average_response_time']) ? $current_metrics['average_response_time'] : 0;
     $formatted_avg_response_time = $avg_response_time > 0 ? 
-        ($avg_response_time < 1 ? 
-            number_format($avg_response_time * 1000, 2) . 'ms' : 
-            number_format($avg_response_time, 2) . 's') : '0.00ms';
+        number_format($avg_response_time, 2) . 's' : '0.00s';
     
     // Format API requests
     $api_requests = isset($current_metrics['api_requests']) ? $current_metrics['api_requests'] : 0;
@@ -187,4 +183,4 @@ function nmkr_get_memory_color_class($mb) {
     } else {
         return 'status-critical'; // Red
     }
-}  
+}    

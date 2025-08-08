@@ -321,9 +321,8 @@ function nmkr_store_active_metrics_ajax() {
     
     // Log UI metrics update
     $log_message = sprintf(
-        'UI: Updated active sync metrics - Response time: %.2f%s, API requests: %d, Memory: %.2fMB',
-        $current_stats['average_response_time'] < 1 ? $current_stats['average_response_time'] * 1000 : $current_stats['average_response_time'],
-        $current_stats['average_response_time'] < 1 ? 'ms' : 's',
+        'UI: Updated active sync metrics - Response time: %.2fs, API requests: %d, Memory: %.2fMB',
+        $current_stats['average_response_time'],
         $current_stats['api_requests'],
         $current_stats['memory_usage']
     );
@@ -421,4 +420,4 @@ function nmkr_clear_section_logs_ajax() {
     }
     
     wp_die();
-}  
+}    
