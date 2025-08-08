@@ -100,13 +100,21 @@ function nmkr_clear_sync_jobs($context = 'manual_cleanup', $clear_data = true, $
         'nmkr_last_sync_error',
         'nmkr_current_sync_stats',
         'nmkr_sync_batch_state',
-        'nmkr_api_connection_status' // Clear API connection status cache to ensure fresh check after sync
+        'nmkr_api_connection_status',
+        'nmkr_current_sync_stats_live'
     );
     
     foreach ($transients_to_clean as $transient) {
         delete_transient($transient);
         $result['cleared_data'][] = $transient;
     }
+
+    // Clean up sync heartbeat and last-progress markers on manual/normal stop
+    if (function_exists('nmkr_cleanup_sync_heartbeat')) {
+        nmkr_cleanup_sync_heartbeat();
+    }
+    delete_option('nmkr_last_progress_update_time');
+    delete_option('nmkr_last_progress_value');
 
     // If we have an active sync stats record, mark it as cancelled or stopped
     if ($sync_stats_id) {

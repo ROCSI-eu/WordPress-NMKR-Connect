@@ -148,6 +148,7 @@ jQuery(document).ready(function($) {
         })
         .always(() => {
             teardownSyncUI();
+            updateLastSyncTime('manual_stop', () => { hideActiveSyncMetrics(); });
         });
         $('#status-message').text('⏹️ Stopping Synchronization…');
     });
@@ -189,7 +190,7 @@ jQuery(document).ready(function($) {
             }
             
             // Handle error state
-            if (error && error.trim() !== '') {
+            if (typeof error === 'string' && error.trim() !== '') {
               handleError(error);
               return;
             }
@@ -306,6 +307,13 @@ jQuery(document).ready(function($) {
           $('#status-message').text('⚠️ Synchronization was manually stopped by user');
         }
       }
+      stopPolling();
+      setTimeout(() => {
+        updateLastSyncTime('sync_completed');
+      }, 400);
+      setTimeout(() => {
+        hideActiveSyncMetrics();
+      }, 450);
     }
 
     if (nmkrSyncProgress.resume) {
@@ -667,9 +675,10 @@ jQuery(document).ready(function($) {
 
     // Function to format memory size
     const formatMemory = (mb) => {
-        const memory = safeNumber(mb);
-        if (memory < 1) return (memory * 1024).toFixed(2) + 'KB';
-        return memory.toFixed(2) + 'MB';
+        if (mb == null || isNaN(mb)) return '—';
+        if (mb >= 1024) return (mb / 1024).toFixed(2) + ' GB';
+        if (mb >= 1) return mb.toFixed(1) + ' MB';
+        return Math.max(0, Math.round(mb * 1024)) + ' KB';
     };
 
     // Function to format duration with minutes and seconds for longer times
@@ -762,8 +771,12 @@ jQuery(document).ready(function($) {
                         memoryUsage.text(escapeHtml(stats.memory_usage));
                         
                         // Update color classes for performance indicators
-                        updateColorClass(avgResponseTime, getResponseTimeColorClass(safeNumber(stats.average_response_time)));
-                        updateColorClass(memoryUsage, getMemoryColorClass(safeNumber(stats.memory_usage)));
+                        const avgSecondsRaw = parseSecondsFlexible(stats.average_response_time_raw ?? stats.average_response_time);
+                        avgResponseTime.removeClass('status-neutral status-excellent status-good status-warning status-critical')
+                          .addClass(getResponseTimeColorClass(avgSecondsRaw));
+                        const memMbRaw = parseMegsFlexible(stats.memory_usage_raw ?? stats.memory_usage);
+                        memoryUsage.removeClass('status-neutral status-excellent status-good status-warning status-critical')
+                          .addClass(getMemoryColorClass(memMbRaw));
                         
                         // Hide the active sync metrics when not in active sync
                         activeSyncMetrics.hide();
@@ -916,10 +929,6 @@ jQuery(document).ready(function($) {
                 }
             });
             
-            // NOTE: Live metrics are now embedded in progress response
-            // No need to store separately since nmkr_sync_progress_handler includes live_metrics
-            
-            // IMPORTANT: Never update the main statistics panel during an active sync
             return;
         }
         
@@ -971,52 +980,22 @@ jQuery(document).ready(function($) {
     
     // Function to update active metrics display during sync
     const updateActiveMetrics = (liveMetrics) => {
-        if (!syncInProgress || !liveMetrics) return;
-        
-        // Update progress metrics using consistent class selectors
-        activeSyncMetrics.find('.total-projects-active').text(liveMetrics.total_projects || 0);
-        activeSyncMetrics.find('.total-tokens-active').text(liveMetrics.total_tokens || 0);
-        activeSyncMetrics.find('.total-sync-duration-active').text((liveMetrics.total_sync_duration || 0).toFixed(1) + 's');
-        
-        // Update performance metrics using consistent class selectors
-        activeSyncMetrics.find('.total-api-time-active').text((liveMetrics.total_api_time || 0).toFixed(2) + 's');
-        activeSyncMetrics.find('.avg-response-time').text((liveMetrics.average_response_time || 0).toFixed(2) + 'ms');
-        activeSyncMetrics.find('.api-requests').text(liveMetrics.api_requests || 0);
-        activeSyncMetrics.find('.memory-usage').text((liveMetrics.memory_usage || 0).toFixed(1) + 'MB');
-        
-        // Show the active metrics panel
+        if (!liveMetrics) return;
+        activeSyncMetrics.find('.total-projects-active').text(formatCount(liveMetrics.total_projects));
+        activeSyncMetrics.find('.total-tokens-active').text(formatCount(liveMetrics.total_tokens));
+        activeSyncMetrics.find('.total-sync-duration-active').text(formatLongDuration(liveMetrics.total_sync_duration));
+        activeSyncMetrics.find('.total-api-time-active').text(formatLongDuration(liveMetrics.total_api_time));
+        activeSyncMetrics.find('.avg-response-time')
+            .text(formatAverageResponseTime(liveMetrics.average_response_time))
+            .removeClass('status-neutral status-excellent status-good status-warning status-critical')
+            .addClass(getResponseTimeColorClass(liveMetrics.average_response_time));
+        activeSyncMetrics.find('.api-requests').text(formatCount(liveMetrics.api_requests));
+        activeSyncMetrics.find('.memory-usage')
+            .text(formatMemory(liveMetrics.memory_usage))
+            .removeClass('status-neutral status-excellent status-good status-warning status-critical')
+            .addClass(getMemoryColorClass(liveMetrics.memory_usage));
         activeSyncMetrics.show();
     };
-
-
-    // Function to format error details with additional context
-    const formatErrorDetails = (error) => {
-        let details = '';
-        
-        // Handle string-based errors
-        if (typeof error === 'string') {
-            return escapeHtml(error);
-        }
-        
-        // Handle object-based errors
-        if (error && typeof error === 'object') {
-            if (error.message) {
-                details = escapeHtml(error.message);
-            }
-            if (error.code) {
-                details += ` (Error Code: ${escapeHtml(error.code)})`;
-            }
-            if (error.suggestion) {
-                details += `<br><small class="error-suggestion">Suggestion: ${escapeHtml(error.suggestion)}</small>`;
-            }
-            if (error.context) {
-                details += `<br><small class="error-context">Context: ${escapeHtml(error.context)}</small>`;
-            }
-        }
-        
-        return details;
-    };
-
 
 
     // Function to display status message with performance metrics and last update timestamp
@@ -1041,9 +1020,15 @@ jQuery(document).ready(function($) {
         // Prepare last update timestamp if provided
         let timestampHtml = '';
         if (lastUpdateTime && status === 'info') {
-            // Only show timestamp for active syncs to reassure users
-            const timeElapsed = formatTimeElapsed(lastUpdateTime);
-            timestampHtml = '<div class="last-update-time">Last update: ' + timeElapsed + '</div>';
+            if (typeof formatTimeElapsed === 'function') {
+                const timeElapsed = formatTimeElapsed(lastUpdateTime);
+                timestampHtml = '<div class="last-update-time">Last update: ' + timeElapsed + '</div>';
+            } else {
+                try {
+                    const dt = new Date(lastUpdateTime);
+                    timestampHtml = '<div class="last-update-time">Last update: ' + dt.toLocaleString() + '</div>';
+                } catch (_) { /* noop */ }
+            }
         }
         
         // Add progress details if provided
@@ -1191,7 +1176,6 @@ jQuery(document).ready(function($) {
 
     // Function to display warning message
     const displayWarning = (message, warningDetails = null, performanceData = null, progressDetails = null) => {
-        // Use orange warning color
         let performanceHtml = '';
         if (performanceData) {
             updatePerformanceStats(performanceData);
@@ -1216,9 +1200,33 @@ jQuery(document).ready(function($) {
         progressBar.css('background-color', '#ffb900');
     };
 
+    // Force refresh Past panel and hide/reset Active panel
+    function hideActiveSyncMetrics() {
+        $('#active-sync-metrics').hide();
+        $('.total-projects-active, .total-tokens-active, .total-sync-duration-active, .total-api-time-active, .avg-response-time, .api-requests, .memory-usage').text('—');
+    }
 
-    
-
-
-    // End of functions - closing the IIFE
 });
+
+// Robust numeric parsing for completed stats
+function parseSecondsFlexible(val) {
+  if (typeof val === 'number') return val;
+  if (val == null) return 0;
+  const s = String(val).trim().toLowerCase();
+  const m = s.match(/([\d.]+)/);
+  if (!m) return 0;
+  const num = parseFloat(m[1]);
+  if (s.includes('ms')) return num / 1000;
+  return num;
+}
+function parseMegsFlexible(val) {
+  if (typeof val === 'number') return val;
+  if (val == null) return 0;
+  const s = String(val).trim().toLowerCase();
+  const m = s.match(/([\d.]+)/);
+  if (!m) return 0;
+  const num = parseFloat(m[1]);
+  if (s.includes('gb')) return num * 1024;
+  if (s.includes('kb')) return num / 1024;
+  return num;
+}
