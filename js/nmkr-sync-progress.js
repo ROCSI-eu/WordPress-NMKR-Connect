@@ -172,8 +172,9 @@ jQuery(document).ready(function($) {
           if (response.success && response.data) {
             const { progress, current_item, in_progress, error, live_metrics, finished, aborted } = response.data;
             
-            // Guard against undefined progress - use 0 if not a valid number
-            const validProgress = (typeof progress === 'number' && !isNaN(progress)) ? progress : 0;
+            // Accept numbers and numeric strings; fall back to 0 only if not finite
+            let validProgress = Number(progress);
+            if (!Number.isFinite(validProgress)) validProgress = 0;
             
             // Update progress bar using helper function
             updateProgressBar(validProgress);
@@ -194,7 +195,9 @@ jQuery(document).ready(function($) {
               updateActiveMetrics(live_metrics);
             }
             
-            if (response.data.finished === true) {
+            // Stop either when the server says finished, or when progress hits 100%
+            // (defensive against server-side strict-compare races)
+            if (finished === true || validProgress === 100) {
               stopPolling();
               handleComplete();
               return;
@@ -350,7 +353,7 @@ jQuery(document).ready(function($) {
 
     // Utility function to update color classes
     const updateColorClass = ($element, newClass) => {
-        const colorClasses = ['status-excellent', 'status-good', 'status-warning', 'status-critical'];
+        const colorClasses = ['status-neutral', 'status-excellent', 'status-good', 'status-warning', 'status-critical'];
         $element.removeClass(colorClasses.join(' '));
         if (newClass) {
             $element.addClass(newClass);
@@ -384,34 +387,31 @@ jQuery(document).ready(function($) {
             color: #0073aa;
         }
         
-<<<<<<< HEAD
-        .status-warning {
-            color: #ffb900;
-=======
         .status-neutral {
             color: #666;
->>>>>>> development
         }
-        
+
         .status-excellent {
             color: #46b450;
             font-weight: 600;
         }
-        
+
         .status-good {
             color: #ffb900;
             font-weight: 600;
         }
-        
+
         .status-warning {
             color: #f56e28;
             font-weight: 600;
         }
-        
+
         .status-critical {
             color: #dc3232;
             font-weight: 600;
         }
+        
+        
         
         .status-details {
             margin: 8px 0;
@@ -691,9 +691,17 @@ jQuery(document).ready(function($) {
             activeSyncMetrics.find('.total-tokens-active').text('0');
             activeSyncMetrics.find('.total-sync-duration-active').text('0s');
             activeSyncMetrics.find('.total-api-time-active').text('0.00s');
-            activeSyncMetrics.find('.avg-response-time').text('0.00ms').removeClass().addClass('status-excellent');
+            {
+                const $avg = activeSyncMetrics.find('.avg-response-time');
+                $avg.text('0.00ms');
+                updateColorClass($avg, 'status-excellent');
+            }
             activeSyncMetrics.find('.api-requests').text('0');
-            activeSyncMetrics.find('.memory-usage').text('0.00MB').removeClass().addClass('status-excellent');
+            {
+                const $mem = activeSyncMetrics.find('.memory-usage');
+                $mem.text('0.00MB');
+                updateColorClass($mem, 'status-excellent');
+            }
             console.log('🎨 Prerendered all 7 active sync metrics with professional zero values');
         }
     };
@@ -708,9 +716,11 @@ jQuery(document).ready(function($) {
         totalTokens.text('-');
         totalSyncTime.text('-');
         totalApiTime.text('-');
-        avgResponseTime.text('-').removeClass().addClass('status-neutral');
+        avgResponseTime.text('-');
+        updateColorClass(avgResponseTime, 'status-neutral');
         requestCount.text('-');
-        memoryUsage.text('-').removeClass().addClass('status-neutral');
+        memoryUsage.text('-');
+        updateColorClass(memoryUsage, 'status-neutral');
         
         // Hide the active sync response time
         activeSyncMetrics.hide();
@@ -850,10 +860,11 @@ jQuery(document).ready(function($) {
                 const formattedAvgTime = formatAverageResponseTime(avgTime);
                 const colorClass = getResponseTimeColorClass(avgTime);
                 
-                activeSyncMetrics.find('.avg-response-time')
-                    .text(formattedAvgTime)
-                    .removeClass()
-                    .addClass(colorClass);
+                {
+                    const $avg = activeSyncMetrics.find('.avg-response-time');
+                    $avg.text(formattedAvgTime);
+                    updateColorClass($avg, colorClass);
+                }
                 
                 metricsToStore.average_response_time = avgTime;
             }
@@ -869,10 +880,11 @@ jQuery(document).ready(function($) {
                 const formattedMemory = formatMemory(memoryValue);
                 const memoryClass = getMemoryColorClass(memoryValue);
                 
-                activeSyncMetrics.find('.memory-usage')
-                    .text(formattedMemory)
-                    .removeClass()
-                    .addClass(memoryClass);
+                {
+                    const $mem = activeSyncMetrics.find('.memory-usage');
+                    $mem.text(formattedMemory);
+                    updateColorClass($mem, memoryClass);
+                }
                 
                 metricsToStore.memory_usage = memoryValue;
             }
@@ -888,12 +900,14 @@ jQuery(document).ready(function($) {
                     } else if ($this.hasClass('total-api-time-active')) {
                         $this.text('0.00s');
                     } else if ($this.hasClass('avg-response-time')) {
-                        $this.text('0.00ms').removeClass().addClass('status-excellent');
+                        $this.text('0.00ms');
+                        updateColorClass($this, 'status-excellent');
                         if (metricsToStore.average_response_time === 0) {
                             metricsToStore.average_response_time = 0.01; // Minimal default value
                         }
                     } else if ($this.hasClass('memory-usage')) {
-                        $this.text('0.00MB').removeClass().addClass('status-excellent');
+                        $this.text('0.00MB');
+                        updateColorClass($this, 'status-excellent');
                     }
                 }
             });

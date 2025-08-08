@@ -111,7 +111,9 @@ function nmkr_sync_progress_handler() {
             wp_cache_delete('nmkr_sync_error', 'options');
             wp_cache_delete('nmkr_last_progress_update_time', 'options');
             
-            $progress = get_option('nmkr_sync_progress', 0);
+            $progress_raw = get_option('nmkr_sync_progress', 0);
+            $progress_int = (int) $progress_raw;
+            $progress = $progress_int;
             $current_item = get_option('nmkr_sync_current_item', '');
             $current_count = get_option('nmkr_sync_current_count', 0);
             $error = get_option('nmkr_sync_error', '');
@@ -436,11 +438,11 @@ function nmkr_sync_progress_handler() {
     
     $response_data = array(
         'in_progress'  => $sync_in_progress_flag,
-        'progress'     => (int)  $progress,
+        'progress'     => $progress_int,
         'current_item' => (string) $current_item,
         'error'        => (string) $error,
         'aborted'      => $user_requested_abort,
-        'finished'     => ($progress === 100 && !$user_requested_abort)
+        'finished'     => ($progress_int === 100 && !$user_requested_abort),
     );
     
     // Always include live metrics in heartbeat payload
@@ -461,7 +463,7 @@ function nmkr_sync_progress_handler() {
     );
 
     // Delete the live stats transient only when sync is finalized
-    if ($progress === 100) {
+    if ($progress_int === 100) {
         delete_transient('nmkr_current_sync_stats_live');
         
         // Clean up old metrics transients to ensure clean state for next sync
@@ -1001,4 +1003,4 @@ function nmkr_execute_sync_background_job() {
         update_option('nmkr_sync_in_progress', false);
         delete_transient('nmkr_sync_in_progress');
     }
-}                
+}                    
