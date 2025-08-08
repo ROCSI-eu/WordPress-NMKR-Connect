@@ -104,27 +104,30 @@ function nmkr_sync_progress_handler() {
         $is_recovery = isset($_POST['recovery']) && $_POST['recovery'];
         
         try {
-            // Clear WordPress option cache to ensure fresh reads for real-time progress
-            wp_cache_delete('nmkr_sync_progress', 'options');
-            wp_cache_delete('nmkr_sync_current_item', 'options');
-            wp_cache_delete('nmkr_sync_current_count', 'options');
-            wp_cache_delete('nmkr_sync_error', 'options');
-            wp_cache_delete('nmkr_last_progress_update_time', 'options');
-            
-            $progress_raw = get_option('nmkr_sync_progress', 0);
+            $progress_raw = get_transient('nmkr_sync_progress');
+            $progress_raw = ($progress_raw !== false) ? $progress_raw : 0;
             $progress_int = (int) $progress_raw;
             $progress = $progress_int;
-            $current_item = get_option('nmkr_sync_current_item', '');
-            $current_count = get_option('nmkr_sync_current_count', 0);
-            $error = get_option('nmkr_sync_error', '');
-            $last_update_time = get_option('nmkr_last_progress_update_time', 0);
+            $current_item = get_transient('nmkr_sync_current_item');
+            $current_item = ($current_item !== false) ? $current_item : '';
+            $current_count = get_transient('nmkr_sync_current_count');
+            $current_count = ($current_count !== false) ? $current_count : 0;
+            $error = get_transient('nmkr_sync_error');
+            $error = ($error !== false) ? $error : '';
+            $last_update_time = get_transient('nmkr_last_progress_update_time');
+            $last_update_time = ($last_update_time !== false) ? $last_update_time : 0;
+            
+            // Log transient read for cross-process debugging
+            nmkr_log_ui_status('TRANSIENT READ: Progress ' . $progress . '% read from transient by AJAX process ' . getmypid(), 'debug');
             
             if ($progress === 0 && $current_count > 0) {
                 global $wpdb;
+                // Force commit any pending transactions to ensure fresh reads
+                $wpdb->query('COMMIT');
                 $db_progress = $wpdb->get_var("SELECT option_value FROM {$wpdb->options} WHERE option_name = 'nmkr_sync_progress'");
                 if ($db_progress !== null && (int)$db_progress > 0) {
                     $progress = (int)$db_progress;
-                    nmkr_log_ui_status('UI: Used direct DB read for progress due to cache issue - Progress: ' . $progress . '%', 'debug');
+                    nmkr_log_ui_status('UI: Used direct DB read for progress due to transient issue - Progress: ' . $progress . '%', 'debug');
                 }
             }
             
@@ -199,7 +202,7 @@ function nmkr_sync_progress_handler() {
         // Log UI status update for normal progress reporting (throttled)
         if (!nmkr_should_throttle_logs() || $progress_poll_count % 10 === 0) {
             $log_message = sprintf(
-                'UI: Reporting sync progress to frontend - Progress: %.1f%%, Item: %s, Count: %d/%d (Cache cleared: %s)',
+                'UI: Reporting sync progress to frontend - Progress: %.1f%%, Item: %s, Count: %d/%d (Transients used: %s)',
                 $progress,
                 $current_item,
                 $current_count,
@@ -434,7 +437,8 @@ function nmkr_sync_progress_handler() {
     
     // Enhanced AJAX response with unified progress data and live metrics
     $sync_in_progress_flag = (bool) get_option('nmkr_sync_in_progress', false);
-    $user_requested_abort = (bool) get_option('nmkr_sync_user_stopped', false);
+    $user_requested_abort = get_transient('nmkr_sync_user_stopped');
+    $user_requested_abort = ($user_requested_abort !== false) ? (bool) $user_requested_abort : (bool) get_option('nmkr_sync_user_stopped', false);
     
     $response_data = array(
         'in_progress'  => $sync_in_progress_flag,
@@ -556,6 +560,7 @@ function nmkr_stop_sync_handler() {
     delete_transient('nmkr_sync_in_progress');
     
     update_option('nmkr_sync_user_stopped', true);
+    set_transient('nmkr_sync_user_stopped', true, 3600);
     
     // IMPORTANT: Manually unschedule all cron events first (before calling nmkr_clear_sync_jobs)
     // This provides an additional layer of assurance that cron jobs will be stopped
@@ -1003,4 +1008,4 @@ function nmkr_execute_sync_background_job() {
         update_option('nmkr_sync_in_progress', false);
         delete_transient('nmkr_sync_in_progress');
     }
-}                    
+}                            

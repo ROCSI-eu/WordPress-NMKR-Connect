@@ -1018,6 +1018,8 @@ function nmkr_sync_data() {
         
         // Clear user stopped flag for successful completion
         update_option('nmkr_sync_user_stopped', false);
+    set_transient('nmkr_sync_user_stopped', false, 3600);
+        set_transient('nmkr_sync_user_stopped', false, 3600);
         
         // Save final metrics to database (single authoritative path)
         $live = get_transient('nmkr_current_sync_stats_live');
@@ -1179,6 +1181,7 @@ function nmkr_start_sync() {
     update_option('nmkr_sync_stop_requested', false);
     
     update_option('nmkr_sync_user_stopped', false);
+    set_transient('nmkr_sync_user_stopped', false, 3600);
     
     // Initialize the sync process in background
     // Schedule sync to run in background instead of direct synchronous call
@@ -1276,4 +1279,4 @@ function nmkr_log_sync_summary(&$sync_log, $project_uids, $token_project_map, $s
 add_action('nmkr_process_batch_hook', 'nmkr_process_next_batch');
 
 // Note: Background sync execution hook is defined in nmkr-sync-ajax-handlers.php
-// add_action('nmkr_execute_sync_background', 'nmkr_execute_sync_background_job');        
+// add_action('nmkr_execute_sync_background', 'nmkr_execute_sync_background_job');                        
