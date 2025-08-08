@@ -177,32 +177,6 @@ function nmkr_log_performance_data($performance_data) {
     }
 }
 
-// Track performance metrics for the current sync operation
-function nmkr_track_api_request($start_time, $end_time) {
-    $duration = ($end_time - $start_time); // Keep in seconds
-    
-    // Get current stats
-    $current_stats = get_transient('nmkr_current_sync_stats_live');
-    if (!$current_stats) {
-        $current_stats = array(
-            'start_time' => $start_time,
-            'request_count' => 0,
-            'total_api_time' => 0,
-            'request_times' => array(),
-            'operation_start_time' => $start_time
-        );
-    }
-
-    // Update stats
-    $current_stats['request_count']++;
-    $current_stats['request_times'][] = $duration;
-    $current_stats['total_api_time'] += $duration;
-    
-    set_transient('nmkr_current_sync_stats_live', $current_stats, NMKR_SYNC_TRANSIENT_TTL);
-    // Only live transient is set here
-
-    return $current_stats;
-}
 
 // Function to get current sync performance stats
 function nmkr_get_sync_stats() {
@@ -273,35 +247,6 @@ function nmkr_format_performance_metrics($perf) {
     return implode(' | ', $metrics);
 }
 
-// Function to track API request failure
-function nmkr_track_api_failure($start_time, $end_time) {
-    $duration = ($end_time - $start_time); // Keep in seconds
-    
-    // Get current stats
-    $current_stats = get_transient('nmkr_current_sync_stats_live');
-    if (!$current_stats) {
-        $current_stats = array(
-            'start_time' => $start_time,
-            'request_count' => 0,
-            'successful_requests' => 0,
-            'failed_requests' => 0,
-            'total_api_time' => 0,
-            'request_times' => array(),
-            'operation_start_time' => $start_time
-        );
-    }
-
-    // Update stats
-    $current_stats['request_count']++;
-    $current_stats['failed_requests']++;
-    $current_stats['request_times'][] = $duration;
-    $current_stats['total_api_time'] += $duration;
-    
-    set_transient('nmkr_current_sync_stats_live', $current_stats, NMKR_SYNC_TRANSIENT_TTL);
-    // Only live transient is set here
-
-    return $current_stats;
-}
 
 function nmkr_get_performance_metrics($stats) {
     $memory_peak = memory_get_peak_usage(true);
