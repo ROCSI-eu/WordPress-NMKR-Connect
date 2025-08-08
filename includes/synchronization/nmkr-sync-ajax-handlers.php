@@ -247,7 +247,8 @@ function nmkr_sync_progress_handler() {
             $progress > 0 && $progress < 100 && empty($error)) {
         
         // Check when the sync started
-        $sync_start_time = get_option('nmkr_sync_start_time', 0);
+        $sync_start_time_raw = get_transient('nmkr_sync_start_time');
+        $sync_start_time = ($sync_start_time_raw !== false) ? $sync_start_time_raw : 0;
         $current_time = time();
         $time_since_start = $current_time - $sync_start_time;
         
@@ -451,12 +452,14 @@ function nmkr_sync_progress_handler() {
     }
     
     // Check if sync is near completion
-    $near_completion = get_option('nmkr_sync_near_completion', false);
+    $near_completion_raw = get_transient('nmkr_sync_near_completion');
+    $near_completion = ($near_completion_raw !== false) ? $near_completion_raw : false;
     
     // Enhanced AJAX response with unified progress data and live metrics
-    $sync_in_progress_flag = (bool) get_option('nmkr_sync_in_progress', false);
+    $sync_in_progress_raw = get_transient('nmkr_sync_in_progress');
+    $sync_in_progress_flag = ($sync_in_progress_raw !== false) ? (bool) $sync_in_progress_raw : false;
     $user_requested_abort = get_transient('nmkr_sync_user_stopped');
-    $user_requested_abort = ($user_requested_abort !== false) ? (bool) $user_requested_abort : (bool) get_option('nmkr_sync_user_stopped', false);
+    $user_requested_abort = ($user_requested_abort !== false) ? (bool) $user_requested_abort : false;
     
     $response_data = array(
         'in_progress'  => $sync_in_progress_flag,
@@ -707,7 +710,9 @@ function nmkr_restart_sync_batch_handler() {
     $sync_data = nmkr_get_sync_data();
     
     // Check if there's an active sync
-    if (!$sync_data || !get_option('nmkr_sync_in_progress', false)) {
+    $sync_in_progress_check = get_transient('nmkr_sync_in_progress');
+    $sync_in_progress_check = ($sync_in_progress_check !== false) ? (bool) $sync_in_progress_check : false;
+    if (!$sync_data || !$sync_in_progress_check) {
         // No active sync to restart
         wp_send_json_error(array(
             'message' => 'No active synchronization to restart',
@@ -1044,4 +1049,4 @@ function nmkr_execute_sync_background_job() {
         update_option('nmkr_sync_in_progress', false);
         delete_transient('nmkr_sync_in_progress');
     }
-}                                                                                                                                
+}                                                                                                                                                                                                                                                                
