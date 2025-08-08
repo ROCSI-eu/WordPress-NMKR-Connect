@@ -103,15 +103,31 @@ function nmkr_sync_progress_handler() {
         // ** ENHANCED ERROR HANDLING: Parameter Validation **
         $is_recovery = isset($_POST['recovery']) && $_POST['recovery'];
         
-        // ** LIGHTWEIGHT OPTION RETRIEVAL: Read only from options/transients **
         try {
+            // Clear WordPress option cache to ensure fresh reads for real-time progress
+            wp_cache_delete('nmkr_sync_progress', 'options');
+            wp_cache_delete('nmkr_sync_current_item', 'options');
+            wp_cache_delete('nmkr_sync_current_count', 'options');
+            wp_cache_delete('nmkr_sync_error', 'options');
+            wp_cache_delete('nmkr_last_progress_update_time', 'options');
+            
             $progress = get_option('nmkr_sync_progress', 0);
             $current_item = get_option('nmkr_sync_current_item', '');
-            // Use consistent 100-based denominator instead of potentially stale cache
-            $total_items = 100;
             $current_count = get_option('nmkr_sync_current_count', 0);
             $error = get_option('nmkr_sync_error', '');
             $last_update_time = get_option('nmkr_last_progress_update_time', 0);
+            
+            if ($progress === 0 && $current_count > 0) {
+                global $wpdb;
+                $db_progress = $wpdb->get_var("SELECT option_value FROM {$wpdb->options} WHERE option_name = 'nmkr_sync_progress'");
+                if ($db_progress !== null && (int)$db_progress > 0) {
+                    $progress = (int)$db_progress;
+                    nmkr_log_ui_status('UI: Used direct DB read for progress due to cache issue - Progress: ' . $progress . '%', 'debug');
+                }
+            }
+            
+            // Use consistent 100-based denominator instead of potentially stale cache
+            $total_items = 100;
             
             // Get performance stats from transient (lightweight read)
             $current_stats = get_transient('nmkr_current_sync_stats_live');
@@ -181,11 +197,12 @@ function nmkr_sync_progress_handler() {
         // Log UI status update for normal progress reporting (throttled)
         if (!nmkr_should_throttle_logs() || $progress_poll_count % 10 === 0) {
             $log_message = sprintf(
-                'UI: Reporting sync progress to frontend - Progress: %.1f%%, Item: %s, Count: %d/%d',
+                'UI: Reporting sync progress to frontend - Progress: %.1f%%, Item: %s, Count: %d/%d (Cache cleared: %s)',
                 $progress,
                 $current_item,
                 $current_count,
-                $total_items
+                $total_items,
+                'yes'
             );
             nmkr_log_ui_status($log_message, 'debug');
         }
@@ -984,4 +1001,4 @@ function nmkr_execute_sync_background_job() {
         update_option('nmkr_sync_in_progress', false);
         delete_transient('nmkr_sync_in_progress');
     }
-}            
+}                
