@@ -36,6 +36,10 @@ require_once plugin_dir_path(dirname(dirname(dirname(__FILE__)))) . 'includes/he
  * delegating to specialized functions for stats, UI, and Ajax functionality.
  */
 function nmkr_connect_dashboard_page() {
+    // Proactive stale-state recovery on dashboard load
+    if ( current_user_can('manage_options') && function_exists('nmkr_detect_and_recover_stale_sync') ) {
+        nmkr_detect_and_recover_stale_sync();
+    }
     // Log UI status update for dashboard page load
     nmkr_log_ui_status('UI: Dashboard page loaded by user', 'info');
     

@@ -101,6 +101,11 @@ function nmkr_connect_activate() {
     // Save options
     update_option('nmkr_connect_options', $options);
     
+    // Attempt stale-state recovery on activation (safe & idempotent)
+    if ( function_exists('nmkr_detect_and_recover_stale_sync') ) {
+        nmkr_detect_and_recover_stale_sync();
+    }
+
     // Flush rewrite rules
     flush_rewrite_rules();
 }
