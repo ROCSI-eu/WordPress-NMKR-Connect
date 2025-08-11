@@ -144,6 +144,8 @@ function nmkr_connect_deactivate() {
     delete_option('nmkr_last_progress_update_time');
     delete_option('nmkr_last_progress_value');
     delete_option('nmkr_sync_heartbeat');
+    delete_option('nmkr_sync_last_result');
+    delete_option('nmkr_sync_last_recovery_at');
     delete_transient('nmkr_sync_in_progress');
     delete_transient('nmkr_last_sync_error');
     delete_transient('nmkr_sync_progress');
@@ -197,7 +199,9 @@ function nmkr_connect_uninstall() {
         'nmkr_sync_near_completion',
         'nmkr_sync_stop_requested',
         'nmkr_sync_data',
-        'nmkr_ui_logs'
+        'nmkr_ui_logs',
+        'nmkr_sync_last_result',
+        'nmkr_sync_last_recovery_at'
     ];
 
     foreach ($option_keys as $key) {
