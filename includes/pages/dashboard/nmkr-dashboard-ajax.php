@@ -35,6 +35,10 @@ function nmkr_check_api_status() {
         wp_die();
     }
     
+    // Prevent caching of status responses
+    nocache_headers();
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    
     // Get current API key and sync status
     $options = get_option('nmkr_connect_options');
     $api_key = isset($options['api_key']) ? $options['api_key'] : '';
@@ -55,6 +59,16 @@ function nmkr_check_api_status() {
         nmkr_log_ui_status('UI: Fixed inconsistent sync state - sync was marked as in-progress but had completion/error status', 'warning');
     }
 
+    // Freshness gating of running flag
+    $in_progress   = (bool) get_option('nmkr_sync_in_progress', false);
+    $progress_val  = (int) ( get_transient('nmkr_sync_progress') ?: 0 );
+    $heartbeat_age = function_exists('nmkr_get_heartbeat_age') ? nmkr_get_heartbeat_age() : -1;
+    $last_update   = (int) get_option('nmkr_last_progress_update_time', 0);
+    $ttl           = defined('NMKR_SYNC_TRANSIENT_TTL') ? (int) NMKR_SYNC_TRANSIENT_TTL : HOUR_IN_SECONDS;
+    $grace         = min($ttl, 300);
+    $fresh         = ( $in_progress && $heartbeat_age >= 0 && $heartbeat_age < $grace && $last_update > 0 && ( time() - $last_update ) < $grace );
+    $running       = $fresh;
+
     if (empty($api_key)) {
         // API key is missing - log this event
         nmkr_log_api_status('Dashboard API status check: No API key set. User needs to configure API key in settings.', 'warning');
@@ -66,7 +80,13 @@ function nmkr_check_api_status() {
         wp_send_json_success([
             'message' => '⛓️‍💥 Disconnected - No API key set. Please configure your API key in the <a href="options-general.php?page=nmkr-connect-settings">Settings page</a>.',
             'connected' => false,
-            'sync_in_progress' => $sync_in_progress
+            'sync_in_progress' => $running,
+            'progress' => $progress_val,
+            'heartbeat_age' => $heartbeat_age,
+            'last_update' => $last_update,
+            'grace' => $grace,
+            'last_result' => get_option('nmkr_sync_last_result', ''),
+            'last_recovery_at' => (int) get_option('nmkr_sync_last_recovery_at', 0),
         ]);
     } else if (nmkr_is_api_connected()) {
         // API connected successfully - log this event
@@ -78,7 +98,13 @@ function nmkr_check_api_status() {
         wp_send_json_success([
             'message' => '✅ Connected', 
             'connected' => true,
-            'sync_in_progress' => $sync_in_progress
+            'sync_in_progress' => $running,
+            'progress' => $progress_val,
+            'heartbeat_age' => $heartbeat_age,
+            'last_update' => $last_update,
+            'grace' => $grace,
+            'last_result' => get_option('nmkr_sync_last_result', ''),
+            'last_recovery_at' => (int) get_option('nmkr_sync_last_recovery_at', 0),
         ]);
     } else {
         // API connection failed - log this event
@@ -90,7 +116,13 @@ function nmkr_check_api_status() {
         wp_send_json_success([
             'message' => '⛓️‍💥 Disconnected - Unable to establish connection with NMKR API. Please verify your API key credentials.',
             'connected' => false,
-            'sync_in_progress' => $sync_in_progress
+            'sync_in_progress' => $running,
+            'progress' => $progress_val,
+            'heartbeat_age' => $heartbeat_age,
+            'last_update' => $last_update,
+            'grace' => $grace,
+            'last_result' => get_option('nmkr_sync_last_result', ''),
+            'last_recovery_at' => (int) get_option('nmkr_sync_last_recovery_at', 0),
         ]);
     }
 
@@ -104,6 +136,10 @@ function nmkr_get_sync_statistics_ajax() {
         wp_send_json_error(['message' => 'Invalid security token']);
         wp_die();
     }
+    
+    // Prevent caching of statistics responses
+    nocache_headers();
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
     
     $type = isset($_POST['type']) ? sanitize_text_field($_POST['type']) : 'automatic';
     $request_type = isset($_POST['request_type']) ? sanitize_text_field($_POST['request_type']) : 'completed';
