@@ -138,8 +138,21 @@ require_once plugin_dir_path(__FILE__) . 'includes/shortcodes/nmkr-shortcode-pro
 function nmkr_connect_deactivate() {
     // Clean up volatile sync state on deactivation
     delete_option('nmkr_sync_status');
+    delete_option('nmkr_sync_in_progress');
+    delete_option('nmkr_sync_error');
+    delete_option('nmkr_sync_near_completion');
+    delete_option('nmkr_last_progress_update_time');
+    delete_option('nmkr_last_progress_value');
+    delete_option('nmkr_sync_heartbeat');
     delete_transient('nmkr_sync_in_progress');
     delete_transient('nmkr_last_sync_error');
+    delete_transient('nmkr_sync_progress');
+    delete_transient('nmkr_sync_current_item');
+    delete_transient('nmkr_sync_current_count');
+    delete_transient('nmkr_sync_total_items');
+    delete_transient('nmkr_current_sync_stats_live');
+    delete_transient('nmkr_current_sync_stats_summary');
+    delete_transient('nmkr_sync_user_stopped');
 }
 register_deactivation_hook(__FILE__, 'nmkr_connect_deactivate');
 
