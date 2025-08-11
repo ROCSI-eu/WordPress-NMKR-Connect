@@ -373,6 +373,72 @@ function nmkr_cleanup_sync_heartbeat() {
     delete_option('nmkr_sync_heartbeat');
 }
 
+/**
+ * Detect and recover a stale sync state (idempotent).
+ * Returns: ['stale'=>bool,'recovered'=>bool,'grace'=>int,'heartbeat_age'=>int,'last_update'=>int]
+ * NOTE: Callers must enforce caps when invoking from admin flows.
+ */
+function nmkr_detect_and_recover_stale_sync() {
+    // Reentrancy guard (60s)
+    if ( get_transient('nmkr_stale_recovery_running') ) {
+        return array('stale'=>false,'recovered'=>false,'grace'=>0,'heartbeat_age'=>-1,'last_update'=>0);
+    }
+    set_transient('nmkr_stale_recovery_running', true, 60);
+
+    $in_progress   = (bool) get_option('nmkr_sync_in_progress', false);
+    $heartbeat_age = function_exists('nmkr_get_heartbeat_age') ? nmkr_get_heartbeat_age() : -1;
+    $last_update   = (int) get_option('nmkr_last_progress_update_time', 0);
+
+    $ttl   = defined('NMKR_SYNC_TRANSIENT_TTL') ? (int) NMKR_SYNC_TRANSIENT_TTL : HOUR_IN_SECONDS;
+    $grace = min($ttl, 300);
+
+    $stale_heartbeat = ($heartbeat_age < 0 || $heartbeat_age >= $grace);
+    $stale_progress  = ($last_update <= 0 || ( time() - $last_update ) >= $grace);
+    $is_stale        = ( $in_progress && ( $stale_heartbeat || $stale_progress ) );
+
+    if ( ! $is_stale ) {
+        return array('stale'=>false,'recovered'=>false,'grace'=>$grace,'heartbeat_age'=>$heartbeat_age,'last_update'=>$last_update);
+    }
+
+    // Clear only sync-state; keep user settings
+    update_option('nmkr_sync_in_progress', false);
+
+    // Options
+    delete_option('nmkr_sync_error');
+    delete_option('nmkr_sync_near_completion');
+    delete_option('nmkr_last_progress_update_time');
+    delete_option('nmkr_last_progress_value');
+    delete_option('nmkr_sync_heartbeat');
+
+    // Transients
+    delete_transient('nmkr_sync_progress');
+    delete_transient('nmkr_sync_current_item');
+    delete_transient('nmkr_sync_current_count');
+    delete_transient('nmkr_sync_total_items');
+    delete_transient('nmkr_current_sync_stats_live');
+    delete_transient('nmkr_current_sync_stats_summary');
+    delete_transient('nmkr_sync_user_stopped');
+
+    // Info markers
+    update_option('nmkr_sync_last_result', 'recovered_stale');
+    update_option('nmkr_sync_last_recovery_at', time());
+
+    if ( function_exists('nmkr_log_ui_status') ) {
+        $iso = gmdate('c', $last_update > 0 ? $last_update : time());
+        $age = ( $last_update > 0 ) ? ( time() - $last_update ) : -1;
+        nmkr_log_ui_status(
+            sprintf(
+                __('[NMKR Connect Recovery] Stale sync detected (last_update=%1$s, age=%2$d sec). State cleared; UI set to idle.', 'nmkr-connect'),
+                $iso,
+                (int) $age
+            ),
+            'info'
+        );
+    }
+
+    return array('stale'=>true,'recovered'=>true,'grace'=>$grace,'heartbeat_age'=>$heartbeat_age,'last_update'=>$last_update);
+}
+
 // --- Safe PID helper -----------------------------------------------
 if ( ! function_exists( 'nmkr_safe_getpid' ) ) {
     /**
