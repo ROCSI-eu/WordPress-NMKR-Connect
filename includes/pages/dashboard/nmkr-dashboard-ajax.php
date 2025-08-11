@@ -69,6 +69,18 @@ function nmkr_check_api_status() {
     $fresh         = ( $in_progress && $heartbeat_age >= 0 && $heartbeat_age < $grace && $last_update > 0 && ( time() - $last_update ) < $grace );
     $running       = $fresh;
 
+    // Compute recovery banner recency and prune if stale
+    $last_result      = get_option('nmkr_sync_last_result', '');
+    $last_recovery_at = (int) get_option('nmkr_sync_last_recovery_at', 0);
+    $recent_window    = 6 * HOUR_IN_SECONDS;
+    $show_banner      = ( $last_recovery_at > 0 && ( time() - $last_recovery_at ) <= $recent_window );
+    if ( ! $show_banner ) {
+        delete_option('nmkr_sync_last_result');
+        delete_option('nmkr_sync_last_recovery_at');
+        $last_result = '';
+        $last_recovery_at = 0;
+    }
+
     if (empty($api_key)) {
         // API key is missing - log this event
         nmkr_log_api_status('Dashboard API status check: No API key set. User needs to configure API key in settings.', 'warning');
@@ -85,8 +97,8 @@ function nmkr_check_api_status() {
             'heartbeat_age' => $heartbeat_age,
             'last_update' => $last_update,
             'grace' => $grace,
-            'last_result' => get_option('nmkr_sync_last_result', ''),
-            'last_recovery_at' => (int) get_option('nmkr_sync_last_recovery_at', 0),
+            'last_result' => $last_result,
+            'last_recovery_at' => $last_recovery_at,
         ]);
     } else if (nmkr_is_api_connected()) {
         // API connected successfully - log this event
@@ -103,8 +115,8 @@ function nmkr_check_api_status() {
             'heartbeat_age' => $heartbeat_age,
             'last_update' => $last_update,
             'grace' => $grace,
-            'last_result' => get_option('nmkr_sync_last_result', ''),
-            'last_recovery_at' => (int) get_option('nmkr_sync_last_recovery_at', 0),
+            'last_result' => $last_result,
+            'last_recovery_at' => $last_recovery_at,
         ]);
     } else {
         // API connection failed - log this event
@@ -121,8 +133,8 @@ function nmkr_check_api_status() {
             'heartbeat_age' => $heartbeat_age,
             'last_update' => $last_update,
             'grace' => $grace,
-            'last_result' => get_option('nmkr_sync_last_result', ''),
-            'last_recovery_at' => (int) get_option('nmkr_sync_last_recovery_at', 0),
+            'last_result' => $last_result,
+            'last_recovery_at' => $last_recovery_at,
         ]);
     }
 
