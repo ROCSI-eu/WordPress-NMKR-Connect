@@ -1,6 +1,47 @@
 'use strict';
 
 jQuery(document).ready(function($) {
+    // --- Polling backoff state (exponential) --------------------------------
+    const pollBackoff = {
+        baseDelay: 3000,   // 3s base interval (reduce host throttling)
+        maxDelay: 30000,   // cap at 30s
+        fails: 0,
+        timer: null,
+        xhr: null
+    };
+
+    function scheduleNextPoll(delay) {
+        if (pollBackoff.timer) {
+            clearTimeout(pollBackoff.timer);
+            pollBackoff.timer = null;
+        }
+        const waitMs = (delay != null) ? delay : pollBackoff.baseDelay;
+        pollBackoff.timer = setTimeout(fetchProgress, waitMs);
+    }
+
+    function isTransientFailure(xhr, status) {
+        const code = Number(xhr && xhr.status);
+        if (status === 'timeout' || status === 'abort' || status === 'error') return true;
+        return [0, 500, 502, 503, 504, 520, 521, 522, 524].indexOf(code) !== -1;
+    }
+
+    // If the detailed error helper isn't defined globally yet, define it.
+    if (typeof window.nmkrHttpErrorString !== 'function') {
+        window.nmkrHttpErrorString = function (xhr) {
+            try { return 'HTTP ' + (xhr.status || 0) + ' ' + (xhr.statusText || '') + ' – ' + String(xhr.responseText || '').slice(0, 200); }
+            catch (e) { return 'HTTP error'; }
+        };
+    }
+
+    // Optional soft warning banner (amber). Non-fatal; Stop stays enabled.
+    window.nmkrShowWarning = window.nmkrShowWarning || function (msg) {
+        try {
+            const box = document.querySelector('.nmkr-admin-notice-warning');
+            if (!box) return;
+            box.textContent = msg;
+            box.style.display = 'block';
+        } catch (e) { /* no-op */ }
+    };
     // Build a concise HTTP error summary from jqXHR
     function nmkrHttpErrorString(xhr) {
         try {
@@ -163,6 +204,14 @@ jQuery(document).ready(function($) {
             updateLastSyncTime('manual_stop', () => { hideActiveSyncMetrics(); });
         });
         $('#status-message').text('⏹️ Stopping Synchronization…');
+        if (pollBackoff.timer) {
+            clearTimeout(pollBackoff.timer);
+            pollBackoff.timer = null;
+        }
+        if (pollBackoff.xhr && pollBackoff.xhr.readyState !== 4) {
+            try { pollBackoff.xhr.abort(); } catch (e) {}
+            pollBackoff.xhr = null;
+        }
     });
 
     function fetchProgress() {
@@ -171,7 +220,11 @@ jQuery(document).ready(function($) {
       
       console.log('JS: Sending AJAX request for sync progress at', new Date().toISOString());
       
-      pollXhr = $.ajax({
+      // Abort any in-flight poll before starting another
+      if (pollBackoff.xhr && pollBackoff.xhr.readyState !== 4) {
+        try { pollBackoff.xhr.abort(); } catch (e) {}
+      }
+      pollXhr = pollBackoff.xhr = $.ajax({
         url: nmkrSyncProgress.ajax_url,
         method: 'POST',
         dataType: 'json',
@@ -183,6 +236,8 @@ jQuery(document).ready(function($) {
         }
       })
       .done(response => {
+        // Reset backoff on success
+        pollBackoff.fails = 0;
         window.lastSyncResponse = response;
         console.log('JS: Received AJAX response:', response);
         
@@ -242,7 +297,7 @@ jQuery(document).ready(function($) {
                 Math.max(currentPollingInterval, minPollingInterval),
                 maxPollingInterval
               );
-              pollTimeoutId = setTimeout(fetchProgress, nextInterval);
+              scheduleNextPoll(nextInterval);
             }
           } else {
             // Handle unsuccessful response
@@ -259,14 +314,24 @@ jQuery(document).ready(function($) {
           return;
         }
         if (status === 'timeout' && pollXhr) {
-          pollXhr.abort();
+          try { pollXhr.abort(); } catch (e) {}
         }
-        const msg = nmkrHttpErrorString(jqXHR);
-        console.warn('Progress poll failed:', msg);
+        const msg = (typeof nmkrHttpErrorString === 'function') ? nmkrHttpErrorString(jqXHR) : window.nmkrHttpErrorString(jqXHR);
+        if (isTransientFailure(jqXHR, status)) {
+          // Non-fatal: exponential backoff, keep Stop active
+          pollBackoff.fails = Math.min(pollBackoff.fails + 1, 10);
+          const delay = Math.min(pollBackoff.baseDelay * Math.pow(2, pollBackoff.fails), pollBackoff.maxDelay);
+          console.warn('Progress poll transient failure:', msg, '– retrying in', Math.round(delay / 1000), 's');
+          window.nmkrShowWarning('Temporary sync hiccup: ' + msg + '. Retrying in ' + Math.round(delay / 1000) + 's…');
+          scheduleNextPoll(delay);
+          return;
+        }
+        console.error('Progress poll failed:', msg);
         handleError(msg);
       })
       .always(() => {
         isFetching = false;
+        pollBackoff.xhr = null;
       });
     }
 
@@ -282,6 +347,11 @@ jQuery(document).ready(function($) {
       lastStepsCompleted = 0;
       currentPollingInterval = minPollingInterval;
       stopPolling();
+      if (pollBackoff.timer) {
+          clearTimeout(pollBackoff.timer);
+          pollBackoff.timer = null;
+      }
+      pollBackoff.fails = 0;
       
       // Hide start button and show stop button immediately
       syncButton.hide();
@@ -332,7 +402,7 @@ jQuery(document).ready(function($) {
 
     if (nmkrSyncProgress.resume) {
       $('#nmkr-sync-phase-label').text('Synchronization in progress…');
-      startSyncPolling();
+      scheduleNextPoll(pollBackoff.baseDelay);
     }
     
     // Ensure timeout is cleared when page is unloaded
@@ -341,6 +411,14 @@ jQuery(document).ready(function($) {
         if (startXhr && startXhr.readyState !== 4) startXhr.abort();
         if (stopXhr && stopXhr.readyState !== 4) stopXhr.abort();
         stopPolling();
+        if (pollBackoff.timer) {
+            clearTimeout(pollBackoff.timer);
+            pollBackoff.timer = null;
+        }
+        if (pollBackoff.xhr && pollBackoff.xhr.readyState !== 4) {
+            try { pollBackoff.xhr.abort(); } catch (e) {}
+            pollBackoff.xhr = null;
+        }
     });
 
 

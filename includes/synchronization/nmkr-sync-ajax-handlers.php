@@ -115,6 +115,8 @@ function nmkr_cleanup_sync_jobs_handler() {
  * AJAX handler for getting sync progress
  */
 function nmkr_sync_progress_handler() {
+    // Hint proxies and FastCGI not to cache the lightweight progress payload.
+    nocache_headers();
     // Verify nonce for security
     check_ajax_referer('nmkr_sync_nonce', 'nonce');
     
