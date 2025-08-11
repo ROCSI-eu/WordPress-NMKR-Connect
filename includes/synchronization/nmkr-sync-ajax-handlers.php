@@ -49,15 +49,15 @@ function nmkr_start_sync_handler() {
         delete_transient('nmkr_sync_user_stopped');
         
         // Initialize progress to 0% for fresh start
-        set_transient('nmkr_sync_progress', 0, 3600);
-        set_transient('nmkr_sync_current_item', 'Initializing synchronization...', 3600);
-        set_transient('nmkr_sync_current_count', 0, 3600);
-        set_transient('nmkr_sync_user_stopped', false, 3600);
+        set_transient('nmkr_sync_progress', 0, NMKR_SYNC_TRANSIENT_TTL);
+        set_transient('nmkr_sync_current_item', 'Initializing synchronization...', NMKR_SYNC_TRANSIENT_TTL);
+        set_transient('nmkr_sync_current_count', 0, NMKR_SYNC_TRANSIENT_TTL);
+        set_transient('nmkr_sync_user_stopped', false, NMKR_SYNC_TRANSIENT_TTL);
         
         nmkr_log_ui_status('TRANSIENT CLEANUP: Cleared stale progress transients and initialized to 0%', 'debug');
         
         update_option('nmkr_sync_in_progress', true);
-        set_transient('nmkr_sync_in_progress', true, HOUR_IN_SECONDS);
+        set_transient('nmkr_sync_in_progress', true, NMKR_SYNC_TRANSIENT_TTL);
         
         // Schedule the sync to run in the background via WP-Cron
         wp_schedule_single_event(time(), 'nmkr_execute_sync_background');
@@ -118,7 +118,7 @@ function nmkr_sync_progress_handler() {
     // Verify nonce for security
     check_ajax_referer('nmkr_sync_nonce', 'nonce');
     
-    nmkr_log_ui_status('AJAX HANDLER: nmkr_sync_progress_handler called by process ' . getmypid(), 'debug');
+    nmkr_log_ui_status('AJAX HANDLER: nmkr_sync_progress_handler called by process ' . nmkr_safe_getpid(), 'debug');
     
     try {
         // ** ENHANCED ERROR HANDLING: Parameter Validation **
@@ -139,7 +139,7 @@ function nmkr_sync_progress_handler() {
             $last_update_time = ($last_update_time !== false) ? $last_update_time : 0;
             
             // Log transient read for cross-process debugging
-            nmkr_log_ui_status('TRANSIENT READ: Progress ' . $progress . '% read from transient by AJAX process ' . getmypid(), 'debug');
+            nmkr_log_ui_status('TRANSIENT READ: Progress ' . $progress . '% read from transient by AJAX process ' . nmkr_safe_getpid(), 'debug');
             
             if ($progress === 0 && $current_count > 0) {
                 global $wpdb;
@@ -586,7 +586,7 @@ function nmkr_stop_sync_handler() {
     delete_transient('nmkr_sync_in_progress');
     
     update_option('nmkr_sync_user_stopped', true);
-    set_transient('nmkr_sync_user_stopped', true, 3600);
+    set_transient('nmkr_sync_user_stopped', true, NMKR_SYNC_TRANSIENT_TTL);
     
     // IMPORTANT: Manually unschedule all cron events first (before calling nmkr_clear_sync_jobs)
     // This provides an additional layer of assurance that cron jobs will be stopped
@@ -951,9 +951,9 @@ function nmkr_execute_sync_background_job() {
         delete_transient('nmkr_last_progress_value');
         
         // Initialize progress to 0% for fresh start
-        set_transient('nmkr_sync_progress', 0, 3600);
-        set_transient('nmkr_sync_current_item', 'Initializing synchronization...', 3600);
-        set_transient('nmkr_sync_current_count', 0, 3600);
+        set_transient('nmkr_sync_progress', 0, NMKR_SYNC_TRANSIENT_TTL);
+        set_transient('nmkr_sync_current_item', 'Initializing synchronization...', NMKR_SYNC_TRANSIENT_TTL);
+        set_transient('nmkr_sync_current_count', 0, NMKR_SYNC_TRANSIENT_TTL);
         
         nmkr_log_ui_status('BACKGROUND JOB: Cleared stale progress transients and initialized to 0%', 'debug');
         

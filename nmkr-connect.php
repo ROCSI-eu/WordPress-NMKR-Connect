@@ -219,11 +219,17 @@ add_action('wp_enqueue_scripts', 'nmkr_enqueue_lazy_loading_script');
 // Enqueue admin scripts for NMKR pages
 function nmkr_enqueue_admin_assets($hook) {
     if (strpos($hook, 'nmkr') !== false) {
-        // Enqueue constants first
-        wp_enqueue_script('nmkr-sync-status-constants', plugin_dir_url(__FILE__) . 'js/nmkr-sync-status-constants.js', array(), '1.0', true);
+        // Enqueue constants first (with cache-busting by filemtime)
+        $base_url = plugin_dir_url(__FILE__);
+        $base_dir = plugin_dir_path(__FILE__);
+        $js_constants_rel = 'js/nmkr-sync-status-constants.js';
+        $js_progress_rel  = 'js/nmkr-sync-progress.js';
+        $js_constants_ver = @filemtime($base_dir . $js_constants_rel) ?: '1.0';
+        $js_progress_ver  = @filemtime($base_dir . $js_progress_rel)  ?: '1.0';
+        wp_enqueue_script('nmkr-sync-status-constants', $base_url . $js_constants_rel, array(), $js_constants_ver, true);
         
         // Then enqueue the main progress script with constants as dependency
-        wp_enqueue_script('nmkr-sync-progress', plugin_dir_url(__FILE__) . 'js/nmkr-sync-progress.js', array('jquery', 'nmkr-sync-status-constants'), '1.0', true);
+        wp_enqueue_script('nmkr-sync-progress', $base_url . $js_progress_rel, array('jquery', 'nmkr-sync-status-constants'), $js_progress_ver, true);
         
         // Localize the script with runtime sync controls
         wp_localize_script(
@@ -232,6 +238,7 @@ function nmkr_enqueue_admin_assets($hook) {
             array(
                 'ajax_url' => admin_url( 'admin-ajax.php' ),
                 'nonce'    => wp_create_nonce( 'nmkr_sync_nonce' ),
+                'dashboardNonce' => wp_create_nonce( 'nmkr_dashboard_nonce' ),
                 'resume'   => false,
                 'options'  => array(
                     'sync_initial_interval'   => isset($options['sync_initial_interval']) ? $options['sync_initial_interval'] : 1000,

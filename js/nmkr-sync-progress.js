@@ -1,6 +1,14 @@
 'use strict';
 
 jQuery(document).ready(function($) {
+    // Build a concise HTTP error summary from jqXHR
+    function nmkrHttpErrorString(xhr) {
+        try {
+            return `HTTP ${xhr.status} ${xhr.statusText} – ${(xhr.responseText || '').slice(0,200)}`;
+        } catch (e) {
+            return 'HTTP error';
+        }
+    }
     // Consolidated polling state variables
     let pollTimeoutId;
     let isFetching = false;
@@ -116,7 +124,8 @@ jQuery(document).ready(function($) {
             method: 'POST',
             data: {
                 action: 'nmkr_start_sync',
-                nonce: nmkrSyncProgress.nonce
+                nonce: nmkrSyncProgress.nonce,
+                _: Date.now()
             },
             timeout: 300000
         })
@@ -125,12 +134,14 @@ jQuery(document).ready(function($) {
                 // Begin polling live metrics
                 startSyncPolling();
             } else {
-                handleError(response.data?.message || 'unknown error');
+            handleError(response.data?.message || 'unknown error');
             }
         })
         .fail(function(xhr, status) {
             if (status === 'abort') return;
-            handleError(status || 'network error');
+            const msg = nmkrHttpErrorString(xhr);
+            console.error('Start sync failed:', msg);
+            handleError(msg);
         });
     });
 
@@ -139,12 +150,13 @@ jQuery(document).ready(function($) {
         stopSyncButton.prop('disabled', true);
         stopXhr = $.post(nmkrSyncProgress.ajax_url, {
             action: 'nmkr_stop_sync',
-            nonce: nmkrSyncProgress.nonce
+            nonce: nmkrSyncProgress.nonce,
+            _: Date.now()
         })
         .fail(function(xhr, status) {
             if (status === 'abort') return;
-            // Even if stop fails, we should still teardown the UI
-            console.warn('Stop sync request failed:', status);
+            const msg = nmkrHttpErrorString(xhr);
+            console.warn('Stop sync request failed:', msg);
         })
         .always(() => {
             teardownSyncUI();
@@ -166,7 +178,8 @@ jQuery(document).ready(function($) {
         timeout: 300000,
         data: {
           action: 'nmkr_sync_progress',
-          nonce: nmkrSyncProgress.nonce
+          nonce: nmkrSyncProgress.nonce,
+          _: Date.now()
         }
       })
       .done(response => {
@@ -243,13 +256,14 @@ jQuery(document).ready(function($) {
       })
       .fail((jqXHR, status) => {
         if (status === 'abort') {
-          // intentional cancel — do nothing
           return;
         }
         if (status === 'timeout' && pollXhr) {
           pollXhr.abort();
         }
-        handleError(status);
+        const msg = nmkrHttpErrorString(jqXHR);
+        console.warn('Progress poll failed:', msg);
+        handleError(msg);
       })
       .always(() => {
         isFetching = false;
@@ -749,7 +763,8 @@ jQuery(document).ready(function($) {
                 type: type,
                 request_type: 'completed', // Always request completed stats, never active ones
                 force_refresh: type === 'manual_stop' || type === 'sync_completed',
-                nonce: nmkrSyncProgress.nonce
+                nonce: nmkrSyncProgress.dashboardNonce,
+                _: Date.now()
             },
             success: function(response) {
                 if (response.success && response.data) {
@@ -789,12 +804,11 @@ jQuery(document).ready(function($) {
                 }
             },
             error: function(xhr, status, error) {
-                // Only update on error if not in active synchronization
+                const msg = nmkrHttpErrorString(xhr);
+                console.error('Stats refresh failed:', msg);
                 if (!syncInProgress) {
                     lastSynced.text('Error retrieving synchronization data');
                 }
-                
-                // Execute callback even on error
                 if (callback && typeof callback === 'function') {
                     callback(null);
                 }

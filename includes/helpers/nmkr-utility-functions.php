@@ -372,3 +372,26 @@ function nmkr_get_heartbeat_age() {
 function nmkr_cleanup_sync_heartbeat() {
     delete_option('nmkr_sync_heartbeat');
 }
+
+// --- Safe PID helper -----------------------------------------------
+if ( ! function_exists( 'nmkr_safe_getpid' ) ) {
+    /**
+     * Return a safe integer PID on hosts where getmypid() may be disabled.
+     *
+     * @return int
+     */
+    function nmkr_safe_getpid() {
+        try {
+            if ( function_exists( 'getmypid' ) ) {
+                $pid = @getmypid();
+                if ( is_int( $pid ) && $pid > 0 ) {
+                    return $pid;
+                }
+            }
+        } catch ( Throwable $e ) {
+            // no-op
+        }
+        // fallback: non-sensitive pseudo pid
+        return (int) wp_rand( 1000, 999999 );
+    }
+}

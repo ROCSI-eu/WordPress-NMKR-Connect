@@ -1018,7 +1018,7 @@ function nmkr_sync_data() {
         
         // Clear user stopped flag for successful completion
         update_option('nmkr_sync_user_stopped', false);
-        set_transient('nmkr_sync_user_stopped', false, 3600);
+        set_transient('nmkr_sync_user_stopped', false, NMKR_SYNC_TRANSIENT_TTL);
         
         // Save final metrics to database (single authoritative path)
         $live = get_transient('nmkr_current_sync_stats_live');
@@ -1176,11 +1176,11 @@ function nmkr_start_sync() {
     
     // Set sync flags
     update_option('nmkr_sync_in_progress', true);
-    set_transient('nmkr_sync_in_progress', true, HOUR_IN_SECONDS);
+    set_transient('nmkr_sync_in_progress', true, NMKR_SYNC_TRANSIENT_TTL);
     update_option('nmkr_sync_stop_requested', false);
     
     update_option('nmkr_sync_user_stopped', false);
-    set_transient('nmkr_sync_user_stopped', false, 3600);
+    set_transient('nmkr_sync_user_stopped', false, NMKR_SYNC_TRANSIENT_TTL);
     
     // Initialize the sync process in background
     // Schedule sync to run in background instead of direct synchronous call
