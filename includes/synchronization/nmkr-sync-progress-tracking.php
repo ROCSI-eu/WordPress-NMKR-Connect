@@ -42,8 +42,8 @@ function nmkr_update_sync_progress($steps_completed, $total_steps, $current_item
     set_transient('nmkr_sync_current_count', $steps_completed, NMKR_SYNC_TRANSIENT_TTL);
     set_transient('nmkr_sync_total_items', $total_steps, NMKR_SYNC_TRANSIENT_TTL);
     
-    // Record the time of this progress update
-    set_transient('nmkr_last_progress_update_time', time(), NMKR_SYNC_TRANSIENT_TTL);
+    // Record the time of this progress update (normalize to option for durability)
+    update_option('nmkr_last_progress_update_time', time());
     set_transient('nmkr_last_progress_value', $percent, NMKR_SYNC_TRANSIENT_TTL);
     
     update_option('nmkr_sync_progress', $percent);
