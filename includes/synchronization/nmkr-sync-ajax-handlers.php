@@ -137,8 +137,7 @@ function nmkr_sync_progress_handler() {
             $current_count = ($current_count !== false) ? $current_count : 0;
             $error = get_transient('nmkr_sync_error');
             $error = ($error !== false) ? $error : '';
-            $last_update_time = get_transient('nmkr_last_progress_update_time');
-            $last_update_time = ($last_update_time !== false) ? $last_update_time : 0;
+            $last_update_time = (int) get_option('nmkr_last_progress_update_time', 0);
             
             // Log transient read for cross-process debugging
             nmkr_log_ui_status('TRANSIENT READ: Progress ' . $progress . '% read from transient by AJAX process ' . nmkr_safe_getpid(), 'debug');
@@ -457,7 +456,7 @@ function nmkr_sync_progress_handler() {
     }
     
     // Check if sync is near completion
-    $near_completion_raw = get_transient('nmkr_sync_near_completion');
+    $near_completion_raw = get_option('nmkr_sync_near_completion', false);
     $near_completion = ($near_completion_raw !== false) ? $near_completion_raw : false;
     
     // Enhanced AJAX response with unified progress data and live metrics
