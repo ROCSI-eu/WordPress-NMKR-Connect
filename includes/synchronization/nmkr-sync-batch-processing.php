@@ -62,10 +62,13 @@ function nmkr_process_tokens_batch($project_uid, $tokens, $batch_start, $batch_s
         
         // Check if wp-admin is being used, and if so, check if user canceled the operation
         if (is_admin()) {
-            $sync_stop_requested = get_transient('nmkr_stop_sync_requested');
+            $sync_stop_requested = (bool) get_transient('nmkr_sync_user_stopped');
+            if ( ! $sync_stop_requested ) {
+                $sync_stop_requested = (bool) get_option('nmkr_sync_user_stopped', false);
+            }
             if ($sync_stop_requested) {
                 nmkr_log_data_sync('Sync process was manually stopped by user during token processing');
-                delete_transient('nmkr_stop_sync_requested');
+                delete_transient('nmkr_sync_user_stopped');
                 return $processed_count;
             }
             
