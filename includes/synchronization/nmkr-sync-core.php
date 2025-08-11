@@ -765,7 +765,7 @@ function nmkr_sync_data() {
                 'request_times'  => [],
                 'memory_usage'   => memory_get_peak_usage(true) / 1024
             ],
-            HOUR_IN_SECONDS
+            NMKR_SYNC_TRANSIENT_TTL
         );
         
         // Set sync in progress flag
