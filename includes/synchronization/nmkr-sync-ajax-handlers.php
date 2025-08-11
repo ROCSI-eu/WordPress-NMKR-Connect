@@ -36,6 +36,10 @@ function nmkr_start_sync_handler() {
     // Verify nonce for security
     check_ajax_referer('nmkr_sync_nonce', 'nonce');
     
+    // Clear any past recovery note on fresh start
+    delete_option('nmkr_sync_last_result');
+    delete_option('nmkr_sync_last_recovery_at');
+    
     try {
         // Log UI status update for starting sync
         nmkr_log_ui_status('UI: User clicked Start Synchronization button - initializing sync process', 'info');
