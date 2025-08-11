@@ -766,6 +766,7 @@ function nmkr_render_sync_data_panel($dashboard_nonce) {
     <!-- Data Synchronization Panel -->
     <div class="panel sync-data" role="region" aria-label="Data Synchronization Controls">
         <h2 class="center-text">Data Synchronization</h2>
+        <div id="nmkr-recovered-note" class="notice notice-info is-dismissible" style="display:none"></div>
         <div class="nmkr-info-box">
             <span class="dashicons dashicons-database-import"></span>
             <p>Synchronize and update your NMKR projects, tokens, and token details to maintain current data in the dashboard.</p>
@@ -1538,7 +1539,24 @@ function nmkr_render_dashboard_scripts($dashboard_nonce) {
                         
                         // Show active sync metrics container
                         $('#active-sync-metrics').show();
+
+                        // Kick off polling if available
+                        if (window.NMKRProgress && typeof window.NMKRProgress.startPolling === 'function') {
+                            window.NMKRProgress.startPolling();
+                        }
                     }
+
+                    // Show recovered note if server indicates recent recovery
+                    try {
+                        if (response && response.data && response.data.last_result === 'recovered_stale' && response.data.last_recovery_at > 0) {
+                            const t = new Date(response.data.last_recovery_at * 1000);
+                            const note = document.getElementById('nmkr-recovered-note');
+                            if (note) {
+                                note.textContent = 'Recovered from stale sync at ' + t.toLocaleString();
+                                note.style.display = 'block';
+                            }
+                        }
+                    } catch (e) {}
                 }
             });
             
