@@ -790,7 +790,7 @@ function nmkr_render_sync_data_panel($dashboard_nonce) {
             </div>
             
             <div id="status-message" aria-live="polite" class="sync-status-message">
-                <span id="nmkr-sync-phase-label" class="sync-phase-label">Waiting for synchronization to start…</span>
+                <span id="nmkr-sync-phase-label" class="sync-phase-label"></span>
             </div>
             
             <div id="active-sync-metrics" style="display: none; text-align: center; margin-top: 15px; font-size: 14px;">
