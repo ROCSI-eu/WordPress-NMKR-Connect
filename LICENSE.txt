@@ -1,26 +1,54 @@
 MIT License
 
-Copyright (c) 2024 Cyber Space Initiative SRL
+Copyright (c) 2024–2025
+Mihai Bărbulescu and Cyber Space Initiative SRL (ROCSI.eu)
+and contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
+of this software and associated documentation files (the “Software”), to deal
 in the Software without restriction, including without limitation the rights
 to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+The above copyright notice and this permission notice shall
+be included in all copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
 
-Contributions:
-Contributions to this project are welcomed. Contributors retain the copyright 
-to their individual contributions, while allowing ROCSI.eu to use and 
-distribute those contributions under the terms of this license.
+-------------------------------------------------------------------------------
+ADDITIONAL NOTICES (NON-RESTRICTIVE CLARIFICATIONS)
+
+These notes are for clarity only and do not add conditions beyond the MIT License.
+
+1) Open-source + commercial support
+   This project is open-source under MIT. Optional license keys may be offered
+   to deliver in-dashboard updates, support, and/or additional assets. Such
+   keys do not alter your MIT rights to the Software itself.
+
+2) Third-party components
+   The Software may bundle or depend on third-party libraries (e.g., under
+   the “vendor/” directory) that are licensed under their own terms. Those
+   licenses remain in full force and govern their respective components.
+   See the corresponding LICENSE files shipped with each dependency.
+
+3) Trademarks
+   “WordPress”, “Gutenberg”, “Elementor”, “NMKR”, and other names may be
+   trademarks of their respective owners. Trademarks are not licensed under
+   the MIT terms above.
+
+4) Contributions
+   By submitting a contribution, you agree to license your contribution under
+   the MIT License and represent that you have the right to do so. You retain
+   the copyright to your individual contributions.
+
+5) Telemetry (if enabled)
+   Any diagnostic/usage data collection is opt-in and governed by the project’s
+   privacy documentation. Telemetry is not a condition of the MIT License.
