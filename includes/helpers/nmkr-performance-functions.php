@@ -73,11 +73,11 @@ function nmkr_end_performance_tracking($tracking_data) {
         $current_stats['successful_requests']++;
         $current_stats['request_times'][] = $duration;
         $current_stats['total_api_time'] += $duration;
-    } elseif ($tracking_data['operation'] === 'store_project') {
+    } elseif (strpos($tracking_data['operation'], 'store_project') === 0) {
         $current_stats['total_projects']++;
         $current_stats['db_queries']++;
         $current_stats['db_duration'] += $duration;
-    } elseif ($tracking_data['operation'] === 'store_token') {
+    } elseif (strpos($tracking_data['operation'], 'store_token') === 0) {
         $current_stats['total_tokens']++;
         $current_stats['db_queries']++;
         $current_stats['db_duration'] += $duration;
