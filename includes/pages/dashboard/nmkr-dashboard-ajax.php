@@ -153,6 +153,11 @@ function nmkr_get_sync_statistics_ajax() {
     nocache_headers();
     header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
     
+    // Begin scoped buffer and suppress display errors to prevent stray output corrupting JSON
+    $__nmkr_prev_display_errors = ini_get('display_errors');
+    @ini_set('display_errors', '0');
+    ob_start();
+    
     $type = isset($_POST['type']) ? sanitize_text_field($_POST['type']) : 'automatic';
     $request_type = isset($_POST['request_type']) ? sanitize_text_field($_POST['request_type']) : 'completed';
     $force_refresh = isset($_POST['force_refresh']) && $_POST['force_refresh'] === 'true';
@@ -221,12 +226,15 @@ function nmkr_get_sync_statistics_ajax() {
             );
             nmkr_log_ui_status($log_message, 'info');
             
-            wp_send_json_success($formatted_metrics);
+            $response = $formatted_metrics;
+            if (ob_get_length()) { ob_clean(); }
+            if ($__nmkr_prev_display_errors !== false) { @ini_set('display_errors', $__nmkr_prev_display_errors); }
+            wp_send_json_success($response);
         } else {
             // No active sync, return empty state with all 7 metrics
             nmkr_log_ui_status('UI: No active sync metrics to display, showing empty state for all 7 metrics', 'info');
             
-            wp_send_json_success(array(
+            $response = array(
                 'progress' => 0,
                 // Progress metrics
                 'total_projects' => 0,
@@ -240,7 +248,10 @@ function nmkr_get_sync_statistics_ajax() {
                 // Styling classes
                 'response_time_class' => 'status-neutral',
                 'memory_class' => 'status-neutral'
-            ));
+            );
+            if (ob_get_length()) { ob_clean(); }
+            if ($__nmkr_prev_display_errors !== false) { @ini_set('display_errors', $__nmkr_prev_display_errors); }
+            wp_send_json_success($response);
         }
     } else {
         // Get completed sync metrics (historical data only)
@@ -305,7 +316,10 @@ function nmkr_get_sync_statistics_ajax() {
             nmkr_log_ui_status($log_message, 'debug');
         }
         
-        wp_send_json_success($stats);
+        $response = $stats;
+        if (ob_get_length()) { ob_clean(); }
+        if ($__nmkr_prev_display_errors !== false) { @ini_set('display_errors', $__nmkr_prev_display_errors); }
+        wp_send_json_success($response);
     }
     
     wp_die();
