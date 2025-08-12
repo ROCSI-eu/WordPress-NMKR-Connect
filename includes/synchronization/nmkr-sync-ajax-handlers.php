@@ -151,15 +151,14 @@ function nmkr_sync_progress_handler() {
             // Log transient read for cross-process debugging
             nmkr_log_ui_status('TRANSIENT READ: Progress ' . $progress . '% read from transient by AJAX process ' . nmkr_safe_getpid(), 'debug');
             
-            if ($progress === 0 && $current_count > 0) {
-                global $wpdb;
-                // Force commit any pending transactions to ensure fresh reads
-                $wpdb->query('COMMIT');
-                $db_progress = $wpdb->get_var("SELECT option_value FROM {$wpdb->options} WHERE option_name = 'nmkr_sync_progress'");
-                if ($db_progress !== null && (int)$db_progress > 0) {
-                    $progress = (int)$db_progress;
-                    $progress_int = $progress; // Keep JSON response in sync with DB fallback value
-                    nmkr_log_ui_status('UI: Used direct DB read for progress due to transient issue - Progress: ' . $progress . '%', 'debug');
+            // Fallback: prefer transient; optionally consult the option if transient reads as 0 mid-run.
+            // NOTE: Avoid direct SQL/COMMIT here to keep the handler fast and side-effect free.
+            if ((int) $progress_int === 0 && (int) $current_count > 0) {
+                $option_progress = get_option('nmkr_sync_progress', 0);
+                if (is_numeric($option_progress) && (int) $option_progress > 0) {
+                    $progress = (int) $option_progress;
+                    $progress_int = $progress; // ensure response returns the fresh value
+                    nmkr_log_ui_status('UI: Used option fallback for progress: ' . $progress . '%', 'debug');
                 }
             }
             
@@ -495,22 +494,23 @@ function nmkr_sync_progress_handler() {
         'finished'     => ($progress_int === 100 && !$user_requested_abort),
         'total_items'  => $total_items,
     );
-    
-    // Always include live metrics in heartbeat payload
-    // Get current sync stats for live metrics (fixes variable scope issue)
-    $current_stats = nmkr_get_sync_stats();
-    if (!$current_stats) {
-        $current_stats = array();
-    }
-    
+
+    // Always include live metrics in heartbeat payload using already-fetched transient only
+    // (keep handler lightweight; no additional DB reads here)
+    $avg_seconds = isset($current_stats['average_time']) ? (float) $current_stats['average_time'] : 0.0;
+    $mem_mb      = isset($current_stats['memory_used']) ? (float) $current_stats['memory_used'] : 0.0;
     $response_data['live_metrics'] = array(
-        'total_projects' => $current_stats['total_projects'] ?? 0,
-        'total_tokens' => $current_stats['total_tokens'] ?? 0,
-        'total_sync_duration' => $current_stats['total_duration'] ?? 0,
-        'total_api_time' => $current_stats['total_api_time'] ?? 0,
-        'average_response_time' => $current_stats['average_time'] ?? 0,
-        'api_requests' => $current_stats['request_count'] ?? 0,
-        'memory_usage' => $current_stats['memory_used'] ?? 0
+        'total_projects'        => isset($current_stats['total_projects']) ? (int) $current_stats['total_projects'] : 0,
+        'total_tokens'          => isset($current_stats['total_tokens']) ? (int) $current_stats['total_tokens'] : 0,
+        'total_sync_duration'   => isset($current_stats['total_duration']) ? (float) $current_stats['total_duration'] : 0.0,
+        'total_api_time'        => isset($current_stats['total_api_time']) ? (float) $current_stats['total_api_time'] : 0.0,
+        'average_response_time' => $avg_seconds,
+        'api_requests'          => isset($current_stats['request_count']) ? (int) $current_stats['request_count'] : 0,
+        'memory_usage'          => $mem_mb,
+        // optional duplicates for legacy/interop without breaking existing keys
+        'avg_api_ms'            => (int) round($avg_seconds * 1000),
+        'memory_bytes'          => (int) round($mem_mb * 1024 * 1024),
+        'updated_at'            => isset($current_stats['updated_at']) ? (int) $current_stats['updated_at'] : time(),
     );
 
     // Delete the live stats transient only when sync is finalized

@@ -228,7 +228,8 @@ jQuery(document).ready(function($) {
         url: nmkrSyncProgress.ajax_url,
         method: 'POST',
         dataType: 'json',
-        timeout: 300000,
+        timeout: 45000,
+        cache: false,
         data: {
           action: 'nmkr_sync_progress',
           nonce: nmkrSyncProgress.nonce,
@@ -373,6 +374,10 @@ jQuery(document).ready(function($) {
       fetchProgress();
     }
 
+    // Optional legacy interop: expose a public resume hook if external code calls it
+    window.NMKRProgress = window.NMKRProgress || {};
+    window.NMKRProgress.startPolling = startSyncPolling;
+
 
     function handleComplete() {
       syncInProgress = false;
@@ -426,9 +431,11 @@ jQuery(document).ready(function($) {
 
     // Helper function to stop polling
     function stopPolling() {
-        if (pollTimeoutId) {
-            clearTimeout(pollTimeoutId);
-            pollTimeoutId = null;
+        if (pollTimeoutId) { clearTimeout(pollTimeoutId); pollTimeoutId = null; }
+        if (pollBackoff && pollBackoff.timer) { clearTimeout(pollBackoff.timer); pollBackoff.timer = null; }
+        if (pollBackoff && pollBackoff.xhr && pollBackoff.xhr.readyState !== 4) {
+          try { pollBackoff.xhr.abort(); } catch (e) {}
+          pollBackoff.xhr = null;
         }
         isFetching = false;
     }
