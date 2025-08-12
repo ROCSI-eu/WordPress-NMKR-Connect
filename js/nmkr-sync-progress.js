@@ -400,9 +400,10 @@ jQuery(document).ready(function($) {
       }, 450);
     }
 
-    if (nmkrSyncProgress.resume) {
+    if (nmkrSyncProgress.resume === true) {
+      syncInProgress = true;
       $('#nmkr-sync-phase-label').text('Synchronization in progress…');
-      scheduleNextPoll(pollBackoff.baseDelay);
+      scheduleNextPoll(0);
     }
     
     // Ensure timeout is cleared when page is unloaded

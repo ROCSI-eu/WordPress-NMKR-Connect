@@ -261,7 +261,7 @@ function nmkr_enqueue_admin_assets($hook) {
                 'ajax_url' => admin_url( 'admin-ajax.php' ),
                 'nonce'    => wp_create_nonce( 'nmkr_sync_nonce' ),
                 'dashboardNonce' => wp_create_nonce( 'nmkr_dashboard_nonce' ),
-                'resume'   => false,
+                'resume'   => (bool) get_option('nmkr_sync_in_progress', false),
                 'options'  => array(
                     'sync_initial_interval'   => isset($options['sync_initial_interval']) ? $options['sync_initial_interval'] : 1000,
                     'sync_max_interval'       => isset($options['sync_max_interval'])   ? $options['sync_max_interval']   : 30000,
