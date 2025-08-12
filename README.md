@@ -236,7 +236,7 @@ git clone https://github.com/ROCSI-eu/WordPress-NMKR-Connect.git
 cd WordPress-NMKR-Connect
 composer install --prefer-dist
 ```
-Symlink or copy to wp-content/plugins/
+Symlink or copy to wp-content/plugins
 Activate in WP Admin → Plugins, configure NMKR Connect → Settings, and enable WP_DEBUG_LOG during testing.
 Tip: For larger or risky changes, open a draft PR early to discuss approach and reduce rework.
 
