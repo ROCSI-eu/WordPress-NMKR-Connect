@@ -697,6 +697,15 @@ function nmkr_stop_sync_handler() {
         // This prevents any lingering batch processes from changing the stage back
         update_option('nmkr_sync_stop_requested', time());
         
+        // Ensure live metrics and in-progress flags are cleared on manual stop
+        delete_transient('nmkr_current_sync_stats_live');
+        // these are already cleaned in several start paths, but clear here too to avoid carry-over
+        delete_transient('nmkr_active_sync_metrics');
+        delete_transient('nmkr_sync_performance_metrics');
+        // Make sure the “in progress” flags are down
+        update_option('nmkr_sync_in_progress', false);
+        delete_transient('nmkr_sync_in_progress');
+        
         wp_send_json_success(array(
             'message' => 'Synchronization process stopped successfully',
             'cleared_jobs' => $cleanup_result['cleared_jobs'],
