@@ -21,7 +21,7 @@ jQuery(document).ready(function($) {
 
     function isTransientFailure(xhr, status) {
         const code = Number(xhr && xhr.status);
-        if (status === 'timeout' || status === 'abort' || status === 'error') return true;
+        if (status === 'timeout' || status === 'abort' || status === 'error' || status === 'parsererror') return true;
         return [0, 500, 502, 503, 504, 520, 521, 522, 524].indexOf(code) !== -1;
     }
 
