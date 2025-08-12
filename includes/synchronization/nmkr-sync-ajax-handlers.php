@@ -158,6 +158,7 @@ function nmkr_sync_progress_handler() {
                 $db_progress = $wpdb->get_var("SELECT option_value FROM {$wpdb->options} WHERE option_name = 'nmkr_sync_progress'");
                 if ($db_progress !== null && (int)$db_progress > 0) {
                     $progress = (int)$db_progress;
+                    $progress_int = $progress; // Keep JSON response in sync with DB fallback value
                     nmkr_log_ui_status('UI: Used direct DB read for progress due to transient issue - Progress: ' . $progress . '%', 'debug');
                 }
             }
