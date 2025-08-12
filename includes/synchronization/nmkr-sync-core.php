@@ -1247,10 +1247,10 @@ function nmkr_log_sync_summary(&$sync_log, $project_uids, $token_project_map, $s
     }
     
     // Calculate duration
-    $duration_seconds = $sync_duration;
-    $duration_minutes = floor($duration_seconds / 60);
-    $duration_remaining_seconds = floor($duration_seconds % 60);
-    $duration_formatted = sprintf('%dm %02ds', (int) $duration_minutes, (int) $duration_remaining_seconds);
+    $duration_seconds = (float) $sync_duration;
+    $duration_minutes = (int) floor($duration_seconds / 60);
+    $duration_remaining_seconds = (int) floor(fmod($duration_seconds, 60));
+    $duration_formatted = sprintf('%dm %02ds', $duration_minutes, $duration_remaining_seconds);
     
     // Create the summary message
     $summary_lines = array(

@@ -172,7 +172,7 @@ function nmkr_sync_progress_handler() {
             
             // Get performance stats from transient (lightweight read)
             $current_stats = get_transient('nmkr_current_sync_stats_live');
-            if ($current_stats === false || $current_stats === null) {
+            if (($current_stats === false || $current_stats === null)) {
                 $current_stats = [
                     'average_time'   => 0,
                     'request_count'  => 0,
@@ -180,6 +180,26 @@ function nmkr_sync_progress_handler() {
                     'total_duration' => 0,
                     'total_api_time' => 0,
                 ];
+            }
+
+            // Optional fast-path override: compute fresh live metrics only when explicitly requested
+            if (!empty($_POST['force_metrics'])) {
+                try {
+                    $forced_stats = nmkr_get_sync_stats(); // lightweight; no heavy DB scans
+                    if (is_array($forced_stats) && !empty($forced_stats)) {
+                        // Merge over the placeholder/live snapshot without adding new heavy fields
+                        $current_stats['total_duration'] = isset($forced_stats['total_duration']) ? $forced_stats['total_duration'] : $current_stats['total_duration'];
+                        $current_stats['request_count']  = isset($forced_stats['request_count']) ? (int) $forced_stats['request_count'] : $current_stats['request_count'];
+                        $current_stats['memory_used']    = isset($forced_stats['memory_used']) ? (float) $forced_stats['memory_used'] : $current_stats['memory_used'];
+                        $current_stats['average_time']   = isset($forced_stats['average_time']) ? (float) $forced_stats['average_time'] : $current_stats['average_time'];
+                        $current_stats['total_api_time'] = isset($forced_stats['total_api_time']) ? (float) $forced_stats['total_api_time'] : $current_stats['total_api_time'];
+                        $current_stats['total_projects']  = isset($forced_stats['total_projects']) ? (int) $forced_stats['total_projects'] : ($current_stats['total_projects'] ?? 0);
+                        $current_stats['total_tokens']    = isset($forced_stats['total_tokens']) ? (int) $forced_stats['total_tokens'] : ($current_stats['total_tokens'] ?? 0);
+                        $current_stats['updated_at']      = time();
+                    }
+                } catch (Exception $e) {
+                    // Keep handler side-effect-free on failure; do not throw
+                }
             }
         } catch (Exception $e) {
             nmkr_log_data_sync('Progress handler error: Failed to retrieve sync options - ' . $e->getMessage(), 'error');
@@ -1051,17 +1071,10 @@ function nmkr_execute_sync_background_job() {
         } else {
             // Handle legacy string responses or unexpected response types
             if (is_string($response) && strpos($response, 'successfully') !== false) {
-                // Legacy successful string response - set completed state
-                nmkr_log_data_sync('✅ Background sync job completed successfully (legacy response)', 'info', array(
-                    'response' => $response
-                ));
-                
-                // Progress already handled by nmkr_sync_data() - no need to override
-                // The main sync function will have set the final progress correctly
+                // Treat legacy successful string responses as normal completion without duplicate/legacy log labels
                 update_option('nmkr_sync_error', '');
                 update_option('nmkr_sync_in_progress', false);
                 delete_transient('nmkr_sync_in_progress');
-                
             } else {
                 // Unexpected response - treat as error
                 nmkr_log_data_sync('❌ Background sync job completed with unexpected response', 'warning', array(

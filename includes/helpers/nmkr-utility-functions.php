@@ -150,12 +150,18 @@ if (!function_exists('write_log')) {
      * Write to WordPress debug.log if WP_DEBUG_LOG is enabled
      */
     function write_log($message) {
-        if (true === WP_DEBUG_LOG) {
-            if (is_array($message) || is_object($message)) {
-                error_log(print_r($message, true));
-            } else {
-                error_log($message);
-            }
+        // Respect plugin logging master switches to avoid unintended writes to debug.log
+        $opts = function_exists('get_option') ? get_option('nmkr_connect_options') : null;
+        $plugin_debug_enabled = is_array($opts) && !empty($opts['debug_enabled']);
+        $log_to_file_enabled  = is_array($opts) && !empty($opts['log_to_debug_file']);
+
+        if (!(true === WP_DEBUG_LOG && $plugin_debug_enabled && $log_to_file_enabled)) {
+            return;
+        }
+        if (is_array($message) || is_object($message)) {
+            error_log(print_r($message, true));
+        } else {
+            error_log($message);
         }
     }
 }
