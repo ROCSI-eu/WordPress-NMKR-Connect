@@ -29,14 +29,6 @@
   - [Development](#development)
     - [Project layout (high level)](#project-layout-high-level)
     - [Local setup](#local-setup)
-    - [Coding standards \& guardrails](#coding-standards--guardrails)
-    - [Testing](#testing)
-- [zip the plugin folder excluding .git, node\_modules (if any), and other dev files](#zip-the-plugin-folder-excluding-git-node_modules-if-any-and-other-dev-files)
-  - [Contributing](#contributing)
-    - [Before you file an issue](#before-you-file-an-issue)
-    - [Branch \& commit conventions](#branch--commit-conventions)
-    - [Pull request checklist](#pull-request-checklist)
-    - [Local dev quickstart](#local-dev-quickstart)
 - [symlink or copy to wp-content/plugins/](#symlink-or-copy-to-wp-contentplugins)
   - [License](#license)
   - [Acknowledgments](#acknowledgments)
@@ -244,9 +236,9 @@ We welcome issues and pull requests — thanks for helping improve NMKR Connect!
 git clone https://github.com/ROCSI-eu/WordPress-NMKR-Connect.git
 cd WordPress-NMKR-Connect
 composer install --prefer-dist
+```
 # symlink or copy to wp-content/plugins/
 Activate in WP Admin → Plugins, configure NMKR Connect → Settings, and enable WP_DEBUG_LOG during testing.
-
 Tip: For larger or risky changes, open a draft PR early to discuss approach and reduce rework.
 
 ## License
