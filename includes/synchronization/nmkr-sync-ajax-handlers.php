@@ -157,8 +157,13 @@ function nmkr_sync_progress_handler() {
                 }
             }
             
-            // Use consistent 100-based denominator instead of potentially stale cache
-            $total_items = 100;
+            // Prefer the real total set by nmkr_update_sync_progress(); fallback to 100 only if missing.
+            $total_items_raw = get_transient('nmkr_sync_total_items');
+            if ($total_items_raw === false || (int) $total_items_raw <= 0) {
+                // Durable fallback for very early reads or after manual reset
+                $total_items_raw = get_option('nmkr_sync_total_items', 0);
+            }
+            $total_items = (int) $total_items_raw > 0 ? (int) $total_items_raw : 100;
             
             // Get performance stats from transient (lightweight read)
             $current_stats = get_transient('nmkr_current_sync_stats_live');
@@ -476,6 +481,7 @@ function nmkr_sync_progress_handler() {
         'error'        => (string) $error,
         'aborted'      => $user_requested_abort,
         'finished'     => ($progress_int === 100 && !$user_requested_abort),
+        'total_items'  => $total_items,
     );
     
     // Always include live metrics in heartbeat payload
