@@ -54,7 +54,9 @@ if (!function_exists('wnc_fs')) {
 }
 
 // Define plugin constants
-define('NMKR_CONNECT_PLUGIN_FILE', __FILE__);
+if (!defined('NMKR_CONNECT_PLUGIN_FILE')) {
+    define('NMKR_CONNECT_PLUGIN_FILE', __FILE__);
+}
 
 // Include core files needed for activation
 require_once plugin_dir_path(__FILE__) . 'includes/api/nmkr-api.php';
