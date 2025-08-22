@@ -113,6 +113,7 @@ register_activation_hook(__FILE__, 'nmkr_connect_activate');
 
 // Include other plugin files after activation definition
 require_once plugin_dir_path(__FILE__) . 'includes/api/nmkr-api-functions.php';
+require_once plugin_dir_path(__FILE__) . 'includes/helpers/nmkr-media-helpers.php';
 require_once plugin_dir_path(__FILE__) . 'includes/helpers/nmkr-utility-functions.php';
 require_once plugin_dir_path(__FILE__) . 'includes/helpers/nmkr-performance-functions.php';
 require_once plugin_dir_path(__FILE__) . 'includes/helpers/nmkr-sync-status-constants.php';
