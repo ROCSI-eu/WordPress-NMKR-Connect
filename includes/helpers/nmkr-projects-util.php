@@ -123,7 +123,17 @@ function nmkr_render_project_selector_simple( $projects, $active_uid ) {
         <select id="nmkr_project" name="nmkr_project" onchange="this.form.submit()" style="min-width:260px;">
             <?php foreach ( $projects as $p ): ?>
                 <option value="<?php echo esc_attr( $p->project_uid ); ?>" <?php selected( $p->project_uid, $active_uid ); ?>>
-                    <?php echo esc_html( $p->name ); ?>
+                    <?php
+                    $label = '';
+                    if ( ! empty( $p->project_name ) ) {
+                        $label = $p->project_name;
+                    } elseif ( ! empty( $p->name ) ) {
+                        $label = $p->name;
+                    } else {
+                        $label = $p->project_uid; // last-resort visibility
+                    }
+                    echo esc_html( $label );
+                    ?>
                 </option>
             <?php endforeach; ?>
         </select>

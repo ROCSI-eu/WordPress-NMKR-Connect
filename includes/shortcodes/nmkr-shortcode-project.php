@@ -144,7 +144,7 @@ function nmkr_shortcode_project($atts) {
 
     // Render project selector if allowed
     if ( $allow_user_select ) {
-        $projects = $wpdb->get_results( "SELECT project_uid, name, project_url FROM {$projects_table} ORDER BY created_at DESC" );
+        $projects = $wpdb->get_results( "SELECT project_uid, project_name, project_url FROM {$projects_table} ORDER BY created_at DESC" );
         $output .= nmkr_render_project_selector_simple( $projects, $active_project_uid );
     }
     
