@@ -150,10 +150,30 @@ function nmkr_shortcode_token($atts) {
     <div class="nmkr-single-token">
         <h3>' . esc_html($token->token_name) . '</h3>';
 
-    // Display token image
-    if (!empty($token->ipfs_link)) {
-        $output .= '<img src="' . esc_url($token->ipfs_link) . '" alt="' . esc_attr($token->token_name) . '" class="nmkr-token-image" onclick="openLightbox(\'' . esc_url($token->ipfs_link) . '\')">';
+    // --- BEGIN: normalized main token image for [nmkr-token] ---
+    
+    // Resolve image URL via helper (gateway_link → re-based HTTPS; or ipfs_link; or metadata.image).
+    $img = nmkr_get_token_image_url( $token );
+    
+    // Fallback to bundled placeholder if nothing resolves.
+    if ( empty( $img ) ) {
+        $img = plugins_url( 'images/placeholder.jpg', NMKR_CONNECT_PLUGIN_FILE );
     }
+    
+    // Alt text preference order.
+    $alt = '';
+    if ( ! empty( $token->token_name ) ) {
+        $alt = $token->token_name;
+    } elseif ( ! empty( $token->asset_name ) ) {
+        $alt = $token->asset_name;
+    } else {
+        $alt = 'Token';
+    }
+    
+    // Display token image with lightbox functionality
+    $output .= '<img src="' . esc_url( $img ) . '" alt="' . esc_attr( $alt ) . '" class="nmkr-token-image" loading="lazy" decoding="async" onclick="openLightbox(\'' . esc_url( $img ) . '\')">';
+    
+    // --- END: normalized main token image for [nmkr-token] ---
 
     // Token metadata
     $output .= '<div class="nmkr-token-meta">';

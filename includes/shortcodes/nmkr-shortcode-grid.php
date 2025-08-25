@@ -210,9 +210,17 @@ function nmkr_shortcode_grid($atts) {
         $output .= '<div class="nmkr-token-card">';
         
         // Token image
-        if (!empty($token->ipfs_link)) {
-            $output .= '<img src="' . esc_url($token->ipfs_link) . '" alt="' . esc_attr($token->token_name) . '" class="nmkr-token-image">';
-        }
+        $img = nmkr_get_token_image_url($token);
+        $ph  = plugins_url('images/placeholder.jpg', NMKR_CONNECT_PLUGIN_FILE);
+        $alt = !empty($token->token_name) ? $token->token_name : (!empty($token->asset_name) ? $token->asset_name : 'Token');
+        
+        $output .= '<img'
+            . ' src="' . esc_url($img ? $img : $ph) . '"'
+            . ' alt="' . esc_attr($alt) . '"'
+            . ' class="nmkr-token-image"'
+            . ' loading="lazy"'
+            . ' decoding="async"'
+            . ' />';
         
         // Token title
         $output .= '<h3 class="nmkr-token-title">' . esc_html($token->token_name) . '</h3>';

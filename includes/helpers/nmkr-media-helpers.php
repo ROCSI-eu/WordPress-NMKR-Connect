@@ -39,7 +39,7 @@ if (!function_exists('nmkr_resolve_ipfs_url')) {
         }
 
         // Configurable gateway base; ensure it ends with /ipfs/
-        $base = apply_filters('nmkr_ipfs_gateway_base', 'https://cloudflare-ipfs.com/ipfs/');
+        $base = apply_filters('nmkr_ipfs_gateway_base', 'https://ipfs.io/ipfs/');
         if (!nmkr_str_ends_with($base, '/ipfs/')) {
             $base = rtrim($base, '/') . '/ipfs/';
         }
@@ -85,65 +85,55 @@ if (!function_exists('nmkr_is_probably_image_url')) {
  * $token is t.* + td.* from JOIN of nmkr_tokens (t) and nmkr_token_details (td).
  *
  * Priority:
- *   1) t.ipfs_link
- *   2) td.metadata: image | image_url | imageUrl | media[0].src
- *   3) t.gateway_link if it looks like an image
+ *   1) t.gateway_link (with IPFS path extraction)
+ *   2) t.ipfs_link
+ *   3) t.metadata.image
  *
- * Filters:
- *   nmkr_token_image_url( string $url, object $token )
- *
- * @param object $token
+ * @param object $t
  * @return string Normalized image URL or '' if none
  */
 if (!function_exists('nmkr_get_token_image_url')) {
-    function nmkr_get_token_image_url($token) {
-        // 1) direct ipfs_link
-        if (!empty($token->ipfs_link)) {
-            $u = nmkr_resolve_ipfs_url($token->ipfs_link);
-            if (!empty($u)) {
-                return apply_filters('nmkr_token_image_url', $u, $token);
-            }
-        }
+    function nmkr_get_token_image_url( $t ) {
+        $url = '';
 
-        // 2) metadata fallbacks
-        if (!empty($token->metadata)) {
-            $meta = json_decode($token->metadata, true);
-            // If JSON failed to decode but the field is a simple string URL, try it
-            if ($meta === null && json_last_error() !== JSON_ERROR_NONE) {
-                $maybeUrl = trim((string) $token->metadata);
-                if ($maybeUrl !== '') {
-                    $u = nmkr_resolve_ipfs_url($maybeUrl);
-                    if (!empty($u)) {
-                        return apply_filters('nmkr_token_image_url', $u, $token);
-                    }
-                }
-            } elseif (is_array($meta)) {
-                $candidates = array();
-                if (isset($meta['image']))                $candidates[] = $meta['image'];
-                if (isset($meta['image_url']))            $candidates[] = $meta['image_url'];
-                if (isset($meta['imageUrl']))             $candidates[] = $meta['imageUrl'];
-                if (isset($meta['media'][0]['src']))      $candidates[] = $meta['media'][0]['src'];
+        // 1) Prefer gateway_link if present.
+        if ( ! empty( $t->gateway_link ) && is_string( $t->gateway_link ) ) {
+            $gw   = trim( $t->gateway_link );
+            $path = parse_url( $gw, PHP_URL_PATH );
 
-                foreach ($candidates as $cand) {
-                    if (!empty($cand)) {
-                        $u = nmkr_resolve_ipfs_url($cand);
-                        if (!empty($u)) {
-                            return apply_filters('nmkr_token_image_url', $u, $token);
-                        }
-                    }
+            // Strict match: /ipfs|ipns/<cid>[/rest]
+            if ( is_string( $path ) && preg_match('~/(ipfs|ipns)/([A-Za-z0-9]+)(/.*)?$~', $path, $m) ) {
+                $ns   = $m[1];                // ipfs|ipns
+                $cid  = $m[2];
+                $rest = isset($m[3]) ? $m[3] : '';
+                $url  = nmkr_resolve_ipfs_url( $ns . '://' . $cid . $rest );
+            } else {
+                // Fallback: hunt for a CID anywhere in the URL and re-base to the configured gateway
+                if ( preg_match('~(Qm[1-9A-HJ-NP-Za-km-z]{44,})~', $gw, $m) ) {
+                    // CIDv0 (base58btc)
+                    $url = nmkr_resolve_ipfs_url( 'ipfs://' . $m[1] );
+                } elseif ( preg_match('~([a-z0-9]{46,})~', $gw, $m) ) {
+                    // very loose CIDv1 (base32) heuristic
+                    $url = nmkr_resolve_ipfs_url( 'ipfs://' . $m[1] );
+                } else {
+                    // last resort: use gateway_link as-is (non-standard provider path)
+                    $url = $gw;
                 }
             }
         }
 
-        // 3) last resort: gateway_link that looks like an image
-        if (!empty($token->gateway_link)) {
-            $gl = esc_url_raw($token->gateway_link);
-            if (nmkr_is_probably_image_url($gl)) {
-                return apply_filters('nmkr_token_image_url', $gl, $token);
-            }
+        // 2) If still empty, try ipfs_link directly.
+        if ( empty( $url ) && ! empty( $t->ipfs_link ) && is_string( $t->ipfs_link ) ) {
+            $url = nmkr_resolve_ipfs_url( $t->ipfs_link );
         }
 
-        return apply_filters('nmkr_token_image_url', '', $token);
+        // 3) Then metadata.image (ipfs://, CID, or https).
+        if ( empty( $url ) && ! empty( $t->metadata->image ) ) {
+            $url = nmkr_resolve_ipfs_url( $t->metadata->image );
+        }
+
+        // 4) Return trimmed; caller will esc_url() on output.
+        return is_string( $url ) ? trim( $url ) : '';
     }
 }
 

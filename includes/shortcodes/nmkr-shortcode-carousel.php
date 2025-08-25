@@ -375,8 +375,25 @@ function nmkr_shortcode_carousel($atts) {
         $output .= '<div class="nmkr-carousel-container">';
         foreach ($tokens as $token) {
             $price_in_ada = floor($token->price / 1000000);
+            
+            // --- BEGIN: normalized slide image for [nmkr-carousel] ---
+            $img = nmkr_get_token_image_url( $token );
+            if ( empty( $img ) ) {
+                $img = plugins_url( 'images/placeholder.jpg', NMKR_CONNECT_PLUGIN_FILE );
+            }
+
+            $alt = '';
+            if ( ! empty( $token->name ) ) {
+                $alt = $token->name;
+            } elseif ( ! empty( $token->asset_name ) ) {
+                $alt = $token->asset_name;
+            } else {
+                $alt = 'Token';
+            }
+            // --- END: normalized slide image for [nmkr-carousel] ---
+            
             $output .= '<div class="nmkr-token">';
-            $output .= '<img src="' . plugins_url('images/placeholder.png', dirname(__FILE__)) . '" data-src="' . esc_url($token->gateway_link) . '" alt="' . esc_html($token->token_name) . '" class="lazy token-image" style="max-width: 100%; height: auto; margin-bottom: 10px;" onclick="openLightbox(\'' . esc_url($token->gateway_link) . '\')" loading="lazy" />';
+            $output .= '<img src="' . esc_url( $img ) . '" alt="' . esc_attr( $alt ) . '" class="token-image" style="max-width: 100%; height: auto; margin-bottom: 10px;" onclick="openLightbox(\'' . esc_url( $img ) . '\')" loading="lazy" decoding="async" />';
             $output .= '<h4>' . esc_html($token->token_name) . '</h4>';
             $output .= '<p><strong>Price:</strong> ' . esc_html($price_in_ada) . ' ADA</p>';
             $output .= '<p><strong>Minted:</strong> ' . esc_html($token->minted ? 'Yes' : 'No') . '</p>';

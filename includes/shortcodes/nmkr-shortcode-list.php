@@ -204,9 +204,31 @@ function nmkr_shortcode_list($atts) {
         
         // Token image
         $output .= '<td>';
-        if (!empty($token->ipfs_link)) {
-            $output .= '<img src="' . esc_url($token->ipfs_link) . '" alt="' . esc_attr($token->token_name) . '" class="nmkr-token-image">';
+        
+        // --- BEGIN: normalized token thumbnail for [nmkr-token-list] ---
+        
+        // Resolve image URL via helper (gateway_link → re-based HTTPS; or ipfs_link; or metadata.image).
+        $img = nmkr_get_token_image_url( $token );
+        
+        // Fallback to bundled placeholder if nothing resolves.
+        if ( empty( $img ) ) {
+            $img = plugins_url( 'images/placeholder.jpg', NMKR_CONNECT_PLUGIN_FILE );
         }
+        
+        // Sensible alt text.
+        $alt = '';
+        if ( ! empty( $token->token_name ) ) {
+            $alt = $token->token_name;
+        } elseif ( ! empty( $token->asset_name ) ) {
+            $alt = $token->asset_name;
+        } else {
+            $alt = 'Token';
+        }
+        
+        $output .= '<img src="' . esc_url( $img ) . '" alt="' . esc_attr( $alt ) . '" loading="lazy" decoding="async" class="nmkr-token-image">';
+        
+        // --- END: normalized token thumbnail for [nmkr-token-list] ---
+        
         $output .= '</td>';
         
         // Token name

@@ -89,9 +89,31 @@ function nmkr_shortcode_project($atts) {
     <div class="nmkr-single-project">
         <h4>' . esc_html($project->project_name) . '</h4>';
 
+    // --- BEGIN: normalized project logo for [nmkr-project] ---
+    $logo = nmkr_get_project_logo_url( $project );
+    if ( empty( $logo ) ) {
+        $logo = plugins_url( 'images/placeholder.jpg', NMKR_CONNECT_PLUGIN_FILE );
+    }
+
+    $alt = '';
+    if ( ! empty( $project->project_name ) ) {
+        $alt = $project->project_name . ' logo';
+    } elseif ( ! empty( $project->name ) ) {
+        $alt = $project->name . ' logo';
+    } else {
+        $alt = 'Project logo';
+    }
+    // --- END: normalized project logo for [nmkr-project] ---
+
     // Display project logo if available
     if (!empty($project->project_logo)) {
-        $output .= '<img src="' . esc_url($project->project_logo) . '" alt="' . esc_attr($project->project_name) . '" class="nmkr-project-logo">';
+        $output .= '<img
+  src="' . esc_url( $logo ) . '"
+  alt="' . esc_attr( $alt ) . '"
+  loading="lazy"
+  decoding="async"
+  class="nmkr-project-logo"
+/>';
     }
 
     // Display project description if available
