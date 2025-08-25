@@ -8,6 +8,7 @@ if (!defined('ABSPATH')) {
 require_once dirname(__FILE__,2) . '/helpers/nmkr-availability.php';
 require_once dirname(__FILE__,2) . '/helpers/nmkr-lightbox.php';
 require_once dirname(__FILE__,2) . '/helpers/nmkr-projects-util.php';
+require_once dirname(__FILE__,2) . '/helpers/nmkr-ui-helpers.php';
 
 // Shortcode function to display a single token with details
 function nmkr_shortcode_token($atts) {
@@ -53,7 +54,14 @@ function nmkr_shortcode_token($atts) {
     }
 
     // Initialize output with token details
-    $output = '
+    $output = '';
+    
+    // Print buy button styles once
+    if ( function_exists('nmkr_print_buy_button_styles_once') ) {
+        nmkr_print_buy_button_styles_once();
+    }
+    
+    $output .= '
     <style>
         .nmkr-single-token {
             text-align: center;
@@ -203,7 +211,13 @@ function nmkr_shortcode_token($atts) {
     $buyable = nmkr_token_is_buyable( $token );
     if ( $buyable ) {
         if (!empty($token->payment_gateway_link)) {
-            $output .= '<a href="' . esc_url($token->payment_gateway_link) . '" class="nmkr-token-button" target="_blank">Purchase</a>';
+            $output .= '<a href="' . esc_url($token->payment_gateway_link) . '"'
+                . ' class="nmkr-buy-button"'
+                . ' target="_blank" rel="noopener noreferrer"'
+                . ' aria-label="' . esc_attr__( 'Buy token with NMKR Pay', 'nmkr-connect' ) . '">'
+                . '<span aria-hidden="true">💳</span> '
+                . esc_html__( 'Buy with NMKR Pay', 'nmkr-connect' )
+                . '</a>';
         }
     }
 

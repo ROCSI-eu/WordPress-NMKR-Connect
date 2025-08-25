@@ -9,6 +9,7 @@ require_once dirname(__FILE__,2) . '/helpers/nmkr-availability.php';
 require_once dirname(__FILE__,2) . '/helpers/nmkr-project-stats.php';
 require_once dirname(__FILE__,2) . '/helpers/nmkr-lightbox.php';
 require_once dirname(__FILE__,2) . '/helpers/nmkr-projects-util.php';
+require_once dirname(__FILE__,2) . '/helpers/nmkr-ui-helpers.php';
 
 // Shortcode function to display NMKR projects and tokens with project details, select dropdown, and responsive grid
 function nmkr_shortcode_grid($atts) {
@@ -76,7 +77,14 @@ function nmkr_shortcode_grid($atts) {
     }
 
     // Initialize output
-    $output = '
+    $output = '';
+    
+    // Print buy button styles once
+    if ( function_exists('nmkr_print_buy_button_styles_once') ) {
+        nmkr_print_buy_button_styles_once();
+    }
+    
+    $output .= '
     <style>
         /* Custom styles for Grid View */
         .nmkr-project-details {
@@ -309,7 +317,13 @@ function nmkr_shortcode_grid($atts) {
         $output .= '<div class="nmkr-token-actions">';
         if ( $buyable ) {
             if (!empty($token->payment_gateway_link)) {
-                $output .= '<a href="' . esc_url($token->payment_gateway_link) . '" class="nmkr-token-button" target="_blank">Purchase</a>';
+                $output .= '<a href="' . esc_url($token->payment_gateway_link) . '"'
+                    . ' class="nmkr-buy-button"'
+                    . ' target="_blank" rel="noopener noreferrer"'
+                    . ' aria-label="' . esc_attr__( 'Buy token with NMKR Pay', 'nmkr-connect' ) . '">'
+                    . '<span aria-hidden="true">💳</span> '
+                    . esc_html__( 'Buy with NMKR Pay', 'nmkr-connect' )
+                    . '</a>';
             }
         }
         $output .= '</div>';

@@ -9,6 +9,7 @@ require_once dirname(__FILE__,2) . '/helpers/nmkr-availability.php';
 require_once dirname(__FILE__,2) . '/helpers/nmkr-project-stats.php';
 require_once dirname(__FILE__,2) . '/helpers/nmkr-projects-util.php';
 require_once dirname(__FILE__,2) . '/helpers/nmkr-lightbox.php';
+require_once dirname(__FILE__,2) . '/helpers/nmkr-ui-helpers.php';
 
 // Shortcode function to display a single project's details
 function nmkr_shortcode_project($atts) {
@@ -51,7 +52,14 @@ function nmkr_shortcode_project($atts) {
     $counters = nmkr_get_project_counters( $active_project_uid );
 
     // Initialize output with project details
-    $output = '
+    $output = '';
+    
+    // Print buy button styles once
+    if ( function_exists('nmkr_print_buy_button_styles_once') ) {
+        nmkr_print_buy_button_styles_once();
+    }
+    
+    $output .= '
     <style>
         .nmkr-single-project {
             text-align: center;
@@ -224,8 +232,13 @@ function nmkr_shortcode_project($atts) {
         // Status + buy button
         $output .= '<div class="nmkr-status">' . esc_html( $status_label ) . '</div>';
         if ( $buyable && ! empty( $featured->payment_gateway_link ) ) {
-            $output .= '<a class="nmkr-btn" href="' . esc_url( $featured->payment_gateway_link ) . '" target="_blank">'
-                    . esc_html__( 'Buy now', 'nmkr-connect' ) . '</a>';
+            $output .= '<a href="' . esc_url( $featured->payment_gateway_link ) . '"'
+                    . ' class="nmkr-buy-button"'
+                    . ' target="_blank" rel="noopener noreferrer"'
+                    . ' aria-label="' . esc_attr__( 'Buy token with NMKR Pay', 'nmkr-connect' ) . '">'
+                    . '<span aria-hidden="true">💳</span> '
+                    . esc_html__( 'Buy with NMKR Pay', 'nmkr-connect' )
+                    . '</a>';
         }
         $output .= '</div>';
     }

@@ -9,6 +9,7 @@ require_once dirname(__FILE__,2) . '/helpers/nmkr-availability.php';
 require_once dirname(__FILE__,2) . '/helpers/nmkr-project-stats.php';
 require_once dirname(__FILE__,2) . '/helpers/nmkr-lightbox.php';
 require_once dirname(__FILE__,2) . '/helpers/nmkr-projects-util.php';
+require_once dirname(__FILE__,2) . '/helpers/nmkr-ui-helpers.php';
 
 // Shortcode function to display NMKR projects and tokens in a carousel view with project details, search, filter, and a dropdown for project selection
 function nmkr_shortcode_carousel($atts) {
@@ -81,7 +82,14 @@ function nmkr_shortcode_carousel($atts) {
     }
 
     // Initialize output
-    $output = '
+    $output = '';
+    
+    // Print buy button styles once
+    if ( function_exists('nmkr_print_buy_button_styles_once') ) {
+        nmkr_print_buy_button_styles_once();
+    }
+    
+    $output .= '
     <style>
         /* Custom styles for Carousel View */
         .nmkr-project-details {
@@ -161,20 +169,7 @@ function nmkr_shortcode_carousel($atts) {
             cursor: pointer;
         }
 
-        .nmkr-buy-button {
-            display: inline-block;
-            padding: 10px 20px;
-            background-color: #11F250;
-            color: black;
-            text-decoration: none !important;
-            border-radius: 5px;
-            margin-top: 10px;
-            font-weight: bold;
-        }
 
-        .nmkr-buy-button:hover {
-            text-decoration: none !important;
-        }
 
         /* Carousel arrow buttons */
         .carousel-prev, .carousel-next {
@@ -418,7 +413,13 @@ function nmkr_shortcode_carousel($atts) {
             $output .= '<p><strong>Status:</strong> ' . esc_html($status_label) . '</p>';
             
             if ( $buyable ) {
-                $output .= '<a href="' . esc_url($token->payment_gateway_link) . '" class="nmkr-buy-button"><span>💳</span> Buy with NMKR Pay</a>';
+                $output .= '<a href="' . esc_url($token->payment_gateway_link) . '"'
+                    . ' class="nmkr-buy-button"'
+                    . ' target="_blank" rel="noopener noreferrer"'
+                    . ' aria-label="' . esc_attr__( 'Buy token with NMKR Pay', 'nmkr-connect' ) . '">'
+                    . '<span aria-hidden="true">💳</span> '
+                    . esc_html__( 'Buy with NMKR Pay', 'nmkr-connect' )
+                    . '</a>';
             }
             $output .= '</div>';
         }
