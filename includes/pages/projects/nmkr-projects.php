@@ -10,6 +10,9 @@ require_once plugin_dir_path(dirname(dirname(dirname(__FILE__)))) . 'includes/da
 require_once plugin_dir_path(dirname(dirname(dirname(__FILE__)))) . 'includes/helpers/nmkr-performance-functions.php';
 require_once plugin_dir_path(dirname(dirname(dirname(__FILE__)))) . 'includes/helpers/nmkr-utility-functions.php';
 require_once plugin_dir_path(dirname(dirname(dirname(__FILE__)))) . 'includes/helpers/nmkr-media-helpers.php';
+require_once plugin_dir_path(dirname(dirname(dirname(__FILE__)))) . 'includes/helpers/nmkr-availability.php';
+require_once plugin_dir_path(dirname(dirname(dirname(__FILE__)))) . 'includes/helpers/nmkr-project-stats.php';
+require_once plugin_dir_path(dirname(dirname(dirname(__FILE__)))) . 'includes/helpers/nmkr-lightbox.php';
 
 function nmkr_connect_projects_page() {
     global $wpdb;
@@ -58,6 +61,8 @@ function nmkr_connect_projects_page() {
         if ($selected_project_uid):
             $selected_project = $wpdb->get_row($wpdb->prepare("SELECT * FROM $projects_table WHERE project_uid = %s", $selected_project_uid));
             if ($selected_project):
+                // Get project counters
+                $counters = nmkr_get_project_counters( $selected_project->project_uid );
         ?>
             <div class="panel">
                 <h2 class="center-text"><?php echo esc_html($selected_project->project_name); ?></h2>
@@ -68,8 +73,19 @@ function nmkr_connect_projects_page() {
                 
                 <div class="project-details panel-section">
                     <p><strong>🌐 Website:</strong> <a href="<?php echo esc_url($selected_project->project_url); ?>" target="_blank"><?php echo esc_html($selected_project->project_url); ?></a></p>
-                    <p><strong>🪙 Total Tokens:</strong> <?php echo esc_html($selected_project->total); ?></p>
-                    <p><strong>✅ Available Tokens:</strong> <?php echo esc_html($selected_project->free); ?></p>
+                    <p><strong>🪙 Total Tokens:</strong> <?php echo esc_html($counters->total_tokens); ?></p>
+                    <p><strong>✅ Available Tokens:</strong> <?php echo esc_html($counters->available_count); ?></p>
+                </div>
+
+                <!-- Optional: Display detailed counters -->
+                <div class="project-stats panel-section">
+                    <p class="nmkr-stats">
+                        <strong><?php esc_html_e('Total','nmkr-connect'); ?>:</strong> <?php echo esc_html($counters->total_tokens); ?> ·
+                        <strong><?php esc_html_e('Minted','nmkr-connect'); ?>:</strong> <?php echo esc_html($counters->minted_count); ?> ·
+                        <strong><?php esc_html_e('Sold','nmkr-connect'); ?>:</strong> <?php echo esc_html($counters->sold_count); ?> ·
+                        <strong><?php esc_html_e('Reserved','nmkr-connect'); ?>:</strong> <?php echo esc_html($counters->reserved_active_count); ?> ·
+                        <strong><?php esc_html_e('Available','nmkr-connect'); ?>:</strong> <?php echo esc_html($counters->available_count); ?>
+                    </p>
                 </div>
 
                 <!-- Token Search and Filter Form -->
@@ -147,21 +163,18 @@ function nmkr_connect_projects_page() {
                                       width="150"
                                       loading="lazy"
                                       decoding="async"
+                                      onclick="if(window.openLightbox){openLightbox(this.src)}"
+                                      style="cursor: pointer;"
                                     />
                                 </div>
                                 <div class="token-details">
                                     <p class="token-name"><strong><?php echo esc_html($token->token_name); ?></strong></p>
                                     <p class="token-status-container"><strong>Status:</strong> 
                                         <?php
-                                        if ($token->minted) {
-                                            echo '<span class="token-status status-excellent">Minted</span>';
-                                        } else if (!empty($token->reserved_until)) {
-                                            echo '<span class="token-status status-warning">Reserved</span>';
-                                        } else if (!empty($token->sell_date)) {
-                                            echo '<span class="token-status status-neutral">Sold</span>';
-                                        } else {
-                                            echo '<span class="token-status status-good">Available</span>';
-                                        }
+                                        // Use helper function for status
+                                        $status_label = nmkr_token_status_label( $token );
+                                        $status_class = 'status-' . strtolower($status_label);
+                                        echo '<span class="token-status ' . $status_class . '">' . esc_html($status_label) . '</span>';
                                         ?>
                                     </p>
                                     <?php
@@ -176,7 +189,11 @@ function nmkr_connect_projects_page() {
                                     <?php if (!empty($token->asset_name)): ?>
                                         <p><strong>Asset:</strong> <?php echo esc_html($token->asset_name); ?></p>
                                     <?php endif; ?>
-                                    <?php if (!$token->minted && empty($token->reserved_until) && empty($token->sell_date) && !empty($token->payment_gateway_link)): ?>
+                                    <?php 
+                                    // Use helper function for buyable logic
+                                    $buyable = nmkr_token_is_buyable( $token );
+                                    if ( $buyable && !empty($token->payment_gateway_link) ): 
+                                    ?>
                                         <a class="button button-primary" href="<?php echo esc_url($token->payment_gateway_link); ?>" target="_blank">Buy Now</a>
                                     <?php endif; ?>
                                 </div>
@@ -321,6 +338,19 @@ function nmkr_connect_projects_page() {
             .project-details p {
                 margin: 5px 0;
             }
+
+            /* Project Stats */
+            .project-stats {
+                text-align: center;
+                background-color: #f8f9fa;
+                padding: 15px;
+                border-radius: 4px;
+            }
+            
+            .nmkr-stats {
+                margin: 0;
+                font-size: 14px;
+            }
             
             /* Token Filter Form */
             .token-filter-form {
@@ -447,5 +477,8 @@ function nmkr_connect_projects_page() {
         </style>
     </div>
     <?php
+    
+    // Print lightbox once
+    nmkr_print_lightbox_once();
 }
 ?>

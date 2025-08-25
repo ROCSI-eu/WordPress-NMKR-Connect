@@ -4,6 +4,12 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+// Include new helpers
+require_once dirname(__FILE__,2) . '/helpers/nmkr-availability.php';
+require_once dirname(__FILE__,2) . '/helpers/nmkr-project-stats.php';
+require_once dirname(__FILE__,2) . '/helpers/nmkr-lightbox.php';
+require_once dirname(__FILE__,2) . '/helpers/nmkr-projects-util.php';
+
 // Shortcode function to display NMKR projects and tokens in a carousel view with project details, search, filter, and a dropdown for project selection
 function nmkr_shortcode_carousel($atts) {
     // Check if the user has the necessary plan (Starter or above)
@@ -13,43 +19,66 @@ function nmkr_shortcode_carousel($atts) {
 
     global $wpdb;
 
+    // Attributes for project selection
+    $atts = shortcode_atts(
+        array(
+            'project_uid' => '',
+            'allow_user_select' => '1',
+        ), $atts, 'nmkr_shortcode_carousel'
+    );
+
+    // Resolve the active project
+    $active_project_uid = nmkr_get_active_project_uid_single( $atts );
+    if ( empty( $active_project_uid ) ) {
+        return '<p>' . esc_html__( 'No projects available. Please synchronize with NMKR Studio first.', 'nmkr-connect' ) . '</p>';
+    }
+
+    // Optional attribute to lock selection
+    $allow_user_select = ! isset( $atts['allow_user_select'] ) || $atts['allow_user_select'] !== '0';
+
     // Table names with dynamic prefix
     $projects_table = $wpdb->prefix . 'nmkr_projects';
-    $tokens_table = $wpdb->prefix . 'nmkr_tokens';
-
-    // Fetch all projects from the database
-    $projects = $wpdb->get_results("SELECT * FROM $projects_table");
-
-    // Initialize selected project
-    $selected_project_uid = isset($_GET['nmkr_project']) ? esc_attr($_GET['nmkr_project']) : $projects[0]->project_uid;
 
     // Fetch selected project details
-    $selected_project = $wpdb->get_row($wpdb->prepare("SELECT * FROM $projects_table WHERE project_uid = %s", $selected_project_uid));
+    $selected_project = $wpdb->get_row($wpdb->prepare("SELECT * FROM $projects_table WHERE project_uid = %s", $active_project_uid));
+
+    if (!$selected_project) {
+        return '<p>' . esc_html__( 'Project not found.', 'nmkr-connect' ) . '</p>';
+    }
+
+    // Get project counters
+    $counters = nmkr_get_project_counters( $active_project_uid );
+
+    // Fetch all projects for selector
+    $projects = $wpdb->get_results("SELECT * FROM $projects_table");
 
     // Handle token search/filter
     $search_query = isset($_GET['search_token']) ? sanitize_text_field($_GET['search_token']) : '';
     $filter_minted = isset($_GET['filter_minted']) ? sanitize_text_field($_GET['filter_minted']) : '';
 
-    // Build the token query based on filters
-    $token_query = "SELECT t.*, td.* 
-                    FROM $tokens_table t 
-                    LEFT JOIN {$wpdb->prefix}nmkr_token_details td ON t.token_uid = td.token_uid 
-                    WHERE t.project_uid = %s";
-    $query_params = [$selected_project_uid];
-
-    if (!empty($search_query)) {
-        $token_query .= " AND (t.token_name LIKE %s OR td.title LIKE %s)";
-        $query_params[] = '%' . $wpdb->esc_like($search_query) . '%';
-        $query_params[] = '%' . $wpdb->esc_like($search_query) . '%';
+    // Get tokens using joined query
+    $tokens = nmkr_get_project_tokens_joined( $active_project_uid );
+    if ( empty( $tokens ) ) {
+        return '<p>' . esc_html__( 'No tokens found for this project.', 'nmkr-connect' ) . '</p>';
     }
 
-    if ($filter_minted !== '') {
-        $token_query .= " AND t.minted = %d";
-        $query_params[] = (int)$filter_minted;
+    // Apply filters if needed
+    if (!empty($search_query) || $filter_minted !== '') {
+        $filtered_tokens = [];
+        foreach ($tokens as $token) {
+            $matches_search = empty($search_query) || 
+                stripos($token->token_name, $search_query) !== false || 
+                (isset($token->title) && stripos($token->title, $search_query) !== false);
+            
+            $matches_minted = $filter_minted === '' || 
+                (isset($token->minted) && (int)$token->minted === (int)$filter_minted);
+            
+            if ($matches_search && $matches_minted) {
+                $filtered_tokens[] = $token;
+            }
+        }
+        $tokens = $filtered_tokens;
     }
-
-    // Fetch tokens based on the query
-    $tokens = $wpdb->get_results($wpdb->prepare($token_query, ...$query_params));
 
     // Initialize output
     $output = '
@@ -70,6 +99,21 @@ function nmkr_shortcode_carousel($atts) {
 
         .nmkr-project-details p {
             margin-bottom: 5px;
+        }
+
+        .nmkr-project-counters {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            margin: 15px 0;
+            font-size: 14px;
+        }
+        .nmkr-counter-item {
+            background-color: #fff;
+            padding: 8px 15px;
+            border-radius: 5px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
 
         .nmkr-subtitle-pane {
@@ -158,46 +202,6 @@ function nmkr_shortcode_carousel($atts) {
 
         .carousel-next {
             right: 0;
-        }
-
-        /* Lightbox styles */
-        .lightbox {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.8);
-            text-align: center;
-        }
-
-        .lightbox img {
-            max-width: 90%;
-            max-height: 80%;
-            margin-top: 5%;
-            box-shadow: 0 0 10px #fff;
-            border: 2px solid #fff;
-        }
-
-        .lightbox:target {
-            display: block;
-        }
-
-        .close-lightbox {
-            position: absolute;
-            top: 10px;
-            right: 20px;
-            color: white;
-            font-size: 30px;
-            text-decoration: none;
-        }
-
-        /* Dropdown styles */
-        .nmkr-project-select {
-            margin-bottom: 20px;
-            text-align: center;
         }
 
         /* Filter Form Styles */
@@ -295,16 +299,6 @@ function nmkr_shortcode_carousel($atts) {
     </style>
 
     <script>
-        function openLightbox(imageSrc) {
-            var lightbox = document.getElementById("lightbox");
-            lightbox.querySelector("img").src = imageSrc;
-            lightbox.style.display = "block";
-        }
-
-        function closeLightbox() {
-            document.getElementById("lightbox").style.display = "none";
-        }
-
         function scrollCarousel(direction) {
             const container = document.querySelector(".nmkr-carousel-container");
             const scrollAmount = container.offsetWidth / 2;
@@ -332,30 +326,16 @@ function nmkr_shortcode_carousel($atts) {
             });
         });
     </script>
-    
-    <div id="lightbox" class="lightbox" onclick="closeLightbox()">
-        <a href="#" class="close-lightbox">&times;</a>
-        <img src="" alt="Token Image">
-    </div>
     ';
 
-    // Project selection dropdown
-    $output .= '<div class="nmkr-project-select">';
-    $output .= '<form method="get">';
-    $output .= '<label for="nmkr_project">Select Project: </label>';
-    $output .= '<select id="nmkr_project" name="nmkr_project" onchange="this.form.submit()">';
-
-    foreach ($projects as $project) {
-        $output .= '<option value="' . esc_attr($project->project_uid) . '" ' . selected($project->project_uid, $selected_project_uid, false) . '>' . esc_html($project->project_name) . '</option>';
+    // Render project selector if allowed
+    if ( $allow_user_select ) {
+        $output .= nmkr_render_project_selector_simple( $projects, $active_project_uid );
     }
-
-    $output .= '</select>';
-    $output .= '</form>';
-    $output .= '</div>';
 
     // Token search and filter form
     $output .= '<form method="get" class="nmkr-token-filter">';
-    $output .= '<input type="hidden" name="nmkr_project" value="' . esc_attr($selected_project_uid) . '">';
+    $output .= '<input type="hidden" name="nmkr_project" value="' . esc_attr($active_project_uid) . '">';
     $output .= '<div style="width:100%;">';
     $output .= '<label for="search_token">Search Token Name: </label>';
     $output .= '<input type="text" name="search_token" id="search_token" value="' . esc_attr($search_query) . '" placeholder="Enter token name"></div>';
@@ -369,7 +349,7 @@ function nmkr_shortcode_carousel($atts) {
     $output .= '<button type="submit" class="filter-button">Filter Tokens</button>';
     $output .= '</form>';
 
-    // Display selected project details
+    // Display selected project details with counters
     if ($selected_project) {
         $output .= '<div class="nmkr-project-details">';
         $output .= '<h2>Project: ' . esc_html($selected_project->project_name) . '</h2>';
@@ -377,10 +357,18 @@ function nmkr_shortcode_carousel($atts) {
             $output .= '<p>' . esc_html($selected_project->description) . '</p>';
         }
         $output .= '<p>Policy ID: <a href="https://cardanoscan.io/tokenPolicy/' . esc_html($selected_project->policy_id) . '" target="_blank">' . esc_html($selected_project->policy_id) . '</a></p>';
-        $output .= '<p>Total Tokens: ' . esc_html($selected_project->total_tokens) . '</p>';
-        $output .= '<p>Available Tokens: ' . esc_html($selected_project->free) . '</p>';
-        if (!empty($selected_project->website)) {
-            $output .= '<p>Website: <a href="' . esc_url($selected_project->website) . '" target="_blank">' . esc_html($selected_project->website) . '</a></p>';
+        
+        // Project counters
+        $output .= '<div class="nmkr-project-counters">';
+        $output .= '<div class="nmkr-counter-item"><strong>' . esc_html__('Total','nmkr-connect') . ':</strong> ' . esc_html($counters->total_tokens) . '</div>';
+        $output .= '<div class="nmkr-counter-item"><strong>' . esc_html__('Minted','nmkr-connect') . ':</strong> ' . esc_html($counters->minted_count) . '</div>';
+        $output .= '<div class="nmkr-counter-item"><strong>' . esc_html__('Sold','nmkr-connect') . ':</strong> ' . esc_html($counters->sold_count) . '</div>';
+        $output .= '<div class="nmkr-counter-item"><strong>' . esc_html__('Reserved','nmkr-connect') . ':</strong> ' . esc_html($counters->reserved_active_count) . '</div>';
+        $output .= '<div class="nmkr-counter-item"><strong>' . esc_html__('Available','nmkr-connect') . ':</strong> ' . esc_html($counters->available_count) . '</div>';
+        $output .= '</div>';
+        
+        if (!empty($selected_project->project_url)) {
+            $output .= '<p>Website: <a href="' . esc_url($selected_project->project_url) . '" target="_blank">' . esc_html($selected_project->project_url) . '</a></p>';
         }
         if (!empty($selected_project->twitter_handle)) {
             $output .= '<p>Twitter: <a href="https://twitter.com/' . esc_attr(ltrim($selected_project->twitter_handle, '@')) . '" target="_blank">@' . esc_html(ltrim($selected_project->twitter_handle, '@')) . '</a></p>';
@@ -418,12 +406,20 @@ function nmkr_shortcode_carousel($atts) {
             // --- END: normalized slide image for [nmkr-carousel] ---
             
             $output .= '<div class="nmkr-token">';
-            $output .= '<img src="' . esc_url( $img ) . '" alt="' . esc_attr( $alt ) . '" class="token-image" style="max-width: 100%; height: auto; margin-bottom: 10px;" onclick="openLightbox(\'' . esc_url( $img ) . '\')" loading="lazy" decoding="async" />';
+            $output .= '<img src="' . esc_url( $img ) . '" alt="' . esc_attr( $alt ) . '" class="token-image" style="max-width: 100%; height: auto; margin-bottom: 10px;" onclick="openLightbox(this.src)" loading="lazy" decoding="async" />';
             $output .= '<h4>' . esc_html($token->token_name) . '</h4>';
             $price_html = nmkr_render_token_price_badges( $token );
             if ( $price_html ) { $output .= $price_html; }
-            $output .= '<p><strong>Minted:</strong> ' . esc_html($token->minted ? 'Yes' : 'No') . '</p>';
-            $output .= '<a href="' . esc_url($token->payment_gateway_link) . '" class="nmkr-buy-button"><span>💳</span> Buy with NMKR Pay</a>';
+            
+            // Use helper functions for status and buyable logic
+            $status_label = nmkr_token_status_label( $token );
+            $buyable = nmkr_token_is_buyable( $token );
+            
+            $output .= '<p><strong>Status:</strong> ' . esc_html($status_label) . '</p>';
+            
+            if ( $buyable ) {
+                $output .= '<a href="' . esc_url($token->payment_gateway_link) . '" class="nmkr-buy-button"><span>💳</span> Buy with NMKR Pay</a>';
+            }
             $output .= '</div>';
         }
         $output .= '</div>'; // Close carousel container
@@ -431,6 +427,11 @@ function nmkr_shortcode_carousel($atts) {
         $output .= '</div>'; // Close carousel wrapper
     } else {
         $output .= '<p>No tokens available for this project.</p>';
+    }
+
+    // Print lightbox once
+    if ( function_exists('nmkr_print_lightbox_once') ) { 
+        nmkr_print_lightbox_once(); 
     }
 
     return $output;

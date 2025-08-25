@@ -1,4 +1,14 @@
 <?php
+// Exit if accessed directly
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+// Include new helpers
+require_once dirname(__FILE__,2) . '/helpers/nmkr-availability.php';
+require_once dirname(__FILE__,2) . '/helpers/nmkr-lightbox.php';
+require_once dirname(__FILE__,2) . '/helpers/nmkr-projects-util.php';
+
 // Shortcode function to display a single token with details
 function nmkr_shortcode_token($atts) {
     // Check if the user has the necessary plan (Starter or above)
@@ -15,22 +25,31 @@ function nmkr_shortcode_token($atts) {
         ), $atts, 'nmkr_shortcode_token'
     );
 
+    // Parameterless mode: If token_uid is missing, resolve the latest project → pick its first buyable token
+    if ( empty( $atts['token_uid'] ) ) {
+        $active_project_uid = nmkr_get_active_project_uid_single( $atts );
+        if ( empty( $active_project_uid ) ) {
+            return '<p>' . esc_html__( 'No projects available. Please synchronize with NMKR Studio first.', 'nmkr-connect' ) . '</p>';
+        }
+        $token_obj = nmkr_get_first_token_for_project( $active_project_uid, true );
+        if ( ! $token_obj ) {
+            return '<p>' . esc_html__( 'No tokens found for the selected project.', 'nmkr-connect' ) . '</p>';
+        }
+        $atts['token_uid'] = $token_obj->token_uid;
+    }
+
     // Table names with dynamic prefix
     $tokens_table = $wpdb->prefix . 'nmkr_tokens';
 
-    // Fetch the selected token from the database
-    if (!empty($atts['token_uid'])) {
-        $token = $wpdb->get_row($wpdb->prepare(
-            "SELECT t.*, td.* 
-             FROM $tokens_table t 
-             LEFT JOIN {$wpdb->prefix}nmkr_token_details td ON t.token_uid = td.token_uid 
-             WHERE t.token_uid = %s", 
-            $atts['token_uid']
-        ));
-    }
-
-    if (!$token) {
-        return '<p>Token not found or invalid token UID.</p>';
+    // Single token fetch must join details
+    $t  = $wpdb->prefix . 'nmkr_tokens';
+    $td = $wpdb->prefix . 'nmkr_token_details';
+    $token = $wpdb->get_row( $wpdb->prepare(
+        "SELECT t.*, td.* FROM {$t} t LEFT JOIN {$td} td ON td.token_uid = t.token_uid WHERE t.token_uid = %s",
+        $atts['token_uid']
+    ));
+    if ( ! $token ) {
+        return '<p>' . esc_html__( 'Token not found.', 'nmkr-connect' ) . '</p>';
     }
 
     // Initialize output with token details
@@ -106,10 +125,6 @@ function nmkr_shortcode_token($atts) {
         }
         
         /* Price Badge Styling */
-        .nmkr-token-price {
-            margin: 10px 0;
-        }
-        
         .nmkr-price-badge {
             display: inline-block;
             padding: 4px 8px;
@@ -130,48 +145,7 @@ function nmkr_shortcode_token($atts) {
             color: #1565c0;
             border: 1px solid #bbdefb;
         }
-        /* Lightbox styles */
-        .lightbox {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.8);
-            text-align: center;
-        }
-        .lightbox img {
-            max-width: 90%;
-            max-height: 80%;
-            margin-top: 5%;
-            box-shadow: 0 0 10px #fff;
-            border: 2px solid #fff;
-        }
-        .lightbox:target {
-            display: block;
-        }
-        .close-lightbox {
-            position: absolute;
-            top: 10px;
-            right: 20px;
-            color: white;
-            font-size: 30px;
-            text-decoration: none;
-        }
     </style>
-
-    <script>
-        function openLightbox(imageSrc) {
-            var lightbox = document.getElementById("lightbox");
-            lightbox.querySelector("img").src = imageSrc;
-            lightbox.style.display = "block";
-        }
-        function closeLightbox() {
-            document.getElementById("lightbox").style.display = "none";
-        }
-    </script>
     
     <div class="nmkr-single-token">
         <h3>' . esc_html($token->token_name) . '</h3>';
@@ -197,30 +171,17 @@ function nmkr_shortcode_token($atts) {
     }
     
     // Display token image with lightbox functionality
-    $output .= '<img src="' . esc_url( $img ) . '" alt="' . esc_attr( $alt ) . '" class="nmkr-token-image" loading="lazy" decoding="async" onclick="openLightbox(\'' . esc_url( $img ) . '\')">';
+    $output .= '<img src="' . esc_url( $img ) . '" alt="' . esc_attr( $alt ) . '" class="nmkr-token-image" loading="lazy" decoding="async" onclick="openLightbox(this.src)">';
     
     // --- END: normalized main token image for [nmkr-token] ---
 
     // Token metadata
     $output .= '<div class="nmkr-token-meta">';
     
-    // Token status
-    $status_class = '';
-    $status_text = '';
-    if ($token->minted) {
-        $status_class = 'minted';
-        $status_text = 'Minted';
-    } else if (!empty($token->reserved_until)) {
-        $status_class = 'reserved';
-        $status_text = 'Reserved';
-    } else if (!empty($token->sell_date)) {
-        $status_class = 'sold';
-        $status_text = 'Sold';
-    } else {
-        $status_class = 'unminted';
-        $status_text = 'Available';
-    }
-    $output .= '<div class="nmkr-token-meta-item"><span class="nmkr-token-status ' . $status_class . '">' . $status_text . '</span></div>';
+    // Token status using helper
+    $status_label = nmkr_token_status_label( $token );
+    $status_class = strtolower($status_label);
+    $output .= '<div class="nmkr-token-meta-item"><span class="nmkr-token-status ' . $status_class . '">' . esc_html($status_label) . '</span></div>';
     
     // Token price
     $price_html = nmkr_render_token_price_badges( $token );
@@ -238,8 +199,9 @@ function nmkr_shortcode_token($atts) {
     
     $output .= '</div>';
 
-    // Token actions
-    if (!$token->minted && empty($token->reserved_until) && empty($token->sell_date)) {
+    // Token actions using helper
+    $buyable = nmkr_token_is_buyable( $token );
+    if ( $buyable ) {
         if (!empty($token->payment_gateway_link)) {
             $output .= '<a href="' . esc_url($token->payment_gateway_link) . '" class="nmkr-token-button" target="_blank">Purchase</a>';
         }
@@ -247,12 +209,10 @@ function nmkr_shortcode_token($atts) {
 
     $output .= '</div>';
 
-    // Lightbox container
-    $output .= '
-    <div id="lightbox" class="lightbox" onclick="closeLightbox()">
-        <a href="#" class="close-lightbox">&times;</a>
-        <img src="" alt="Token Image">
-    </div>';
+    // Print lightbox once
+    if ( function_exists('nmkr_print_lightbox_once') ) { 
+        nmkr_print_lightbox_once(); 
+    }
 
     return $output;
 }
