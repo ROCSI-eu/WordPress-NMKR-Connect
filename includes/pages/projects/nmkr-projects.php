@@ -1,7 +1,6 @@
 <?php
 // Include necessary functions from split files
 require_once plugin_dir_path(dirname(dirname(dirname(__FILE__)))) . 'includes/api/nmkr-api-functions.php';
-// Include modular sync files instead of the removed nmkr-sync-functions.php
 require_once plugin_dir_path(dirname(dirname(dirname(__FILE__)))) . 'includes/synchronization/nmkr-sync-core.php';
 require_once plugin_dir_path(dirname(dirname(dirname(__FILE__)))) . 'includes/synchronization/nmkr-sync-batch-processing.php';
 require_once plugin_dir_path(dirname(dirname(dirname(__FILE__)))) . 'includes/synchronization/nmkr-sync-progress-tracking.php';
@@ -10,6 +9,7 @@ require_once plugin_dir_path(dirname(dirname(dirname(__FILE__)))) . 'includes/sy
 require_once plugin_dir_path(dirname(dirname(dirname(__FILE__)))) . 'includes/database/nmkr-database-functions.php';
 require_once plugin_dir_path(dirname(dirname(dirname(__FILE__)))) . 'includes/helpers/nmkr-performance-functions.php';
 require_once plugin_dir_path(dirname(dirname(dirname(__FILE__)))) . 'includes/helpers/nmkr-utility-functions.php';
+require_once plugin_dir_path(dirname(dirname(dirname(__FILE__)))) . 'includes/helpers/nmkr-media-helpers.php';
 
 function nmkr_connect_projects_page() {
     global $wpdb;
@@ -124,11 +124,30 @@ function nmkr_connect_projects_page() {
                         <?php foreach ($tokens as $token): ?>
                             <div class="token-item">
                                 <div class="token-image">
-                                    <?php if (!empty($token->gateway_link)): ?>
-                                        <img src="<?php echo esc_url($token->gateway_link); ?>" alt="<?php echo esc_attr($token->token_name); ?>" width="150" loading="lazy">
-                                    <?php else: ?>
-                                        <img src="<?php echo plugins_url('images/placeholder.png', dirname(__FILE__)); ?>" alt="Placeholder" width="150">
-                                    <?php endif; ?>
+                                    <?php
+                                    // --- BEGIN: normalized token preview (admin) ---
+                                    $img = nmkr_get_token_image_url( $token );
+                                    if ( empty( $img ) ) {
+                                        $img = plugins_url( 'images/placeholder.png', dirname(__FILE__) );
+                                    }
+
+                                    $t_alt = '';
+                                    if ( ! empty( $token->token_name ) ) {
+                                        $t_alt = $token->token_name;
+                                    } elseif ( ! empty( $token->asset_name ) ) {
+                                        $t_alt = $token->asset_name;
+                                    } else {
+                                        $t_alt = 'Token';
+                                    }
+                                    // --- END: normalized token preview (admin) ---
+                                    ?>
+                                    <img
+                                      src="<?php echo esc_url( $img ); ?>"
+                                      alt="<?php echo esc_attr( $t_alt ); ?>"
+                                      width="150"
+                                      loading="lazy"
+                                      decoding="async"
+                                    />
                                 </div>
                                 <div class="token-details">
                                     <p class="token-name"><strong><?php echo esc_html($token->token_name); ?></strong></p>
