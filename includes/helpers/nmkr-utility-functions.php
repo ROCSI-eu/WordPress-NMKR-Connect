@@ -467,3 +467,47 @@ if ( ! function_exists( 'nmkr_safe_getpid' ) ) {
         return (int) wp_rand( 1000, 999999 );
     }
 }
+
+/**
+ * Render standardized price badges for tokens
+ * 
+ * @param object $token Token object with price and price_solana properties
+ * @param bool $wrap Whether to wrap badges in a container div (default: true)
+ * @return string HTML markup for price badges, or empty string if no prices
+ */
+function nmkr_render_token_price_badges($token, $wrap = true) {
+    $prices = array();
+    
+    // Check for ADA price (price field, divided by 1e6)
+    if (!empty($token->price) && $token->price > 0) {
+        $ada_price = $token->price / 1000000;
+        $prices[] = sprintf(
+            '<span class="nmkr-price-badge nmkr-price-ada">%s ADA</span>',
+            number_format_i18n($ada_price, 2)
+        );
+    }
+    
+    // Check for SOL price (price_solana field, divided by 1e9)
+    if (!empty($token->price_solana) && $token->price_solana > 0) {
+        $sol_price = $token->price_solana / 1000000000;
+        $prices[] = sprintf(
+            '<span class="nmkr-price-badge nmkr-price-sol">%s SOL</span>',
+            number_format_i18n($sol_price, 4)
+        );
+    }
+    
+    // Return empty string if no prices
+    if (empty($prices)) {
+        return '';
+    }
+    
+    // Return badges with or without wrapper
+    if ($wrap) {
+        return sprintf(
+            '<div class="nmkr-token-price">%s</div>',
+            implode(' ', $prices)
+        );
+    } else {
+        return implode(' ', $prices);
+    }
+}

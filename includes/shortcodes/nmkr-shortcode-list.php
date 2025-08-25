@@ -112,6 +112,28 @@ function nmkr_shortcode_list($atts) {
             background-color: #bdbdbd;
             cursor: not-allowed;
         }
+        
+        /* Price Badge Styling */
+        .nmkr-price-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            margin-right: 8px;
+        }
+        
+        .nmkr-price-ada {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #c8e6c9;
+        }
+        
+        .nmkr-price-sol {
+            background-color: #e3f2fd;
+            color: #1565c0;
+            border: 1px solid #bbdefb;
+        }
         .nmkr-project-selector {
             margin: 20px 0;
             text-align: center;
@@ -254,9 +276,7 @@ function nmkr_shortcode_list($atts) {
         
         // Token price
         $output .= '<td>';
-        if (!empty($token->price)) {
-            $output .= esc_html($token->price) . ' ADA';
-        }
+        $output .= nmkr_render_token_price_badges( $token, false );
         $output .= '</td>';
         
         // Token series

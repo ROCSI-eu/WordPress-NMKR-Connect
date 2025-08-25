@@ -164,7 +164,12 @@ function nmkr_connect_projects_page() {
                                         }
                                         ?>
                                     </p>
-                                    <p><strong>Price:</strong> <?php echo ceil($token->price / 1000000) . ' ADA'; ?></p>
+                                    <?php
+                                    $price_html = nmkr_render_token_price_badges( $token );
+                                    if ( $price_html ) {
+                                        echo $price_html; // safe, generated markup
+                                    }
+                                    ?>
                                     <?php if (!empty($token->series)): ?>
                                         <p><strong>Series:</strong> <?php echo esc_html($token->series); ?></p>
                                     <?php endif; ?>
@@ -412,6 +417,32 @@ function nmkr_connect_projects_page() {
             .button-primary:hover {
                 background-color: #135e96;
                 color: #fff;
+            }
+            
+            /* Price Badge Styling */
+            .nmkr-token-price {
+                margin: 10px 0;
+            }
+            
+            .nmkr-price-badge {
+                display: inline-block;
+                padding: 4px 8px;
+                border-radius: 12px;
+                font-size: 12px;
+                font-weight: 500;
+                margin-right: 8px;
+            }
+            
+            .nmkr-price-ada {
+                background-color: #e8f5e9;
+                color: #2e7d32;
+                border: 1px solid #c8e6c9;
+            }
+            
+            .nmkr-price-sol {
+                background-color: #e3f2fd;
+                color: #1565c0;
+                border: 1px solid #bbdefb;
             }
         </style>
     </div>

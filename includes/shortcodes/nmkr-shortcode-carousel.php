@@ -248,6 +248,32 @@ function nmkr_shortcode_carousel($atts) {
         .filter-button:hover {
             background-color: #005e8c;
         }
+        
+        /* Price Badge Styling */
+        .nmkr-token-price {
+            margin: 10px 0;
+        }
+        
+        .nmkr-price-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            margin-right: 8px;
+        }
+        
+        .nmkr-price-ada {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #c8e6c9;
+        }
+        
+        .nmkr-price-sol {
+            background-color: #e3f2fd;
+            color: #1565c0;
+            border: 1px solid #bbdefb;
+        }
 
         /* Responsive adjustments */
         @media (max-width: 768px) {
@@ -374,7 +400,6 @@ function nmkr_shortcode_carousel($atts) {
         $output .= '<button class="carousel-prev" onclick="scrollCarousel(\'left\')">‹</button>';
         $output .= '<div class="nmkr-carousel-container">';
         foreach ($tokens as $token) {
-            $price_in_ada = floor($token->price / 1000000);
             
             // --- BEGIN: normalized slide image for [nmkr-carousel] ---
             $img = nmkr_get_token_image_url( $token );
@@ -395,7 +420,8 @@ function nmkr_shortcode_carousel($atts) {
             $output .= '<div class="nmkr-token">';
             $output .= '<img src="' . esc_url( $img ) . '" alt="' . esc_attr( $alt ) . '" class="token-image" style="max-width: 100%; height: auto; margin-bottom: 10px;" onclick="openLightbox(\'' . esc_url( $img ) . '\')" loading="lazy" decoding="async" />';
             $output .= '<h4>' . esc_html($token->token_name) . '</h4>';
-            $output .= '<p><strong>Price:</strong> ' . esc_html($price_in_ada) . ' ADA</p>';
+            $price_html = nmkr_render_token_price_badges( $token );
+            if ( $price_html ) { $output .= $price_html; }
             $output .= '<p><strong>Minted:</strong> ' . esc_html($token->minted ? 'Yes' : 'No') . '</p>';
             $output .= '<a href="' . esc_url($token->payment_gateway_link) . '" class="nmkr-buy-button"><span>💳</span> Buy with NMKR Pay</a>';
             $output .= '</div>';

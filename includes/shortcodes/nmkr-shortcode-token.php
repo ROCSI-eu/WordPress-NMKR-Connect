@@ -104,6 +104,32 @@ function nmkr_shortcode_token($atts) {
             background-color: #bdbdbd;
             cursor: not-allowed;
         }
+        
+        /* Price Badge Styling */
+        .nmkr-token-price {
+            margin: 10px 0;
+        }
+        
+        .nmkr-price-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            margin-right: 8px;
+        }
+        
+        .nmkr-price-ada {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #c8e6c9;
+        }
+        
+        .nmkr-price-sol {
+            background-color: #e3f2fd;
+            color: #1565c0;
+            border: 1px solid #bbdefb;
+        }
         /* Lightbox styles */
         .lightbox {
             display: none;
@@ -197,9 +223,8 @@ function nmkr_shortcode_token($atts) {
     $output .= '<div class="nmkr-token-meta-item"><span class="nmkr-token-status ' . $status_class . '">' . $status_text . '</span></div>';
     
     // Token price
-    if (!empty($token->price)) {
-        $output .= '<div class="nmkr-token-meta-item"><strong>Price:</strong> ' . esc_html($token->price) . ' ADA</div>';
-    }
+    $price_html = nmkr_render_token_price_badges( $token );
+    if ( $price_html ) { $output .= $price_html; }
     
     // Token series
     if (!empty($token->series)) {
