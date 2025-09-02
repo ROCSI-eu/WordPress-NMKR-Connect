@@ -61,6 +61,9 @@ function nmkr_shortcode_token($atts) {
         nmkr_print_buy_button_styles_once();
     }
     
+    // Enqueue frontend analytics scaffold
+    nmkr_enqueue_analytics_frontend();
+
     $output .= '
     <style>
         .nmkr-single-token {
@@ -155,7 +158,7 @@ function nmkr_shortcode_token($atts) {
         }
     </style>
     
-    <div class="nmkr-single-token">
+    <div class="nmkr-single-token" data-nmkr-evt="view" data-nmkr-shortcode="token" data-nmkr-token-uid="' . esc_attr($token->token_uid) . '" data-nmkr-id="token:' . esc_attr($token->token_uid) . '">
         <h3>' . esc_html($token->token_name) . '</h3>';
 
     // --- BEGIN: normalized main token image for [nmkr-token] ---
@@ -214,7 +217,11 @@ function nmkr_shortcode_token($atts) {
             $output .= '<a href="' . esc_url($token->payment_gateway_link) . '"'
                 . ' class="nmkr-buy-button"'
                 . ' target="_blank" rel="noopener noreferrer"'
-                . ' aria-label="' . esc_attr__( 'Buy token with NMKR Pay', 'nmkr-connect' ) . '">'
+                . ' aria-label="' . esc_attr__( 'Buy token with NMKR Pay', 'nmkr-connect' ) . '"'
+                . ' data-nmkr-evt="click" data-nmkr-cta="buy" data-nmkr-shortcode="token"'
+                . ' data-nmkr-token-uid="' . esc_attr($token->token_uid) . '"'
+                . ' data-nmkr-id="token:' . esc_attr($token->token_uid) . '"'
+                . '>'
                 . '<span aria-hidden="true">💳</span> '
                 . esc_html__( 'Buy with NMKR Pay', 'nmkr-connect' )
                 . '</a>';

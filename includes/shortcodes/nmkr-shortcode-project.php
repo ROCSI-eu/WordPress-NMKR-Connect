@@ -51,6 +51,9 @@ function nmkr_shortcode_project($atts) {
     // Counters from the centralized helper
     $counters = nmkr_get_project_counters( $active_project_uid );
 
+    // Enqueue frontend analytics scaffold
+    nmkr_enqueue_analytics_frontend();
+
     // Initialize output with project details
     $output = '';
     
@@ -156,7 +159,12 @@ function nmkr_shortcode_project($atts) {
         $output .= nmkr_render_project_selector_simple( $projects, $active_project_uid );
     }
     
-    $output .= '<div class="nmkr-single-project">
+    $output .= '<div class="nmkr-single-project"'
+        . ' data-nmkr-evt="view"'
+        . ' data-nmkr-shortcode="project"'
+        . ' data-nmkr-project-uid="' . esc_attr($active_project_uid) . '"'
+        . ' data-nmkr-id="project:' . esc_attr($active_project_uid) . '"'
+        . '>
         <h4>' . esc_html($project->project_name) . '</h4>';
 
     // --- BEGIN: normalized project logo for [nmkr-project] ---
@@ -235,7 +243,12 @@ function nmkr_shortcode_project($atts) {
             $output .= '<a href="' . esc_url( $featured->payment_gateway_link ) . '"'
                     . ' class="nmkr-buy-button"'
                     . ' target="_blank" rel="noopener noreferrer"'
-                    . ' aria-label="' . esc_attr__( 'Buy token with NMKR Pay', 'nmkr-connect' ) . '">'
+                    . ' aria-label="' . esc_attr__( 'Buy token with NMKR Pay', 'nmkr-connect' ) . '"'
+                    . ' data-nmkr-evt="click" data-nmkr-cta="buy" data-nmkr-shortcode="project"'
+                    . ' data-nmkr-project-uid="' . esc_attr($active_project_uid) . '"'
+                    . ' data-nmkr-token-uid="' . esc_attr(!empty($featured->token_uid) ? $featured->token_uid : '') . '"'
+                    . ' data-nmkr-id="project:' . esc_attr($active_project_uid) . '"'
+                    . '>'
                     . '<span aria-hidden="true">💳</span> '
                     . esc_html__( 'Buy with NMKR Pay', 'nmkr-connect' )
                     . '</a>';

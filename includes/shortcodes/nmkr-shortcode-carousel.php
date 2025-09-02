@@ -63,6 +63,9 @@ function nmkr_shortcode_carousel($atts) {
         return '<p>' . esc_html__( 'No tokens found for this project.', 'nmkr-connect' ) . '</p>';
     }
 
+    // Enqueue frontend analytics scaffold
+    nmkr_enqueue_analytics_frontend();
+
     // Apply filters if needed
     if (!empty($search_query) || $filter_minted !== '') {
         $filtered_tokens = [];
@@ -400,7 +403,13 @@ function nmkr_shortcode_carousel($atts) {
             }
             // --- END: normalized slide image for [nmkr-carousel] ---
             
-            $output .= '<div class="nmkr-token">';
+            $output .= '<div class="nmkr-token"'
+                . ' data-nmkr-evt="view"'
+                . ' data-nmkr-shortcode="carousel"'
+                . ' data-nmkr-project-uid="' . esc_attr($active_project_uid) . '"'
+                . ' data-nmkr-token-uid="' . esc_attr(!empty($token->token_uid) ? $token->token_uid : '') . '"'
+                . ' data-nmkr-id="carousel:' . esc_attr(!empty($token->token_uid) ? $token->token_uid : $active_project_uid) . '"'
+                . '>';
             $output .= '<img src="' . esc_url( $img ) . '" alt="' . esc_attr( $alt ) . '" class="token-image" style="max-width: 100%; height: auto; margin-bottom: 10px;" onclick="openLightbox(this.src)" loading="lazy" decoding="async" />';
             $output .= '<h4>' . esc_html($token->token_name) . '</h4>';
             $price_html = nmkr_render_token_price_badges( $token );
@@ -416,7 +425,12 @@ function nmkr_shortcode_carousel($atts) {
                 $output .= '<a href="' . esc_url($token->payment_gateway_link) . '"'
                     . ' class="nmkr-buy-button"'
                     . ' target="_blank" rel="noopener noreferrer"'
-                    . ' aria-label="' . esc_attr__( 'Buy token with NMKR Pay', 'nmkr-connect' ) . '">'
+                    . ' aria-label="' . esc_attr__( 'Buy token with NMKR Pay', 'nmkr-connect' ) . '"'
+                    . ' data-nmkr-evt="click" data-nmkr-cta="buy" data-nmkr-shortcode="carousel"'
+                    . ' data-nmkr-project-uid="' . esc_attr($active_project_uid) . '"'
+                    . ' data-nmkr-token-uid="' . esc_attr(!empty($token->token_uid) ? $token->token_uid : '') . '"'
+                    . ' data-nmkr-id="carousel:' . esc_attr(!empty($token->token_uid) ? $token->token_uid : $active_project_uid) . '"'
+                    . '>'
                     . '<span aria-hidden="true">💳</span> '
                     . esc_html__( 'Buy with NMKR Pay', 'nmkr-connect' )
                     . '</a>';

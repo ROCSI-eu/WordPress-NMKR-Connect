@@ -58,6 +58,9 @@ function nmkr_shortcode_grid($atts) {
         return '<p>' . esc_html__( 'No tokens found for this project.', 'nmkr-connect' ) . '</p>';
     }
 
+    // Enqueue frontend analytics scaffold
+    nmkr_enqueue_analytics_frontend();
+
     // Apply filters if needed
     if (!empty($search_query) || $filter_minted !== '') {
         $filtered_tokens = [];
@@ -274,7 +277,13 @@ function nmkr_shortcode_grid($atts) {
     // Add token grid
     $output .= '<div class="nmkr-token-grid">';
     foreach ($tokens as $token) {
-        $output .= '<div class="nmkr-token-card">';
+        $output .= '<div class="nmkr-token-card"'
+            . ' data-nmkr-evt="view"'
+            . ' data-nmkr-shortcode="grid"'
+            . ' data-nmkr-project-uid="' . esc_attr($active_project_uid) . '"'
+            . ' data-nmkr-token-uid="' . esc_attr(!empty($token->token_uid) ? $token->token_uid : '') . '"'
+            . ' data-nmkr-id="grid:' . esc_attr(!empty($token->token_uid) ? $token->token_uid : $active_project_uid) . '"'
+            . '>';
         
         // Token image
         $img = nmkr_get_token_image_url($token);
@@ -320,7 +329,12 @@ function nmkr_shortcode_grid($atts) {
                 $output .= '<a href="' . esc_url($token->payment_gateway_link) . '"'
                     . ' class="nmkr-buy-button"'
                     . ' target="_blank" rel="noopener noreferrer"'
-                    . ' aria-label="' . esc_attr__( 'Buy token with NMKR Pay', 'nmkr-connect' ) . '">'
+                    . ' aria-label="' . esc_attr__( 'Buy token with NMKR Pay', 'nmkr-connect' ) . '"'
+                    . ' data-nmkr-evt="click" data-nmkr-cta="buy" data-nmkr-shortcode="grid"'
+                    . ' data-nmkr-project-uid="' . esc_attr($active_project_uid) . '"'
+                    . ' data-nmkr-token-uid="' . esc_attr(!empty($token->token_uid) ? $token->token_uid : '') . '"'
+                    . ' data-nmkr-id="grid:' . esc_attr(!empty($token->token_uid) ? $token->token_uid : $active_project_uid) . '"'
+                    . '>'
                     . '<span aria-hidden="true">💳</span> '
                     . esc_html__( 'Buy with NMKR Pay', 'nmkr-connect' )
                     . '</a>';

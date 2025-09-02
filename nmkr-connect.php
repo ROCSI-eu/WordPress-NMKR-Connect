@@ -332,3 +332,42 @@ function nmkr_init() {
 
 // Hook the init function
 add_action('init', 'nmkr_init');
+
+// Enqueue frontend analytics scaffold
+function nmkr_enqueue_analytics_frontend() {
+    static $done = false;
+    if ($done) { return; }
+    $done = true;
+
+    $base_url = plugin_dir_url(__FILE__);
+    $base_dir = plugin_dir_path(__FILE__);
+    $script_rel = 'js/nmkr-analytics.js';
+    $script_ver = @filemtime($base_dir . $script_rel) ?: '1.0';
+
+    wp_enqueue_script('nmkr-analytics', $base_url . $script_rel, array(), $script_ver, true);
+
+    $options = get_option('nmkr_connect_options', array());
+    $mode = isset($options['analytics_mode']) ? $options['analytics_mode'] : 'minimal';
+    $requiresConsent = isset($options['analytics_require_consent']) ? (bool)$options['analytics_require_consent'] : false;
+    $sampleRate = isset($options['analytics_sample_rate']) ? floatval($options['analytics_sample_rate']) : 1.0;
+    if ($sampleRate < 0) { $sampleRate = 0; }
+    if ($sampleRate > 1) { $sampleRate = 1; }
+    $debug = isset($options['analytics_debug']) ? (bool)$options['analytics_debug'] : false;
+
+    $home = home_url();
+    $host = parse_url($home, PHP_URL_HOST);
+
+    $config = array(
+        'mode' => $mode,
+        'requiresConsent' => $requiresConsent,
+        'hasConsent' => isset($_COOKIE['nmkr_analytics_consent']) && $_COOKIE['nmkr_analytics_consent'] === '1',
+        'sampleRate' => $sampleRate,
+        'siteOrigin' => $host ? $host : '',
+        'debug' => $debug,
+        'transportEnabled' => false,
+        'endpoint_rest' => site_url('/wp-json/nmkr-connect/v1/analytics'),
+        'endpoint_ajax' => admin_url('admin-ajax.php?action=nmkr_analytics_event'),
+    );
+
+    wp_localize_script('nmkr-analytics', 'NMKR_ANALYTICS', $config);
+}
