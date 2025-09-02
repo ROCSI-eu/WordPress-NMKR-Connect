@@ -91,14 +91,35 @@
     }
 
     function send(evt) {
-      if (!cfg.transportEnabled) {
-        log('Transport disabled; stub event', evt);
-        return;
-      }
-      // TODO: Implement send via navigator.sendBeacon to cfg.endpoint_rest
-      // TODO: Fallback to fetch() POST to cfg.endpoint_rest
-      // TODO: Fallback to AJAX endpoint cfg.endpoint_ajax
-      warn('Transport enabled, but not implemented in PR-1.', evt);
+      if (!cfg.transportEnabled) { log('Transport disabled; stub event', evt); return; }
+      try {
+        var payload = JSON.stringify(evt);
+        if (navigator && typeof navigator.sendBeacon === 'function') {
+          var blob = new Blob([payload], { type: 'application/json' });
+          var ok = navigator.sendBeacon(cfg.endpoint_rest, blob);
+          if (ok) return;
+        }
+        if (typeof fetch === 'function') {
+          return fetch(cfg.endpoint_rest, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: payload,
+            keepalive: true,
+            credentials: 'same-origin',
+            cache: 'no-store',
+          }).then(function(res){
+            if (res && res.status && res.status !== 404) return;
+            return fetch(cfg.endpoint_ajax, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: payload,
+              keepalive: true,
+              credentials: 'same-origin',
+              cache: 'no-store',
+            });
+          }).catch(function(){ /* swallow */ });
+        }
+      } catch(e) { /* swallow */ }
     }
 
     var io = null;

@@ -153,6 +153,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/shortcodes/nmkr-shortcode-car
 require_once plugin_dir_path(__FILE__) . 'includes/shortcodes/nmkr-shortcode-token.php';
 require_once plugin_dir_path(__FILE__) . 'includes/shortcodes/nmkr-shortcode-project.php';
 require_once plugin_dir_path(__FILE__) . 'includes/analytics/nmkr-analytics-cron.php';
+require_once plugin_dir_path(__FILE__) . 'includes/analytics/nmkr-analytics-endpoints.php';
 
 // Register deactivation hook
 function nmkr_connect_deactivate() {
@@ -357,14 +358,15 @@ function nmkr_enqueue_analytics_frontend() {
     $home = home_url();
     $host = parse_url($home, PHP_URL_HOST);
 
+    $has_consent_cookie = ( isset($_COOKIE['nmkr_analytics_consent']) && sanitize_text_field( $_COOKIE['nmkr_analytics_consent'] ) === '1' );
     $config = array(
         'mode' => $mode,
         'requiresConsent' => $requiresConsent,
-        'hasConsent' => isset($_COOKIE['nmkr_analytics_consent']) && $_COOKIE['nmkr_analytics_consent'] === '1',
+        'hasConsent' => $has_consent_cookie,
         'sampleRate' => $sampleRate,
         'siteOrigin' => $host ? $host : '',
         'debug' => $debug,
-        'transportEnabled' => false,
+        'transportEnabled' => true,
         'endpoint_rest' => site_url('/wp-json/nmkr-connect/v1/analytics'),
         'endpoint_ajax' => admin_url('admin-ajax.php?action=nmkr_analytics_event'),
     );

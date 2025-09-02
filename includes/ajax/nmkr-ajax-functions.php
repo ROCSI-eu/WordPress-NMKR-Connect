@@ -55,3 +55,24 @@ function nmkr_get_api_status() {
         ]);
     }
 } 
+
+// Anonymous + logged-in analytics ingestion (fallback)
+add_action( 'wp_ajax_nopriv_nmkr_analytics_event', 'nmkr_analytics_event_ajax' );
+add_action( 'wp_ajax_nmkr_analytics_event',        'nmkr_analytics_event_ajax' );
+
+function nmkr_analytics_event_ajax() {
+    nocache_headers();
+    $raw  = file_get_contents( 'php://input' );
+    $body = json_decode( $raw, true );
+    $resp = nmkr_analytics_ingest_common( $body, 'ajax' );
+    if ( $resp instanceof WP_REST_Response ) {
+        status_header( $resp->get_status() );
+        exit;
+    }
+    if ( is_array( $resp ) && isset( $resp['status'] ) ) {
+        status_header( (int) $resp['status'] );
+        exit;
+    }
+    status_header( 204 );
+    exit;
+}
