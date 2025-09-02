@@ -157,6 +157,58 @@ function nmkr_connect_sanitize_options($input) {
         $sanitized_input['log_retention_limit'] = 100; // Default value
     }
     
+    // Sanitize Analytics Settings
+    
+    // Analytics Mode
+    if (isset($input['analytics_mode'])) {
+        $valid_modes = array('off', 'minimal', 'full');
+        $sanitized_input['analytics_mode'] = in_array($input['analytics_mode'], $valid_modes) ? $input['analytics_mode'] : 'minimal';
+    } elseif (isset($existing_options['analytics_mode'])) {
+        $sanitized_input['analytics_mode'] = $existing_options['analytics_mode'];
+    } else {
+        $sanitized_input['analytics_mode'] = 'minimal'; // Default value
+    }
+    
+    // Analytics Retention Days
+    if (isset($input['analytics_retention_days'])) {
+        $sanitized_input['analytics_retention_days'] = intval($input['analytics_retention_days']);
+        // Ensure it's within valid range
+        $sanitized_input['analytics_retention_days'] = max(7, min(365, $sanitized_input['analytics_retention_days']));
+    } elseif (isset($existing_options['analytics_retention_days'])) {
+        $sanitized_input['analytics_retention_days'] = $existing_options['analytics_retention_days'];
+    } else {
+        $sanitized_input['analytics_retention_days'] = 90; // Default value
+    }
+    
+    // Analytics Track Logged In
+    $sanitized_input['analytics_track_logged_in'] = isset($input['analytics_track_logged_in']) ? 1 : 0;
+    
+    // Analytics Require Consent
+    $sanitized_input['analytics_require_consent'] = isset($input['analytics_require_consent']) ? 1 : 0;
+    
+    // Analytics Sample Rate
+    if (isset($input['analytics_sample_rate'])) {
+        $sanitized_input['analytics_sample_rate'] = floatval($input['analytics_sample_rate']);
+        // Ensure it's within valid range and round to 2 decimals
+        $sanitized_input['analytics_sample_rate'] = round(max(0, min(1, $sanitized_input['analytics_sample_rate'])), 2);
+    } elseif (isset($existing_options['analytics_sample_rate'])) {
+        $sanitized_input['analytics_sample_rate'] = $existing_options['analytics_sample_rate'];
+    } else {
+        $sanitized_input['analytics_sample_rate'] = 1.0; // Default value
+    }
+    
+    // Analytics Remove on Uninstall
+    $sanitized_input['analytics_remove_on_uninstall'] = isset($input['analytics_remove_on_uninstall']) ? 1 : 0;
+    
+    // Analytics Debug
+    $sanitized_input['analytics_debug'] = isset($input['analytics_debug']) ? 1 : 0;
+    
+    // Future-proof: merge with existing options so unknown/future keys aren’t dropped on save.
+    if ( ! isset( $existing_options ) || ! is_array( $existing_options ) ) {
+        $existing_options = get_option( 'nmkr_connect_options', array() );
+    }
+    $sanitized_input = array_merge( (array) $existing_options, (array) $sanitized_input );
+
     return $sanitized_input;
 }
 
@@ -188,7 +240,14 @@ function nmkr_get_default_settings() {
         'sync_debug_enabled' => 0,
         'ui_debug_enabled' => 0,
         'performance_debug_enabled' => 0,
-        'log_retention_limit' => 100
+        'log_retention_limit' => 100,
+        'analytics_mode' => 'minimal',
+        'analytics_retention_days' => 90,
+        'analytics_track_logged_in' => 0,
+        'analytics_require_consent' => 0,
+        'analytics_sample_rate' => 1.0,
+        'analytics_remove_on_uninstall' => 1,
+        'analytics_debug' => 0
     );
     
     return $defaults;

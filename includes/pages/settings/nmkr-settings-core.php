@@ -218,6 +218,77 @@ function nmkr_connect_register_settings() {
         'nmkr-connect-settings',
         'nmkr_connect_wp_debug_section'
     );
+
+    // Add Analytics & Privacy Settings section
+    add_settings_section(
+        'nmkr_analytics_section',
+        __('Analytics & Privacy', 'nmkr-connect'),
+        'nmkr_connect_analytics_section_callback',
+        'nmkr-connect-settings'
+    );
+
+    // Add Analytics Mode field
+    add_settings_field(
+        'nmkr_analytics_mode',
+        'Analytics Mode',
+        'nmkr_analytics_mode_field_callback',
+        'nmkr-connect-settings',
+        'nmkr_analytics_section'
+    );
+
+    // Add Analytics Retention Days field
+    add_settings_field(
+        'nmkr_analytics_retention_days',
+        'Data Retention (Days)',
+        'nmkr_analytics_retention_days_field_callback',
+        'nmkr-connect-settings',
+        'nmkr_analytics_section'
+    );
+
+    // Add Track Logged In Users field
+    add_settings_field(
+        'nmkr_analytics_track_logged_in',
+        'Track Logged In Users',
+        'nmkr_analytics_track_logged_in_field_callback',
+        'nmkr-connect-settings',
+        'nmkr_analytics_section'
+    );
+
+    // Add Require Consent field
+    add_settings_field(
+        'nmkr_analytics_require_consent',
+        'Require User Consent',
+        'nmkr_analytics_require_consent_field_callback',
+        'nmkr-connect-settings',
+        'nmkr_analytics_section'
+    );
+
+    // Add Sample Rate field
+    add_settings_field(
+        'nmkr_analytics_sample_rate',
+        'Sample Rate',
+        'nmkr_analytics_sample_rate_field_callback',
+        'nmkr-connect-settings',
+        'nmkr_analytics_section'
+    );
+
+    // Add Remove on Uninstall field
+    add_settings_field(
+        'nmkr_analytics_remove_on_uninstall',
+        'Remove Data on Uninstall',
+        'nmkr_analytics_remove_on_uninstall_field_callback',
+        'nmkr-connect-settings',
+        'nmkr_analytics_section'
+    );
+
+    // Add Analytics Debug field
+    add_settings_field(
+        'nmkr_analytics_debug',
+        'Enable Analytics Debug',
+        'nmkr_analytics_debug_field_callback',
+        'nmkr-connect-settings',
+        'nmkr_analytics_section'
+    );
 }
 add_action('admin_init', 'nmkr_connect_register_settings');
 

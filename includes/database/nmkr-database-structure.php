@@ -164,6 +164,37 @@ function nmkr_connect_create_tables() {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     ) $charset_collate;";
 
+    // Table for NMKR analytics (stores user engagement events)
+    $analytics_table = $wpdb->prefix . 'nmkr_analytics';
+    
+    // Check if JSON is supported (MySQL 5.7.8+)
+    $supports_json = method_exists($wpdb, 'db_version') ? version_compare($wpdb->db_version(), '5.7.8', '>=') : true;
+    $meta_column = $supports_json ? 'JSON' : 'LONGTEXT';
+    
+    $analytics_sql = "CREATE TABLE IF NOT EXISTS $analytics_table (
+        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        event_ts DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        event_type VARCHAR(32) NOT NULL,
+        shortcode_type VARCHAR(16) NOT NULL,
+        project_uid VARCHAR(255) NULL,
+        token_uid VARCHAR(255) NULL,
+        user_id BIGINT UNSIGNED NULL,
+        session_id CHAR(36) NULL,
+        anon_ip_sha256 BINARY(32) NULL,
+        user_agent VARCHAR(255) NULL,
+        referrer VARCHAR(255) NULL,
+        page_url VARCHAR(255) NULL,
+        meta_json $meta_column NULL, -- Future: consider functional/JSON indexes on MySQL 8+ if Phase C queries need them
+        site_id BIGINT UNSIGNED NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        KEY ix_site_ts (site_id, event_ts),
+        KEY ix_type_ts (event_type, event_ts),
+        KEY ix_shortcode_ts (shortcode_type, event_ts),
+        KEY ix_project_ts (project_uid, event_ts),
+        KEY ix_token_ts (token_uid, event_ts),
+        KEY ix_event_ts (event_ts)
+    ) $charset_collate;";
+
     require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
     dbDelta($projects_sql);
     dbDelta($tokens_sql);
@@ -173,4 +204,5 @@ function nmkr_connect_create_tables() {
         nmkr_log_data_sync("✅ Schema updated: 'failure_breakdown' column added to wp_nmkr_sync_stats.", 'sync');
     }
     dbDelta($sync_metrics_sql);
+    dbDelta($analytics_sql);
 }

@@ -558,6 +558,135 @@ function nmkr_log_retention_limit_field_callback() {
     <?php
 }
 
+// Analytics & Privacy Section Callback
+function nmkr_connect_analytics_section_callback() {
+    echo '<p>' . __('Configure analytics tracking and privacy settings for user engagement data.', 'nmkr-connect') . '</p>';
+}
+
+// Analytics Mode Field Callback
+function nmkr_analytics_mode_field_callback() {
+    $options = get_option('nmkr_connect_options');
+    $analytics_mode = isset($options['analytics_mode']) ? $options['analytics_mode'] : 'minimal';
+    ?>
+    <select name="nmkr_connect_options[analytics_mode]" id="nmkr_analytics_mode">
+        <option value="off" <?php selected('off', $analytics_mode); ?>><?php _e('Off', 'nmkr-connect'); ?></option>
+        <option value="minimal" <?php selected('minimal', $analytics_mode); ?>><?php _e('Minimal', 'nmkr-connect'); ?></option>
+        <option value="full" <?php selected('full', $analytics_mode); ?>><?php _e('Full', 'nmkr-connect'); ?></option>
+    </select>
+    <p class="description">
+        <?php _e('Minimal tracks views + buy clicks; Full adds other click events and page URL.', 'nmkr-connect'); ?>
+    </p>
+    <?php
+}
+
+// Analytics Retention Days Field Callback
+function nmkr_analytics_retention_days_field_callback() {
+    $options = get_option('nmkr_connect_options');
+    $analytics_retention_days = isset($options['analytics_retention_days']) ? $options['analytics_retention_days'] : 90;
+    ?>
+    <input type="number" 
+           name="nmkr_connect_options[analytics_retention_days]" 
+           id="nmkr_analytics_retention_days"
+           value="<?php echo esc_attr($analytics_retention_days); ?>"
+           min="7"
+           max="365"
+           step="1"
+           class="small-text"
+    />
+    <p class="description">
+        <?php _e('Number of days to retain analytics data before automatic cleanup.', 'nmkr-connect'); ?>
+    </p>
+    <?php
+}
+
+// Track Logged In Users Field Callback
+function nmkr_analytics_track_logged_in_field_callback() {
+    $options = get_option('nmkr_connect_options');
+    $analytics_track_logged_in = isset($options['analytics_track_logged_in']) ? $options['analytics_track_logged_in'] : false;
+    ?>
+    <input type="checkbox" 
+           name="nmkr_connect_options[analytics_track_logged_in]" 
+           id="nmkr_analytics_track_logged_in"
+           value="1"
+           <?php checked(1, $analytics_track_logged_in); ?>
+    />
+    <p class="description">
+        <?php _e('Track engagement events for logged-in users (user_id will be stored).', 'nmkr-connect'); ?>
+    </p>
+    <?php
+}
+
+// Require Consent Field Callback
+function nmkr_analytics_require_consent_field_callback() {
+    $options = get_option('nmkr_connect_options');
+    $analytics_require_consent = isset($options['analytics_require_consent']) ? $options['analytics_require_consent'] : false;
+    ?>
+    <input type="checkbox" 
+           name="nmkr_connect_options[analytics_require_consent]" 
+           id="nmkr_analytics_require_consent"
+           value="1"
+           <?php checked(1, $analytics_require_consent); ?>
+    />
+    <p class="description">
+        <?php _e('Require explicit user consent before tracking any analytics events.', 'nmkr-connect'); ?>
+    </p>
+    <?php
+}
+
+// Sample Rate Field Callback
+function nmkr_analytics_sample_rate_field_callback() {
+    $options = get_option('nmkr_connect_options');
+    $analytics_sample_rate = isset($options['analytics_sample_rate']) ? $options['analytics_sample_rate'] : 1.0;
+    ?>
+    <input type="number" 
+           name="nmkr_connect_options[analytics_sample_rate]" 
+           id="nmkr_analytics_sample_rate"
+           value="<?php echo esc_attr($analytics_sample_rate); ?>"
+           min="0"
+           max="1"
+           step="0.01"
+           class="small-text"
+    />
+    <p class="description">
+        <?php _e('0 disables; 1.0 = 100% of events.', 'nmkr-connect'); ?>
+    </p>
+    <?php
+}
+
+// Remove on Uninstall Field Callback
+function nmkr_analytics_remove_on_uninstall_field_callback() {
+    $options = get_option('nmkr_connect_options');
+    $analytics_remove_on_uninstall = isset($options['analytics_remove_on_uninstall']) ? $options['analytics_remove_on_uninstall'] : true;
+    ?>
+    <input type="checkbox" 
+           name="nmkr_connect_options[analytics_remove_on_uninstall]" 
+           id="nmkr_analytics_remove_on_uninstall"
+           value="1"
+           <?php checked(1, $analytics_remove_on_uninstall); ?>
+    />
+    <p class="description">
+        <?php _e('Remove all analytics data when the plugin is uninstalled.', 'nmkr-connect'); ?>
+    </p>
+    <?php
+}
+
+// Analytics Debug Field Callback
+function nmkr_analytics_debug_field_callback() {
+    $options = get_option('nmkr_connect_options');
+    $analytics_debug = isset($options['analytics_debug']) ? $options['analytics_debug'] : false;
+    ?>
+    <input type="checkbox" 
+           name="nmkr_connect_options[analytics_debug]" 
+           id="nmkr_analytics_debug"
+           value="1"
+           <?php checked(1, $analytics_debug); ?>
+    />
+    <p class="description">
+        <?php _e('Enable debug logging for analytics events (requires debug logging to be enabled).', 'nmkr-connect'); ?>
+    </p>
+    <?php
+}
+
 /**
  * Get synchronization profiles with their predefined settings
  * 

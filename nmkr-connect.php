@@ -108,6 +108,21 @@ function nmkr_connect_activate() {
         nmkr_detect_and_recover_stale_sync();
     }
 
+    // Schedule analytics purge cron if not already scheduled
+    $stagger_minutes = get_current_blog_id() % 53;
+    // Staggered daily schedule at ~03:00 site local time.
+    // If it's already past today's 03:00, schedule for tomorrow.
+    $now_ts     = current_time( 'timestamp' );          // site-local timestamp
+    $base_today = strtotime( '03:00', $now_ts );        // 03:00 today in site TZ
+    $base_ts    = ( $base_today <= $now_ts )
+        ? strtotime( '+1 day 03:00', $now_ts )          // tomorrow 03:00
+        : $base_today;                                  // today 03:00 (future)
+    $staggered_ts = $base_ts + ( $stagger_minutes * MINUTE_IN_SECONDS );
+
+    if ( ! wp_next_scheduled( 'nmkr_analytics_purge_daily' ) ) {
+        wp_schedule_event( $staggered_ts, 'daily', 'nmkr_analytics_purge_daily' );
+    }
+
     // Flush rewrite rules
     flush_rewrite_rules();
 }
@@ -119,6 +134,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/helpers/nmkr-media-helpers.ph
 require_once plugin_dir_path(__FILE__) . 'includes/helpers/nmkr-utility-functions.php';
 require_once plugin_dir_path(__FILE__) . 'includes/helpers/nmkr-performance-functions.php';
 require_once plugin_dir_path(__FILE__) . 'includes/helpers/nmkr-sync-status-constants.php';
+require_once plugin_dir_path(__FILE__) . 'includes/helpers/nmkr-analytics-helpers.php';
 require_once plugin_dir_path(__FILE__) . 'includes/database/nmkr-database-functions.php';
 require_once plugin_dir_path(__FILE__) . 'includes/synchronization/nmkr-sync-core.php';
 require_once plugin_dir_path(__FILE__) . 'includes/synchronization/nmkr-sync-batch-processing.php';
@@ -136,6 +152,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/shortcodes/nmkr-shortcode-lis
 require_once plugin_dir_path(__FILE__) . 'includes/shortcodes/nmkr-shortcode-carousel.php';
 require_once plugin_dir_path(__FILE__) . 'includes/shortcodes/nmkr-shortcode-token.php';
 require_once plugin_dir_path(__FILE__) . 'includes/shortcodes/nmkr-shortcode-project.php';
+require_once plugin_dir_path(__FILE__) . 'includes/analytics/nmkr-analytics-cron.php';
 
 // Register deactivation hook
 function nmkr_connect_deactivate() {
@@ -176,6 +193,7 @@ function nmkr_connect_uninstall() {
         $wpdb->prefix . 'nmkr_token_details',
         $wpdb->prefix . 'nmkr_sync_stats',
         $wpdb->prefix . 'nmkr_sync_metrics',
+        $wpdb->prefix . 'nmkr_analytics',
     ];
 
     foreach ($tables as $table) {
@@ -290,6 +308,26 @@ function nmkr_init() {
     add_shortcode('nmkr-project', 'nmkr_shortcode_project');
     add_shortcode('nmkr-carousel', 'nmkr_shortcode_carousel');
     add_shortcode('nmkr-grid', 'nmkr_shortcode_grid');
+    
+    // Register analytics purge cron hook
+    add_action('nmkr_analytics_purge_daily', 'nmkr_analytics_purge_old_events');
+    
+    // Lightweight reschedule check for analytics cron (best-effort safety net)
+    if ( is_admin() && current_user_can( 'manage_options' ) ) {
+        if ( ! wp_next_scheduled( 'nmkr_analytics_purge_daily' ) ) {
+            // Staggered daily schedule at ~03:00 site local time.
+            // If it's already past today's 03:00, schedule for tomorrow.
+            $stagger_minutes = get_current_blog_id() % 53;
+            $now_ts          = current_time( 'timestamp' );          // site-local timestamp
+            $base_today      = strtotime( '03:00', $now_ts );        // 03:00 today in site TZ
+            $base_ts         = ( $base_today <= $now_ts )
+                ? strtotime( '+1 day 03:00', $now_ts )              // tomorrow 03:00
+                : $base_today;                                      // today 03:00 (future)
+            $staggered_ts    = $base_ts + ( $stagger_minutes * MINUTE_IN_SECONDS );
+
+            wp_schedule_event( $staggered_ts, 'daily', 'nmkr_analytics_purge_daily' );
+        }
+    }
 }
 
 // Hook the init function
