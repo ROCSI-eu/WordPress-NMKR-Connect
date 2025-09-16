@@ -61,6 +61,12 @@
         sid = uuidv4();
         w.localStorage.setItem(sidKey, sid);
       }
+      // Also set a cookie for server correlation and cross-tab continuity
+      try {
+        var cookie = 'nmkr_sid=' + sid + '; Path=/; SameSite=Lax';
+        if (location && location.protocol === 'https:') cookie += '; Secure';
+        document.cookie = cookie;
+      } catch (_) {}
     } catch (e) { /* ignore storage errors */ }
 
     function seenKey(id) { return 'nmkr_seen:' + id; }
