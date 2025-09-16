@@ -188,14 +188,17 @@ function nmkr_connect_uninstall() {
     //
     // A. Drop NMKR custom tables
     //
-    $tables = [
+    $options = get_option('nmkr_connect_options', array());
+    $drop_analytics = !empty($options['analytics_remove_on_uninstall']);
+
+    $tables = array_filter([
         $wpdb->prefix . 'nmkr_projects',
         $wpdb->prefix . 'nmkr_tokens',
         $wpdb->prefix . 'nmkr_token_details',
         $wpdb->prefix . 'nmkr_sync_stats',
         $wpdb->prefix . 'nmkr_sync_metrics',
-        $wpdb->prefix . 'nmkr_analytics',
-    ];
+        $drop_analytics ? ($wpdb->prefix . 'nmkr_analytics') : null,
+    ]);
 
     foreach ($tables as $table) {
         $wpdb->query("DROP TABLE IF EXISTS $table");

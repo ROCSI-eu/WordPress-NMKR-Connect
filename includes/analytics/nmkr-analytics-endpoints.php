@@ -11,6 +11,7 @@ add_action( 'rest_api_init', function() {
 } );
 
 function nmkr_analytics_rest_ingest( WP_REST_Request $req ) {
+    nocache_headers();
     $body = json_decode( $req->get_body(), true );
     return nmkr_analytics_ingest_common( $body, 'rest' );
 }

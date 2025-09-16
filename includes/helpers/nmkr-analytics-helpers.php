@@ -350,8 +350,8 @@ function nmkr_analytics_ingest_common( $body, $source = 'rest' ) {
 
     // 4) Prepare metadata (server side)
     $ua        = isset( $_SERVER['HTTP_USER_AGENT'] ) ? substr( (string) $_SERVER['HTTP_USER_AGENT'], 0, 255 ) : '';
-    $ref       = isset( $_SERVER['HTTP_REFERER'] )     ? substr( (string) $_SERVER['HTTP_REFERER'], 0, 512 ) : '';
-    $page_url  = isset( $body['page_url'] )            ? substr( (string) $body['page_url'], 0, 512 ) : '';
+    $ref       = isset( $_SERVER['HTTP_REFERER'] )     ? substr( (string) $_SERVER['HTTP_REFERER'], 0, 255 ) : '';
+    $page_url  = isset( $body['page_url'] )            ? substr( (string) $body['page_url'], 0, 255 ) : '';
     $meta      = isset( $body['meta'] ) && is_array( $body['meta'] ) ? $body['meta'] : [];
     if ( function_exists('nmkr_prepare_analytics_metadata') ) {
         $meta = nmkr_prepare_analytics_metadata( $meta );

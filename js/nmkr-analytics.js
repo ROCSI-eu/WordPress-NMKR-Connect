@@ -108,7 +108,8 @@
             credentials: 'same-origin',
             cache: 'no-store',
           }).then(function(res){
-            if (res && res.status && res.status !== 404) return;
+            if (res && res.ok) return;
+            // Fallback to AJAX on any non-2xx
             return fetch(cfg.endpoint_ajax, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -117,7 +118,17 @@
               credentials: 'same-origin',
               cache: 'no-store',
             });
-          }).catch(function(){ /* swallow */ });
+          }).catch(function(){
+            // Network/other failure: attempt AJAX fallback
+            return fetch(cfg.endpoint_ajax, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: payload,
+              keepalive: true,
+              credentials: 'same-origin',
+              cache: 'no-store',
+            });
+          });
         }
       } catch(e) { /* swallow */ }
     }
