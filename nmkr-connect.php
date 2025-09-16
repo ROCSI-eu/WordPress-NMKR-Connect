@@ -348,7 +348,7 @@ function nmkr_enqueue_analytics_frontend() {
     wp_enqueue_script('nmkr-analytics', $base_url . $script_rel, array(), $script_ver, true);
 
     $options = get_option('nmkr_connect_options', array());
-    $mode = isset($options['analytics_mode']) ? $options['analytics_mode'] : 'minimal';
+    $mode = isset($options['analytics_mode']) ? $options['analytics_mode'] : 'custom';
     $requiresConsent = isset($options['analytics_require_consent']) ? (bool)$options['analytics_require_consent'] : false;
     $sampleRate = isset($options['analytics_sample_rate']) ? floatval($options['analytics_sample_rate']) : 1.0;
     if ($sampleRate < 0) { $sampleRate = 0; }
@@ -358,7 +358,14 @@ function nmkr_enqueue_analytics_frontend() {
     $home = home_url();
     $host = parse_url($home, PHP_URL_HOST);
 
-    $has_consent_cookie = ( isset($_COOKIE['nmkr_analytics_consent']) && sanitize_text_field( $_COOKIE['nmkr_analytics_consent'] ) === '1' );
+    $has_consent_cookie = (
+        isset($_COOKIE['nmkr_analytics_consent'])
+        && sanitize_text_field($_COOKIE['nmkr_analytics_consent']) === '1'
+    );
+    $ga4Enabled = in_array($mode, array('ga4','both'), true)
+        && !empty($options['nmkr_ga4_measurement_id'])
+        && !empty($options['nmkr_ga4_api_secret']);
+
     $config = array(
         'mode' => $mode,
         'requiresConsent' => $requiresConsent,
@@ -366,6 +373,7 @@ function nmkr_enqueue_analytics_frontend() {
         'sampleRate' => $sampleRate,
         'siteOrigin' => $host ? $host : '',
         'debug' => $debug,
+        'ga4Enabled' => (bool) $ga4Enabled,
         'transportEnabled' => true,
         'endpoint_rest' => site_url('/wp-json/nmkr-connect/v1/analytics'),
         'endpoint_ajax' => admin_url('admin-ajax.php?action=nmkr_analytics_event'),

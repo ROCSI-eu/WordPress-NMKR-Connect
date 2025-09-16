@@ -566,15 +566,16 @@ function nmkr_connect_analytics_section_callback() {
 // Analytics Mode Field Callback
 function nmkr_analytics_mode_field_callback() {
     $options = get_option('nmkr_connect_options');
-    $analytics_mode = isset($options['analytics_mode']) ? $options['analytics_mode'] : 'minimal';
+    $analytics_mode = isset($options['analytics_mode']) ? $options['analytics_mode'] : 'custom';
     ?>
     <select name="nmkr_connect_options[analytics_mode]" id="nmkr_analytics_mode">
         <option value="off" <?php selected('off', $analytics_mode); ?>><?php _e('Off', 'nmkr-connect'); ?></option>
-        <option value="minimal" <?php selected('minimal', $analytics_mode); ?>><?php _e('Minimal', 'nmkr-connect'); ?></option>
-        <option value="full" <?php selected('full', $analytics_mode); ?>><?php _e('Full', 'nmkr-connect'); ?></option>
+        <option value="custom" <?php selected('custom', $analytics_mode); ?>><?php _e('Custom (Plugin DB only)', 'nmkr-connect'); ?></option>
+        <option value="ga4" <?php selected('ga4', $analytics_mode); ?>><?php _e('GA4 only (no DB)', 'nmkr-connect'); ?></option>
+        <option value="both" <?php selected('both', $analytics_mode); ?>><?php _e('Both (GA4 + Plugin DB)', 'nmkr-connect'); ?></option>
     </select>
     <p class="description">
-        <?php _e('Minimal tracks views + buy clicks; Full adds other click events and page URL.', 'nmkr-connect'); ?>
+        <?php _e('off: no tracking; custom: store events in plugin DB only; ga4: send to Google Analytics 4 only; both: GA4 + plugin DB.', 'nmkr-connect'); ?>
     </p>
     <?php
 }
@@ -683,6 +684,41 @@ function nmkr_analytics_debug_field_callback() {
     />
     <p class="description">
         <?php _e('Enable debug logging for analytics events (requires debug logging to be enabled).', 'nmkr-connect'); ?>
+    </p>
+    <?php
+}
+
+// GA4 Measurement ID Field Callback
+function nmkr_ga4_measurement_id_field_callback() {
+    $options = get_option('nmkr_connect_options');
+    $measurement_id = isset($options['nmkr_ga4_measurement_id']) ? $options['nmkr_ga4_measurement_id'] : '';
+    ?>
+    <input type="text"
+           name="nmkr_connect_options[nmkr_ga4_measurement_id]"
+           id="nmkr_ga4_measurement_id"
+           value="<?php echo esc_attr($measurement_id); ?>"
+           class="regular-text"
+           placeholder="G-XXXXXXXXXX"
+    />
+    <p class="description">
+        <?php _e('Google Analytics 4 Measurement ID (e.g., G-XXXXXXXXXX).', 'nmkr-connect'); ?>
+    </p>
+    <?php
+}
+
+// GA4 API Secret Field Callback
+function nmkr_ga4_api_secret_field_callback() {
+    $options = get_option('nmkr_connect_options');
+    $api_secret = isset($options['nmkr_ga4_api_secret']) ? $options['nmkr_ga4_api_secret'] : '';
+    ?>
+    <input type="password"
+           name="nmkr_connect_options[nmkr_ga4_api_secret]"
+           id="nmkr_ga4_api_secret"
+           value="<?php echo esc_attr($api_secret); ?>"
+           class="regular-text"
+    />
+    <p class="description">
+        <?php _e('GA4 API Secret. Stored as an option and used server-side; not exposed to the frontend.', 'nmkr-connect'); ?>
     </p>
     <?php
 }

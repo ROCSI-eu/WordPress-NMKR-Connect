@@ -236,6 +236,24 @@ function nmkr_connect_register_settings() {
         'nmkr_analytics_section'
     );
 
+    // Add GA4 Measurement ID field
+    add_settings_field(
+        'nmkr_ga4_measurement_id',
+        'GA4 Measurement ID',
+        'nmkr_ga4_measurement_id_field_callback',
+        'nmkr-connect-settings',
+        'nmkr_analytics_section'
+    );
+
+    // Add GA4 API Secret field
+    add_settings_field(
+        'nmkr_ga4_api_secret',
+        'GA4 API Secret',
+        'nmkr_ga4_api_secret_field_callback',
+        'nmkr-connect-settings',
+        'nmkr_analytics_section'
+    );
+
     // Add Analytics Retention Days field
     add_settings_field(
         'nmkr_analytics_retention_days',

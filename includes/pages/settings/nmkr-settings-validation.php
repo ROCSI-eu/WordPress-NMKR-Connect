@@ -161,12 +161,12 @@ function nmkr_connect_sanitize_options($input) {
     
     // Analytics Mode
     if (isset($input['analytics_mode'])) {
-        $valid_modes = array('off', 'minimal', 'full');
-        $sanitized_input['analytics_mode'] = in_array($input['analytics_mode'], $valid_modes) ? $input['analytics_mode'] : 'minimal';
+        $valid_modes = array('off', 'custom', 'ga4', 'both');
+        $sanitized_input['analytics_mode'] = in_array($input['analytics_mode'], $valid_modes, true) ? $input['analytics_mode'] : 'custom';
     } elseif (isset($existing_options['analytics_mode'])) {
         $sanitized_input['analytics_mode'] = $existing_options['analytics_mode'];
     } else {
-        $sanitized_input['analytics_mode'] = 'minimal'; // Default value
+        $sanitized_input['analytics_mode'] = 'custom'; // Default value
     }
     
     // Analytics Retention Days
@@ -202,6 +202,21 @@ function nmkr_connect_sanitize_options($input) {
     
     // Analytics Debug
     $sanitized_input['analytics_debug'] = isset($input['analytics_debug']) ? 1 : 0;
+
+    // GA4 Measurement ID (optional)
+    if (isset($input['nmkr_ga4_measurement_id'])) {
+        $mid = strtoupper(trim(sanitize_text_field($input['nmkr_ga4_measurement_id'])));
+        $sanitized_input['nmkr_ga4_measurement_id'] = preg_match('/^G-[A-Z0-9]+$/', $mid) ? $mid : '';
+    } elseif (isset($existing_options['nmkr_ga4_measurement_id'])) {
+        $sanitized_input['nmkr_ga4_measurement_id'] = $existing_options['nmkr_ga4_measurement_id'];
+    }
+
+    // GA4 API Secret (optional)
+    if (isset($input['nmkr_ga4_api_secret'])) {
+        $sanitized_input['nmkr_ga4_api_secret'] = sanitize_text_field($input['nmkr_ga4_api_secret']);
+    } elseif (isset($existing_options['nmkr_ga4_api_secret'])) {
+        $sanitized_input['nmkr_ga4_api_secret'] = $existing_options['nmkr_ga4_api_secret'];
+    }
     
     // Future-proof: merge with existing options so unknown/future keys aren’t dropped on save.
     if ( ! isset( $existing_options ) || ! is_array( $existing_options ) ) {
@@ -241,7 +256,7 @@ function nmkr_get_default_settings() {
         'ui_debug_enabled' => 0,
         'performance_debug_enabled' => 0,
         'log_retention_limit' => 100,
-        'analytics_mode' => 'minimal',
+        'analytics_mode' => 'custom',
         'analytics_retention_days' => 90,
         'analytics_track_logged_in' => 0,
         'analytics_require_consent' => 0,

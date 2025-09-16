@@ -84,7 +84,7 @@ function nmkr_generate_session_id() {
  */
 function nmkr_is_analytics_enabled() {
     $options = get_option('nmkr_connect_options', array());
-    $analytics_mode = isset($options['analytics_mode']) ? $options['analytics_mode'] : 'minimal';
+    $analytics_mode = isset($options['analytics_mode']) ? $options['analytics_mode'] : 'custom';
     
     return $analytics_mode !== 'off';
 }
@@ -306,42 +306,46 @@ function nmkr_analytics_ingest_common( $body, $source = 'rest' ) {
         return new WP_REST_Response( null, 204 );
     }
 
-    // 7) Mode routing: respect plugin's analytics mode; off means no DB insert
+    // 7) Mode routing: respect plugin's analytics mode; off means no tracking
     $options = get_option('nmkr_connect_options', array());
-    $mode = isset($options['analytics_mode']) ? $options['analytics_mode'] : 'minimal';
+    $mode = isset($options['analytics_mode']) ? $options['analytics_mode'] : 'custom';
     if ( $mode === 'off' ) {
         return new WP_REST_Response( null, 204 );
     }
+    // For PR-3 we only adjust DB insert behavior; GA4 sending happens in PR-4.
+    $should_insert_db = ( $mode === 'custom' || $mode === 'both' );
 
-    // 8) Insert into DB
-    $table = $wpdb->prefix . 'nmkr_analytics';
-    // Convert hex to binary for storage in BINARY(32) if present
-    $ip_hash_bin = '';
-    if ( ! empty( $ip_hash_hex ) && ctype_xdigit( $ip_hash_hex ) && strlen( $ip_hash_hex ) === 64 ) {
-        $ip_hash_bin = pack('H*', $ip_hash_hex);
-    }
-    $insert = $wpdb->insert(
-        $table,
-        [
-            'event_ts'       => current_time( 'mysql', 1 ),
-            'event_type'     => $event_type,
-            'shortcode_type' => $shortcode,
-            'project_uid'    => $project_uid ?: null,
-            'token_uid'      => $token_uid ?: null,
-            'user_id'        => $user_id ?: null,
-            'session_id'     => $session_id,
-            'anon_ip_sha256' => $ip_hash_bin !== '' ? $ip_hash_bin : null,
-            'user_agent'     => $ua ?: null,
-            'referrer'       => $ref ?: null,
-            'page_url'       => $page_url ?: null,
-            'meta_json'      => wp_json_encode( $meta ),
-        ],
-        [
-            '%s','%s','%s','%s','%s','%d','%s','%s','%s','%s','%s','%s'
-        ]
-    );
-    if ( false === $insert ) {
-        return new WP_REST_Response( null, 500 );
+    // 8) Insert into DB only if allowed by mode
+    if ( $should_insert_db ) {
+        $table = $wpdb->prefix . 'nmkr_analytics';
+        // Convert hex to binary for storage in BINARY(32) if present
+        $ip_hash_bin = '';
+        if ( ! empty( $ip_hash_hex ) && ctype_xdigit( $ip_hash_hex ) && strlen( $ip_hash_hex ) === 64 ) {
+            $ip_hash_bin = pack('H*', $ip_hash_hex);
+        }
+        $insert = $wpdb->insert(
+            $table,
+            [
+                'event_ts'       => current_time( 'mysql', 1 ),
+                'event_type'     => $event_type,
+                'shortcode_type' => $shortcode,
+                'project_uid'    => $project_uid ?: null,
+                'token_uid'      => $token_uid ?: null,
+                'user_id'        => $user_id ?: null,
+                'session_id'     => $session_id,
+                'anon_ip_sha256' => $ip_hash_bin !== '' ? $ip_hash_bin : null,
+                'user_agent'     => $ua ?: null,
+                'referrer'       => $ref ?: null,
+                'page_url'       => $page_url ?: null,
+                'meta_json'      => wp_json_encode( $meta ),
+            ],
+            [
+                '%s','%s','%s','%s','%s','%d','%s','%s','%s','%s','%s','%s'
+            ]
+        );
+        if ( false === $insert ) {
+            return new WP_REST_Response( null, 500 );
+        }
     }
 
     return new WP_REST_Response( null, 204 );
