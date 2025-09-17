@@ -147,6 +147,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/menus/nmkr-admin-menu.php';
 require_once plugin_dir_path(__FILE__) . 'includes/pages/dashboard/nmkr-dashboard-core.php';
 require_once plugin_dir_path(__FILE__) . 'includes/pages/projects/nmkr-projects.php';
 require_once plugin_dir_path(__FILE__) . 'includes/pages/shortcodes/nmkr-shortcodes.php';
+require_once plugin_dir_path(__FILE__) . 'includes/pages/analytics/nmkr-analytics-admin.php';
 require_once plugin_dir_path(__FILE__) . 'includes/shortcodes/nmkr-shortcode-grid.php';
 require_once plugin_dir_path(__FILE__) . 'includes/shortcodes/nmkr-shortcode-list.php';
 require_once plugin_dir_path(__FILE__) . 'includes/shortcodes/nmkr-shortcode-carousel.php';
@@ -296,6 +297,52 @@ function nmkr_enqueue_admin_assets($hook) {
                     'batch_size'              => isset($options['batch_size'])           ? $options['batch_size']           : 10,
                     'batch_delay'             => isset($options['batch_delay'])          ? $options['batch_delay']          : 1,
                 )
+            )
+        );
+    }
+
+    // Enqueue Analytics dashboard assets only on the Analytics page.
+    // Most WP builds emit a hook like: 'nmkr-connect_page_nmkr-connect-analytics'
+    if (
+        $hook === 'nmkr-connect_page_nmkr-connect-analytics'
+        || strpos($hook, 'nmkr-connect-analytics') !== false
+    ) {
+        $base_url = plugin_dir_url(__FILE__);
+        $base_dir = plugin_dir_path(__FILE__);
+
+        $analytics_js_rel = 'js/admin/nmkr-analytics-dashboard.js';
+        $analytics_js_ver = @filemtime( $base_dir . $analytics_js_rel ) ?: '1.0';
+
+        // Ensure the directory structure exists in the project (js/admin/)
+        wp_enqueue_script(
+            'nmkr-analytics-dashboard',
+            $base_url . $analytics_js_rel,
+            array('jquery'),
+            $analytics_js_ver,
+            true
+        );
+
+        // Localize runtime config (no network calls yet)
+        wp_localize_script(
+            'nmkr-analytics-dashboard',
+            'nmkrAnalyticsDashboard',
+            array(
+                'ajax_url' => admin_url( 'admin-ajax.php' ),
+                // Reuse existing dashboard nonce; endpoints will check this in PR-2+
+                'nonce'    => wp_create_nonce( 'nmkr_dashboard_nonce' ),
+                'i18n'     => array(
+                    'title'      => esc_html__( 'Analytics', 'nmkr-connect' ),
+                    'loading'    => esc_html__( 'Loading…', 'nmkr-connect' ),
+                    'noData'     => esc_html__( 'No data yet for the selected range.', 'nmkr-connect' ),
+                    'kpiViews'   => esc_html__( 'Views', 'nmkr-connect' ),
+                    'kpiClicks'  => esc_html__( 'Clicks', 'nmkr-connect' ),
+                    'kpiCTR'     => esc_html__( 'CTR', 'nmkr-connect' ),
+                ),
+                'defaults' => array(
+                    'range'   => '7d',
+                    'bucket'  => 'day',
+                    'perPage' => 10,
+                ),
             )
         );
     }

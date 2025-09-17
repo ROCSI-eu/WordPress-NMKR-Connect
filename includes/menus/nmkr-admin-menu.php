@@ -41,5 +41,17 @@ function nmkr_connect_admin_menu() {
         'nmkr-connect-shortcodes',           // Menu slug
         'nmkr_display_shortcodes_page'       // Callback function for the Shortcodes page
     );
+
+    // Submenu for Analytics
+    if ( ! defined('NMKR_ANALYTICS_UI_ENABLED') || constant('NMKR_ANALYTICS_UI_ENABLED') ) {
+        add_submenu_page(
+            'nmkr-connect-dashboard',        // Parent slug
+            __('Analytics', 'nmkr-connect'), // Page title
+            __('Analytics', 'nmkr-connect'), // Menu title
+            'manage_options',                // Capability
+            'nmkr-connect-analytics',        // Menu slug
+            'nmkr_connect_analytics_page'    // Callback function
+        );
+    }
 }
 add_action('admin_menu', 'nmkr_connect_admin_menu');
