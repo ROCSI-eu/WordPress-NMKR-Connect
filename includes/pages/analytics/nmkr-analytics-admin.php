@@ -16,7 +16,7 @@ function nmkr_connect_analytics_page() {
         <h1><?php echo esc_html__( 'Analytics', 'nmkr-connect' ); ?></h1>
 
         <!-- Filters Bar (placeholder; wired in PR-4) -->
-        <div id="nmkr-analytics-filters" class="nmkr-analytics-section" aria-label="<?php echo esc_attr__( 'Filters', 'nmkr-connect' ); ?>">
+        <div id="nmkr-analytics-filters" class="nmkr-analytics-section nmkr-filters" aria-label="<?php echo esc_attr__( 'Filters', 'nmkr-connect' ); ?>">
             <p><?php echo esc_html__( 'Filters will appear here (date range, shortcode type, search).', 'nmkr-connect' ); ?></p>
         </div>
 

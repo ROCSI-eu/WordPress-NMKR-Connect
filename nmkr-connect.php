@@ -318,10 +318,23 @@ function nmkr_enqueue_admin_assets($hook) {
         wp_enqueue_script(
             'nmkr-analytics-dashboard',
             $base_url . $analytics_js_rel,
-            array('jquery'),
+            array(),
             $analytics_js_ver,
             true
         );
+
+        // Enqueue minimal CSS for analytics dashboard
+        $analytics_css_rel = 'css/admin/nmkr-analytics-dashboard.css';
+        $analytics_css_ver = @filemtime( $base_dir . $analytics_css_rel ) ?: '1.0';
+        wp_enqueue_style(
+            'nmkr-analytics-dashboard',
+            $base_url . $analytics_css_rel,
+            array(),
+            $analytics_css_ver
+        );
+
+        // Load a dedicated RTL stylesheet on RTL sites (replaces the LTR file)
+        wp_style_add_data('nmkr-analytics-dashboard', 'rtl', 'replace');
 
         // Localize runtime config (no network calls yet)
         wp_localize_script(
@@ -332,12 +345,36 @@ function nmkr_enqueue_admin_assets($hook) {
                 // Reuse existing dashboard nonce; endpoints will check this in PR-2+
                 'nonce'    => wp_create_nonce( 'nmkr_dashboard_nonce' ),
                 'i18n'     => array(
-                    'title'      => esc_html__( 'Analytics', 'nmkr-connect' ),
-                    'loading'    => esc_html__( 'Loading…', 'nmkr-connect' ),
-                    'noData'     => esc_html__( 'No data yet for the selected range.', 'nmkr-connect' ),
-                    'kpiViews'   => esc_html__( 'Views', 'nmkr-connect' ),
-                    'kpiClicks'  => esc_html__( 'Clicks', 'nmkr-connect' ),
-                    'kpiCTR'     => esc_html__( 'CTR', 'nmkr-connect' ),
+                    'title'         => esc_html__( 'Analytics', 'nmkr-connect' ),
+                    'loading'       => esc_html__( 'Loading…', 'nmkr-connect' ),
+                    'noData'        => esc_html__( 'No data yet for the selected range.', 'nmkr-connect' ),
+                    'invalidRange'  => esc_html__( 'Custom range must be ≤ 365 days.', 'nmkr-connect' ),
+                    'apply'         => esc_html__( 'Apply', 'nmkr-connect' ),
+                    'from'          => esc_html__( 'From', 'nmkr-connect' ),
+                    'to'            => esc_html__( 'To', 'nmkr-connect' ),
+                    'range'         => esc_html__( 'Range', 'nmkr-connect' ),
+                    'shortcodeType' => esc_html__( 'Shortcode type', 'nmkr-connect' ),
+                    'views'         => esc_html__( 'Views', 'nmkr-connect' ),
+                    'clicks'        => esc_html__( 'Clicks', 'nmkr-connect' ),
+                    'ctr'           => esc_html__( 'CTR', 'nmkr-connect' ),
+                    // Keep previous keys for backward-compat if referenced elsewhere
+                    'kpiViews'      => esc_html__( 'Views', 'nmkr-connect' ),
+                    'kpiClicks'     => esc_html__( 'Clicks', 'nmkr-connect' ),
+                    'kpiCTR'        => esc_html__( 'CTR', 'nmkr-connect' ),
+                ),
+                'shortcodeTypes' => array(
+                    array('value' => '',         'label' => esc_html__( 'All shortcodes', 'nmkr-connect' )),
+                    array('value' => 'grid',     'label' => esc_html__( 'Grid', 'nmkr-connect' )),
+                    array('value' => 'list',     'label' => esc_html__( 'List', 'nmkr-connect' )),
+                    array('value' => 'carousel', 'label' => esc_html__( 'Carousel', 'nmkr-connect' )),
+                    array('value' => 'token',    'label' => esc_html__( 'Single Token', 'nmkr-connect' )),
+                    array('value' => 'project',  'label' => esc_html__( 'Single Project', 'nmkr-connect' )),
+                ),
+                'ranges' => array(
+                    array('value' => '24h',   'label' => esc_html__( 'Last 24 hours', 'nmkr-connect' )),
+                    array('value' => '7d',    'label' => esc_html__( 'Last 7 days', 'nmkr-connect' )),
+                    array('value' => '30d',   'label' => esc_html__( 'Last 30 days', 'nmkr-connect' )),
+                    array('value' => 'custom','label' => esc_html__( 'Custom range', 'nmkr-connect' )),
                 ),
                 'defaults' => array(
                     'range'   => '7d',
