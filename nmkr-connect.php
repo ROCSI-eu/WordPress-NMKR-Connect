@@ -148,6 +148,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/pages/dashboard/nmkr-dashboar
 require_once plugin_dir_path(__FILE__) . 'includes/pages/projects/nmkr-projects.php';
 require_once plugin_dir_path(__FILE__) . 'includes/pages/shortcodes/nmkr-shortcodes.php';
 require_once plugin_dir_path(__FILE__) . 'includes/pages/analytics/nmkr-analytics-admin.php';
+require_once plugin_dir_path(__FILE__) . 'includes/pages/analytics/nmkr-analytics-ajax.php';
 require_once plugin_dir_path(__FILE__) . 'includes/shortcodes/nmkr-shortcode-grid.php';
 require_once plugin_dir_path(__FILE__) . 'includes/shortcodes/nmkr-shortcode-list.php';
 require_once plugin_dir_path(__FILE__) . 'includes/shortcodes/nmkr-shortcode-carousel.php';
