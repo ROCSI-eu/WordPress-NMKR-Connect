@@ -43,6 +43,223 @@
     let t; return function(...args){ clearTimeout(t); t = setTimeout(()=>fn.apply(this,args), ms); };
   }
 
+  // Build a generic sortable/paginated table controller
+  function createTopTable(opts) {
+    // opts: { rootEl, title, entity: 'projects'|'tokens', i18n, fetcher, defaults }
+    const state = {
+      page: 1,
+      perPage: (opts.defaults && opts.defaults.perPage) || 10,
+      sort: 'views',
+      order: 'desc',
+      search: ''
+    };
+
+    const root = opts.rootEl;
+    root.innerHTML = '';
+
+    // Card + header
+    const card = document.createElement('div'); card.className = 'nmkr-table-card';
+    const head = document.createElement('div'); head.className = 'nmkr-table-head';
+    const hTitle = document.createElement('div'); hTitle.className = 'nmkr-table-title'; hTitle.textContent = opts.title;
+    const controls = document.createElement('div'); controls.className = 'nmkr-table-search';
+
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text'; searchInput.placeholder = opts.i18n.searchUid || 'Search UID prefix';
+    searchInput.setAttribute('aria-label', opts.i18n.searchUid || 'Search UID prefix');
+    const searchBtn = document.createElement('button'); searchBtn.className = 'nmkr-btn'; searchBtn.type='button'; searchBtn.textContent = opts.i18n.search || 'Search';
+    const resetBtn  = document.createElement('button'); resetBtn.className = 'nmkr-btn'; resetBtn.type='button'; resetBtn.textContent = opts.i18n.reset || 'Reset';
+
+    controls.append(searchInput, searchBtn, resetBtn);
+    head.append(hTitle, controls);
+    card.append(head);
+
+    // Table
+    const table = document.createElement('table'); table.className = 'nmkr-table'; table.setAttribute('role','table');
+    const thead = document.createElement('thead');
+    const trh = document.createElement('tr');
+
+    function th(label, key, sortable) {
+      const th = document.createElement('th');
+      th.textContent = label;
+      th.scope = 'col';
+      if (sortable) {
+        th.className = 'sortable';
+        th.dataset.key = key;
+        const arrow = document.createElement('span'); arrow.className = 'arrow'; arrow.textContent = '↕';
+        th.appendChild(arrow);
+        th.title = (opts.i18n.sort || 'Sort');
+        th.setAttribute('aria-sort', 'none');
+      }
+      return th;
+    }
+
+    const uidLabel = opts.i18n.uid || 'UID';
+    trh.append(
+      th(uidLabel, opts.entity === 'projects' ? 'project_uid' : 'token_uid', true),
+      th(opts.i18n.views || 'Views',  'views',  true),
+      th(opts.i18n.clicks || 'Clicks','clicks', true),
+      th(opts.i18n.ctr || 'CTR',      'ctr',    true),
+    );
+    thead.append(trh);
+    table.append(thead);
+    const tbody = document.createElement('tbody');
+    table.append(tbody);
+
+    // Footer/pager
+    const footer = document.createElement('div'); footer.className = 'nmkr-table-footer';
+    const pager  = document.createElement('div'); pager.className = 'nmkr-pager';
+    const prev = document.createElement('button'); prev.className = 'nmkr-btn'; prev.textContent = opts.i18n.prev || 'Prev'; prev.type='button'; prev.setAttribute('aria-label', opts.i18n.prev || 'Prev');
+    const next = document.createElement('button'); next.className = 'nmkr-btn'; next.textContent = opts.i18n.next || 'Next'; next.type='button'; next.setAttribute('aria-label', opts.i18n.next || 'Next');
+    const pageInfo = document.createElement('span'); pageInfo.className = 'nmkr-muted'; pageInfo.setAttribute('aria-live','polite');
+
+    pager.append(prev, next);
+    footer.append(pager, pageInfo);
+
+    card.append(table, footer);
+    root.append(card);
+
+    let inflight = null;
+    let lastFilters = null;
+
+    function setLoading(on) {
+      const tds = tbody.querySelectorAll('td');
+      if (on) {
+        tbody.innerHTML = `<tr><td class="nmkr-empty" colspan="4">${(opts.i18n.loading||'Loading…')}</td></tr>`;
+      } else if (!tds.length) {
+        // no-op
+      }
+      prev.disabled = on; next.disabled = on;
+      Array.from(thead.querySelectorAll('th.sortable')).forEach(th => th.style.pointerEvents = on ? 'none' : '');
+    }
+
+    function applySortIndicators() {
+      thead.querySelectorAll('th.sortable').forEach(th => {
+        const key = th.dataset.key;
+        const arrow = th.querySelector('.arrow');
+        if (!arrow) return;
+        if (state.sort === key) {
+          arrow.textContent = state.order === 'asc' ? '↑' : '↓';
+          arrow.style.color = '#111';
+          th.setAttribute('aria-sort', state.order === 'asc' ? 'ascending' : 'descending');
+        } else {
+          arrow.textContent = '↕';
+          arrow.style.color = '#888';
+          th.setAttribute('aria-sort', 'none');
+        }
+      });
+    }
+
+    async function refresh(filters) {
+      lastFilters = filters;
+      setLoading(true);
+      inflight && inflight.abort && inflight.abort();
+      const controller = new AbortController(); inflight = controller;
+
+      try {
+        const payload = Object.assign({}, filters, {
+          page: state.page,
+          per_page: state.perPage,
+          sort: state.sort,
+          order: state.order,
+          search: state.search
+        });
+        const action = opts.entity === 'projects' ? 'nmkr_analytics_top_projects' : 'nmkr_analytics_top_tokens';
+        const data = await opts.fetcher(action, payload, { signal: controller.signal });
+        renderRows(data);
+      } catch (e) {
+        // Ignore aborted requests to avoid flashing errors during rapid interactions
+        if (e && (e.name === 'AbortError' || e.message === 'AbortError')) return;
+        tbody.innerHTML = `<tr><td class="nmkr-empty" colspan="4">${(opts.i18n.error||'Something went wrong.')}</td></tr>`;
+      } finally {
+        setLoading(false);
+        inflight = null;
+      }
+    }
+
+    function renderRows(data) {
+      const rows = Array.isArray(data.rows) ? data.rows : [];
+      tbody.innerHTML = '';
+
+      if (!rows.length) {
+        tbody.innerHTML = `<tr><td class="nmkr-empty" colspan="4">${(opts.i18n.noResults||'No results found.')}</td></tr>`;
+      } else {
+        rows.forEach(r => {
+          const tr = document.createElement('tr');
+          const uid = opts.entity === 'projects' ? r.project_uid : r.token_uid;
+          const tdUid = document.createElement('td'); tdUid.textContent = uid || '';
+          tdUid.title = (uid || '');
+          tdUid.style.fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+          tdUid.style.fontSize = '12px';
+          const tdV = document.createElement('td'); tdV.textContent = (r.views||0).toLocaleString();
+          const tdC = document.createElement('td'); tdC.textContent = (r.clicks||0).toLocaleString();
+          const tdR = document.createElement('td'); tdR.textContent = ((typeof r.ctr==='number'? r.ctr:0).toFixed(2)) + '%';
+          tr.append(tdUid, tdV, tdC, tdR);
+          tbody.append(tr);
+        });
+      }
+
+      // Pager info
+      const total = typeof data.total === 'number' ? data.total : 0;
+      const pages = Math.max(1, Math.ceil(total / state.perPage));
+      pageInfo.textContent = `${opts.i18n.page||'Page'} ${state.page} ${(opts.i18n.of||'of')} ${pages}`;
+      prev.disabled = state.page <= 1;
+      next.disabled = state.page >= pages;
+
+      applySortIndicators();
+    }
+
+    // Events
+    thead.addEventListener('click', (e) => {
+      const th = e.target.closest('th.sortable');
+      if (!th) return;
+      const key = th.dataset.key;
+      if (state.sort === key) {
+        state.order = (state.order === 'asc') ? 'desc' : 'asc';
+      } else {
+        state.sort = key;
+        state.order = (key === 'uid' || key === 'project_uid' || key === 'token_uid') ? 'asc' : 'desc';
+      }
+      state.page = 1;
+      lastFilters && refresh(lastFilters);
+    });
+
+    const debouncedSearch = (function(){
+      let t; return function(){
+        clearTimeout(t);
+        t = setTimeout(() => {
+          state.search = (searchInput.value || '').trim();
+          state.page = 1;
+          lastFilters && refresh(lastFilters);
+        }, 300);
+      };
+    })();
+    searchInput.addEventListener('input', debouncedSearch);
+    searchBtn.addEventListener('click', () => {
+      state.search = (searchInput.value || '').trim();
+      state.page = 1;
+      lastFilters && refresh(lastFilters);
+    });
+    resetBtn.addEventListener('click', () => {
+      searchInput.value = '';
+      state.search = '';
+      state.page = 1;
+      lastFilters && refresh(lastFilters);
+    });
+
+    prev.addEventListener('click', () => {
+      if (state.page > 1) { state.page--; lastFilters && refresh(lastFilters); }
+    });
+    next.addEventListener('click', () => {
+      state.page++; lastFilters && refresh(lastFilters);
+    });
+
+    return {
+      refresh,
+      resetPage: () => { state.page = 1; },
+      state
+    };
+  }
+
   // Minimal line chart (canvas 2D), no external libs
   function drawLineChart(canvas, series, label) {
     if (!canvas) return;
@@ -126,7 +343,7 @@
   }
 
   // POST to admin-ajax
-  async function postAjax(action, body) {
+  async function postAjax(action, body, fetchOpts) {
     const cfg = window.nmkrAnalyticsDashboard;
     const data = new URLSearchParams();
     data.set('action', action);
@@ -140,6 +357,7 @@
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
       body: data.toString(),
+      signal: fetchOpts && fetchOpts.signal ? fetchOpts.signal : undefined,
       credentials: 'same-origin',
     });
     const json = await res.json();
@@ -172,6 +390,7 @@
     const filters = $('#nmkr-analytics-filters');
     const kpisEl  = $('#nmkr-analytics-kpis');
     const charts  = $('#nmkr-analytics-charts');
+    const tablesWrap = $('#nmkr-analytics-tables');
 
     // Build Filters UI
     filters.innerHTML = '';
@@ -252,6 +471,28 @@
     const chartA = chartCard(i18n.views,  'nmkr-chart-views-cv');
     const chartB = chartCard(i18n.clicks, 'nmkr-chart-clicks-cv');
     charts.append(chartA.card, chartB.card);
+
+    // === Tables section ===
+    tablesWrap.classList.add('nmkr-tables');
+    const projRoot  = document.createElement('div'); projRoot.id = 'nmkr-top-projects-root';
+    const tokenRoot = document.createElement('div'); tokenRoot.id = 'nmkr-top-tokens-root';
+    tablesWrap.innerHTML = '';
+    tablesWrap.append(projRoot, tokenRoot);
+
+    const topProjects = createTopTable({
+      rootEl: projRoot,
+      title: (i18n.topProjects || 'Top Projects'),
+      entity: 'projects',
+      i18n, defaults: (cfg.defaults || {}),
+      fetcher: postAjax
+    });
+    const topTokens = createTopTable({
+      rootEl: tokenRoot,
+      title: (i18n.topTokens || 'Top Tokens'),
+      entity: 'tokens',
+      i18n, defaults: (cfg.defaults || {}),
+      fetcher: postAjax
+    });
 
     // State & fetch
     function getFilters() {
@@ -350,15 +591,20 @@
         charts.append(help);
         // Don’t throw further; keep UI responsive
       }
+
+      // After KPIs & charts, refresh tables using the same filters
+      topProjects.refresh(f);
+      topTokens.refresh(f);
     }
 
     const debouncedRefresh = debounce(refreshData, 300);
 
     // Wire events
-    selRange.addEventListener('change', debouncedRefresh);
-    selType.addEventListener('change', debouncedRefresh);
-    inputFrom.addEventListener('change', debouncedRefresh);
-    inputTo.addEventListener('change', debouncedRefresh);
+    function resetTablesToFirstPage() { topProjects.resetPage(); topTokens.resetPage(); }
+    selRange.addEventListener('change', () => { resetTablesToFirstPage(); debouncedRefresh(); });
+    selType.addEventListener('change', () => { resetTablesToFirstPage(); debouncedRefresh(); });
+    inputFrom.addEventListener('change', () => { resetTablesToFirstPage(); debouncedRefresh(); });
+    inputTo.addEventListener('change', () => { resetTablesToFirstPage(); debouncedRefresh(); });
     $('#nmkr-f-apply').addEventListener('click', refreshData);
 
     // Initial load
