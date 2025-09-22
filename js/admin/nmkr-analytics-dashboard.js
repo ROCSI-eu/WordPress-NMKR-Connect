@@ -368,6 +368,38 @@
     return json.data;
   }
 
+  // Download export (CSV/JSON) via admin-ajax
+  async function downloadExport(action, body, filenameHint, expectedType) {
+    const cfg = window.nmkrAnalyticsDashboard;
+    const data = new URLSearchParams();
+    data.set('action', action);
+    data.set('nonce', cfg.nonce);
+    Object.entries(body||{}).forEach(([k,v]) => { if (v !== undefined && v !== null) data.set(k, String(v)); });
+    data.set('_', String(Date.now()));
+
+    const res = await fetch(cfg.ajax_url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+      body: data.toString(),
+      credentials: 'same-origin',
+    });
+
+    if (!res.ok) throw new Error('Export failed');
+
+    const blob = await res.blob();
+    const ext = (expectedType === 'json') ? '.json' : '.csv';
+    const fname = (filenameHint || 'nmkr-analytics-export') + ext;
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fname;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=> URL.revokeObjectURL(url), 1000);
+  }
+
   function init() {
     if (typeof window.nmkrAnalyticsDashboard === 'undefined') return;
 
@@ -493,6 +525,118 @@
       i18n, defaults: (cfg.defaults || {}),
       fetcher: postAjax
     });
+
+    // === Export Bar ===
+    const expWrap = $('#nmkr-analytics-exports');
+    if (expWrap) {
+      expWrap.innerHTML = '';
+      expWrap.classList.add('nmkr-analytics-section');
+
+      const title = document.createElement('div');
+      title.style.marginBottom = '6px';
+      title.style.fontWeight = '600';
+      title.textContent = i18n.exports || 'Exports';
+      expWrap.append(title);
+
+      const bar = document.createElement('div');
+      bar.style.display = 'flex';
+      bar.style.flexWrap = 'wrap';
+      bar.style.gap = '8px';
+      bar.style.alignItems = 'end';
+
+      // What to export (entity)
+      const fldWhat = document.createElement('div');
+      fldWhat.className = 'field';
+      const lblWhat = document.createElement('label'); lblWhat.textContent = i18n.exportWhat || 'Data';
+      const selWhat = document.createElement('select');
+      const selWhatId = 'nmkr-exp-what';
+      selWhat.id = selWhatId;
+      lblWhat.htmlFor = selWhatId;
+      [
+        {v:'timeseries',    l:(i18n.timeseries   || 'Timeseries')},
+        {v:'top_projects',  l:(i18n.topProjects || 'Top Projects')},
+        {v:'top_tokens',    l:(i18n.topTokens   || 'Top Tokens')},
+        {v:'breakdown',     l:(i18n.breakdown   || 'Shortcode Breakdown')},
+      ].forEach(o => { const opt = document.createElement('option'); opt.value = o.v; opt.textContent = o.l; selWhat.append(opt); });
+      fldWhat.append(lblWhat, selWhat);
+
+      // Format
+      const fldFmt = document.createElement('div');
+      fldFmt.className = 'field';
+      const lblFmt = document.createElement('label'); lblFmt.textContent = i18n.exportFormat || 'Format';
+      const selFmt = document.createElement('select');
+      const selFmtId = 'nmkr-exp-fmt';
+      selFmt.id = selFmtId;
+      lblFmt.htmlFor = selFmtId;
+      [
+        {v:'csv',  l:(i18n.csv  || 'CSV')},
+        {v:'json', l:(i18n.json || 'JSON')},
+      ].forEach(o => { const opt = document.createElement('option'); opt.value = o.v; opt.textContent = o.l; selFmt.append(opt); });
+      fldFmt.append(lblFmt, selFmt);
+
+      // Note
+      const note = document.createElement('div');
+      note.className = 'nmkr-muted';
+      note.textContent = i18n.noteExport || 'Exports reflect current filters; top lists export the current page.';
+
+      // Download button
+      const btn = document.createElement('button');
+      btn.className = 'nmkr-btn';
+      btn.type = 'button';
+      btn.textContent = i18n.download || 'Download';
+      btn.setAttribute('aria-label', (i18n.download || 'Download') + ' ' + (i18n.exports || 'Exports'));
+
+      // aria-live status region
+      const status = document.createElement('div');
+      status.id = 'nmkr-exp-status';
+      status.setAttribute('role', 'status');
+      status.setAttribute('aria-live', 'polite');
+      status.className = 'nmkr-visually-hidden';
+
+      bar.append(fldWhat, fldFmt, btn);
+      expWrap.append(bar, note, status);
+
+      btn.addEventListener('click', async () => {
+        const f = getFilters();
+        const entity = selWhat.value;
+        const format = selFmt.value;
+
+        let extras = {};
+        if (entity === 'top_projects') {
+          extras = {
+            page: topProjects.state.page,
+            per_page: topProjects.state.perPage,
+            sort: topProjects.state.sort,
+            order: topProjects.state.order,
+            search: topProjects.state.search
+          };
+        } else if (entity === 'top_tokens') {
+          extras = {
+            page: topTokens.state.page,
+            per_page: topTokens.state.perPage,
+            sort: topTokens.state.sort,
+            order: topTokens.state.order,
+            search: topTokens.state.search
+          };
+        }
+
+        try {
+          btn.disabled = true;
+          await downloadExport('nmkr_analytics_export', Object.assign({}, f, extras, { entity, format }), `nmkr-${entity}-${Date.now()}`, (format === 'json' ? 'json' : 'csv'));
+          status.textContent = (i18n.downloadStarted || 'Download started');
+        } catch (e) {
+          const err = document.createElement('div');
+          err.className = 'nmkr-warn';
+          err.textContent = (i18n.error || 'Something went wrong.');
+          expWrap.append(err);
+          setTimeout(()=> err.remove(), 3000);
+          status.textContent = (i18n.error || 'Something went wrong.');
+        } finally {
+          btn.disabled = false;
+          btn.focus();
+        }
+      });
+    }
 
     // State & fetch
     function getFilters() {
