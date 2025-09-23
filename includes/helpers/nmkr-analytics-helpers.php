@@ -311,17 +311,44 @@ function nmkr_analytics_ingest_common( $body, $source = 'rest' ) {
         return new WP_REST_Response( null, 204 );
     }
 
-    // 3) Origin check (same host)
-    $host      = parse_url( home_url(), PHP_URL_HOST );
-    $origin    = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '';
-    $origin_h  = $origin ? parse_url( $origin, PHP_URL_HOST ) : '';
-    $host_hdr  = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : '';
-    if ( $origin && $origin_h && strcasecmp( $origin_h, $host ) !== 0 ) {
-        return new WP_REST_Response( null, 403 );
-    }
-    if ( $host_hdr && strcasecmp( $host_hdr, $host ) !== 0 ) {
-        return new WP_REST_Response( null, 403 );
-    }
+	// 3) Origin check (same host; normalize hostnames and ignore port)
+	$host_expected = parse_url( home_url(), PHP_URL_HOST );
+	$origin        = isset( $_SERVER['HTTP_ORIGIN'] ) ? (string) $_SERVER['HTTP_ORIGIN'] : '';
+	$origin_h      = $origin ? parse_url( $origin, PHP_URL_HOST ) : '';
+	$host_hdr      = isset( $_SERVER['HTTP_HOST'] ) ? (string) $_SERVER['HTTP_HOST'] : '';
+	$xfh_raw       = isset( $_SERVER['HTTP_X_FORWARDED_HOST'] ) ? (string) $_SERVER['HTTP_X_FORWARDED_HOST'] : '';
+
+	$normalize_host = function( $h ) {
+		$h = strtolower( (string) $h );
+		// If comma-separated (proxies), take first
+		if ( strpos( $h, ',' ) !== false ) {
+			$parts = explode( ',', $h );
+			$h = trim( $parts[0] );
+		}
+		// Strip port
+		$h = preg_replace( '/:\\d+$/', '', $h );
+		// Strip leading www.
+		if ( strpos( $h, 'www.' ) === 0 ) {
+			$h = substr( $h, 4 );
+		}
+		return $h;
+	};
+
+	$expected = $normalize_host( $host_expected );
+	$origin_n = $normalize_host( $origin_h );
+	$host_n   = $normalize_host( $host_hdr );
+	$xfh_n    = $normalize_host( $xfh_raw );
+
+	// If Origin header is present and does not match, block
+	if ( $origin && $origin_h && $origin_n !== $expected ) {
+		return new WP_REST_Response( null, 403 );
+	}
+	// Otherwise, allow if any presented host header matches expected; else block
+	if ( $host_hdr || $xfh_raw ) {
+		if ( $host_n !== $expected && $xfh_n !== $expected ) {
+			return new WP_REST_Response( null, 403 );
+		}
+	}
 
     // Consent, DNT, and sampling (server-side guardrails)
     $requires_consent   = function_exists('nmkr_analytics_requires_consent') ? nmkr_analytics_requires_consent() : false;

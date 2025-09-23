@@ -482,8 +482,8 @@ function nmkr_enqueue_analytics_frontend() {
         'debug' => $debug,
         'ga4Enabled' => (bool) $ga4Enabled,
         'transportEnabled' => true,
-        'endpoint_rest' => site_url('/wp-json/nmkr-connect/v1/analytics'),
-        'endpoint_ajax' => admin_url('admin-ajax.php?action=nmkr_analytics_event'),
+        'endpoint_rest' => esc_url_raw( rest_url( 'nmkr-connect/v1/analytics' ) ),
+        'endpoint_ajax' => esc_url_raw( admin_url( 'admin-ajax.php?action=nmkr_analytics_event' ) ),
     );
 
     wp_localize_script('nmkr-analytics', 'NMKR_ANALYTICS', $config);

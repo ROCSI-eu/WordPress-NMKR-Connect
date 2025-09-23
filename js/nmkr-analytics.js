@@ -100,42 +100,66 @@
       if (!cfg.transportEnabled) { log('Transport disabled; stub event', evt); return; }
       try {
         var payload = JSON.stringify(evt);
-        if (navigator && typeof navigator.sendBeacon === 'function') {
-          var blob = new Blob([payload], { type: 'application/json' });
-          var ok = navigator.sendBeacon(cfg.endpoint_rest, blob);
-          if (ok) return;
-        }
-        if (typeof fetch === 'function') {
-          return fetch(cfg.endpoint_rest, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: payload,
-            keepalive: true,
-            credentials: 'same-origin',
-            cache: 'no-store',
-          }).then(function(res){
-            if (res && res.ok) return;
-            // Fallback to AJAX on any non-2xx
-            return fetch(cfg.endpoint_ajax, {
+        // Try REST via fetch first; then AJAX via fetch; finally best-effort sendBeacon.
+        // Never return early on sendBeacon "success" — it doesn't guarantee server acceptance.
+        function sendPayload(payload) {
+          if (typeof fetch === 'function') {
+            return fetch(cfg.endpoint_rest, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: payload,
               keepalive: true,
               credentials: 'same-origin',
-              cache: 'no-store',
+              cache: 'no-store'
+            }).then(function (res) {
+              if (res && res.ok) return;
+              return fetch(cfg.endpoint_ajax, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: payload,
+                keepalive: true,
+                credentials: 'same-origin',
+                cache: 'no-store'
+              }).then(function (ajaxRes) {
+                if (ajaxRes && ajaxRes.ok) return;
+                try {
+                  if (navigator && typeof navigator.sendBeacon === 'function') {
+                    var blob1 = new Blob([payload], { type: 'application/json' });
+                    navigator.sendBeacon(cfg.endpoint_rest, blob1) || navigator.sendBeacon(cfg.endpoint_ajax, blob1);
+                  }
+                } catch (e) {}
+              });
+            }).catch(function () {
+              return fetch(cfg.endpoint_ajax, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: payload,
+                keepalive: true,
+                credentials: 'same-origin',
+                cache: 'no-store'
+              }).then(function (ajaxRes) {
+                if (ajaxRes && ajaxRes.ok) return;
+                try {
+                  if (navigator && typeof navigator.sendBeacon === 'function') {
+                    var blob2 = new Blob([payload], { type: 'application/json' });
+                    navigator.sendBeacon(cfg.endpoint_rest, blob2) || navigator.sendBeacon(cfg.endpoint_ajax, blob2);
+                  }
+                } catch (e) {}
+              });
             });
-          }).catch(function(){
-            // Network/other failure: attempt AJAX fallback
-            return fetch(cfg.endpoint_ajax, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: payload,
-              keepalive: true,
-              credentials: 'same-origin',
-              cache: 'no-store',
-            });
-          });
+          }
+
+          try {
+            if (navigator && typeof navigator.sendBeacon === 'function') {
+              var blob = new Blob([payload], { type: 'application/json' });
+              navigator.sendBeacon(cfg.endpoint_rest, blob) || navigator.sendBeacon(cfg.endpoint_ajax, blob);
+            }
+          } catch (e) {}
+
+          try { return Promise.resolve(); } catch (e) {}
         }
+
+        return sendPayload(payload);
       } catch(e) { /* swallow */ }
     }
 
