@@ -64,11 +64,17 @@ require_once plugin_dir_path(__FILE__) . 'includes/database/nmkr-database-struct
 // Replace the single settings file with the new modular files
 require_once plugin_dir_path(__FILE__) . 'includes/pages/settings/nmkr-settings-core.php';
 // The settings-core.php file includes the other settings modules
+// Roles & access helpers (RBAC foundation)
+require_once plugin_dir_path(__FILE__) . 'includes/roles/nmkr-roles.php';
+require_once plugin_dir_path(__FILE__) . 'includes/helpers/nmkr-access-helpers.php';
 
 // Register activation hook
 function nmkr_connect_activate() {
     // Create tables
     nmkr_connect_create_tables();
+    
+    // Ensure NMKR roles & capabilities exist
+    nmkr_roles_install_caps();
     
     // Set default options if not already set
     $options = get_option('nmkr_connect_options', array());
@@ -405,6 +411,9 @@ function nmkr_enqueue_admin_assets($hook) {
     }
 }
 add_action('admin_enqueue_scripts', 'nmkr_enqueue_admin_assets');
+
+// Idempotent safety-net in case activation did not run (e.g., manual file updates)
+add_action( 'admin_init', 'nmkr_roles_ensure_caps' );
 
 /**
  * Plugin initialization, register hooks
