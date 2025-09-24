@@ -317,7 +317,7 @@ function nmkr_connect_add_settings_page() {
     add_options_page(
         'NMKR Connect Settings',
         'NMKR Connect',
-        'manage_options',
+        'nmkr_manage_settings',
         'nmkr-connect-settings',
         'nmkr_connect_settings_page'
     );
@@ -338,8 +338,12 @@ add_filter('plugin_action_links_' . plugin_basename(NMKR_CONNECT_PLUGIN_FILE), '
  * Render the main settings page
  */
 function nmkr_connect_settings_page() {
-    if (!current_user_can('manage_options')) {
-        return;
+    if ( ! current_user_can( 'nmkr_manage_settings' ) ) {
+        if ( function_exists( 'nmkr_render_access_denied_page' ) ) {
+            nmkr_render_access_denied_page( __( 'NMKR Settings', 'nmkr-connect' ) );
+            return;
+        }
+        wp_die( esc_html__( 'Access denied.', 'nmkr-connect' ) );
     }
     ?>
     <div class="wrap">

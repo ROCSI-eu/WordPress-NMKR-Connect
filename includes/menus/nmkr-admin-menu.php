@@ -5,7 +5,7 @@ function nmkr_connect_admin_menu() {
     add_menu_page(
         'NMKR Connect Dashboard',            // Page title
         'NMKR Connect',                      // Menu title
-        'manage_options',                    // Capability
+        'nmkr_access_plugin',                // Capability
         'nmkr-connect-dashboard',            // Menu slug
         'nmkr_connect_dashboard_page',       // Function to display the page content
         'dashicons-admin-generic',           // Icon for the menu
@@ -17,7 +17,7 @@ function nmkr_connect_admin_menu() {
         'nmkr-connect-dashboard',            // Parent slug
         'Dashboard',                         // Page title
         'Dashboard',                         // Menu title
-        'manage_options',                    // Capability
+        'nmkr_view_dashboard',               // Capability
         'nmkr-connect-dashboard',            // Menu slug (same as main to avoid duplicating page)
         'nmkr_connect_dashboard_page'        // Callback function to show the Dashboard page
     );
@@ -27,7 +27,7 @@ function nmkr_connect_admin_menu() {
         'nmkr-connect-dashboard',            // Parent slug
         'NFT Projects',                      // Page title
         'NFT Projects',                      // Menu title
-        'manage_options',                    // Capability
+        'nmkr_view_projects',                // Capability
         'nmkr-connect-projects',             // Menu slug
         'nmkr_connect_projects_page'         // Callback function for the NFT Projects page
     );
@@ -37,7 +37,7 @@ function nmkr_connect_admin_menu() {
         'nmkr-connect-dashboard',            // Parent slug
         'Shortcodes',                        // Page title
         'Shortcodes',                        // Menu title
-        'manage_options',                    // Capability
+        'nmkr_view_shortcodes',              // Capability
         'nmkr-connect-shortcodes',           // Menu slug
         'nmkr_display_shortcodes_page'       // Callback function for the Shortcodes page
     );
@@ -48,10 +48,43 @@ function nmkr_connect_admin_menu() {
             'nmkr-connect-dashboard',        // Parent slug
             __('Analytics', 'nmkr-connect'), // Page title
             __('Analytics', 'nmkr-connect'), // Menu title
-            'manage_options',                // Capability
+            'nmkr_view_analytics',           // Capability
             'nmkr-connect-analytics',        // Menu slug
             'nmkr_connect_analytics_page'    // Callback function
         );
     }
 }
 add_action('admin_menu', 'nmkr_connect_admin_menu');
+
+add_action( 'admin_init', function () {
+    if ( ! is_admin() ) { return; }
+
+    // Only act on the NMKR parent slug.
+    $page = isset( $_GET['page'] ) ? sanitize_text_field( wp_unslash( $_GET['page'] ) ) : '';
+    if ( 'nmkr-connect-dashboard' !== $page ) { return; }
+
+    // If user can view dashboard, do nothing.
+    if ( current_user_can( 'nmkr_view_dashboard' ) ) { return; }
+
+    // Redirect to first allowed child page, else show Access Denied.
+    $candidates = array(
+        array( 'cap' => 'nmkr_view_projects',   'slug' => 'nmkr-connect-projects' ),
+        array( 'cap' => 'nmkr_view_shortcodes', 'slug' => 'nmkr-connect-shortcodes' ),
+        array( 'cap' => 'nmkr_view_analytics',  'slug' => 'nmkr-connect-analytics' ),
+    );
+
+    foreach ( $candidates as $c ) {
+        if ( current_user_can( $c['cap'] ) ) {
+            wp_safe_redirect( admin_url( 'admin.php?page=' . $c['slug'] ) );
+            exit;
+        }
+    }
+
+    if ( function_exists( 'nmkr_render_access_denied_page' ) ) {
+        nmkr_render_access_denied_page( __( 'NMKR Connect', 'nmkr-connect' ) );
+        exit;
+    }
+
+    // Fallback (should not happen if helper loaded)
+    wp_die( esc_html__( 'Access denied.', 'nmkr-connect' ) );
+}, 1 );
