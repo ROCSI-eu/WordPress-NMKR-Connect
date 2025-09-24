@@ -88,3 +88,52 @@ add_action( 'admin_init', function () {
     // Fallback (should not happen if helper loaded)
     wp_die( esc_html__( 'Access denied.', 'nmkr-connect' ) );
 }, 1 );
+
+/**
+ * Restrict visible NMKR submenus for users who cannot view the Dashboard
+ * (e.g., nmkr-marketing). We allowlist only Projects, Shortcodes, Analytics.
+ *
+ * This runs late to override third-party injections (e.g., Freemius).
+ */
+add_action( 'admin_menu', function () {
+	if ( ! is_admin() ) {
+		return;
+	}
+
+	// User must at least see the NMKR parent.
+	if ( ! current_user_can( 'nmkr_access_plugin' ) ) {
+		return;
+	}
+
+	// If the user can view the dashboard, we leave all submenus intact.
+	if ( current_user_can( 'nmkr_view_dashboard' ) ) {
+		return;
+	}
+
+	// Parent slug for NMKR menu.
+	$parent = 'nmkr-connect-dashboard';
+
+	// Only keep these submenus for restricted roles.
+	$allowed = array( 'nmkr-connect-projects', 'nmkr-connect-shortcodes', 'nmkr-connect-analytics' );
+
+	/**
+	 * Filter the allowlisted submenus for restricted roles.
+	 * @param string[] $allowed
+	 */
+	$allowed = apply_filters( 'nmkr_marketing_allowed_submenus', $allowed );
+
+	global $submenu;
+
+	if ( empty( $submenu[ $parent ] ) || ! is_array( $submenu[ $parent ] ) ) {
+		return;
+	}
+
+	// Remove every submenu not explicitly allowed.
+	foreach ( $submenu[ $parent ] as $item ) {
+		// Structure: [0] => title, [1] => capability, [2] => slug, ...
+		$slug = isset( $item[2] ) ? $item[2] : '';
+		if ( $slug && ! in_array( $slug, $allowed, true ) ) {
+			remove_submenu_page( $parent, $slug );
+		}
+	}
+}, 100 );
