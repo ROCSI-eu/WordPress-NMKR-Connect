@@ -15,6 +15,13 @@ require_once plugin_dir_path(dirname(dirname(dirname(__FILE__)))) . 'includes/he
 require_once plugin_dir_path(dirname(dirname(dirname(__FILE__)))) . 'includes/helpers/nmkr-lightbox.php';
 
 function nmkr_connect_projects_page() {
+    if ( ! current_user_can( 'nmkr_view_projects' ) ) {
+        if ( function_exists( 'nmkr_render_access_denied_page' ) ) {
+            nmkr_render_access_denied_page( __( 'NFT Projects', 'nmkr-connect' ) );
+            return;
+        }
+        wp_die( esc_html__( 'Access denied.', 'nmkr-connect' ) );
+    }
     global $wpdb;
     $projects_table = $wpdb->prefix . 'nmkr_projects';
     $tokens_table = $wpdb->prefix . 'nmkr_tokens';

@@ -36,8 +36,15 @@ require_once plugin_dir_path(dirname(dirname(dirname(__FILE__)))) . 'includes/he
  * delegating to specialized functions for stats, UI, and Ajax functionality.
  */
 function nmkr_connect_dashboard_page() {
+    if ( ! current_user_can( 'nmkr_view_dashboard' ) ) {
+        if ( function_exists( 'nmkr_render_access_denied_page' ) ) {
+            nmkr_render_access_denied_page( __( 'Dashboard', 'nmkr-connect' ) );
+            return;
+        }
+        wp_die( esc_html__( 'Access denied.', 'nmkr-connect' ) );
+    }
     // Proactive stale-state recovery on dashboard load
-    if ( current_user_can('manage_options') && function_exists('nmkr_detect_and_recover_stale_sync') ) {
+    if ( current_user_can( 'nmkr_manage_sync' ) && function_exists('nmkr_detect_and_recover_stale_sync') ) {
         nmkr_detect_and_recover_stale_sync();
     }
     // Log UI status update for dashboard page load

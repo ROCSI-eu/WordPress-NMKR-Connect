@@ -1,6 +1,13 @@
 <?php
 // Function to render the NMKR Shortcodes page
 function nmkr_display_shortcodes_page() {
+    if ( ! current_user_can( 'nmkr_view_shortcodes' ) ) {
+        if ( function_exists( 'nmkr_render_access_denied_page' ) ) {
+            nmkr_render_access_denied_page( __( 'Shortcodes', 'nmkr-connect' ) );
+            return;
+        }
+        wp_die( esc_html__( 'Access denied.', 'nmkr-connect' ) );
+    }
     ?>
     <div class="wrap nmkr-dashboard">
         <h1 class="center-text">NMKR Connect - Shortcodes</h1>

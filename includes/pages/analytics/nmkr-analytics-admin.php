@@ -7,8 +7,12 @@
 if (!defined('ABSPATH')) { exit; }
 
 function nmkr_connect_analytics_page() {
-    if ( ! current_user_can('manage_options') ) {
-        wp_die( esc_html__( 'You do not have sufficient permissions to access this page.', 'nmkr-connect' ) );
+    if ( ! current_user_can( 'nmkr_view_analytics' ) ) {
+        if ( function_exists( 'nmkr_render_access_denied_page' ) ) {
+            nmkr_render_access_denied_page( __( 'Analytics', 'nmkr-connect' ) );
+            return;
+        }
+        wp_die( esc_html__( 'Access denied.', 'nmkr-connect' ) );
     }
 
     ?>
