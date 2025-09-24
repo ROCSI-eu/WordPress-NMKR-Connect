@@ -4,12 +4,12 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 /**
  * NMKR roles & capabilities (foundation).
  */
-define( 'NMKR_CAPS_VERSION', 1 );
+if ( ! defined( 'NMKR_CAPS_VERSION' ) ) { define( 'NMKR_CAPS_VERSION', 1 ); }
 
 /**
- * Single source of truth for NMKR capabilities and roles.
+ * Single source of truth for NMKR capabilities, roles and labels.
  *
- * @return array{caps: string[], roles: array<string, array<string,bool>>}
+ * @return array{caps: string[], roles: array<string, array<string,bool>>, labels: array<string,string>}
  */
 function nmkr_roles_caps_spec() {
     $caps = array(
@@ -36,7 +36,13 @@ function nmkr_roles_caps_spec() {
         ),
     );
 
-    return array( 'caps' => $caps, 'roles' => $roles );
+    // Role display labels (translatable)
+    $labels = array(
+        'nmkr-admin'     => __( 'NMKR Admin', 'nmkr-connect' ),
+        'nmkr-marketing' => __( 'NMKR Marketing', 'nmkr-connect' ),
+    );
+
+    return array( 'caps' => $caps, 'roles' => $roles, 'labels' => $labels );
 }
 
 /**
@@ -47,6 +53,7 @@ function nmkr_roles_install_caps() {
     $spec  = nmkr_roles_caps_spec();
     $caps  = $spec['caps'];
     $roles = $spec['roles'];
+    $labels = isset( $spec['labels'] ) ? $spec['labels'] : array();
 
     // Ensure WP Administrator retains all NMKR caps
     if ( $admin = get_role( 'administrator' ) ) {
@@ -57,12 +64,26 @@ function nmkr_roles_install_caps() {
         }
     }
 
-    // Create or update custom roles (additive only)
+    // Create or update custom roles (additive only) and enforce labels
     foreach ( $roles as $role_key => $role_caps ) {
-        $role = get_role( $role_key );
+        $label = isset( $labels[ $role_key ] ) ? $labels[ $role_key ] : ucwords( str_replace( '-', ' ', $role_key ) );
+        $role  = get_role( $role_key );
+
         if ( ! $role ) {
-            add_role( $role_key, ucwords( str_replace( '-', ' ', $role_key ) ), $role_caps );
+            add_role( $role_key, $label, $role_caps );
+            $role = get_role( $role_key );
         } else {
+            // Ensure label is correct in roles option.
+            $wp_roles = wp_roles(); // WP_Roles
+            if ( isset( $wp_roles->roles[ $role_key ]['name'] ) && $wp_roles->roles[ $role_key ]['name'] !== $label ) {
+                $wp_roles->roles[ $role_key ]['name'] = $label;
+                $wp_roles->role_names[ $role_key ]     = $label;
+                update_option( $wp_roles->role_key, $wp_roles->roles );
+            }
+        }
+
+        // Ensure intended caps are present (additive; do not remove).
+        if ( $role ) {
             foreach ( $role_caps as $cap => $grant ) {
                 if ( $grant && ! $role->has_cap( $cap ) ) {
                     $role->add_cap( $cap );
@@ -91,6 +112,18 @@ function nmkr_roles_ensure_caps() {
             if ( ! $admin->has_cap( $cap ) ) {
                 $admin->add_cap( $cap );
             }
+        }
+    }
+
+    // Also enforce role labels on every admin request
+    $labels  = isset( $spec['labels'] ) ? $spec['labels'] : array();
+    $wp_roles = wp_roles();
+
+    foreach ( $labels as $role_key => $label ) {
+        if ( isset( $wp_roles->roles[ $role_key ]['name'] ) && $wp_roles->roles[ $role_key ]['name'] !== $label ) {
+            $wp_roles->roles[ $role_key ]['name'] = $label;
+            $wp_roles->role_names[ $role_key ]     = $label;
+            update_option( $wp_roles->role_key, $wp_roles->roles );
         }
     }
 }
