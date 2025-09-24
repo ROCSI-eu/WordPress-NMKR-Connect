@@ -26,8 +26,8 @@ add_action('init', 'nmkr_register_ajax_functions');
 // AJAX handler for fetching API status
 function nmkr_get_api_status() {
     // Check for admin capabilities
-    if (!current_user_can('manage_options')) {
-        wp_send_json_error(['message' => 'Insufficient permissions']);
+    if ( ! current_user_can( 'nmkr_view_dashboard' ) ) {
+        wp_send_json_error( array( 'message' => __( 'Forbidden', 'nmkr-connect' ) ), 403 );
         return;
     }
     

@@ -36,6 +36,10 @@ function nmkr_start_sync_handler() {
     // Verify nonce for security
     check_ajax_referer('nmkr_sync_nonce', 'nonce');
     
+    if ( ! current_user_can( 'nmkr_manage_sync' ) ) {
+        wp_send_json_error( array( 'message' => __( 'Forbidden', 'nmkr-connect' ) ), 403 );
+    }
+    
     // Clear any past recovery note on fresh start
     delete_option('nmkr_sync_last_result');
     delete_option('nmkr_sync_last_recovery_at');
@@ -95,6 +99,10 @@ function nmkr_start_sync_handler() {
 function nmkr_cleanup_sync_jobs_handler() {
     check_ajax_referer('nmkr_sync_nonce', 'nonce');
     
+    if ( ! current_user_can( 'nmkr_manage_sync' ) ) {
+        wp_send_json_error( array( 'message' => __( 'Forbidden', 'nmkr-connect' ) ), 403 );
+    }
+    
     $context = isset($_POST['context']) ? sanitize_text_field($_POST['context']) : 'manual_cleanup';
     $clear_data = isset($_POST['clear_data']) ? (bool) $_POST['clear_data'] : true;
     
@@ -123,6 +131,10 @@ function nmkr_sync_progress_handler() {
     nocache_headers();
     // Verify nonce for security
     check_ajax_referer('nmkr_sync_nonce', 'nonce');
+    
+    if ( ! current_user_can( 'nmkr_view_dashboard' ) ) {
+        wp_send_json_error( array( 'message' => __( 'Forbidden', 'nmkr-connect' ) ), 403 );
+    }
     
     nmkr_log_ui_status('AJAX HANDLER: nmkr_sync_progress_handler called by process ' . nmkr_safe_getpid(), 'debug');
     
@@ -573,6 +585,10 @@ function nmkr_sync_progress_handler() {
 function nmkr_stop_sync_handler() {
     check_ajax_referer('nmkr_sync_nonce', 'nonce');
     
+    if ( ! current_user_can( 'nmkr_manage_sync' ) ) {
+        wp_send_json_error( array( 'message' => __( 'Forbidden', 'nmkr-connect' ) ), 403 );
+    }
+    
     // Force parameter for handling stuck syncs
     $force = isset($_POST['force']) && $_POST['force'] ? true : false;
     
@@ -760,6 +776,10 @@ function nmkr_stop_sync_handler() {
 function nmkr_restart_sync_batch_handler() {
     check_ajax_referer('nmkr_sync_nonce', 'nonce');
     
+    if ( ! current_user_can( 'nmkr_manage_sync' ) ) {
+        wp_send_json_error( array( 'message' => __( 'Forbidden', 'nmkr-connect' ) ), 403 );
+    }
+    
     // Log the restart attempt
     nmkr_log_data_sync('Attempting to restart sync batch process', 'warning', array(
         'context' => 'recovery_restart',
@@ -824,6 +844,11 @@ function nmkr_restart_sync_batch_handler() {
 function nmkr_force_stop_sync_handler() {
     try {
         check_ajax_referer('nmkr_sync_nonce', 'nonce');
+        
+        if ( ! current_user_can( 'nmkr_manage_sync' ) ) {
+            wp_send_json_error( array( 'message' => __( 'Forbidden', 'nmkr-connect' ) ), 403 );
+            wp_die();
+        }
         
         // ** ENHANCED ERROR HANDLING: Parameter Validation **
         $context = isset($_POST['context']) ? sanitize_text_field($_POST['context']) : 'manual_force_stop';
@@ -949,6 +974,10 @@ function nmkr_force_stop_sync_handler() {
  */
 function nmkr_check_sync_health_handler() {
     check_ajax_referer('nmkr_sync_nonce', 'nonce');
+    
+    if ( ! current_user_can( 'nmkr_view_dashboard' ) ) {
+        wp_send_json_error( array( 'message' => __( 'Forbidden', 'nmkr-connect' ) ), 403 );
+    }
     
     // Log UI status update for health check request
     nmkr_log_ui_status('UI: Sync health check requested from frontend', 'debug');

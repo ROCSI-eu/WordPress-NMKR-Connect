@@ -122,7 +122,7 @@ function nmkr_analytics_admin_ajax_guard( array $opts = array() ) {
         'require_post' => true,
         'nonce_key'    => 'nonce',
         'nonce_action' => 'nmkr_dashboard_nonce',
-        'capability'   => 'manage_options',
+        'capability'   => 'nmkr_view_analytics',
         'content'      => 'json',
     ), $opts);
 

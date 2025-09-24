@@ -35,6 +35,12 @@ function nmkr_check_api_status() {
         wp_die();
     }
     
+    // Capability: view dashboard
+    if ( ! current_user_can( 'nmkr_view_dashboard' ) ) {
+        wp_send_json_error( array( 'message' => __( 'Forbidden', 'nmkr-connect' ) ), 403 );
+        wp_die();
+    }
+    
     // Prevent caching of status responses
     nocache_headers();
     header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
@@ -146,6 +152,12 @@ function nmkr_get_sync_statistics_ajax() {
     // Check nonce for security
     if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'nmkr_dashboard_nonce')) {
         wp_send_json_error(['message' => 'Invalid security token']);
+        wp_die();
+    }
+    
+    // Capability: view dashboard
+    if ( ! current_user_can( 'nmkr_view_dashboard' ) ) {
+        wp_send_json_error( array( 'message' => __( 'Forbidden', 'nmkr-connect' ) ), 403 );
         wp_die();
     }
     
@@ -336,6 +348,12 @@ function nmkr_store_active_metrics_ajax() {
         wp_die();
     }
     
+    // Capability: view dashboard
+    if ( ! current_user_can( 'nmkr_view_dashboard' ) ) {
+        wp_send_json_error( array( 'message' => __( 'Forbidden', 'nmkr-connect' ) ), 403 );
+        wp_die();
+    }
+    
     // Get the metrics array
     $metrics = isset($_POST['metrics']) ? $_POST['metrics'] : array();
     
@@ -406,8 +424,8 @@ function nmkr_clear_all_logs_ajax() {
     }
     
     // Check user capabilities
-    if (!current_user_can('manage_options')) {
-        wp_send_json_error(['message' => 'Insufficient permissions']);
+    if ( ! current_user_can( 'nmkr_manage_sync' ) ) {
+        wp_send_json_error( array( 'message' => __( 'Forbidden', 'nmkr-connect' ) ), 403 );
         wp_die();
     }
     
@@ -447,8 +465,8 @@ function nmkr_clear_section_logs_ajax() {
     }
     
     // Check user capabilities
-    if (!current_user_can('manage_options')) {
-        wp_send_json_error(['message' => 'Insufficient permissions']);
+    if ( ! current_user_can( 'nmkr_manage_sync' ) ) {
+        wp_send_json_error( array( 'message' => __( 'Forbidden', 'nmkr-connect' ) ), 403 );
         wp_die();
     }
     
