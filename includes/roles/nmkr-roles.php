@@ -25,14 +25,25 @@ function nmkr_roles_caps_spec() {
     // Role capability maps
     $roles = array(
         // Full NMKR access (does NOT imply site-wide admin like manage_options)
-        'nmkr-admin' => array_fill_keys( $caps, true ),
+        'nmkr-admin' => array(
+            'read'                 => true,
+            'nmkr_access_plugin'   => true,
+            'nmkr_view_dashboard'  => true,
+            'nmkr_view_projects'   => true,
+            'nmkr_view_shortcodes' => true,
+            'nmkr_view_analytics'  => true,
+            'nmkr_manage_settings' => true,
+            'nmkr_manage_sync'     => true,
+        ),
 
         // Restricted to Projects / Shortcodes / Analytics
         'nmkr-marketing' => array(
+            'read'                 => true,
             'nmkr_access_plugin'   => true,
             'nmkr_view_projects'   => true,
             'nmkr_view_shortcodes' => true,
             'nmkr_view_analytics'  => true,
+            // no dashboard/settings/sync caps
         ),
     );
 
