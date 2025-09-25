@@ -1,4 +1,23 @@
 <?php
+// Helper: premium upsell message.
+// Guarded so first include wins and duplicates are ignored.
+if ( ! function_exists( 'nmkr_premium_required_message' ) ) {
+    /**
+     * Returns a localized, escaped upsell HTML snippet pointing to Freemius upgrade URL.
+     *
+     * @return string
+     */
+    function nmkr_premium_required_message() {
+        $message = esc_html__( 'This feature requires the Premium plan.', 'nmkr-connect' );
+        $upgrade = sprintf(
+            '<a href="%s">%s</a>',
+            esc_url( wnc_fs()->get_upgrade_url() ),
+            esc_html__( 'Upgrade now', 'nmkr-connect' )
+        );
+        // Translators: %1$s is the message, %2$s is the 'Upgrade now' link.
+        return sprintf( '<p>%1$s %2$s</p>', $message, $upgrade );
+    }
+}
 // Function to render the NMKR Shortcodes page
 function nmkr_display_shortcodes_page() {
     if ( ! current_user_can( 'nmkr_view_shortcodes' ) ) {
@@ -65,7 +84,7 @@ function nmkr_display_shortcodes_page() {
             </div>
         <?php endif; ?>
 
-        <?php if ( wnc_fs()->is_plan( 'starter' ) || wnc_fs()->can_use_premium_code() ) : ?>
+        <?php if ( wnc_fs()->can_use_premium_code() ) : ?>
             <div class="panel">
                 <h2 class="center-text">[nmkr-carousel]</h2>
                 <div class="nmkr-info-box">
@@ -108,25 +127,25 @@ function nmkr_display_shortcodes_page() {
                 </div>
             </div>
         <?php else : ?>
-            <!-- Starter and above features with limited access message -->
+            <!-- Premium features with limited access message -->
             <div class="panel">
                 <h2 class="center-text">[nmkr-carousel]</h2>
                 <div class="panel-section">
-                    <p class="center-text"><em>This feature is available in the Starter plan and above.</em></p>
+                    <?php echo nmkr_premium_required_message(); ?>
                 </div>
             </div>
 
             <div class="panel">
                 <h2 class="center-text">[nmkr-token]</h2>
                 <div class="panel-section">
-                    <p class="center-text"><em>This feature is available in the Starter plan and above.</em></p>
+                    <?php echo nmkr_premium_required_message(); ?>
                 </div>
             </div>
 
             <div class="panel">
                 <h2 class="center-text">[nmkr-project]</h2>
                 <div class="panel-section">
-                    <p class="center-text"><em>This feature is available in the Starter plan and above.</em></p>
+                    <?php echo nmkr_premium_required_message(); ?>
                 </div>
             </div>
         <?php endif; ?>

@@ -10,11 +10,31 @@ require_once dirname(__FILE__,2) . '/helpers/nmkr-lightbox.php';
 require_once dirname(__FILE__,2) . '/helpers/nmkr-projects-util.php';
 require_once dirname(__FILE__,2) . '/helpers/nmkr-ui-helpers.php';
 
+// Helper: premium upsell message.
+// Guarded so first include wins and duplicates are ignored.
+if ( ! function_exists( 'nmkr_premium_required_message' ) ) {
+    /**
+     * Returns a localized, escaped upsell HTML snippet pointing to Freemius upgrade URL.
+     *
+     * @return string
+     */
+    function nmkr_premium_required_message() {
+        $message = esc_html__( 'This feature requires the Premium plan.', 'nmkr-connect' );
+        $upgrade = sprintf(
+            '<a href="%s">%s</a>',
+            esc_url( wnc_fs()->get_upgrade_url() ),
+            esc_html__( 'Upgrade now', 'nmkr-connect' )
+        );
+        // Translators: %1$s is the message, %2$s is the 'Upgrade now' link.
+        return sprintf( '<p>%1$s %2$s</p>', $message, $upgrade );
+    }
+}
+
 // Shortcode function to display a single token with details
 function nmkr_shortcode_token($atts) {
-    // Check if the user has the necessary plan (Starter or above)
-    if (!wnc_fs()->can_use_premium_code()) {
-        return '<p>This feature is only available in the Starter plan and above. <a href="' . esc_url(wnc_fs()->get_upgrade_url()) . '">Upgrade Now</a></p>';
+    // Check if the user has the necessary plan (Premium)
+    if ( ! wnc_fs()->can_use_premium_code() ) {
+        return nmkr_premium_required_message();
     }
 
     global $wpdb;
