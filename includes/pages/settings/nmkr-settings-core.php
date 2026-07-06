@@ -441,7 +441,7 @@ function nmkr_connect_settings_page() {
                 $('#nmkr_api_key').val(currentApiKey);
                 
                 // Show success message
-                alert('Settings have been reset to defaults. Click "Save Changes" to apply.');
+                alert('Settings have been reset to defaults. Click "Save Settings" to apply.');
             }
         });
     });
