@@ -103,7 +103,7 @@ function nmkr_connect_activate() {
         $options['sync_debug_enabled'] = 0;
         $options['ui_debug_enabled'] = 0;
         $options['performance_debug_enabled'] = 0;
-        $options['log_throttle_enabled'] = 1;
+        $options['log_throttle_enabled'] = 0;
     }
     
     // Save options

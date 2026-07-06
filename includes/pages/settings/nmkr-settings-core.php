@@ -368,6 +368,10 @@ function nmkr_connect_settings_page() {
             const toggleButton = document.getElementById('toggle_api_key_visibility');
             const apiKeyInput = document.getElementById('nmkr_api_key');
             
+            if (!toggleButton || !apiKeyInput) {
+                return;
+            }
+
             toggleButton.addEventListener('click', function() {
                 if (apiKeyInput.type === 'password') {
                     apiKeyInput.type = 'text';
@@ -386,12 +390,6 @@ function nmkr_connect_settings_page() {
             if (confirm('Are you sure you want to reset all settings to their default values?')) {
                 // Store current API key
                 const currentApiKey = $('#nmkr_api_key').val();
-                
-                // Reset Log Settings
-                $('#nmkr_log_retention_days').val('30');
-                $('#nmkr_log_max_size').val('10');
-                $('#nmkr_log_rotation_schedule').val('daily');
-                $('#nmkr_log_display_limit').val('50');
                 
                 // Reset Sync Settings
                 $('#nmkr_sync_profile').val('balanced');
@@ -414,6 +412,17 @@ function nmkr_connect_settings_page() {
                 $('#nmkr_log_throttle_enabled').prop('checked', false).prop('disabled', true);
                 $('#nmkr_log_retention_limit').val('100').prop('disabled', true);
                 
+                // Reset Analytics & Privacy Settings
+                $('#nmkr_analytics_mode').val('custom');
+                $('#nmkr_ga4_measurement_id').val('');
+                $('#nmkr_ga4_api_secret').val('');
+                $('#nmkr_analytics_retention_days').val('90');
+                $('#nmkr_analytics_track_logged_in').prop('checked', false);
+                $('#nmkr_analytics_require_consent').prop('checked', false);
+                $('#nmkr_analytics_sample_rate').val('1');
+                $('#nmkr_analytics_remove_on_uninstall').prop('checked', true);
+                $('#nmkr_analytics_debug').prop('checked', false);
+
                 // Restore API key
                 $('#nmkr_api_key').val(currentApiKey);
                 
@@ -424,4 +433,4 @@ function nmkr_connect_settings_page() {
     });
     </script>
     <?php
-} 
+}

@@ -20,6 +20,7 @@ if (!defined('ABSPATH')) {
  * @return array Sanitized options data
  */
 function nmkr_connect_sanitize_options($input) {
+    $input = is_array($input) ? $input : array();
     $sanitized_input = array();
     
     // Preserve existing options that might not be in this input
@@ -36,7 +37,9 @@ function nmkr_connect_sanitize_options($input) {
     
     // Sync Profile
     if (isset($input['sync_profile'])) {
-        $sanitized_input['sync_profile'] = sanitize_text_field($input['sync_profile']);
+        $valid_profiles = array_keys(nmkr_get_sync_profiles());
+        $sync_profile = sanitize_text_field($input['sync_profile']);
+        $sanitized_input['sync_profile'] = in_array($sync_profile, $valid_profiles, true) ? $sync_profile : 'balanced';
     } elseif (isset($existing_options['sync_profile'])) {
         $sanitized_input['sync_profile'] = $existing_options['sync_profile'];
     } else {
@@ -121,38 +124,31 @@ function nmkr_connect_sanitize_options($input) {
     }
     
     // Sanitize Debug Settings
+    $debug_enabled = !empty($input['debug_enabled']);
+    $has_destination = $debug_enabled && (!empty($input['log_to_debug_file']) || !empty($input['log_to_dashboard']));
     
     // Debug Enabled
-    $sanitized_input['debug_enabled'] = isset($input['debug_enabled']) ? 1 : 0;
-    
-    // Log to Debug File - independent toggle
-    $sanitized_input['log_to_debug_file'] = isset($input['log_to_debug_file']) ? 1 : 0;
-    
-    // Log to Dashboard - independent toggle
-    $sanitized_input['log_to_dashboard'] = isset($input['log_to_dashboard']) ? 1 : 0;
-    
-    // API Debug Enabled - only enable if debug_enabled is also enabled
-    $sanitized_input['api_debug_enabled'] = (isset($input['debug_enabled']) && $input['debug_enabled'] && isset($input['api_debug_enabled'])) ? 1 : 0;
-    
-    // WP Debug Enabled - only enable if debug_enabled is also enabled
-    $sanitized_input['sync_debug_enabled'] = (isset($input['debug_enabled']) && $input['debug_enabled'] && isset($input['sync_debug_enabled'])) ? 1 : 0;
-    
-    // UI Debug Enabled - only enable if debug_enabled is also enabled
-    $sanitized_input['ui_debug_enabled'] = (isset($input['debug_enabled']) && $input['debug_enabled'] && isset($input['ui_debug_enabled'])) ? 1 : 0;
-    
-    // Performance Debug Enabled - only enable if debug_enabled is also enabled
-    $sanitized_input['performance_debug_enabled'] = (isset($input['debug_enabled']) && $input['debug_enabled'] && isset($input['performance_debug_enabled'])) ? 1 : 0;
-    
-    // Log Throttle Enabled - only enable if debug_enabled is also enabled
-    $sanitized_input['log_throttle_enabled'] = (isset($input['debug_enabled']) && $input['debug_enabled'] && isset($input['log_throttle_enabled'])) ? 1 : 0;
-    
-    // Log Retention Limit
-    if (isset($input['log_retention_limit'])) {
+    $sanitized_input['debug_enabled'] = $debug_enabled ? 1 : 0;
+
+    // Debug destinations are dependent on the master debug toggle.
+    $sanitized_input['log_to_debug_file'] = ($debug_enabled && !empty($input['log_to_debug_file'])) ? 1 : 0;
+    $sanitized_input['log_to_dashboard'] = ($debug_enabled && !empty($input['log_to_dashboard'])) ? 1 : 0;
+
+    // Log types and throttling require both master debug and at least one logging destination.
+    $sanitized_input['api_debug_enabled'] = ($has_destination && !empty($input['api_debug_enabled'])) ? 1 : 0;
+    $sanitized_input['sync_debug_enabled'] = ($has_destination && !empty($input['sync_debug_enabled'])) ? 1 : 0;
+    $sanitized_input['ui_debug_enabled'] = ($has_destination && !empty($input['ui_debug_enabled'])) ? 1 : 0;
+    $sanitized_input['performance_debug_enabled'] = ($has_destination && !empty($input['performance_debug_enabled'])) ? 1 : 0;
+    $sanitized_input['log_throttle_enabled'] = ($has_destination && !empty($input['log_throttle_enabled'])) ? 1 : 0;
+
+    // Log Retention Limit. Disabled controls are not submitted, so fall back to the default
+    // whenever debug is off instead of preserving stale values from earlier saves.
+    if (!$debug_enabled) {
+        $sanitized_input['log_retention_limit'] = 100;
+    } elseif (isset($input['log_retention_limit'])) {
         $sanitized_input['log_retention_limit'] = intval($input['log_retention_limit']);
         // Ensure it's within valid range
         $sanitized_input['log_retention_limit'] = max(1, min(1000, $sanitized_input['log_retention_limit']));
-    } elseif (isset($existing_options['log_retention_limit'])) {
-        $sanitized_input['log_retention_limit'] = $existing_options['log_retention_limit'];
     } else {
         $sanitized_input['log_retention_limit'] = 100; // Default value
     }
@@ -255,6 +251,7 @@ function nmkr_get_default_settings() {
         'sync_debug_enabled' => 0,
         'ui_debug_enabled' => 0,
         'performance_debug_enabled' => 0,
+        'log_throttle_enabled' => 0,
         'log_retention_limit' => 100,
         'analytics_mode' => 'custom',
         'analytics_retention_days' => 90,
@@ -266,4 +263,4 @@ function nmkr_get_default_settings() {
     );
     
     return $defaults;
-} 
+}

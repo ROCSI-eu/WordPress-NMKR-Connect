@@ -72,6 +72,11 @@ function nmkr_sync_profile_field_callback() {
             const intervalDecreaseInput = document.querySelector('input[name="nmkr_connect_options[sync_interval_decrease]"]');
             const maxErrorsInput = document.querySelector('input[name="nmkr_connect_options[sync_max_errors]"]');
             
+            if (!profileSelect || !batchSizeInput || !batchDelayInput || !initialIntervalInput ||
+                !maxIntervalInput || !intervalIncreaseInput || !intervalDecreaseInput || !maxErrorsInput) {
+                return;
+            }
+
             // Define the profiles - keep in sync with PHP function nmkr_get_sync_profiles()
             const profiles = {
                 'light': {
@@ -165,9 +170,11 @@ function nmkr_sync_profile_field_callback() {
                              intervalDecreaseInput, maxErrorsInput];
             
             allInputs.forEach(input => {
-                input.addEventListener('change', function() {
-                    profileSelect.value = 'custom';
-                });
+                if (input) {
+                    input.addEventListener('change', function() {
+                        profileSelect.value = 'custom';
+                    });
+                }
             });
             
             // On page load, detect the current profile or apply the selected profile
@@ -333,6 +340,12 @@ function nmkr_debug_enabled_field_callback() {
             const logThrottleCheckbox = document.getElementById('nmkr_log_throttle_enabled');
             const logRetentionLimitInput = document.getElementById('nmkr_log_retention_limit');
             
+            if (!debugCheckbox || !logToDebugFileCheckbox || !logToDashboardCheckbox ||
+                !syncDebugCheckbox || !apiDebugCheckbox || !uiDebugCheckbox ||
+                !performanceDebugCheckbox || !logThrottleCheckbox || !logRetentionLimitInput) {
+                return;
+            }
+
             // Function to update the state of all dependent checkboxes
             function updateDependentCheckboxes() {
                 if (debugCheckbox.checked) {
@@ -446,13 +459,14 @@ function nmkr_api_debug_enabled_field_callback() {
     $options = get_option('nmkr_connect_options');
     $api_debug_enabled = isset($options['api_debug_enabled']) ? $options['api_debug_enabled'] : false;
     $debug_enabled = isset($options['debug_enabled']) ? $options['debug_enabled'] : false;
+    $has_destination = !empty($options['log_to_debug_file']) || !empty($options['log_to_dashboard']);
     ?>
     <input type="checkbox" 
            name="nmkr_connect_options[api_debug_enabled]" 
            id="nmkr_api_debug_enabled"
            value="1"
            <?php checked(1, $api_debug_enabled); ?>
-           <?php disabled(!$debug_enabled, true); ?>
+           <?php disabled(!$debug_enabled || !$has_destination, true); ?>
     />
     <p class="description">
         Enable this option to write API connection status logs.
@@ -465,13 +479,14 @@ function nmkr_sync_debug_enabled_field_callback() {
     $options = get_option('nmkr_connect_options');
     $sync_debug_enabled = isset($options['sync_debug_enabled']) ? $options['sync_debug_enabled'] : false;
     $debug_enabled = isset($options['debug_enabled']) ? $options['debug_enabled'] : false;
+    $has_destination = !empty($options['log_to_debug_file']) || !empty($options['log_to_dashboard']);
     ?>
     <input type="checkbox" 
            name="nmkr_connect_options[sync_debug_enabled]" 
            id="nmkr_sync_debug_enabled"
            value="1"
            <?php checked(1, $sync_debug_enabled); ?>
-           <?php disabled(!$debug_enabled, true); ?>
+           <?php disabled(!$debug_enabled || !$has_destination, true); ?>
     />
     <p class="description">
         Enable this option to write data synchronization logs.
@@ -484,13 +499,14 @@ function nmkr_ui_debug_enabled_field_callback() {
     $options = get_option('nmkr_connect_options');
     $ui_debug_enabled = isset($options['ui_debug_enabled']) ? $options['ui_debug_enabled'] : false;
     $debug_enabled = isset($options['debug_enabled']) ? $options['debug_enabled'] : false;
+    $has_destination = !empty($options['log_to_debug_file']) || !empty($options['log_to_dashboard']);
     ?>
     <input type="checkbox" 
            name="nmkr_connect_options[ui_debug_enabled]" 
            id="nmkr_ui_debug_enabled"
            value="1"
            <?php checked(1, $ui_debug_enabled); ?>
-           <?php disabled(!$debug_enabled, true); ?>
+           <?php disabled(!$debug_enabled || !$has_destination, true); ?>
     />
     <p class="description">
         Enable this option to write user interface status logs.
@@ -503,13 +519,14 @@ function nmkr_performance_debug_enabled_field_callback() {
     $options = get_option('nmkr_connect_options');
     $performance_debug_enabled = isset($options['performance_debug_enabled']) ? $options['performance_debug_enabled'] : false;
     $debug_enabled = isset($options['debug_enabled']) ? $options['debug_enabled'] : false;
+    $has_destination = !empty($options['log_to_debug_file']) || !empty($options['log_to_dashboard']);
     ?>
     <input type="checkbox" 
            name="nmkr_connect_options[performance_debug_enabled]" 
            id="nmkr_performance_debug_enabled"
            value="1"
            <?php checked(1, $performance_debug_enabled); ?>
-           <?php disabled(!$debug_enabled, true); ?>
+           <?php disabled(!$debug_enabled || !$has_destination, true); ?>
     />
     <p class="description">
         Enable this option to write performance tracking logs.
@@ -522,13 +539,14 @@ function nmkr_log_throttle_enabled_field_callback() {
     $options = get_option('nmkr_connect_options');
     $log_throttle_enabled = isset($options['log_throttle_enabled']) ? $options['log_throttle_enabled'] : false;
     $debug_enabled = isset($options['debug_enabled']) ? $options['debug_enabled'] : false;
+    $has_destination = !empty($options['log_to_debug_file']) || !empty($options['log_to_dashboard']);
     ?>
     <input type="checkbox" 
            name="nmkr_connect_options[log_throttle_enabled]" 
            id="nmkr_log_throttle_enabled"
            value="1"
            <?php checked(1, $log_throttle_enabled); ?>
-           <?php disabled(!$debug_enabled, true); ?>
+           <?php disabled(!$debug_enabled || !$has_destination, true); ?>
     />
     <p class="description">
         Enable this option to reduce repetitive logs during sync, such as retries and progress updates. Improves performance and reduces debug.log clutter.
@@ -771,4 +789,4 @@ function nmkr_get_sync_profiles() {
             'settings' => array()
         )
     );
-} 
+}
