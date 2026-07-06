@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 
 // API Settings Section Callback
 function nmkr_connect_api_section_callback() {
-    echo '<p>Configure your NMKR API settings below. You can get your API key from <a href="https://studio.nmkr.io/apikeys" target="_blank">NMKR Studio</a>.</p>';
+    echo '<p>Configure your NMKR API settings below. You can get your API key from <a href="' . esc_url( 'https://studio.nmkr.io/apikeys' ) . '" target="_blank" rel="noopener noreferrer">NMKR Studio</a>.</p>';
 }
 
 // API Settings Field Callbacks
@@ -448,7 +448,7 @@ function nmkr_log_to_dashboard_field_callback() {
     <?php if ($log_to_dashboard): ?>
         <p style="margin-top: 10px;">
             🔍 <strong>View Debug Logs:</strong>
-            <a href="<?php echo admin_url('admin.php?page=nmkr-connect-dashboard#nmkr-debug-logs'); ?>">Jump to Debug Logs panel in Dashboard</a>
+            <a href="<?php echo esc_url(admin_url('admin.php?page=nmkr-connect-dashboard#nmkr-debug-logs')); ?>">Jump to Debug Logs panel in Dashboard</a>
         </p>
     <?php endif; ?>
     <?php
