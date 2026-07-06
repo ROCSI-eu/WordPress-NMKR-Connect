@@ -311,6 +311,20 @@ function nmkr_connect_register_settings() {
 add_action('admin_init', 'nmkr_connect_register_settings');
 
 /**
+ * Set the capability required to save NMKR Connect settings.
+ *
+ * @param string $capability Default option page capability.
+ * @return string Required capability for NMKR Connect settings saves.
+ */
+function nmkr_connect_settings_option_page_capability( $capability ) {
+    return 'nmkr_manage_settings';
+}
+add_filter(
+    'option_page_capability_nmkr_connect_settings_group',
+    'nmkr_connect_settings_option_page_capability'
+);
+
+/**
  * Add the settings page to WordPress Settings menu
  */
 function nmkr_connect_add_settings_page() {
