@@ -221,6 +221,10 @@ function nmkr_connect_uninstall() {
         'nmkr_sync_status',
         'nmkr_connect_options',
         'nmkr_sync_logs',
+        'nmkr_api_logs',
+        'nmkr_ui_logs',
+        'nmkr_performance_logs',
+        'nmkr_sync_in_progress',
         'nmkr_sync_progress',
         'nmkr_sync_current_item',
         'nmkr_sync_total_items',
@@ -232,7 +236,6 @@ function nmkr_connect_uninstall() {
         'nmkr_sync_near_completion',
         'nmkr_sync_stop_requested',
         'nmkr_sync_data',
-        'nmkr_ui_logs',
         'nmkr_sync_last_result',
         'nmkr_sync_last_recovery_at'
     ];

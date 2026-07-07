@@ -345,8 +345,13 @@ function nmkr_sync_progress_handler() {
                 // Update sync stats with error status
                 global $wpdb;
                 $table_name = $wpdb->prefix . 'nmkr_sync_stats';
+                $active_statuses = array('initializing', 'processing_projects', 'processing_tokens');
+                $status_placeholders = implode(', ', array_fill(0, count($active_statuses), '%s'));
                 $active_sync = $wpdb->get_row(
-                    "SELECT * FROM $table_name WHERE status IN ('initializing', 'processing_projects', 'processing_tokens') ORDER BY id DESC LIMIT 1",
+                    $wpdb->prepare(
+                        "SELECT * FROM $table_name WHERE status IN ($status_placeholders) ORDER BY id DESC LIMIT 1",
+                        $active_statuses
+                    ),
                     ARRAY_A
                 );
                 
@@ -600,13 +605,19 @@ function nmkr_stop_sync_handler() {
     $current_item = ($current_item !== false) ? $current_item : '';
     $current_progress_raw = get_transient('nmkr_sync_progress');
     $current_progress = ($current_progress_raw !== false) ? (int) $current_progress_raw : 0;
+    $active_sync = null;
     
     // Check database for active syncs if no sync data found
     if (!$sync_data) {
         global $wpdb;
         $table_name = $wpdb->prefix . 'nmkr_sync_stats';
+        $active_statuses = array('initializing', 'processing_projects', 'processing_tokens');
+        $status_placeholders = implode(', ', array_fill(0, count($active_statuses), '%s'));
         $active_sync = $wpdb->get_row(
-            "SELECT * FROM $table_name WHERE status IN ('initializing', 'processing_projects', 'processing_tokens') ORDER BY id DESC LIMIT 1",
+            $wpdb->prepare(
+                "SELECT * FROM $table_name WHERE status IN ($status_placeholders) ORDER BY id DESC LIMIT 1",
+                $active_statuses
+            ),
             ARRAY_A
         );
         
@@ -689,6 +700,21 @@ function nmkr_stop_sync_handler() {
     
     // Mark the sync as manually stopped in history
     if ($cleanup_result['success']) {
+        $sync_stats_id = null;
+        if ($sync_data && isset($sync_data['sync_stats_id'])) {
+            $sync_stats_id = intval($sync_data['sync_stats_id']);
+        } elseif ($active_sync && isset($active_sync['id'])) {
+            $sync_stats_id = intval($active_sync['id']);
+        }
+
+        if ($sync_stats_id) {
+            nmkr_update_sync_stats($sync_stats_id, [
+                'status' => 'stopped',
+                'end_time' => nmkr_get_timestamp(),
+                'error_message' => 'Manual stop requested by user'
+            ]);
+        }
+
         // Log the stop in the cron job
         nmkr_log_data_sync(
             'Cron cleanup performed',
@@ -704,7 +730,7 @@ function nmkr_stop_sync_handler() {
                 'force' => $force,
                 'cleared_jobs' => $cleanup_result['cleared_jobs'],
                 'cleared_data' => $cleanup_result['cleared_data'],
-                'sync_stats_id' => $sync_data && isset($sync_data['sync_stats_id']) ? $sync_data['sync_stats_id'] : null
+                'sync_stats_id' => $sync_stats_id
             )
         );
         
@@ -973,6 +999,8 @@ function nmkr_force_stop_sync_handler() {
  * AJAX handler for checking the health of the sync process
  */
 function nmkr_check_sync_health_handler() {
+    // Health status is freshness-sensitive while the dashboard is polling.
+    nocache_headers();
     check_ajax_referer('nmkr_sync_nonce', 'nonce');
     
     if ( ! current_user_can( 'nmkr_view_dashboard' ) ) {
@@ -1131,4 +1159,4 @@ function nmkr_execute_sync_background_job() {
         update_option('nmkr_sync_in_progress', false);
         delete_transient('nmkr_sync_in_progress');
     }
-}                                                                                                                                                                                                                                                                                                                                
+}
