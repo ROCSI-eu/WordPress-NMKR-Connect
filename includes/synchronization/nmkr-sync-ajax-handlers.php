@@ -345,8 +345,13 @@ function nmkr_sync_progress_handler() {
                 // Update sync stats with error status
                 global $wpdb;
                 $table_name = $wpdb->prefix . 'nmkr_sync_stats';
+                $active_statuses = array('initializing', 'processing_projects', 'processing_tokens');
+                $status_placeholders = implode(', ', array_fill(0, count($active_statuses), '%s'));
                 $active_sync = $wpdb->get_row(
-                    "SELECT * FROM $table_name WHERE status IN ('initializing', 'processing_projects', 'processing_tokens') ORDER BY id DESC LIMIT 1",
+                    $wpdb->prepare(
+                        "SELECT * FROM $table_name WHERE status IN ($status_placeholders) ORDER BY id DESC LIMIT 1",
+                        $active_statuses
+                    ),
                     ARRAY_A
                 );
                 
@@ -605,8 +610,13 @@ function nmkr_stop_sync_handler() {
     if (!$sync_data) {
         global $wpdb;
         $table_name = $wpdb->prefix . 'nmkr_sync_stats';
+        $active_statuses = array('initializing', 'processing_projects', 'processing_tokens');
+        $status_placeholders = implode(', ', array_fill(0, count($active_statuses), '%s'));
         $active_sync = $wpdb->get_row(
-            "SELECT * FROM $table_name WHERE status IN ('initializing', 'processing_projects', 'processing_tokens') ORDER BY id DESC LIMIT 1",
+            $wpdb->prepare(
+                "SELECT * FROM $table_name WHERE status IN ($status_placeholders) ORDER BY id DESC LIMIT 1",
+                $active_statuses
+            ),
             ARRAY_A
         );
         
@@ -973,6 +983,8 @@ function nmkr_force_stop_sync_handler() {
  * AJAX handler for checking the health of the sync process
  */
 function nmkr_check_sync_health_handler() {
+    // Health status is freshness-sensitive while the dashboard is polling.
+    nocache_headers();
     check_ajax_referer('nmkr_sync_nonce', 'nonce');
     
     if ( ! current_user_can( 'nmkr_view_dashboard' ) ) {
@@ -1131,4 +1143,4 @@ function nmkr_execute_sync_background_job() {
         update_option('nmkr_sync_in_progress', false);
         delete_transient('nmkr_sync_in_progress');
     }
-}                                                                                                                                                                                                                                                                                                                                
+}

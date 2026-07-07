@@ -318,6 +318,9 @@ function nmkr_connect_wp_debug_section_callback() {
 function nmkr_debug_enabled_field_callback() {
     $options = get_option('nmkr_connect_options');
     $debug_enabled = isset($options['debug_enabled']) ? $options['debug_enabled'] : false;
+    $dashboard_sync_logging_active = !empty($options['debug_enabled'])
+        && !empty($options['log_to_dashboard'])
+        && !empty($options['sync_debug_enabled']);
     ?>
     <input type="checkbox" 
            name="nmkr_connect_options[debug_enabled]" 
@@ -326,8 +329,24 @@ function nmkr_debug_enabled_field_callback() {
            <?php checked(1, $debug_enabled); ?>
     />
     <p class="description">
-        Enable this to activate logging options below. You must also select at least one logging destination for logs to be written.
+        <?php esc_html_e('Enable this to unlock the logging controls below. This setting does not write logs by itself; select at least one logging destination and one log category for logs to be written.', 'nmkr-connect'); ?>
     </p>
+    <div id="nmkr-dashboard-sync-logging-status"
+         class="<?php echo esc_attr($dashboard_sync_logging_active ? 'notice notice-success inline' : 'notice notice-warning inline'); ?>"
+         style="margin-top: 10px; padding: 8px 12px;">
+        <p style="margin: 0;">
+            <strong><?php esc_html_e('Dashboard Sync Logging:', 'nmkr-connect'); ?></strong>
+            <span id="nmkr-dashboard-sync-logging-status-text">
+                <?php
+                echo esc_html(
+                    $dashboard_sync_logging_active
+                        ? __('Dashboard Sync Logging is active. Sync logs will be stored for the Dashboard Debug Logs panel.', 'nmkr-connect')
+                        : __('Dashboard Sync Logging is not active. To see sync logs in the Dashboard, enable Debug Logging Controls, Enable Logging to Dashboard Logs, and Enable Data Synchronization Logging.', 'nmkr-connect')
+                );
+                ?>
+            </span>
+        </p>
+    </div>
     <script type="text/javascript">
         document.addEventListener('DOMContentLoaded', function() {
             const debugCheckbox = document.getElementById('nmkr_debug_enabled');
@@ -339,10 +358,15 @@ function nmkr_debug_enabled_field_callback() {
             const performanceDebugCheckbox = document.getElementById('nmkr_performance_debug_enabled');
             const logThrottleCheckbox = document.getElementById('nmkr_log_throttle_enabled');
             const logRetentionLimitInput = document.getElementById('nmkr_log_retention_limit');
+            const dashboardSyncLoggingStatus = document.getElementById('nmkr-dashboard-sync-logging-status');
+            const dashboardSyncLoggingStatusText = document.getElementById('nmkr-dashboard-sync-logging-status-text');
+            const dashboardSyncLoggingActiveText = <?php echo wp_json_encode(__('Dashboard Sync Logging is active. Sync logs will be stored for the Dashboard Debug Logs panel.', 'nmkr-connect')); ?>;
+            const dashboardSyncLoggingInactiveText = <?php echo wp_json_encode(__('Dashboard Sync Logging is not active. To see sync logs in the Dashboard, enable Debug Logging Controls, Enable Logging to Dashboard Logs, and Enable Data Synchronization Logging.', 'nmkr-connect')); ?>;
             
             if (!debugCheckbox || !logToDebugFileCheckbox || !logToDashboardCheckbox ||
                 !syncDebugCheckbox || !apiDebugCheckbox || !uiDebugCheckbox ||
-                !performanceDebugCheckbox || !logThrottleCheckbox || !logRetentionLimitInput) {
+                !performanceDebugCheckbox || !logThrottleCheckbox || !logRetentionLimitInput ||
+                !dashboardSyncLoggingStatus || !dashboardSyncLoggingStatusText) {
                 return;
             }
 
@@ -400,6 +424,13 @@ function nmkr_debug_enabled_field_callback() {
                     logThrottleCheckbox.disabled = true;
                     logThrottleCheckbox.checked = false;
                 }
+
+                const dashboardSyncLoggingActive = debugCheckbox.checked && logToDashboardCheckbox.checked && syncDebugCheckbox.checked;
+                dashboardSyncLoggingStatus.classList.toggle('notice-success', dashboardSyncLoggingActive);
+                dashboardSyncLoggingStatus.classList.toggle('notice-warning', !dashboardSyncLoggingActive);
+                dashboardSyncLoggingStatusText.textContent = dashboardSyncLoggingActive
+                    ? dashboardSyncLoggingActiveText
+                    : dashboardSyncLoggingInactiveText;
             }
             
             // Initial state
@@ -409,6 +440,7 @@ function nmkr_debug_enabled_field_callback() {
             debugCheckbox.addEventListener('change', updateDependentCheckboxes);
             logToDebugFileCheckbox.addEventListener('change', updateDependentCheckboxes);
             logToDashboardCheckbox.addEventListener('change', updateDependentCheckboxes);
+            syncDebugCheckbox.addEventListener('change', updateDependentCheckboxes);
         });
     </script>
     <?php
@@ -443,7 +475,7 @@ function nmkr_log_to_dashboard_field_callback() {
            <?php checked(1, $log_to_dashboard); ?>
     />
     <p class="description">
-        Enable this option to store debug logs in the WordPress database for viewing in the dashboard.
+        <?php esc_html_e('Enable this option to store debug logs in the WordPress database. This destination is required to view sync logs in the Dashboard Debug Logs panel.', 'nmkr-connect'); ?>
     </p>
     <?php if ($log_to_dashboard): ?>
         <p style="margin-top: 10px;">
@@ -489,7 +521,7 @@ function nmkr_sync_debug_enabled_field_callback() {
            <?php disabled(!$debug_enabled || !$has_destination, true); ?>
     />
     <p class="description">
-        Enable this option to write data synchronization logs.
+        <?php esc_html_e('Enable this option to write data synchronization logs, including sync start, progress, completion, stop, and error entries.', 'nmkr-connect'); ?>
     </p>
     <?php
 }
