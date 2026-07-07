@@ -144,6 +144,55 @@ function nmkr_get_log_retention_limit() {
     return $limit;
 }
 
+/**
+ * Trim dashboard log options to the configured retention limit.
+ *
+ * @param int|null $limit Optional retention limit. Defaults to saved setting.
+ * @return array Summary of before/after counts for each dashboard log option.
+ */
+function nmkr_trim_dashboard_logs_to_retention($limit = null) {
+    $limit = null === $limit ? nmkr_get_log_retention_limit() : intval($limit);
+    if ($limit < 1) {
+        $limit = 1;
+    } elseif ($limit > 1000) {
+        $limit = 1000;
+    }
+
+    $log_options = array(
+        'nmkr_sync_logs',
+        'nmkr_api_logs',
+        'nmkr_ui_logs',
+        'nmkr_performance_logs',
+    );
+    $summary = array();
+
+    foreach ($log_options as $option_name) {
+        $logs = get_option($option_name, array());
+        if (!is_array($logs)) {
+            $summary[$option_name] = array(
+                'before' => 0,
+                'after' => 0,
+            );
+            continue;
+        }
+
+        $before = count($logs);
+        $trimmed_logs = array_slice($logs, 0, $limit);
+        $after = count($trimmed_logs);
+
+        if ($after !== $before) {
+            update_option($option_name, $trimmed_logs, false);
+        }
+
+        $summary[$option_name] = array(
+            'before' => $before,
+            'after' => $after,
+        );
+    }
+
+    return $summary;
+}
+
 // Consolidated write_log function for all logging functions
 if (!function_exists('write_log')) {
     /**
@@ -225,15 +274,25 @@ function nmkr_log_data_sync($message, $type = 'info', $data = array()) {
     
     // Log to dashboard (database) if enabled
     if (nmkr_should_log_to('dashboard')) {
+        $sync_stats_id = null;
+        $sync_data = get_option('nmkr_sync_data', array());
+        if (is_array($sync_data) && isset($sync_data['sync_stats_id'])) {
+            $sync_stats_id = intval($sync_data['sync_stats_id']);
+        }
+
         // Store in WordPress options for recent logs
         $sync_logs = get_option('nmkr_sync_logs', array());
-        array_unshift($sync_logs, [
+        $log_entry = [
             'timestamp' => $timestamp,
             'type' => $type,
             'message' => $message,
             'data' => $data,
             'category' => 'sync'
-        ]);
+        ];
+        if ($sync_stats_id) {
+            $log_entry['sync_stats_id'] = $sync_stats_id;
+        }
+        array_unshift($sync_logs, $log_entry);
         $sync_logs = array_slice($sync_logs, 0, nmkr_get_log_retention_limit()); // Keep last N logs based on setting
         update_option('nmkr_sync_logs', $sync_logs, false); // Set autoload=false to prevent performance issues
     }

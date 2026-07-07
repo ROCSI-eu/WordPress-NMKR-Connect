@@ -605,6 +605,7 @@ function nmkr_stop_sync_handler() {
     $current_item = ($current_item !== false) ? $current_item : '';
     $current_progress_raw = get_transient('nmkr_sync_progress');
     $current_progress = ($current_progress_raw !== false) ? (int) $current_progress_raw : 0;
+    $active_sync = null;
     
     // Check database for active syncs if no sync data found
     if (!$sync_data) {
@@ -699,6 +700,21 @@ function nmkr_stop_sync_handler() {
     
     // Mark the sync as manually stopped in history
     if ($cleanup_result['success']) {
+        $sync_stats_id = null;
+        if ($sync_data && isset($sync_data['sync_stats_id'])) {
+            $sync_stats_id = intval($sync_data['sync_stats_id']);
+        } elseif ($active_sync && isset($active_sync['id'])) {
+            $sync_stats_id = intval($active_sync['id']);
+        }
+
+        if ($sync_stats_id) {
+            nmkr_update_sync_stats($sync_stats_id, [
+                'status' => 'stopped',
+                'end_time' => nmkr_get_timestamp(),
+                'error_message' => 'Manual stop requested by user'
+            ]);
+        }
+
         // Log the stop in the cron job
         nmkr_log_data_sync(
             'Cron cleanup performed',
@@ -714,7 +730,7 @@ function nmkr_stop_sync_handler() {
                 'force' => $force,
                 'cleared_jobs' => $cleanup_result['cleared_jobs'],
                 'cleared_data' => $cleanup_result['cleared_data'],
-                'sync_stats_id' => $sync_data && isset($sync_data['sync_stats_id']) ? $sync_data['sync_stats_id'] : null
+                'sync_stats_id' => $sync_stats_id
             )
         );
         

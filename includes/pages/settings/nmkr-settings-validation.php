@@ -220,6 +220,10 @@ function nmkr_connect_sanitize_options($input) {
     }
     $sanitized_input = array_merge( (array) $existing_options, (array) $sanitized_input );
 
+    if (function_exists('nmkr_trim_dashboard_logs_to_retention')) {
+        nmkr_trim_dashboard_logs_to_retention($sanitized_input['log_retention_limit']);
+    }
+
     return $sanitized_input;
 }
 
