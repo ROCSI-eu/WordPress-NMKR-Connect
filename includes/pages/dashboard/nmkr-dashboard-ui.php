@@ -1205,7 +1205,8 @@ function nmkr_render_dashboard_scripts($dashboard_nonce) {
                 dataType: 'json',
                 data: { 
                     action: 'nmkr_check_api_status',
-                    nonce: dashboardNonce
+                    nonce: dashboardNonce,
+                    _: Date.now()
                 },
                 timeout: 10000, // 10 second timeout
                 success: function(response) {
@@ -1259,7 +1260,8 @@ function nmkr_render_dashboard_scripts($dashboard_nonce) {
                     method: 'POST',
                     data: { 
                         action: 'nmkr_check_api_status',
-                        nonce: dashboardNonce 
+                        nonce: dashboardNonce,
+                        _: Date.now()
                     },
                     timeout: 10000, // 10 second timeout
                     success: function(response) {
@@ -1336,7 +1338,8 @@ function nmkr_render_dashboard_scripts($dashboard_nonce) {
                         action: 'nmkr_get_sync_statistics',
                         request_type: 'completed',
                         force_refresh: true,
-                        nonce: dashboardNonce
+                        nonce: dashboardNonce,
+                        _: Date.now()
                     },
                     success: function(response) {
                         if (response.success) {
@@ -1409,7 +1412,8 @@ function nmkr_render_dashboard_scripts($dashboard_nonce) {
                         action: 'nmkr_get_sync_statistics',
                         request_type: 'active',
                         force_refresh: true,
-                        nonce: dashboardNonce
+                        nonce: dashboardNonce,
+                        _: Date.now()
                     },
                     success: function(response) {
                         if (response.success) {
@@ -1516,7 +1520,8 @@ function nmkr_render_dashboard_scripts($dashboard_nonce) {
                 method: 'POST',
                 data: { 
                     action: 'nmkr_check_api_status',
-                    nonce: dashboardNonce 
+                    nonce: dashboardNonce,
+                    _: Date.now()
                 },
                 success: function(response) {
                     if (response.data.sync_in_progress) {
@@ -1587,7 +1592,8 @@ function nmkr_render_dashboard_scripts($dashboard_nonce) {
                     dataType: 'json',
                     data: { 
                         action: 'nmkr_stop_sync',
-                        nonce: syncNonce
+                        nonce: syncNonce,
+                        _: Date.now()
                     },
                     timeout: 15000,
                     success: function(response) {
@@ -1851,7 +1857,8 @@ function nmkr_render_dashboard_scripts($dashboard_nonce) {
                     method: 'POST',
                     data: {
                         action: 'nmkr_clear_all_logs',
-                        nonce: button.data('nonce')
+                        nonce: button.data('nonce'),
+                        _: Date.now()
                     },
                     success: function(response) {
                         if (response.success) {
@@ -1898,7 +1905,8 @@ function nmkr_render_dashboard_scripts($dashboard_nonce) {
                     data: {
                         action: 'nmkr_clear_section_logs',
                         nonce: button.data('nonce'),
-                        log_type: logType
+                        log_type: logType,
+                        _: Date.now()
                     },
                     success: function(response) {
                         if (response.success) {

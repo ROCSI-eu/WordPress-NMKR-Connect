@@ -172,6 +172,10 @@ function nmkr_get_sync_statistics_ajax() {
     
     $type = isset($_POST['type']) ? sanitize_text_field($_POST['type']) : 'automatic';
     $request_type = isset($_POST['request_type']) ? sanitize_text_field($_POST['request_type']) : 'completed';
+    $valid_request_types = array( 'active', 'completed' );
+    if ( ! in_array( $request_type, $valid_request_types, true ) ) {
+        $request_type = 'completed';
+    }
     $force_refresh = isset($_POST['force_refresh']) && $_POST['force_refresh'] === 'true';
     
     // If force_refresh is true, clear any cached option values
@@ -417,6 +421,8 @@ function nmkr_store_active_metrics_ajax() {
  * AJAX handler for clearing all debug logs
  */
 function nmkr_clear_all_logs_ajax() {
+    nocache_headers();
+
     // Check nonce for security
     if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'nmkr_clear_logs_nonce')) {
         wp_send_json_error(['message' => 'Invalid security token']);
@@ -458,6 +464,8 @@ function nmkr_clear_all_logs_ajax() {
  * AJAX handler for clearing individual log sections
  */
 function nmkr_clear_section_logs_ajax() {
+    nocache_headers();
+
     // Check nonce for security
     if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'nmkr_clear_logs_nonce')) {
         wp_send_json_error(['message' => 'Invalid security token']);
@@ -500,4 +508,4 @@ function nmkr_clear_section_logs_ajax() {
     }
     
     wp_die();
-}    
+}
