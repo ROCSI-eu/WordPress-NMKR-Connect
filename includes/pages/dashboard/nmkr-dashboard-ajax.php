@@ -443,13 +443,12 @@ function nmkr_clear_all_logs_ajax() {
     
     try {
         // Clear all log types
-        update_option('nmkr_sync_logs', array());
-        update_option('nmkr_api_logs', array());
-        update_option('nmkr_ui_logs', array());
-        update_option('nmkr_performance_logs', array());
-        
-        // Log the action
-        nmkr_log_ui_status('UI: User cleared all debug logs from dashboard', 'info');
+        update_option('nmkr_sync_logs', array(), false);
+        update_option('nmkr_api_logs', array(), false);
+        update_option('nmkr_ui_logs', array(), false);
+        update_option('nmkr_performance_logs', array(), false);
+
+        // Intentionally do not write a dashboard log entry here; doing so would recreate a visible log immediately after clearing.
         
         wp_send_json_success(['message' => 'All logs cleared successfully']);
     } catch (Exception $e) {
@@ -496,10 +495,9 @@ function nmkr_clear_section_logs_ajax() {
     try {
         // Clear the specific log type
         $option_name = 'nmkr_' . $log_type . '_logs';
-        update_option($option_name, array());
-        
-        // Log the action
-        nmkr_log_ui_status('UI: User cleared ' . $log_type . ' logs from dashboard', 'info');
+        update_option($option_name, array(), false);
+
+        // Intentionally do not write a dashboard log entry here; doing so would recreate a visible log immediately after clearing.
         
         wp_send_json_success(['message' => ucfirst($log_type) . ' logs cleared successfully', 'log_type' => $log_type]);
     } catch (Exception $e) {
