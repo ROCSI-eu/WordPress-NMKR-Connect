@@ -120,20 +120,41 @@ function nmkr_clear_sync_jobs($context = 'manual_cleanup', $clear_data = true, $
     if ($sync_stats_id) {
         // If force is true or the status is stuck in processing, force it to 'stopped'
         $current_status = isset($sync_stats) ? $sync_stats['status'] : null;
-        if ($force || $current_status === 'processing_tokens' || $current_status === 'processing_projects') {
-            nmkr_update_sync_stats($sync_stats_id, [
-                'status' => 'stopped',
-                'end_time' => nmkr_get_timestamp(),
-                'error_message' => "Sync stopped forcibly: {$context}"
-            ]);
-            
-            $result['status_update'] = "Updated sync status from '{$current_status}' to 'stopped'";
+        $end_time = isset($sync_stats['end_time']) ? $sync_stats['end_time'] : null;
+        $terminal_statuses = array('completed', 'failed', 'cancelled', 'stopped');
+        $active_statuses = array('initializing', 'processing_projects', 'processing_tokens', 'in_progress', 'running');
+        $has_end_time = !empty($end_time);
+        $is_terminal = in_array($current_status, $terminal_statuses, true);
+        $is_active_or_incomplete = in_array($current_status, $active_statuses, true) || (!$has_end_time && !$is_terminal);
+
+        if ($is_active_or_incomplete) {
+            if ($force || $current_status === 'processing_tokens' || $current_status === 'processing_projects') {
+                nmkr_update_sync_stats($sync_stats_id, [
+                    'status' => 'stopped',
+                    'end_time' => nmkr_get_timestamp(),
+                    'error_message' => "Sync stopped forcibly: {$context}"
+                ]);
+                
+                $result['status_update'] = "Updated sync status from '{$current_status}' to 'stopped'";
+            } else {
+                nmkr_update_sync_stats($sync_stats_id, [
+                    'status' => 'cancelled',
+                    'end_time' => nmkr_get_timestamp(),
+                    'error_message' => "Sync cancelled manually: {$context}"
+                ]);
+            }
         } else {
-            nmkr_update_sync_stats($sync_stats_id, [
-                'status' => 'cancelled',
-                'end_time' => nmkr_get_timestamp(),
-                'error_message' => "Sync cancelled manually: {$context}"
-            ]);
+            $result['status_update'] = "Preserved immutable historical sync stats row '{$sync_stats_id}' with status '{$current_status}'";
+            nmkr_log_data_sync(
+                'Cleanup preserved immutable historical sync stats row',
+                'info',
+                array(
+                    'context' => $context,
+                    'sync_stats_id' => $sync_stats_id,
+                    'status' => $current_status,
+                    'end_time' => $end_time
+                )
+            );
         }
     }
 

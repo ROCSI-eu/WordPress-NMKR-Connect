@@ -708,11 +708,37 @@ function nmkr_stop_sync_handler() {
         }
 
         if ($sync_stats_id) {
-            nmkr_update_sync_stats($sync_stats_id, [
-                'status' => 'stopped',
-                'end_time' => nmkr_get_timestamp(),
-                'error_message' => 'Manual stop requested by user'
-            ]);
+            global $wpdb;
+            $table_name = $wpdb->prefix . 'nmkr_sync_stats';
+            $sync_stats = $wpdb->get_row(
+                $wpdb->prepare("SELECT * FROM $table_name WHERE id = %d", $sync_stats_id),
+                ARRAY_A
+            );
+            $current_status = isset($sync_stats['status']) ? $sync_stats['status'] : null;
+            $end_time = isset($sync_stats['end_time']) ? $sync_stats['end_time'] : null;
+            $terminal_statuses = array('completed', 'failed', 'cancelled', 'stopped');
+            $active_statuses = array('initializing', 'processing_projects', 'processing_tokens', 'in_progress', 'running');
+            $has_end_time = !empty($end_time);
+            $is_terminal = in_array($current_status, $terminal_statuses, true);
+            $is_active_or_incomplete = in_array($current_status, $active_statuses, true) || (!$has_end_time && !$is_terminal);
+
+            if ($is_active_or_incomplete) {
+                nmkr_update_sync_stats($sync_stats_id, [
+                    'status' => 'stopped',
+                    'end_time' => nmkr_get_timestamp(),
+                    'error_message' => 'Manual stop requested by user'
+                ]);
+            } else {
+                nmkr_log_data_sync(
+                    'Manual stop preserved immutable historical sync stats row',
+                    'info',
+                    array(
+                        'sync_stats_id' => $sync_stats_id,
+                        'status' => $current_status,
+                        'end_time' => $end_time
+                    )
+                );
+            }
         }
 
         // Log the stop in the cron job
