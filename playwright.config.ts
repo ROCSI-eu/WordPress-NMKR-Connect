@@ -10,6 +10,8 @@ if (fs.existsSync(envFile)) {
 }
 
 const saveArtifacts = process.env.PW_SAVE_ARTIFACTS === 'true';
+const htmlReportDir = process.env.PLAYWRIGHT_HTML_REPORT || 'playwright-report';
+const testOutputDir = process.env.PLAYWRIGHT_TEST_OUTPUT_DIR || 'test-results';
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -23,9 +25,9 @@ export default defineConfig({
   workers: 1,
   reporter: [
     ['list'],
-    ['html', { outputFolder: 'playwright-report', open: 'never' }],
+    ['html', { outputFolder: htmlReportDir, open: 'never' }],
   ],
-  outputDir: 'test-results',
+  outputDir: testOutputDir,
   use: {
     baseURL: process.env.WP_BASE_URL || 'http://localhost',
     headless: true,
