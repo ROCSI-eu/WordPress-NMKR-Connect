@@ -7,16 +7,34 @@ NMKR_PLUGIN_SLUG="${NMKR_PLUGIN_SLUG:-nmkr-connect/nmkr-connect.php}"
 NMKR_DEBUG_LOG_RELATIVE_PATH="${NMKR_DEBUG_LOG_RELATIVE_PATH:-wp-content/debug.log}"
 NMKR_DEBUG_LOG_LOOKBACK_MINUTES="${NMKR_DEBUG_LOG_LOOKBACK_MINUTES:-30}"
 
-pass() { printf 'PASS: %s\n' "$1"; }
-notice() { printf 'NOTICE: %s\n' "$1"; }
-fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
+pass() {
+  printf 'PASS: %s\n' "$1"
+}
+
+notice() {
+  printf 'NOTICE: %s\n' "$1"
+}
+
+fail() {
+  printf 'FAIL: %s\n' "$1" >&2
+  exit 1
+}
 
 command -v "$WP_CLI_BIN" >/dev/null 2>&1 || fail "WP-CLI binary not found. Set WP_CLI_BIN."
 [[ -n "$WP_PATH" ]] || fail "WP_PATH is required and must point to the WordPress install."
 [[ -d "$WP_PATH" ]] || fail "WP_PATH does not exist or is not a directory."
 
-wp_cmd() { "$WP_CLI_BIN" --path="$WP_PATH" "$@"; }
-wp_sql() { wp_cmd db query --skip-column-names --silent "$1"; }
+wp_cmd() {
+  "$WP_CLI_BIN" --path="$WP_PATH" "$@"
+}
+
+wp_sql() {
+  wp_cmd db query --skip-column-names --silent "$1"
+}
+
+sql_escape() {
+  printf '%s' "$1" | sed "s/'/''/g"
+}
 
 wp_cmd core is-installed >/dev/null 2>&1 || fail "WordPress core is not installed at WP_PATH."
 pass "WordPress core is installed."
@@ -37,8 +55,10 @@ required_tables=(
   "${prefix}nmkr_sync_stats"
   "${prefix}nmkr_sync_metrics"
 )
+
 for table in "${required_tables[@]}"; do
-  exists="$(wp_sql "SHOW TABLES LIKE '${table//\'/\'\'}';" | wc -l | tr -d ' ')"
+  escaped_table="$(sql_escape "$table")"
+  exists="$(wp_sql "SHOW TABLES LIKE '${escaped_table}';" | wc -l | tr -d ' ')"
   [[ "$exists" == "1" ]] || fail "Required NMKR table is missing: $table"
   pass "Required NMKR table exists: $table"
 done
@@ -53,6 +73,7 @@ if [[ "$metrics_count" == "0" ]]; then
 else
   latest_metrics_time="$(wp_sql "SELECT last_sync_time FROM ${prefix}nmkr_sync_metrics ORDER BY last_sync_time DESC, id DESC LIMIT 1;" | head -n 1)"
   option_last_sync="$(wp_cmd option get nmkr_last_sync_time 2>/dev/null || true)"
+
   [[ -n "$option_last_sync" ]] || fail "nmkr_last_sync_time option is empty while sync metrics exist."
   [[ "$option_last_sync" == "$latest_metrics_time" ]] || fail "nmkr_last_sync_time does not match latest nmkr_sync_metrics.last_sync_time."
   pass "nmkr_last_sync_time matches latest sync metrics last_sync_time."
@@ -81,12 +102,12 @@ fi
 
 lookback_minutes_re='^[0-9]+$'
 [[ "$NMKR_DEBUG_LOG_LOOKBACK_MINUTES" =~ $lookback_minutes_re ]] || fail "NMKR_DEBUG_LOG_LOOKBACK_MINUTES must be numeric."
+
 if find "$debug_log" -mmin "-$NMKR_DEBUG_LOG_LOOKBACK_MINUTES" -print -quit | grep -q .; then
-  matches="$(tail -n 400 "$debug_log" | sed -E 's/(Authorization: Bearer )[A-Za-z0-9._~+\/-]+/\1[REDACTED]/g; s/(api[_ -]?key["'"'"']?[=:][[:space:]]*)[^[:space:]&"'"'"']+/\1[REDACTED]/Ig' | grep -E 'PHP Fatal error|PHP Parse error|PHP Warning|NMKR.*(Fatal|Error|Exception)' || true)"
-  if [[ -n "$matches" ]]; then
-    printf '%s\n' "$matches" | tail -n 20 >&2
-    fail "Recent debug.log contains PHP/plugin errors (redacted excerpt above)."
+  if tail -n 400 "$debug_log" | grep -Eq 'PHP Fatal error|PHP Parse error|PHP Warning|NMKR.*(Fatal|Error|Exception)'; then
+    fail "Recent debug.log contains PHP/plugin errors. Inspect the private VM log directly; this script does not print log contents."
   fi
+
   pass "No fresh PHP/plugin errors found in recent debug.log tail."
 else
   notice "debug.log has not changed within lookback window; no fresh errors to inspect."
