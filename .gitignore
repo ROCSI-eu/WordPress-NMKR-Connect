@@ -1,9 +1,20 @@
+/vendor/
+node_modules/
 composer.phar
 composer-setup.php
-/vendor
-/node_modules
-*.log
 *.zip
 .idea/
 .DS_Store
 .env
+
+# Phase 1 smoke-test local files and Playwright artifacts
+.env.*
+!.env.tests.example
+playwright-report/
+test-results/
+playwright/.cache/
+*.trace.zip
+*.webm
+screenshots/
+videos/
+traces/
