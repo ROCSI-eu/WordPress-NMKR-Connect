@@ -183,9 +183,8 @@ function nmkr_get_sync_statistics_ajax() {
         // Clear any cached metrics to force a fresh DB read
         wp_cache_delete('nmkr_sync_metrics', 'nmkr');
         
-        // Only delete active metrics transient if we're requesting active metrics
         if ($request_type === 'active') {
-            delete_transient('nmkr_current_sync_stats_live');
+            // Preserve the live transient; it is the source of truth for active metrics.
             
             // Log UI status update
             nmkr_log_ui_status('UI: Refreshing active sync metrics display (forced refresh)', 'debug');
