@@ -5,7 +5,8 @@
   "description": "Phase 1 smoke tests for the WordPress NMKR Connect plugin.",
   "scripts": {
     "test:e2e": "playwright test",
-    "test:e2e:report": "playwright show-report"
+    "test:e2e:report": "playwright show-report",
+    "test:phase2": "bash scripts/nmkr-phase2-test-runner.sh"
   },
   "devDependencies": {
     "@playwright/test": "^1.53.0",
