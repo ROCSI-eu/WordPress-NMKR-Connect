@@ -169,9 +169,12 @@ function nmkr_trim_dashboard_logs_to_retention($limit = null) {
     foreach ($log_options as $option_name) {
         $logs = get_option($option_name, array());
         if (!is_array($logs)) {
+            update_option($option_name, array(), false);
+
             $summary[$option_name] = array(
                 'before' => 0,
                 'after' => 0,
+                'repaired' => true,
             );
             continue;
         }
@@ -187,6 +190,7 @@ function nmkr_trim_dashboard_logs_to_retention($limit = null) {
         $summary[$option_name] = array(
             'before' => $before,
             'after' => $after,
+            'repaired' => false,
         );
     }
 
@@ -282,6 +286,9 @@ function nmkr_log_data_sync($message, $type = 'info', $data = array()) {
 
         // Store in WordPress options for recent logs
         $sync_logs = get_option('nmkr_sync_logs', array());
+        if (!is_array($sync_logs)) {
+            $sync_logs = array();
+        }
         $log_entry = [
             'timestamp' => $timestamp,
             'type' => $type,
@@ -335,6 +342,9 @@ function nmkr_log_api_status($message, $type = 'info', $data = array()) {
     if (nmkr_should_log_to('dashboard')) {
         // Store in WordPress options for recent logs
         $api_logs = get_option('nmkr_api_logs', array());
+        if (!is_array($api_logs)) {
+            $api_logs = array();
+        }
         array_unshift($api_logs, [
             'timestamp' => $timestamp,
             'type' => $type,
@@ -384,6 +394,9 @@ function nmkr_log_ui_status($message, $type = 'info', $data = array()) {
     if (nmkr_should_log_to('dashboard')) {
         // Store in WordPress options for recent logs
         $ui_logs = get_option('nmkr_ui_logs', array());
+        if (!is_array($ui_logs)) {
+            $ui_logs = array();
+        }
         array_unshift($ui_logs, [
             'timestamp' => $timestamp,
             'type' => $type,
