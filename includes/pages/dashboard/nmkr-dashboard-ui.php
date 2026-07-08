@@ -1864,10 +1864,8 @@ function nmkr_render_dashboard_scripts($dashboard_nonce) {
                         if (response.success) {
                             // Show success message
                             showLogMessage('All logs cleared successfully', 'success');
-                            // Reload the debug logs panel after a short delay
-                            setTimeout(function() {
-                                location.reload();
-                            }, 1000);
+                            // Refresh visible log sections without reloading the dashboard page.
+                            ['sync', 'api', 'ui', 'performance'].forEach(updateLogSection);
                         } else {
                             showLogMessage(response.data.message || 'Failed to clear logs', 'error');
                         }
