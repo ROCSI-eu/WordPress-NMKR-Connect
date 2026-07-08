@@ -651,7 +651,7 @@ function nmkr_stop_sync_handler() {
     nmkr_log_ui_status('UI: User clicked Stop Synchronization button - stopping process', 'info');
     
     // Update sync status to indicate stopping is in progress (consistent 0→100 reset)
-    nmkr_update_sync_progress(0, 100, '⏹️ Cleaning Up Resources');
+    nmkr_update_sync_progress(0, 100, '⏹️ Cleaning Up Resources', true);
     
     // Log UI status update for the stage change
     nmkr_log_ui_status('UI: Changed status message to "⏹️ Stopping Synchronization - Cleaning Up Resources"', 'info');
@@ -737,7 +737,7 @@ function nmkr_stop_sync_handler() {
         // Mark sync as manually stopped
         update_option('nmkr_sync_in_progress', false);
         // Reset progress to 0% using consistent denominator (100 for UI reset)
-        nmkr_update_sync_progress(0, 100, '⛔ Synchronization Stopped');
+        nmkr_update_sync_progress(0, 100, '⛔ Synchronization Stopped', true);
         // Clear stale item label on manual stop for clean UI state
         update_option('nmkr_sync_current_item', '');
         
