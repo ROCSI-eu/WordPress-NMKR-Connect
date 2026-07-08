@@ -271,3 +271,7 @@ When building from source, run `composer install --no-dev --prefer-dist` to inst
 
 **Advanced/CI**  
 For automated deployments, you can predefine environment variables or `wp-config.php` constants to streamline activation per environment (e.g., staging vs. production).
+
+## Testing
+
+Phase 1 smoke testing for deployed WordPress development or staging sites is documented in [`docs/testing-phase-1.md`](docs/testing-phase-1.md). The tests use VM-local environment variables and avoid committing secrets or wp-admin artifacts.
