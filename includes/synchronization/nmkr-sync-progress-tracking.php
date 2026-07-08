@@ -20,18 +20,21 @@ if (!defined('ABSPATH')) {
  * @param int $steps_completed The number of steps completed so far
  * @param int $total_steps The total number of steps to process
  * @param string $current_item Optional item currently being processed
+ * @param bool $allow_backward Whether to allow intentional backward progress updates
  * @return int The current progress percentage
  */
-function nmkr_update_sync_progress($steps_completed, $total_steps, $current_item = '') {
+function nmkr_update_sync_progress($steps_completed, $total_steps, $current_item = '', $allow_backward = false) {
     // Calculate percentage internally based on steps
     $percent = $total_steps > 0
         ? (int) round($steps_completed / $total_steps * 100)
         : 0;
     
-    // Ensure progress never goes backward
+    // Ensure progress never goes backward unless explicitly allowed for intentional resets
     $current_progress = get_transient('nmkr_sync_progress');
-    $current_progress = ($current_progress !== false) ? $current_progress : 0;
-    $percent = max($current_progress, $percent);
+    $current_progress = ($current_progress !== false) ? (int) $current_progress : 0;
+    if (!$allow_backward) {
+        $percent = max($current_progress, $percent);
+    }
     
     // Ensure progress is between 0 and 100
     $percent = max(0, min(100, $percent));
@@ -123,7 +126,7 @@ function nmkr_sync_data_complete($success = true, $error_message = '') {
         nmkr_log_ui_status('UI: Updated last sync time to ' . $current_time, 'info');
     } else {
         // Failed - reset to 0% for consistent failure indication
-        nmkr_update_sync_progress(0, 100, '❌ Synchronization Failed: ' . $error_message);
+        nmkr_update_sync_progress(0, 100, '❌ Synchronization Failed: ' . $error_message, true);
         update_option('nmkr_sync_error', $error_message);
         update_option('nmkr_sync_status', 'failed');
         set_transient('nmkr_sync_error', $error_message, NMKR_SYNC_TRANSIENT_TTL);
