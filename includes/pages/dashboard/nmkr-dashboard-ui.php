@@ -1233,7 +1233,8 @@ function nmkr_render_dashboard_scripts($dashboard_nonce) {
                             action: 'nmkr_store_active_metrics',
                             nonce: dashboardNonce,
                             metrics: { ui_log: "UI: Displaying 'Unable to check API status' error message to user" },
-                            log_type: 'error'
+                            log_type: 'error',
+                            _: Date.now()
                         }
                     });
                 }
@@ -1251,7 +1252,8 @@ function nmkr_render_dashboard_scripts($dashboard_nonce) {
                         action: 'nmkr_store_active_metrics',
                         nonce: dashboardNonce,
                         metrics: { ui_log: "UI: User clicked 'Refresh Status' button - showing loading state" },
-                        log_type: 'debug'
+                        log_type: 'debug',
+                        _: Date.now()
                     }
                 });
                 
@@ -1279,7 +1281,8 @@ function nmkr_render_dashboard_scripts($dashboard_nonce) {
                                     action: 'nmkr_store_active_metrics',
                                     nonce: dashboardNonce,
                                     metrics: { ui_log: "UI: Enabled 'Start Synchronization' button after status refresh" },
-                                    log_type: 'debug'
+                                    log_type: 'debug',
+                                    _: Date.now()
                                 }
                             });
                         } else {
@@ -1293,7 +1296,8 @@ function nmkr_render_dashboard_scripts($dashboard_nonce) {
                                     action: 'nmkr_store_active_metrics',
                                     nonce: dashboardNonce,
                                     metrics: { ui_log: "UI: Disabled 'Start Synchronization' button after status refresh" },
-                                    log_type: 'debug'
+                                    log_type: 'debug',
+                                    _: Date.now()
                                 }
                             });
                         }
@@ -1310,7 +1314,8 @@ function nmkr_render_dashboard_scripts($dashboard_nonce) {
                                 action: 'nmkr_store_active_metrics',
                                 nonce: dashboardNonce,
                                 metrics: { ui_log: "UI: Displaying 'Unable to check API status' error message after refresh attempt" },
-                                log_type: 'error'
+                                log_type: 'error',
+                                _: Date.now()
                             }
                         });
                     }
@@ -1327,7 +1332,8 @@ function nmkr_render_dashboard_scripts($dashboard_nonce) {
                         action: 'nmkr_store_active_metrics',
                         nonce: dashboardNonce,
                         metrics: { ui_log: "UI: Refreshing completed sync statistics display" },
-                        log_type: 'debug'
+                        log_type: 'debug',
+                        _: Date.now()
                     }
                 });
                 
@@ -1370,7 +1376,8 @@ function nmkr_render_dashboard_scripts($dashboard_nonce) {
                                     action: 'nmkr_store_active_metrics',
                                     nonce: dashboardNonce,
                                     metrics: { ui_log: "UI: Successfully updated completed sync statistics display" },
-                                    log_type: 'debug'
+                                    log_type: 'debug',
+                                    _: Date.now()
                                 }
                             });
                         } else {
@@ -1382,7 +1389,8 @@ function nmkr_render_dashboard_scripts($dashboard_nonce) {
                                     action: 'nmkr_store_active_metrics',
                                     nonce: dashboardNonce,
                                     metrics: { ui_log: "UI: Failed to update completed sync statistics display" },
-                                    log_type: 'warning'
+                                    log_type: 'warning',
+                                    _: Date.now()
                                 }
                             });
                         }
@@ -1396,7 +1404,8 @@ function nmkr_render_dashboard_scripts($dashboard_nonce) {
                                 action: 'nmkr_store_active_metrics',
                                 nonce: dashboardNonce,
                                 metrics: { ui_log: "UI: AJAX error when refreshing completed sync statistics" },
-                                log_type: 'error'
+                                log_type: 'error',
+                                _: Date.now()
                             }
                         });
                     }
@@ -1508,7 +1517,8 @@ function nmkr_render_dashboard_scripts($dashboard_nonce) {
                             action: 'nmkr_store_active_metrics',
                             nonce: dashboardNonce,
                             metrics: { ui_log: "UI: Batched logs (" + logsToSend.length + " entries): " + logMessages },
-                            log_type: 'debug'
+                            log_type: 'debug',
+                            _: Date.now()
                         }
                     });
                 }
@@ -1538,7 +1548,8 @@ function nmkr_render_dashboard_scripts($dashboard_nonce) {
                                 action: 'nmkr_store_active_metrics',
                                 nonce: dashboardNonce,
                                 metrics: { ui_log: "UI: Showing sync in progress state on page load - displaying stop button and progress bar" },
-                                log_type: 'info'
+                                log_type: 'info',
+                                _: Date.now()
                             }
                         });
                         
@@ -1577,7 +1588,8 @@ function nmkr_render_dashboard_scripts($dashboard_nonce) {
                         action: 'nmkr_store_active_metrics',
                         nonce: dashboardNonce,
                         metrics: { ui_log: "UI: User stopped synchronization" },
-                        log_type: 'info'
+                        log_type: 'info',
+                        _: Date.now()
                     }
                 });
                 
@@ -1627,7 +1639,8 @@ function nmkr_render_dashboard_scripts($dashboard_nonce) {
                                     action: 'nmkr_store_active_metrics',
                                     nonce: dashboardNonce,
                                     metrics: { ui_log: "CRITICAL: Failed to stop sync - " + (response.data ? response.data.message : 'Unknown error') },
-                                    log_type: 'error'
+                                    log_type: 'error',
+                                    _: Date.now()
                                 }
                             });
                         }
@@ -1650,7 +1663,8 @@ function nmkr_render_dashboard_scripts($dashboard_nonce) {
                                 action: 'nmkr_store_active_metrics',
                                 nonce: dashboardNonce,
                                 metrics: { ui_log: "CRITICAL: Network error stopping sync - " + error },
-                                log_type: 'error'
+                                log_type: 'error',
+                                _: Date.now()
                             }
                         });
                     }
