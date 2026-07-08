@@ -1040,7 +1040,8 @@ function nmkr_sync_data() {
             $live['total_tokens'] = count($token_project_map);
             
             // Set last sync time and save
-            $live['last_sync_time'] = current_time('mysql');
+            $live['last_sync_time'] = nmkr_get_timestamp();
+            update_option('nmkr_last_sync_time', $live['last_sync_time']);
             set_transient('nmkr_current_sync_stats_summary', $live, NMKR_SYNC_TRANSIENT_TTL);
             
             // Save metrics with validation - only saves if all validation passes
