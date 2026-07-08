@@ -137,13 +137,41 @@ The script is read-only. It queries WordPress options and database tables, but d
 Before publishing changes to these Phase 1 files, verify that they are not collapsed into one or two long lines:
 
 ```bash
+python3 - <<'PY'
+from pathlib import Path
+
+checks = {
+    "scripts/nmkr-wpcli-smoke.sh": 40,
+    ".env.tests.example": 13,
+    "docs/testing-phase-1.md": 40,
+    "tests/e2e/nmkr-admin.smoke.spec.ts": 40,
+}
+
+for file, min_lines in checks.items():
+    lines = Path(file).read_text().splitlines()
+    print(f"{file}: {len(lines)} lines")
+    assert len(lines) >= min_lines, f"{file} is still collapsed"
+
+script_lines = Path("scripts/nmkr-wpcli-smoke.sh").read_text().splitlines()
+assert script_lines[0] == "#!/usr/bin/env bash"
+assert script_lines[1] == "set -Eeuo pipefail"
+
+env_lines = Path(".env.tests.example").read_text().splitlines()
+assert "WP_BASE_URL=" in env_lines
+assert "WP_ADMIN_USER=" in env_lines
+assert "WP_ADMIN_PASSWORD=" in env_lines
+assert "RUN_REAL_SYNC=false" in env_lines
+
+spec = Path("tests/e2e/nmkr-admin.smoke.spec.ts").read_text()
+assert "#wp-submit" in spec
+
+print("PASS: Phase 1 files have preserved Unix newlines.")
+PY
+
 bash -n scripts/nmkr-wpcli-smoke.sh
-wc -l scripts/nmkr-wpcli-smoke.sh
 head -n 5 scripts/nmkr-wpcli-smoke.sh
-grep -n '^set -Eeuo pipefail$' scripts/nmkr-wpcli-smoke.sh
-wc -l .env.tests.example docs/testing-phase-1.md
-sed -n '1,20p' .env.tests.example
-sed -n '1,40p' docs/testing-phase-1.md
+head -n 20 .env.tests.example
+head -n 20 tests/e2e/nmkr-admin.smoke.spec.ts
 ```
 
 The first two lines of `scripts/nmkr-wpcli-smoke.sh` must be exactly:
