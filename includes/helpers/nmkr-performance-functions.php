@@ -166,7 +166,10 @@ function nmkr_log_performance_data($performance_data) {
     // Log to dashboard (database) if enabled
     if (nmkr_should_log_to('dashboard')) {
         // Store in WordPress options with configurable retention limit
-        $performance_logs = get_option('nmkr_performance_logs', []);
+        $performance_logs = get_option('nmkr_performance_logs', array());
+        if (!is_array($performance_logs)) {
+            $performance_logs = array();
+        }
         array_unshift($performance_logs, $performance_data);
         $performance_logs = array_slice($performance_logs, 0, nmkr_get_log_retention_limit());
         update_option('nmkr_performance_logs', $performance_logs, false); // Set autoload=false to prevent performance issues
