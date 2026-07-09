@@ -45,6 +45,8 @@ The test confirms broad coverage for:
 
 ### Dashboard safety guarantees
 
+The dashboard regression stubs the dashboard page-load `nmkr_check_api_status` AJAX request before navigation so the inline dashboard script does not touch API connectivity logic, sync/recovery state, or log-writing paths in shared validation environments. It also records and fails the test on unexpected dashboard AJAX actions that would store active metrics, read sync statistics, clear logs, or start/stop sync while fulfilling those requests locally so WordPress is not touched.
+
 The dashboard regression is intentionally non-mutating:
 
 - It does not click **Start Synchronization**.
