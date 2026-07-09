@@ -8,12 +8,12 @@ The test validates that `window.NMKRProgress.startPolling()` can handle both ret
 
 - Soft, transient polling failures keep the active sync UI in a non-fatal retry state and recover when polling succeeds again.
 - Hard security/capability failures stop polling, show an error state, hide Stop, and restore Start.
-- Every expected read-only AJAX response is served by the Playwright route handler.
+- Every expected read-only AJAX response is served by the shared Playwright route helper.
 - Mutating or unsafe AJAX actions are blocked locally and recorded as test failures.
 
 ## Non-mutating model
 
-The spec installs the `wp-admin/admin-ajax.php` route before any WordPress admin navigation. The route fulfills known read-only requests with public-safe test JSON and blocks unsafe actions with harmless local JSON. The test triggers polling only through `window.NMKRProgress.startPolling()` and never clicks Start or Stop.
+The spec installs the shared `tests/e2e/helpers/admin-ajax.ts` `wp-admin/admin-ajax.php` route before any WordPress admin navigation. The route fulfills known read-only requests with public-safe test JSON and blocks unsafe actions with harmless local JSON. The test triggers polling only through `window.NMKRProgress.startPolling()` and never clicks Start or Stop.
 
 ## Stubbed read actions
 
