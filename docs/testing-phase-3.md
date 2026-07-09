@@ -94,6 +94,35 @@ The projects regression is intentionally non-mutating:
 - It does not click token images, Buy Now links, project website links, external links, or lightbox interactions.
 - It does not require selected-project or token-grid controls in this first default-state regression.
 
+## Shortcodes-page regression
+
+The shortcodes regression is implemented in `tests/e2e/nmkr-shortcodes.regression.spec.ts`. It logs in with the shared WordPress admin helpers, opens `NMKR_SHORTCODES_PATH` (defaulting to `/wp-admin/admin.php?page=nmkr-connect-shortcodes`), and verifies the NMKR Connect Shortcodes admin page structure and shortcode reference headings.
+
+The test confirms focused structural coverage for:
+
+- NMKR Connect Shortcodes admin shell
+- Main `NMKR Connect - Shortcodes` page heading
+- `Available Shortcodes` panel heading
+- Informational box presence
+- Stable shortcode reference headings for `[nmkr-grid]`, `[nmkr-token-list]`, `[nmkr-carousel]`, `[nmkr-token]`, and `[nmkr-project]`
+
+### Shortcodes safety guarantees
+
+The shortcodes regression installs an `admin-ajax.php` route guard before navigating to the Shortcodes page. The guard records and locally fulfills unexpected sync or mutation-oriented actions so they do not reach WordPress, then fails the test if any guarded action was attempted during page load. Guarded actions include sync start/stop, active metric storage, sync statistics reads, log clearing, and sync progress polling.
+
+The shortcodes regression is intentionally non-mutating:
+
+- It performs structural-only shortcode reference checks.
+- It does not click Freemius upgrade links, internal links, or external links.
+- It does not inspect or assert upgrade URLs.
+- It does not navigate to external URLs.
+- It does not render shortcodes on the frontend.
+- It does not create posts or pages.
+- It does not save options or submit forms.
+- It does not run real NMKR sync.
+- It does not inspect customer project or token data.
+- It avoids plan-specific premium/free upsell copy assertions because rendered copy may differ by license state.
+
 ## Running Phase 3 locally
 
 The Phase 3 regressions are included in the default Playwright suite:
@@ -111,6 +140,8 @@ npm run test:e2e:dashboard -- --list
 npm run test:e2e:dashboard
 npm run test:e2e:projects -- --list
 npm run test:e2e:projects
+npm run test:e2e:shortcodes -- --list
+npm run test:e2e:shortcodes
 ```
 
 Direct targeted Playwright scripts do not automatically load `NMKR_PHASE2_ENV_FILE`. For direct targeted runs on the VM, source the private environment first, then run the targeted script:
@@ -120,7 +151,7 @@ set -a
 source "$HOME/.config/nmkr-connect/phase2.env"
 set +a
 
-npm run test:e2e:projects
+npm run test:e2e:shortcodes
 ```
 
 Because the Phase 2 runner executes `npm run test:e2e`, the Phase 3 regressions are automatically included in Phase 2 VM validation. Full Phase 2 validation should continue to use:
