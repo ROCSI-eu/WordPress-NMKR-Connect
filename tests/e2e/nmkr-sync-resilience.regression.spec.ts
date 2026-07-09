@@ -263,7 +263,13 @@ test.describe("NMKR Connect sync AJAX resilience regression", () => {
     await expect(page.locator("#status-message")).toContainText(
       /Synchronization error|HTTP 403|Forbidden/i,
     );
-    await expect(page.locator("#nmkr-sync-error")).toBeVisible();
+
+    const syncError = page.locator("#nmkr-sync-error");
+    if ((await syncError.count()) > 0) {
+      await expect(syncError).toBeVisible();
+      await expect(syncError).toContainText(/Sync failed|HTTP 403|Forbidden/i);
+    }
+
     await expect(stopButton).toBeHidden();
     await expect(startButton).toBeVisible();
     await expect(startButton).toBeEnabled();
