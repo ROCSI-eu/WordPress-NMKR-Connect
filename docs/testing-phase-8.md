@@ -32,7 +32,7 @@ npm run test:phase2
 
 ## What Phase 8 validates
 
-The validation checks only public-safe invariants and aggregate counts. Invariant SQL query failures are fatal and are not treated as zero-count passes:
+The validation checks only public-safe invariants and aggregate counts. Invariant SQL query failures are fatal, include public-safe invariant labels, and are not treated as zero-count passes:
 
 - NMKR Connect plugin activation state.
 - Expected NMKR database tables.

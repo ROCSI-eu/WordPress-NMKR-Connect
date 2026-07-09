@@ -34,48 +34,56 @@ sql_ident() {
   printf '`%s`' "$(printf "%s" "$1" | sed 's/`/``/g')"
 }
 
+normalize_scalar_output() {
+  tr -d '\r' | sed '/^[[:space:]]*$/d' | tail -n 1 | sed 's/^[[:space:]]*//; s/[[:space:]]*$//'
+}
+
 query_scalar() {
-  local sql="$1"
+  local label="$1"
+  local sql="$2"
   local value
 
-  if ! value="$(wp_cli db query "$sql" --skip-column-names 2>/dev/null | tr -d '\r' | tail -n 1)"; then
-    fail "Database invariant query failed."
+  if ! value="$(wp_cli db query "$sql" --skip-column-names --silent --raw 2>/dev/null | normalize_scalar_output)"; then
+    fail "${label} database read failed."
   fi
 
   printf '%s' "$value"
 }
 
 query_optional_scalar() {
-  local sql="$1"
+  local label="$1"
+  local sql="$2"
   local value
 
-  if ! value="$(wp_cli db query "$sql" --skip-column-names 2>/dev/null | tr -d '\r' | tail -n 1)"; then
-    fail "Optional database read failed."
+  if ! value="$(wp_cli db query "$sql" --skip-column-names --silent --raw 2>/dev/null | normalize_scalar_output)"; then
+    fail "${label} optional database read failed."
   fi
 
   printf '%s' "$value"
 }
 
 query_count() {
-  local sql="$1"
+  local label="$1"
+  local sql="$2"
   local value
-  value="$(query_scalar "$sql")"
-  [[ "$value" =~ ^[0-9]+$ ]] || fail "Could not inspect database invariant count."
+  value="$(query_scalar "$label" "$sql")"
+  [[ "$value" =~ ^[0-9]+$ ]] || fail "${label} invariant returned a non-numeric count."
   printf '%s' "$value"
 }
 
 read_option_value() {
-  local option_name="$1"
+  local label="$1"
+  local option_name="$2"
   local escaped_option
   escaped_option="$(sql_escape "$option_name")"
-  query_optional_scalar "SELECT option_value FROM ${options_ident} WHERE option_name = '${escaped_option}' LIMIT 1;"
+  query_optional_scalar "$label" "SELECT option_value FROM ${options_ident} WHERE option_name = '${escaped_option}' LIMIT 1;"
 }
 
 assert_zero_count() {
   local label="$1"
   local sql="$2"
   local count
-  count="$(query_count "$sql")"
+  count="$(query_count "$label" "$sql")"
   (( count == 0 )) || fail "${label} invariant failed with ${count} offending aggregate row(s)."
   info "${label} invariant passed."
 }
@@ -179,15 +187,15 @@ if [[ "$NMKR_DB_STATE_ALLOW_ACTIVE_SYNC" == "true" ]]; then
   info "Active sync-state failure checks were skipped by configuration."
 else
   sync_option="$(wp_cli option get nmkr_sync_in_progress 2>/dev/null || true)"
-  sync_transient="$(read_option_value _transient_nmkr_sync_in_progress)"
-  progress_transient="$(read_option_value _transient_nmkr_sync_progress)"
+  sync_transient="$(read_option_value "Sync in-progress transient" _transient_nmkr_sync_in_progress)"
+  progress_transient="$(read_option_value "Sync progress transient" _transient_nmkr_sync_progress)"
   if is_truthy "$sync_option" || is_truthy "$sync_transient"; then
     fail "Active sync state detected; run Phase 8 validation only when no sync is active."
   fi
   if [[ "$progress_transient" =~ ^[0-9]+$ ]] && (( progress_transient >= 1 && progress_transient <= 99 )); then
     fail "Active sync state detected; run Phase 8 validation only when no sync is active."
   fi
-  active_stats="$(query_count "SELECT COUNT(*) FROM ${sync_stats_ident} WHERE status IN ('initializing','processing_projects','processing_tokens','in_progress','running','pending') AND (end_time IS NULL OR end_time = '');")"
+  active_stats="$(query_count "Active sync stats" "SELECT COUNT(*) FROM ${sync_stats_ident} WHERE status IN ('initializing','processing_projects','processing_tokens','in_progress','running','pending') AND (end_time IS NULL OR end_time = '');")"
   (( active_stats == 0 )) || fail "Active sync state detected; run Phase 8 validation only when no sync is active."
   info "No active sync state detected."
 fi
@@ -205,7 +213,7 @@ assert_zero_count "Sync stats impossible values" "SELECT COUNT(*) FROM ${sync_st
 assert_zero_count "Completed sync stats end_time" "SELECT COUNT(*) FROM ${sync_stats_ident} WHERE status IN ('completed','success') AND (end_time IS NULL OR end_time = '');"
 assert_zero_count "Completed sync stats item totals" "SELECT COUNT(*) FROM ${sync_stats_ident} WHERE status IN ('completed','success') AND items_processed > 0 AND (items_successful + items_failed) > items_processed;"
 
-latest_metric_time="$(query_scalar "SELECT last_sync_time FROM ${metrics_ident} ORDER BY last_sync_time DESC, id DESC LIMIT 1;" || true)"
+latest_metric_time="$(query_scalar "Latest sync metrics timestamp" "SELECT last_sync_time FROM ${metrics_ident} ORDER BY last_sync_time DESC, id DESC LIMIT 1;")"
 option_time="$(wp_cli option get "$last_sync_option" 2>/dev/null || true)"
 if [[ -n "$latest_metric_time" && -n "$option_time" && "$latest_metric_time" != "$option_time" ]]; then
   fail "Latest sync timestamp option does not match latest metrics timestamp."
