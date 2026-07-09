@@ -23,7 +23,7 @@ test.describe('NMKR Connect dashboard page regression', () => {
 
     const dashboard = page.locator('.wrap.nmkr-dashboard');
     await expect(dashboard).toBeAttached();
-    await expect(page.locator('body')).toContainText(/NMKR Connect Dashboard/i);
+    await expect(page.getByRole('heading', { name: 'NMKR Connect Dashboard' })).toBeVisible();
 
     const apiPanel = page.locator('.api-status-panel');
     await expect(apiPanel).toBeAttached();
