@@ -34,7 +34,7 @@ jobs:
         run: npm ci
 
       - name: List Playwright tests
-        run: npm run test:e2e -- --list
+        run: npm run test:e2e -- --list --reporter=list
 
       - name: Bash syntax check
         shell: bash

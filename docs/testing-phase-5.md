@@ -17,16 +17,16 @@ npm run test:public
 This umbrella command runs the public-safe checks in this predictable order:
 
 1. Bash syntax checks for `scripts/*.sh`
-2. Playwright test discovery only with `npm run test:e2e -- --list`
+2. Playwright test discovery only with `npm run test:e2e -- --list --reporter=list`
 3. The PHP 7.4 compatibility guard with `npm run test:php74`
 
-The umbrella command does not source environment files, read `.env.tests`, use secrets, require WordPress credentials, log into a live WordPress site, call WP-CLI, deploy, upload artifacts, or collect screenshots, traces, videos, or reports. It also does not run the private Phase 2 VM validation command.
+The umbrella command does not source environment files, read `.env.tests`, use secrets, require WordPress credentials, log into a live WordPress site, call WP-CLI, deploy, upload artifacts, or collect screenshots, traces, videos, reports, or HTML reporter output. It also does not run the private Phase 2 VM validation command.
 
 You can still run the underlying public-safe checks individually when debugging:
 
 ```bash
 bash -n scripts/*.sh
-npm run test:e2e -- --list
+npm run test:e2e -- --list --reporter=list
 npm run test:php74
 ```
 
