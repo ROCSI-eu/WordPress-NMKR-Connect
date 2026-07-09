@@ -13,7 +13,7 @@ The regression verifies that the dashboard can render a realistic sync lifecycle
 
 ## What the test simulates
 
-The test logs in with the shared WordPress admin helpers, opens `NMKR_DASHBOARD_PATH` (defaulting to `/wp-admin/admin.php?page=nmkr-connect-dashboard`), and routes dashboard AJAX calls to local JSON responses.
+The test logs in with the shared WordPress admin helpers, opens `NMKR_DASHBOARD_PATH` (defaulting to `/wp-admin/admin.php?page=nmkr-connect-dashboard`), and routes dashboard AJAX calls through the shared Playwright helper `tests/e2e/helpers/admin-ajax.ts` to local JSON responses.
 
 Locally stubbed AJAX actions are:
 
@@ -37,7 +37,7 @@ The Phase 7 regression is intentionally non-mutating:
 - It does not assert, print, snapshot, or expose nonce values.
 - It does not assert, print, snapshot, or expose API keys, credentials, private URLs, environment values, or logs.
 
-The Playwright route guard records blocked mutating actions and fulfills them locally with harmless JSON if they are attempted, then fails the test if any were observed. Sync/dashboard AJAX actions used by the regression are stubbed locally in Playwright and do not reach WordPress.
+The shared Playwright route guard in `tests/e2e/helpers/admin-ajax.ts` records blocked mutating actions and fulfills them locally with harmless JSON if they are attempted, then fails the test if any were observed. Sync/dashboard AJAX actions used by the regression are stubbed locally in Playwright and do not reach WordPress.
 
 ## Commands
 
