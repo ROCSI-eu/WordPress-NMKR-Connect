@@ -6,6 +6,15 @@ async function expectButtonElement(locator: Locator): Promise<void> {
   await expect(locator).toHaveJSProperty('tagName', 'BUTTON');
 }
 
+const blockedDashboardAjaxActions = new Set([
+  'nmkr_store_active_metrics',
+  'nmkr_get_sync_statistics',
+  'nmkr_clear_all_logs',
+  'nmkr_clear_section_logs',
+  'nmkr_start_sync',
+  'nmkr_stop_sync',
+]);
+
 async function expectHiddenInput(locator: Locator): Promise<void> {
   await expect(locator).toBeAttached();
   await expect(locator).toHaveJSProperty('tagName', 'INPUT');
@@ -16,6 +25,44 @@ test.describe('NMKR Connect dashboard page regression', () => {
   test('loads dashboard structure and safe controls without mutating state', async ({ page }) => {
     const baseUrl = await loginToWpAdmin(page);
     const dashboardPath = env('NMKR_DASHBOARD_PATH', '/wp-admin/admin.php?page=nmkr-connect-dashboard');
+    const unexpectedDashboardAjaxActions: string[] = [];
+
+    await page.route('**/wp-admin/admin-ajax.php', async (route, request) => {
+      const postData = request.postData();
+      const action = postData ? new URLSearchParams(postData).get('action') : null;
+
+      if (action === 'nmkr_check_api_status') {
+        await route.fulfill({
+          contentType: 'application/json',
+          body: JSON.stringify({
+            success: true,
+            data: {
+              message: 'Test stub: API status check skipped.',
+              connected: false,
+              sync_in_progress: false,
+              progress: 0,
+              heartbeat_age: -1,
+              last_update: 0,
+              grace: 0,
+              last_result: '',
+              last_recovery_at: 0,
+            },
+          }),
+        });
+        return;
+      }
+
+      if (action && blockedDashboardAjaxActions.has(action)) {
+        unexpectedDashboardAjaxActions.push(action);
+        await route.fulfill({
+          contentType: 'application/json',
+          body: JSON.stringify({ success: true, data: { message: 'Test stub: dashboard AJAX action skipped.' } }),
+        });
+        return;
+      }
+
+      await route.continue();
+    });
 
     await page.goto(urlFor(baseUrl, dashboardPath));
     await expectWpAdmin(page);
@@ -23,7 +70,7 @@ test.describe('NMKR Connect dashboard page regression', () => {
 
     const dashboard = page.locator('.wrap.nmkr-dashboard');
     await expect(dashboard).toBeAttached();
-    await expect(page.locator('body')).toContainText(/NMKR Connect Dashboard/i);
+    await expect(page.getByRole('heading', { name: 'NMKR Connect Dashboard' })).toBeVisible();
 
     const apiPanel = page.locator('.api-status-panel');
     await expect(apiPanel).toBeAttached();
@@ -96,5 +143,7 @@ test.describe('NMKR Connect dashboard page regression', () => {
         await expect(page.locator(selector).first()).toBeAttached();
       }
     }
+
+    expect(unexpectedDashboardAjaxActions).toEqual([]);
   });
 });
