@@ -8,6 +8,7 @@
     "test:e2e:report": "playwright show-report",
     "test:phase2": "bash scripts/nmkr-phase2-test-runner.sh",
     "test:php74": "bash scripts/nmkr-php74-compat-scan.sh",
+    "test:public": "bash scripts/nmkr-public-checks.sh",
     "test:e2e:settings": "playwright test tests/e2e/nmkr-settings.regression.spec.ts",
     "test:e2e:dashboard": "playwright test tests/e2e/nmkr-dashboard.regression.spec.ts",
     "test:e2e:projects": "playwright test tests/e2e/nmkr-projects.regression.spec.ts",

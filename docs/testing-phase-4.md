@@ -7,7 +7,7 @@ Phase 4 CI v1 is a conservative GitHub Actions skeleton for the public/open-sour
 The workflow runs on pull requests to `main` and pushes to `main`. It performs only these public-safe checks:
 
 - `npm ci`
-- Playwright test discovery/listing only with `npm run test:e2e -- --list`
+- Playwright test discovery/listing only with `npm run test:e2e -- --list --reporter=list`
 - Bash syntax checks for `scripts/*.sh`
 - PHP syntax checks for tracked plugin PHP files while excluding dependency, build, report, coverage, and private artifact directories
 
@@ -30,11 +30,17 @@ Full VM validation remains Phase 2. Run Phase 2 only in a private environment wi
 
 ## Local validation commands
 
-Run the same public-safe checks locally with:
+Run the current public-safe local validation umbrella command with:
+
+```bash
+npm run test:public
+```
+
+For Phase 4's original Playwright discovery check, use:
 
 ```bash
 npm ci
-npm run test:e2e -- --list
+npm run test:e2e -- --list --reporter=list
 ```
 
 For Bash syntax checks, use:

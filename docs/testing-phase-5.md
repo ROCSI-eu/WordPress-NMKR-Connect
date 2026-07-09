@@ -8,23 +8,35 @@ Phase 4 public CI already runs PHP syntax checks with PHP 7.4. During Phase 4 va
 
 ## Local validation commands
 
-Run the Phase 5 PHP 7.4 guard locally with:
+Run the recommended public-safe local validation command with:
 
 ```bash
-npm run test:php74
+npm run test:public
 ```
 
-Continue to validate Playwright test discovery only with:
+This umbrella command runs the public-safe checks in this predictable order:
 
-```bash
-npm run test:e2e -- --list
-```
+1. Bash syntax checks for `scripts/*.sh`
+2. Playwright test discovery only with `npm run test:e2e -- --list --reporter=list`
+3. The PHP 7.4 compatibility guard with `npm run test:php74`
 
-Check Bash scripts with:
+The umbrella command does not source environment files, read `.env.tests`, use secrets, require WordPress credentials, log into a live WordPress site, call WP-CLI, deploy, upload artifacts, or collect screenshots, traces, videos, reports, or HTML reporter output. It also does not run the private Phase 2 VM validation command.
+
+You can still run the underlying public-safe checks individually when debugging:
 
 ```bash
 bash -n scripts/*.sh
+npm run test:e2e -- --list --reporter=list
+npm run test:php74
 ```
+
+Run full Phase 2 validation only in a private VM environment with:
+
+```bash
+npm run test:phase2
+```
+
+Do not run `npm run test:phase2` in public CI or any environment that lacks the required private WordPress inputs.
 
 ## Guarded PHP 8+ constructs and functions
 
