@@ -120,11 +120,17 @@ function nmkr_should_throttle_logs() {
 
 function nmkr_should_log_to($destination) {
     $options = get_option('nmkr_connect_options');
-    return match ($destination) {
-        'file' => !empty($options['log_to_debug_file']),
-        'dashboard' => !empty($options['log_to_dashboard']),
-        default => false
-    };
+
+    switch ($destination) {
+        case 'file':
+            return !empty($options['log_to_debug_file']);
+
+        case 'dashboard':
+            return !empty($options['log_to_dashboard']);
+
+        default:
+            return false;
+    }
 }
 
 /**
