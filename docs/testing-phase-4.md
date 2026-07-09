@@ -76,6 +76,8 @@ done
 
 The workflow uses PHP 7.4 for this syntax smoke check because `composer.json` declares PHP `>=7.4`. This is not a full PHP-version compatibility matrix.
 
+Phase 5 extends this public-safe PHP floor check with a reusable lightweight compatibility guard documented in `docs/testing-phase-5.md`.
+
 ## Public-safety rules
 
 - Never commit `.env.tests` or any populated environment file.
