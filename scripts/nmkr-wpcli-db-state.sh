@@ -36,15 +36,39 @@ sql_ident() {
 
 query_scalar() {
   local sql="$1"
-  wp_cli db query "$sql" --skip-column-names 2>/dev/null | tr -d '\r' | tail -n 1
+  local value
+
+  if ! value="$(wp_cli db query "$sql" --skip-column-names 2>/dev/null | tr -d '\r' | tail -n 1)"; then
+    fail "Database invariant query failed."
+  fi
+
+  printf '%s' "$value"
+}
+
+query_optional_scalar() {
+  local sql="$1"
+  local value
+
+  if ! value="$(wp_cli db query "$sql" --skip-column-names 2>/dev/null | tr -d '\r' | tail -n 1)"; then
+    fail "Optional database read failed."
+  fi
+
+  printf '%s' "$value"
 }
 
 query_count() {
   local sql="$1"
   local value
-  value="$(query_scalar "$sql" || printf '0')"
+  value="$(query_scalar "$sql")"
   [[ "$value" =~ ^[0-9]+$ ]] || fail "Could not inspect database invariant count."
   printf '%s' "$value"
+}
+
+read_option_value() {
+  local option_name="$1"
+  local escaped_option
+  escaped_option="$(sql_escape "$option_name")"
+  query_optional_scalar "SELECT option_value FROM ${options_ident} WHERE option_name = '${escaped_option}' LIMIT 1;"
 }
 
 assert_zero_count() {
@@ -82,6 +106,7 @@ token_details_table="${prefix}nmkr_token_details"
 sync_stats_table="${prefix}nmkr_sync_stats"
 metrics_table="${prefix}nmkr_sync_metrics"
 analytics_table="${prefix}nmkr_analytics"
+options_table="${prefix}options"
 connect_options="nmkr_connect_options"
 last_sync_option="nmkr_last_sync_time"
 
@@ -91,6 +116,7 @@ token_details_ident="$(sql_ident "$token_details_table")"
 sync_stats_ident="$(sql_ident "$sync_stats_table")"
 metrics_ident="$(sql_ident "$metrics_table")"
 analytics_ident="$(sql_ident "$analytics_table")"
+options_ident="$(sql_ident "$options_table")"
 
 info "Checking required NMKR database tables."
 required_tables=("$projects_table" "$tokens_table" "$token_details_table" "$sync_stats_table" "$metrics_table" "$analytics_table")
@@ -153,8 +179,8 @@ if [[ "$NMKR_DB_STATE_ALLOW_ACTIVE_SYNC" == "true" ]]; then
   info "Active sync-state failure checks were skipped by configuration."
 else
   sync_option="$(wp_cli option get nmkr_sync_in_progress 2>/dev/null || true)"
-  sync_transient="$(wp_cli transient get nmkr_sync_in_progress 2>/dev/null || true)"
-  progress_transient="$(wp_cli transient get nmkr_sync_progress 2>/dev/null || true)"
+  sync_transient="$(read_option_value _transient_nmkr_sync_in_progress)"
+  progress_transient="$(read_option_value _transient_nmkr_sync_progress)"
   if is_truthy "$sync_option" || is_truthy "$sync_transient"; then
     fail "Active sync state detected; run Phase 8 validation only when no sync is active."
   fi

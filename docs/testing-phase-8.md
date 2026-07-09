@@ -32,7 +32,7 @@ npm run test:phase2
 
 ## What Phase 8 validates
 
-The validation checks only public-safe invariants and aggregate counts:
+The validation checks only public-safe invariants and aggregate counts. Invariant SQL query failures are fatal and are not treated as zero-count passes:
 
 - NMKR Connect plugin activation state.
 - Expected NMKR database tables.
@@ -47,7 +47,7 @@ The validation checks only public-safe invariants and aggregate counts:
 
 ## Active sync-state handling
 
-By default, Phase 8 fails when it detects active or partial sync state. This keeps normal validation deterministic and avoids treating an in-progress sync as a database invariant failure.
+By default, Phase 8 fails when it detects active or partial sync state. This keeps normal validation deterministic and avoids treating an in-progress sync as a database invariant failure. Transient sync-state rows are inspected through direct read-only option-table `SELECT` queries rather than `wp transient get`, so expired DB-backed transients are not cleaned up or mutated by validation.
 
 If you intentionally need to inspect a database while sync state may be active, set:
 
@@ -59,7 +59,7 @@ Use the default `false` behavior for normal Phase 2 validation. Do not run the s
 
 ## Read-only and public-safety guarantees
 
-The script is designed to use only read-only WP-CLI and SQL operations, such as `wp core is-installed`, `wp plugin is-active`, `wp db prefix`, `wp db query` with `SHOW`/`SELECT`, `wp option get`, and `wp transient get`.
+The script is designed to use only read-only WP-CLI and SQL operations, such as `wp core is-installed`, `wp plugin is-active`, `wp db prefix`, `wp db query` with `SHOW`/`SELECT`, `wp option get`, and direct read-only option-row `SELECT` queries for transient state.
 
 It must not activate, deactivate, uninstall, delete, reinstall, or run NMKR sync. It must not write options, transients, database rows, logs, files, or plugin settings.
 
