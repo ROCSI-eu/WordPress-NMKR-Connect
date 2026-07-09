@@ -30,7 +30,13 @@ Full VM validation remains Phase 2. Run Phase 2 only in a private environment wi
 
 ## Local validation commands
 
-Run the same public-safe checks locally with:
+Run the current public-safe local validation umbrella command with:
+
+```bash
+npm run test:public
+```
+
+For Phase 4's original Playwright discovery check, use:
 
 ```bash
 npm ci
