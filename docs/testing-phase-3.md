@@ -123,6 +123,53 @@ The shortcodes regression is intentionally non-mutating:
 - It does not inspect customer project or token data.
 - It avoids plan-specific premium/free upsell copy assertions because rendered copy may differ by license state.
 
+## Analytics-page regression
+
+The analytics regression is implemented in `tests/e2e/nmkr-analytics.regression.spec.ts`. It logs in with the shared WordPress admin helpers, opens `NMKR_ANALYTICS_PATH` (defaulting to `/wp-admin/admin.php?page=nmkr-connect-analytics`), and verifies the Analytics admin page shell plus the JavaScript-rendered analytics controls and containers.
+
+The test confirms focused structural coverage for:
+
+- Analytics admin page shell
+- `Analytics` page heading
+- Filter, KPI, chart, table, and export PHP shell containers
+- Runtime filter controls
+- Runtime KPI containers
+- Runtime chart containers
+- Runtime top projects and top tokens table roots
+- Runtime export selector/status containers
+
+Analytics menu registration is conditional because `NMKR_ANALYTICS_UI_ENABLED` can disable the menu. After login and WordPress admin shell validation, the regression checks for `.wrap.nmkr-analytics-wrap` with a short timeout. If the Analytics UI is unavailable in the environment, the spec skips with an explicit message instead of failing Phase 2 validation. When the Analytics wrapper is present, missing expected shell or runtime controls fail normally.
+
+### Analytics AJAX guard and safety guarantees
+
+The analytics regression installs an `admin-ajax.php` route guard before navigating to the page. Expected page-load Analytics AJAX actions are fulfilled locally with empty, public-safe JSON so real Analytics AJAX requests do not reach WordPress:
+
+- `nmkr_analytics_kpis`
+- `nmkr_analytics_timeseries`
+- `nmkr_analytics_top_projects`
+- `nmkr_analytics_top_tokens`
+
+The guard also records and locally fulfills unexpected sync, mutation, or export-oriented actions, then fails the test if any guarded action was attempted. Guarded actions include sync start/stop, active metric storage, sync statistics reads, log clearing, sync progress polling, Analytics export, and Analytics breakdown requests.
+
+The analytics regression is intentionally non-mutating:
+
+- It does not click **Apply**.
+- It does not change the date range.
+- It does not change the shortcode type.
+- It does not fill search inputs.
+- It does not click table sort headers.
+- It does not click pagination buttons.
+- It does not click export or download controls.
+- It does not trigger `nmkr_analytics_export`.
+- It does not read real analytics database data.
+- It does not inspect or assert customer project or token analytics values.
+- It does not read or assert `project_uid` or `token_uid` values.
+- It does not create posts or pages.
+- It does not save options.
+- It does not run sync.
+
+The Analytics regression is included by default in `npm run test:e2e` and therefore in Phase 2 validation. The spec may skip during those runs when the Analytics UI is disabled by environment configuration.
+
 ## Running Phase 3 locally
 
 The Phase 3 regressions are included in the default Playwright suite:
@@ -142,6 +189,8 @@ npm run test:e2e:projects -- --list
 npm run test:e2e:projects
 npm run test:e2e:shortcodes -- --list
 npm run test:e2e:shortcodes
+npm run test:e2e:analytics -- --list
+npm run test:e2e:analytics
 ```
 
 Direct targeted Playwright scripts do not automatically load `NMKR_PHASE2_ENV_FILE`. For direct targeted runs on the VM, source the private environment first, then run the targeted script:
@@ -151,7 +200,7 @@ set -a
 source "$HOME/.config/nmkr-connect/phase2.env"
 set +a
 
-npm run test:e2e:shortcodes
+npm run test:e2e:analytics
 ```
 
 Because the Phase 2 runner executes `npm run test:e2e`, the Phase 3 regressions are automatically included in Phase 2 VM validation. Full Phase 2 validation should continue to use:
