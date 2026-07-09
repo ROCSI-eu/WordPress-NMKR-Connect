@@ -62,9 +62,41 @@ The dashboard regression is intentionally non-mutating:
 
 The test uses attachment, role, attribute, and element type assertions for controls that may be hidden by default or may not include explicit `type="button"` attributes.
 
+## Projects-page regression
+
+The projects regression is implemented in `tests/e2e/nmkr-projects.regression.spec.ts`. It logs in with the shared WordPress admin helpers, opens `NMKR_PROJECTS_PATH` (defaulting to `/wp-admin/admin.php?page=nmkr-connect-projects`), and verifies the default **no project selected** state for the NMKR Projects and Tokens admin page.
+
+The test confirms focused coverage for:
+
+- NMKR Projects and Tokens admin shell
+- Your Projects panel heading
+- Informational box presence
+- Project selector form structure
+- Project selector `method="post"` form attribute
+- `select#project_uid[name="project_uid"]` presence
+- Project selector `onchange="this.form.submit()"` attribute
+- Exactly one empty placeholder option with `-- Select a Project --` text
+- Empty selected value remaining selected by default
+
+### Projects safety guarantees
+
+The projects regression installs an `admin-ajax.php` route guard before navigating to the Projects page. The guard records and locally fulfills unexpected sync or mutation-oriented actions so they do not reach WordPress, then fails the test if any of those actions were attempted during page load. Guarded actions include sync start/stop, active metric storage, sync statistics reads, log clearing, and sync progress polling.
+
+The projects regression is intentionally non-mutating:
+
+- It checks only the default no-project-selected state.
+- It does not select a project.
+- It does not submit the project selector form.
+- It does not fill, change, or submit token search or filter controls.
+- It does not run real NMKR sync.
+- It does not inspect project descriptions, synchronized project option names, token names, token metadata, image URLs, payment gateway links, or project URLs.
+- It does not count synchronized project options.
+- It does not click token images, Buy Now links, project website links, external links, or lightbox interactions.
+- It does not require selected-project or token-grid controls in this first default-state regression.
+
 ## Running Phase 3 locally
 
-Both Phase 3 regressions are included in the default Playwright suite:
+The Phase 3 regressions are included in the default Playwright suite:
 
 ```bash
 npm run test:e2e
@@ -77,9 +109,27 @@ npm run test:e2e:settings -- --list
 npm run test:e2e:settings
 npm run test:e2e:dashboard -- --list
 npm run test:e2e:dashboard
+npm run test:e2e:projects -- --list
+npm run test:e2e:projects
 ```
 
-Because the Phase 2 runner executes `npm run test:e2e`, both Phase 3 regressions are automatically included in Phase 2 VM validation.
+Direct targeted Playwright scripts do not automatically load `NMKR_PHASE2_ENV_FILE`. For direct targeted runs on the VM, source the private environment first, then run the targeted script:
+
+```bash
+set -a
+source "$HOME/.config/nmkr-connect/phase2.env"
+set +a
+
+npm run test:e2e:projects
+```
+
+Because the Phase 2 runner executes `npm run test:e2e`, the Phase 3 regressions are automatically included in Phase 2 VM validation. Full Phase 2 validation should continue to use:
+
+```bash
+NMKR_PHASE2_ENV_FILE="$HOME/.config/nmkr-connect/phase2.env" \
+NMKR_PHASE2_LOG_DIR="$HOME/.local/state/nmkr-connect-phase2" \
+npm run test:phase2
+```
 
 ## Artifacts and public safety
 
