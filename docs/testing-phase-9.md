@@ -44,7 +44,7 @@ The soft-failure test makes the first `nmkr_sync_progress` response a transient 
 
 ## Hard failure expectations
 
-The hard-failure test returns a public-safe security error payload for `nmkr_sync_progress`. It expects the UI to enter an error state, Stop to be hidden or inactive, Start to become visible and enabled, and polling not to continue indefinitely after the fatal failure.
+The hard-failure test returns a public-safe HTTP 403 security error for `nmkr_sync_progress`. It expects the UI to enter an error state, Stop to be hidden or inactive, Start to become visible and enabled, and polling not to continue indefinitely after the fatal failure.
 
 ## Commands
 

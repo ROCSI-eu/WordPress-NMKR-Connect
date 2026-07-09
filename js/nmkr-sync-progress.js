@@ -21,8 +21,12 @@ jQuery(document).ready(function($) {
 
     function isTransientFailure(xhr, status) {
         const code = Number(xhr && xhr.status);
-        if (status === 'timeout' || status === 'abort' || status === 'error' || status === 'parsererror') return true;
-        return [0, 500, 502, 503, 504, 520, 521, 522, 524].indexOf(code) !== -1;
+
+        if (status === 'timeout') return true;
+        if (code === 0) return true;
+        if (code >= 400 && code < 500) return false;
+
+        return [500, 502, 503, 504, 520, 521, 522, 524].indexOf(code) !== -1;
     }
 
     // If the detailed error helper isn't defined globally yet, define it.

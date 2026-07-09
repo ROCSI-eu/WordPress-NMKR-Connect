@@ -110,17 +110,11 @@ async function installAdminAjaxHarness(
 
       if (mode === "hard-failure") {
         await route.fulfill({
+          status: 403,
           contentType: "application/json",
           body: JSON.stringify({
-            success: true,
-            data: {
-              progress: 0,
-              current_item: "",
-              in_progress: false,
-              finished: false,
-              aborted: false,
-              error: "Permission check failed for sync polling.",
-            },
+            success: false,
+            data: { message: "Forbidden" },
           }),
         });
         return;
@@ -267,7 +261,7 @@ test.describe("NMKR Connect sync AJAX resilience regression", () => {
     await startPollingFromWindow(page);
 
     await expect(page.locator("#status-message")).toContainText(
-      /Synchronization error|HTTP 403|Permission check failed/i,
+      /Synchronization error|HTTP 403|Forbidden/i,
     );
     await expect(page.locator("#nmkr-sync-error")).toBeVisible();
     await expect(stopButton).toBeHidden();
@@ -275,8 +269,12 @@ test.describe("NMKR Connect sync AJAX resilience regression", () => {
     await expect(startButton).toBeEnabled();
 
     const callsAfterFatal = harness.progressCallCount();
-    await page.waitForTimeout(750);
-    expect(harness.progressCallCount()).toBe(callsAfterFatal);
+    await expect
+      .poll(() => harness.progressCallCount(), {
+        intervals: [1000, 2000, 4000],
+        timeout: 7000,
+      })
+      .toBe(callsAfterFatal);
     expect(callsAfterFatal).toBe(1);
     expect(harness.progressActionsWithCacheBuster()).toBeGreaterThanOrEqual(1);
     expect(harness.blockedActions).toEqual([]);
