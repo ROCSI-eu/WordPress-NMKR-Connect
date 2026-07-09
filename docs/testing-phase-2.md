@@ -2,7 +2,7 @@
 
 Phase 2 adds a VM-local orchestration runner around the existing Phase 1 automated checks. It is intended for maintainers who validate a deployed WordPress NMKR Connect installation from a private, user-owned checkout.
 
-The runner does not change plugin runtime behavior. It coordinates deployment, Playwright admin smoke checks, and WP-CLI smoke checks, then writes detailed output to private local files while printing only a concise public-safe summary.
+The runner does not change plugin runtime behavior. It coordinates deployment, Playwright admin smoke checks, WP-CLI smoke checks, and WP-CLI database-state validation, then writes detailed output to private local files while printing only a concise public-safe summary.
 
 ## Public-safety rules
 
@@ -81,6 +81,13 @@ The npm script runs:
 bash scripts/nmkr-phase2-test-runner.sh
 ```
 
+The runner performs these validation stages in order:
+
+1. Deployment, unless `NMKR_PHASE2_SKIP_DEPLOY=true`.
+2. Playwright admin smoke checks.
+3. WP-CLI smoke checks.
+4. WP-CLI database-state validation via `scripts/nmkr-wpcli-db-state.sh`.
+
 ## Deployment wiring
 
 When `NMKR_PHASE2_SKIP_DEPLOY` is not `true`, the runner requires `NMKR_DEPLOY_COMMAND` and runs it with:
@@ -121,6 +128,7 @@ Phase 2 summary
   browser: SKIPPED
   playwright: PASS
   wpcli: PASS
+  db-state: PASS
   result: PASS
   commit: abc1234
   private run dir: /path/to/checkout/.phase2-private/runs/20260708T120000Z-12345
