@@ -62,6 +62,8 @@ The dashboard regression is intentionally non-mutating:
 
 The test uses attachment, role, attribute, and element type assertions for controls that may be hidden by default or may not include explicit `type="button"` attributes.
 
+Phase 7 extends dashboard coverage with `tests/e2e/nmkr-sync-state.regression.spec.ts`, a separate non-mutating sync-state regression that locally stubs sync progress and completed statistics AJAX responses without clicking Start or Stop. See `docs/testing-phase-7.md` for the Phase 7 safety model and commands.
+
 ## Projects-page regression
 
 The projects regression is implemented in `tests/e2e/nmkr-projects.regression.spec.ts`. It logs in with the shared WordPress admin helpers, opens `NMKR_PROJECTS_PATH` (defaulting to `/wp-admin/admin.php?page=nmkr-connect-projects`), and verifies the default **no project selected** state for the NMKR Projects and Tokens admin page.

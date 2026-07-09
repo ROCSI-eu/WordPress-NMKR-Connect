@@ -13,7 +13,8 @@
     "test:e2e:dashboard": "playwright test tests/e2e/nmkr-dashboard.regression.spec.ts",
     "test:e2e:projects": "playwright test tests/e2e/nmkr-projects.regression.spec.ts",
     "test:e2e:shortcodes": "playwright test tests/e2e/nmkr-shortcodes.regression.spec.ts",
-    "test:e2e:analytics": "playwright test tests/e2e/nmkr-analytics.regression.spec.ts"
+    "test:e2e:analytics": "playwright test tests/e2e/nmkr-analytics.regression.spec.ts",
+    "test:e2e:sync-state": "playwright test tests/e2e/nmkr-sync-state.regression.spec.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.53.0",
