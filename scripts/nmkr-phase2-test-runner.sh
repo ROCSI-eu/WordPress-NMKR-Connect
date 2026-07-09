@@ -60,6 +60,7 @@ DEPS_STATUS="SKIPPED"
 BROWSER_STATUS="SKIPPED"
 PLAYWRIGHT_STATUS="SKIPPED"
 WPCLI_STATUS="SKIPPED"
+DBSTATE_STATUS="SKIPPED"
 FAILED_STEP=""
 FAILED_LOG=""
 EXIT_CODE=0
@@ -77,6 +78,7 @@ print_summary() {
   printf '  browser: %s\n' "$BROWSER_STATUS"
   printf '  playwright: %s\n' "$PLAYWRIGHT_STATUS"
   printf '  wpcli: %s\n' "$WPCLI_STATUS"
+  printf '  db-state: %s\n' "$DBSTATE_STATUS"
   printf '  result: %s\n' "$result"
   printf '  commit: %s\n' "$commit"
   printf '  private run dir: %s\n' "$RUN_DIR"
@@ -200,6 +202,13 @@ if bash scripts/nmkr-wpcli-smoke.sh >"$RUN_DIR/wpcli.log" 2>&1; then
   WPCLI_STATUS="PASS"
 else
   fail_step "wpcli" "$RUN_DIR/wpcli.log" 5
+fi
+
+DBSTATE_STATUS="FAIL"
+if bash scripts/nmkr-wpcli-db-state.sh >"$RUN_DIR/wpcli-db-state.log" 2>&1; then
+  DBSTATE_STATUS="PASS"
+else
+  fail_step "wpcli-db-state" "$RUN_DIR/wpcli-db-state.log" 6
 fi
 
 EXIT_CODE=0
