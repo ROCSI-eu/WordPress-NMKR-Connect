@@ -1,0 +1,79 @@
+name: Phase 4 CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+env:
+  CI: true
+  PW_SAVE_ARTIFACTS: "false"
+
+jobs:
+  public-safe-checks:
+    name: Public-safe checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: List Playwright tests
+        run: npm run test:e2e -- --list
+
+      - name: Bash syntax check
+        shell: bash
+        run: |
+          shopt -s nullglob
+          scripts=(scripts/*.sh)
+          if (( ${#scripts[@]} == 0 )); then
+            echo "No scripts/*.sh files found."
+            exit 1
+          fi
+          for script in "${scripts[@]}"; do
+            bash -n "$script"
+          done
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "7.4"
+          coverage: none
+          tools: none
+
+      - name: PHP syntax check
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -d '' php_files < <(git ls-files -z -- '*.php' \
+            ':(exclude)vendor/**' \
+            ':(exclude)node_modules/**' \
+            ':(exclude)build/**' \
+            ':(exclude)dist/**' \
+            ':(exclude)playwright-report/**' \
+            ':(exclude)test-results/**' \
+            ':(exclude).phase2-private/**' \
+            ':(exclude)coverage/**' \
+            ':(exclude)reports/**')
+          if (( ${#php_files[@]} == 0 )); then
+            echo "No tracked PHP files found."
+            exit 1
+          fi
+          for file in "${php_files[@]}"; do
+            php -l "$file"
+          done
