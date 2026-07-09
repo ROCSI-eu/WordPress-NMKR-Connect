@@ -6,7 +6,8 @@
   "scripts": {
     "test:e2e": "playwright test",
     "test:e2e:report": "playwright show-report",
-    "test:phase2": "bash scripts/nmkr-phase2-test-runner.sh"
+    "test:phase2": "bash scripts/nmkr-phase2-test-runner.sh",
+    "test:e2e:settings": "playwright test tests/e2e/nmkr-settings.regression.spec.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.53.0",
