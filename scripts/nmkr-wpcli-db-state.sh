@@ -5,6 +5,11 @@ WP_PATH="${WP_PATH:-}"
 WP_CLI_BIN="${WP_CLI_BIN:-wp}"
 NMKR_PLUGIN_SLUG="${NMKR_PLUGIN_SLUG:-nmkr-connect/nmkr-connect.php}"
 NMKR_DB_STATE_ALLOW_ACTIVE_SYNC="${NMKR_DB_STATE_ALLOW_ACTIVE_SYNC:-false}"
+NMKR_DB_STATE_STALE_SYNC_MINUTES="${NMKR_DB_STATE_STALE_SYNC_MINUTES:-180}"
+
+ACTIVE_SYNC_STATUSES_SQL="'initializing','processing_projects','processing_tokens','in_progress','running','pending'"
+TERMINAL_SYNC_STATUSES_SQL="'completed','success','failed','error','stopped','cancelled'"
+FAILURE_TERMINAL_SYNC_STATUSES_SQL="'failed','error','stopped','cancelled'"
 
 info() {
   printf 'INFO: %s\n' "$*"
@@ -149,7 +154,7 @@ check_column() {
 for column in id project_uid project_name state synced_at hash; do check_column "$projects_table" "$column"; done
 for column in id token_uid project_uid token_name state synced_at hash; do check_column "$tokens_table" "$column"; done
 for column in id token_uid receiver_address sell_date synced_at hash; do check_column "$token_details_table" "$column"; done
-for column in id sync_type start_time end_time status items_processed items_successful items_failed failure_breakdown; do check_column "$sync_stats_table" "$column"; done
+for column in id sync_type start_time end_time status items_processed items_successful items_failed failure_breakdown updated_at; do check_column "$sync_stats_table" "$column"; done
 for column in id last_sync_time total_projects total_tokens total_sync_duration total_api_time average_response_time api_requests memory_usage created_at; do check_column "$metrics_table" "$column"; done
 for column in id event_ts event_type shortcode_type site_id meta_json created_at; do check_column "$analytics_table" "$column"; done
 info "Required schema columns exist."
@@ -183,21 +188,75 @@ fi
 [[ "$api_present" == "1" ]] || fail "API key is missing or empty."
 info "API key is present and non-empty; value was not printed."
 
-if [[ "$NMKR_DB_STATE_ALLOW_ACTIVE_SYNC" == "true" ]]; then
-  info "Active sync-state failure checks were skipped by configuration."
-else
-  sync_option="$(wp_cli option get nmkr_sync_in_progress 2>/dev/null || true)"
+if [[ ! "$NMKR_DB_STATE_STALE_SYNC_MINUTES" =~ ^[1-9][0-9]*$ ]]; then
+  fail "NMKR_DB_STATE_STALE_SYNC_MINUTES must be a positive integer."
+fi
+
+stale_cutoff="$(wp_cli eval "echo gmdate('Y-m-d H:i:s', current_time('timestamp') - (${NMKR_DB_STATE_STALE_SYNC_MINUTES} * MINUTE_IN_SECONDS));" --skip-plugins --skip-themes 2>/dev/null | normalize_scalar_output)" || fail "Stale sync cutoff could not be calculated."
+if [[ ! "$stale_cutoff" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}[[:space:]][0-9]{2}:[0-9]{2}:[0-9]{2}$ ]]; then
+  fail "Stale sync cutoff could not be calculated."
+fi
+stale_cutoff_escaped="$(sql_escape "$stale_cutoff")"
+
+is_numeric_progress_marker() {
+  local value
+  value="$(printf '%s' "${1:-}" | xargs)"
+  [[ "$value" =~ ^[0-9]+$ ]] && (( value >= 1 && value <= 99 ))
+}
+
+is_unexpired_transient_marker() {
+  local timeout_value="$1"
+  local now_epoch="$2"
+
+  [[ -z "$timeout_value" || "$timeout_value" == "0" ]] && return 0
+  [[ "$timeout_value" =~ ^[0-9]+$ ]] && (( timeout_value > now_epoch )) && return 0
+  return 1
+}
+
+info "Checking sync-state invariants using aggregate counts only."
+assert_zero_count "Unknown sync stats status" "SELECT COUNT(*) FROM ${sync_stats_ident} WHERE status IS NULL OR TRIM(status) = '' OR status NOT IN (${ACTIVE_SYNC_STATUSES_SQL},${TERMINAL_SYNC_STATUSES_SQL});"
+assert_zero_count "Terminal sync stats end_time" "SELECT COUNT(*) FROM ${sync_stats_ident} WHERE status IN (${FAILURE_TERMINAL_SYNC_STATUSES_SQL}) AND (end_time IS NULL OR end_time = '');"
+assert_zero_count "Active sync stats end_time" "SELECT COUNT(*) FROM ${sync_stats_ident} WHERE status IN (${ACTIVE_SYNC_STATUSES_SQL}) AND end_time IS NOT NULL AND end_time <> '';"
+assert_zero_count "Stale active sync stats" "SELECT COUNT(*) FROM ${sync_stats_ident} WHERE status IN (${ACTIVE_SYNC_STATUSES_SQL}) AND (end_time IS NULL OR end_time = '') AND COALESCE(updated_at, start_time) < '${stale_cutoff_escaped}';"
+
+active_stats="$(query_count "Active sync stats" "SELECT COUNT(*) FROM ${sync_stats_ident} WHERE status IN (${ACTIVE_SYNC_STATUSES_SQL}) AND (end_time IS NULL OR end_time = '');")"
+(( active_stats <= 1 )) || fail "Multiple active sync stats invariant failed with ${active_stats} offending aggregate row(s)."
+info "Multiple active sync stats invariant passed."
+
+orphan_marker_count=0
+if (( active_stats == 0 )); then
+  now_epoch="$(date +%s)"
+  [[ "$now_epoch" =~ ^[0-9]+$ ]] || fail "Current epoch could not be calculated."
+
+  sync_option="$(read_option_value "Sync in-progress option" nmkr_sync_in_progress)"
   sync_transient="$(read_option_value "Sync in-progress transient" _transient_nmkr_sync_in_progress)"
+  sync_transient_timeout="$(read_option_value "Sync in-progress transient timeout" _transient_timeout_nmkr_sync_in_progress)"
+  progress_option="$(read_option_value "Sync progress option" nmkr_sync_progress)"
   progress_transient="$(read_option_value "Sync progress transient" _transient_nmkr_sync_progress)"
-  if is_truthy "$sync_option" || is_truthy "$sync_transient"; then
-    fail "Active sync state detected; run Phase 8 validation only when no sync is active."
+  progress_transient_timeout="$(read_option_value "Sync progress transient timeout" _transient_timeout_nmkr_sync_progress)"
+
+  if is_truthy "$sync_option"; then
+    orphan_marker_count=$(( orphan_marker_count + 1 ))
   fi
-  if [[ "$progress_transient" =~ ^[0-9]+$ ]] && (( progress_transient >= 1 && progress_transient <= 99 )); then
-    fail "Active sync state detected; run Phase 8 validation only when no sync is active."
+  if [[ -n "$sync_transient" ]] && is_unexpired_transient_marker "$sync_transient_timeout" "$now_epoch" && is_truthy "$sync_transient"; then
+    orphan_marker_count=$(( orphan_marker_count + 1 ))
   fi
-  active_stats="$(query_count "Active sync stats" "SELECT COUNT(*) FROM ${sync_stats_ident} WHERE status IN ('initializing','processing_projects','processing_tokens','in_progress','running','pending') AND (end_time IS NULL OR end_time = '');")"
-  (( active_stats == 0 )) || fail "Active sync state detected; run Phase 8 validation only when no sync is active."
+  if is_numeric_progress_marker "$progress_option"; then
+    orphan_marker_count=$(( orphan_marker_count + 1 ))
+  fi
+  if [[ -n "$progress_transient" ]] && is_unexpired_transient_marker "$progress_transient_timeout" "$now_epoch" && is_numeric_progress_marker "$progress_transient"; then
+    orphan_marker_count=$(( orphan_marker_count + 1 ))
+  fi
+fi
+(( orphan_marker_count == 0 )) || fail "Orphaned active sync markers invariant failed with ${orphan_marker_count} offending aggregate row(s)."
+info "Orphaned active sync markers invariant passed."
+
+if (( active_stats == 0 )); then
   info "No active sync state detected."
+elif [[ "$NMKR_DB_STATE_ALLOW_ACTIVE_SYNC" == "true" ]]; then
+  info "One fresh active sync was allowed by configuration."
+else
+  fail "Active sync state detected; run Phase 8 validation only when no sync is active."
 fi
 
 info "Checking database integrity invariants using aggregate counts only."
