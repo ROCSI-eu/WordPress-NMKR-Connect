@@ -281,9 +281,10 @@ jQuery(document).ready(function($) {
               return;
             }
 
-            // Treat server-declared aborted/stopped payloads as terminal even
-            // when the server correctly reports finished=false.
-            if (aborted === true || in_progress === false) {
+            // Treat only an explicit server-declared aborted/stopped payload as terminal.
+            // Do not stop merely because in_progress=false: transient sync flags can expire
+            // while durable sync state still indicates work.
+            if (aborted === true) {
               stopPolling();
               handleStoppedSync(current_item);
               return;

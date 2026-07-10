@@ -10,6 +10,7 @@ The purpose of this phase is to verify that the browser UI safely returns to an 
 
 - Server-declared stopped/aborted final state, using a local `nmkr_sync_progress` sequence that first reports active progress and then reports `aborted: true` with `finished: false`.
 - Payload-level sync failure over HTTP 200, using a local `nmkr_sync_progress` response that includes an application-level error message instead of relying on an HTTP failure status.
+- Continued polling when `in_progress: false` appears without an explicit final marker such as `aborted: true`, a non-empty `error`, `finished: true`, or 100% progress.
 - Restoration of the Start control and hiding/inactivation of the Stop control after each final state.
 - Polling shutdown after the final state so the browser does not continue indefinitely.
 - Shared admin-AJAX harness enforcement that no mutating sync AJAX action reaches WordPress.

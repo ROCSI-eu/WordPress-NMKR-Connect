@@ -120,6 +120,77 @@ test.describe("NMKR Connect sync final-state regression", () => {
     expect(harness.blockedActions).toEqual([]);
   });
 
+  test("continues polling when in_progress is false without an explicit final marker", async ({
+    page,
+  }) => {
+    const harness = await installNmkrSyncAjaxHarness(page, {
+      onSyncProgress: ({ progressCallCount }) => {
+        if (progressCallCount === 1) {
+          return {
+            body: {
+              success: true,
+              data: {
+                progress: 43,
+                current_item: "Transient inactive flag without final marker",
+                in_progress: false,
+                finished: false,
+                aborted: false,
+                error: "",
+                total_items: 100,
+              },
+            },
+          };
+        }
+
+        if (progressCallCount === 2) {
+          return {
+            body: {
+              success: true,
+              data: {
+                progress: 44,
+                current_item: "Polling continued after transient inactive flag",
+                in_progress: true,
+                finished: false,
+                aborted: false,
+                error: "",
+                total_items: 100,
+              },
+            },
+          };
+        }
+
+        return { body: stoppedPayload() };
+      },
+    });
+    await openDashboard(page);
+
+    const startButton = page.locator("#nmkr-sync-button");
+    const stopButton = page.locator("#nmkr-stop-sync-button");
+
+    await startPollingFromWindow(page);
+
+    await expect(page.locator("#status-message")).toContainText(
+      "Transient inactive flag without final marker",
+    );
+    await expect(page.locator("#status-message")).toContainText(
+      "Polling continued after transient inactive flag",
+      { timeout: 7000 },
+    );
+    expect(harness.progressCallCount()).toBeGreaterThanOrEqual(2);
+
+    await expect(page.locator("#status-message")).toContainText(
+      /stopped|aborted|controlled/i,
+      { timeout: 7000 },
+    );
+    await expect(startButton).toBeVisible();
+    await expect(startButton).toBeEnabled();
+    await expect(stopButton).toBeHidden();
+    await expectPollingStopped(harness);
+
+    expect(harness.progressCallCount()).toBe(3);
+    expect(harness.blockedActions).toEqual([]);
+  });
+
   test("handles payload-level sync failure without relying on HTTP failure status", async ({
     page,
   }) => {
