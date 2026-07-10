@@ -93,9 +93,28 @@ assert_zero_count() {
   info "${label} invariant passed."
 }
 
+trim_ascii_whitespace() {
+  printf '%s' "${1:-}" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//'
+}
+
+normalize_decimal_digits() {
+  local value
+  local canonical
+
+  value="$(trim_ascii_whitespace "${1:-}")"
+  [[ "$value" =~ ^[0-9]+$ ]] || return 1
+
+  canonical="$(printf '%s' "$value" | sed 's/^0*//')"
+  if [[ -z "$canonical" ]]; then
+    canonical="0"
+  fi
+
+  printf '%s' "$canonical"
+}
+
 is_truthy() {
   local value
-  value="$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]' | xargs)"
+  value="$(trim_ascii_whitespace "${1:-}" | tr '[:upper:]' '[:lower:]')"
   case "$value" in
     1|true|yes|on|running|in_progress|processing|processing_projects|processing_tokens|initializing|pending)
       return 0
@@ -200,26 +219,35 @@ stale_cutoff_escaped="$(sql_escape "$stale_cutoff")"
 
 is_numeric_progress_marker() {
   local value
-  value="$(printf '%s' "${1:-}" | xargs)"
-  [[ "$value" =~ ^[0-9]+$ ]] && (( value >= 1 && value <= 99 ))
+
+  value="$(normalize_decimal_digits "${1:-}")" || return 1
+  ((${#value} <= 2)) || return 1
+  (( value >= 1 && value <= 99 ))
 }
 
 is_unexpired_transient_marker() {
-  local timeout_value="$1"
-  local now_epoch="$2"
+  local timeout_value
+  local now_epoch
 
-  [[ -z "$timeout_value" || "$timeout_value" == "0" ]] && return 0
-  [[ "$timeout_value" =~ ^[0-9]+$ ]] && (( timeout_value > now_epoch )) && return 0
-  return 1
+  timeout_value="$(trim_ascii_whitespace "${1:-}")"
+  [[ -z "$timeout_value" ]] && return 0
+
+  timeout_value="$(normalize_decimal_digits "$timeout_value")" || return 1
+  now_epoch="$(normalize_decimal_digits "${2:-}")" || return 1
+
+  [[ "$timeout_value" == "0" ]] && return 0
+  ((${#timeout_value} <= 10)) || return 1
+  ((${#now_epoch} <= 10)) || return 1
+  (( timeout_value > now_epoch ))
 }
 
 info "Checking sync-state invariants using aggregate counts only."
-assert_zero_count "Unknown sync stats status" "SELECT COUNT(*) FROM ${sync_stats_ident} WHERE status IS NULL OR TRIM(status) = '' OR status NOT IN (${ACTIVE_SYNC_STATUSES_SQL},${TERMINAL_SYNC_STATUSES_SQL});"
-assert_zero_count "Terminal sync stats end_time" "SELECT COUNT(*) FROM ${sync_stats_ident} WHERE status IN (${FAILURE_TERMINAL_SYNC_STATUSES_SQL}) AND (end_time IS NULL OR end_time = '');"
-assert_zero_count "Active sync stats end_time" "SELECT COUNT(*) FROM ${sync_stats_ident} WHERE status IN (${ACTIVE_SYNC_STATUSES_SQL}) AND end_time IS NOT NULL AND end_time <> '';"
-assert_zero_count "Stale active sync stats" "SELECT COUNT(*) FROM ${sync_stats_ident} WHERE status IN (${ACTIVE_SYNC_STATUSES_SQL}) AND (end_time IS NULL OR end_time = '') AND COALESCE(updated_at, start_time) < '${stale_cutoff_escaped}';"
+assert_zero_count "Unknown sync stats status" "SELECT COUNT(*) FROM ${sync_stats_ident} WHERE status IS NULL OR TRIM(status) = '' OR BINARY status NOT IN (${ACTIVE_SYNC_STATUSES_SQL},${TERMINAL_SYNC_STATUSES_SQL});"
+assert_zero_count "Terminal sync stats end_time" "SELECT COUNT(*) FROM ${sync_stats_ident} WHERE BINARY status IN (${FAILURE_TERMINAL_SYNC_STATUSES_SQL}) AND (end_time IS NULL OR end_time = '');"
+assert_zero_count "Active sync stats end_time" "SELECT COUNT(*) FROM ${sync_stats_ident} WHERE BINARY status IN (${ACTIVE_SYNC_STATUSES_SQL}) AND end_time IS NOT NULL AND end_time <> '';"
+assert_zero_count "Stale active sync stats" "SELECT COUNT(*) FROM ${sync_stats_ident} WHERE BINARY status IN (${ACTIVE_SYNC_STATUSES_SQL}) AND (end_time IS NULL OR end_time = '') AND COALESCE(updated_at, start_time) < '${stale_cutoff_escaped}';"
 
-active_stats="$(query_count "Active sync stats" "SELECT COUNT(*) FROM ${sync_stats_ident} WHERE status IN (${ACTIVE_SYNC_STATUSES_SQL}) AND (end_time IS NULL OR end_time = '');")"
+active_stats="$(query_count "Active sync stats" "SELECT COUNT(*) FROM ${sync_stats_ident} WHERE BINARY status IN (${ACTIVE_SYNC_STATUSES_SQL}) AND (end_time IS NULL OR end_time = '');")"
 (( active_stats <= 1 )) || fail "Multiple active sync stats invariant failed with ${active_stats} offending aggregate row(s)."
 info "Multiple active sync stats invariant passed."
 
