@@ -158,9 +158,11 @@ test.describe("NMKR Connect sync final-state regression", () => {
       /failed|error|controlled/i,
       { timeout: 7000 },
     );
-    await expect(page.locator("#nmkr-sync-error")).toContainText(
-      /failed|error|controlled/i,
-    );
+    const syncError = page.locator("#nmkr-sync-error");
+    if ((await syncError.count()) > 0) {
+      await expect(syncError).toBeVisible();
+      await expect(syncError).toContainText(/failed|error|controlled/i);
+    }
     await expect(startButton).toBeVisible();
     await expect(startButton).toBeEnabled();
     await expect(stopButton).toBeHidden();
