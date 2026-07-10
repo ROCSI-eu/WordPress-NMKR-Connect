@@ -280,6 +280,14 @@ jQuery(document).ready(function($) {
               handleComplete();
               return;
             }
+
+            // Treat server-declared aborted/stopped payloads as terminal even
+            // when the server correctly reports finished=false.
+            if (aborted === true || in_progress === false) {
+              stopPolling();
+              handleStoppedSync(current_item);
+              return;
+            }
             
             // Always continue polling unless explicitly finished
             if (true) {
@@ -306,7 +314,8 @@ jQuery(document).ready(function($) {
             }
           } else {
             // Handle unsuccessful response
-            handleError('Invalid response from server');
+            const payloadMessage = response && response.data && (response.data.message || response.data.error);
+            handleError(payloadMessage || 'Invalid response from server');
             return;
           }
         } catch (e) {
@@ -404,6 +413,19 @@ jQuery(document).ready(function($) {
       setTimeout(() => {
         updateLastSyncTime('sync_completed');
       }, 400);
+      setTimeout(() => {
+        hideActiveSyncMetrics();
+      }, 450);
+    }
+
+    function handleStoppedSync(message) {
+      syncInProgress = false;
+      updateButtonState();
+      syncButton.prop('disabled', false);
+      const stoppedMessage = message || 'Synchronization stopped by server';
+      $('#status-message').text('⚠️ ' + stoppedMessage);
+      $('#nmkr-sync-complete').hide();
+      stopPolling();
       setTimeout(() => {
         hideActiveSyncMetrics();
       }, 450);
