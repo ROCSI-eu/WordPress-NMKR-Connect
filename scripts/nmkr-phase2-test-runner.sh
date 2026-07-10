@@ -184,14 +184,20 @@ check_wordpress_ready() {
       printf 'maintenance_text_found=%s\n' "$maintenance_text"
     } >>"$log_file"
 
-    if [[ "$maintenance_exists" == "false" && "$curl_exit" == "0" && "$http_status" == "200" && "$login_marker" == "true" && "$maintenance_text" == "false" ]]; then
+    if [[ "$curl_exit" == "0" && "$http_status" == "200" && "$login_marker" == "true" && "$maintenance_text" == "false" ]]; then
+      if [[ "$maintenance_exists" == "true" ]]; then
+        printf 'readiness_health=pass; maintenance_file_present_but_login_page_ready=true; note=maintenance marker appears stale or ignored\n' >>"$log_file"
+      else
+        printf 'readiness_health=pass\n' >>"$log_file"
+      fi
       rm -f "$body_file" "$RUN_DIR/wordpress-ready-curl-error.tmp"
       printf 'INFO: WordPress readiness passed.\n'
       WORDPRESS_READY_STATUS="PASS"
       return 0
     fi
 
-    if [[ ( "$maintenance_exists" == "true" || "$maintenance_text" == "true" ) && "$maintenance_notice_printed" == "false" ]]; then
+    printf 'readiness_health=not_ready\n' >>"$log_file"
+    if [[ "$maintenance_text" == "true" && "$maintenance_notice_printed" == "false" ]]; then
       printf 'INFO: WordPress maintenance mode detected; waiting for readiness.\n'
       maintenance_notice_printed="true"
     fi
