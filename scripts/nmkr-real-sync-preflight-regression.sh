@@ -28,7 +28,13 @@ EOF
   git -C "$dir" commit -q -m init
 }
 base_env() {
-  env RUN_REAL_SYNC=true \
+  env -u CI \
+  -u GITHUB_ACTIONS \
+  -u GITLAB_CI \
+  -u CIRCLECI \
+  -u BUILDKITE \
+  -u TF_BUILD \
+  RUN_REAL_SYNC=true \
   NMKR_REAL_SYNC_CONFIRM=I_UNDERSTAND_THIS_MUTATES_DEV \
   PW_SAVE_ARTIFACTS=false \
   NMKR_REAL_SYNC_BACKUP_CONFIRM=I_CONFIRMED_A_RECENT_DEV_BACKUP \
@@ -42,6 +48,15 @@ base_env() {
 
 # Private-state path tests: invalid locations fail before creating runs or chmodding.
 SRC1="$TMP/src1"; WP1="$TMP/wp1"; mkdir -p "$WP1"; make_repo "$SRC1"
+
+CI_PARENT="$TMP/ci-parent"; mkdir -p "$CI_PARENT"; ci_parent_perm_before="$(stat -c %a "$CI_PARENT")"; CI_OUT="$TMP/ci-refusal.out"
+if env CI=true RUN_REAL_SYNC=true NMKR_REAL_SYNC_CONFIRM=I_UNDERSTAND_THIS_MUTATES_DEV PW_SAVE_ARTIFACTS=false NMKR_REAL_SYNC_BACKUP_CONFIRM=I_CONFIRMED_A_RECENT_DEV_BACKUP WP_PATH="$WP1" NMKR_PHASE2_LOG_DIR="$CI_PARENT/ci-state" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$CI_OUT" 2>&1; then
+  fail "CI refusal unexpectedly passed"
+fi
+grep -q 'failed gate: ci-refusal' "$CI_OUT" || fail "CI refusal did not fail at ci-refusal"
+[[ ! -e "$CI_PARENT/ci-state" && ! -e "$CI_PARENT/ci-state/runs" ]] || fail "CI refusal created private state"
+[[ "$(stat -c %a "$CI_PARENT")" == "$ci_parent_perm_before" ]] || fail "CI refusal changed parent permissions"
+pass "CI refusal before private-state mutation"
 perm_before="$(stat -c %a "$SRC1")"
 run_expect_fail "repository root as private state" base_env WP_PATH="$WP1" NMKR_PHASE2_LOG_DIR="$SRC1" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh"
 [[ ! -e "$SRC1/runs" ]] || fail "invalid repository-root state created runs"
