@@ -7,13 +7,10 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   contents: read
-
-env:
-  CI: true
-  PW_SAVE_ARTIFACTS: "false"
 
 jobs:
   public-safe-checks:
@@ -30,25 +27,6 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Install Node dependencies
-        run: npm ci
-
-      - name: List Playwright tests
-        run: npm run test:e2e -- --list --reporter=list
-
-      - name: Bash syntax check
-        shell: bash
-        run: |
-          shopt -s nullglob
-          scripts=(scripts/*.sh)
-          if (( ${#scripts[@]} == 0 )); then
-            echo "No scripts/*.sh files found."
-            exit 1
-          fi
-          for script in "${scripts[@]}"; do
-            bash -n "$script"
-          done
-
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
@@ -56,5 +34,8 @@ jobs:
           coverage: none
           tools: none
 
-      - name: PHP 7.4 syntax and compatibility guard
-        run: npm run test:php74
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Run public-safe checks
+        run: npm run test:public
