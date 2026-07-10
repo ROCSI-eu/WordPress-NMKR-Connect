@@ -39,7 +39,18 @@ export async function handleAdminEmailVerification(page: Page): Promise<void> {
   }
 }
 
+export async function expectNotWordPressMaintenancePage(page: Page): Promise<void> {
+  const maintenanceText = page.getByText(
+    /Briefly unavailable for scheduled maintenance|Check back in a minute/i,
+  );
+
+  if (await maintenanceText.isVisible({ timeout: 500 }).catch(() => false)) {
+    throw new Error('WordPress maintenance page was displayed during admin readiness.');
+  }
+}
+
 export async function expectWpAdmin(page: Page): Promise<void> {
+  await expectNotWordPressMaintenancePage(page);
   await expect(page).toHaveURL(/wp-admin/);
   await expect(page.locator('#wpadminbar, #adminmenu, #wpbody-content').first()).toBeVisible();
 }
@@ -51,6 +62,7 @@ export async function loginToWpAdmin(page: Page): Promise<string> {
   const adminPath = env('WP_ADMIN_PATH', '/wp-admin');
 
   await page.goto(urlFor(baseUrl, '/wp-login.php'));
+  await expectNotWordPressMaintenancePage(page);
   await expect(page.locator('#user_login')).toBeVisible();
   await page.locator('#user_login').fill(username);
   await page.locator('#user_pass').fill(password);

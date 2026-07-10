@@ -2,7 +2,7 @@
 
 Phase 2 adds a VM-local orchestration runner around the existing Phase 1 automated checks. It is intended for maintainers who validate a deployed WordPress NMKR Connect installation from a private, user-owned checkout.
 
-The runner does not change plugin runtime behavior. It coordinates deployment, Playwright admin smoke checks, WP-CLI smoke checks, and WP-CLI database-state validation, then writes detailed output to private local files while printing only a concise public-safe summary.
+The runner does not change plugin runtime behavior. It coordinates deployment, dependency and browser setup, a WordPress readiness gate, Playwright admin smoke checks, WP-CLI smoke checks, and WP-CLI database-state validation, then writes detailed output to private local files while printing only a concise public-safe summary.
 
 ## Public-safety rules
 
@@ -61,11 +61,16 @@ The runner supplies safe defaults when these are unset:
 - `NMKR_DEBUG_LOG_LOOKBACK_MINUTES=30`
 - `NMKR_PHASE2_INSTALL_DEPS=auto`
 - `NMKR_PHASE2_INSTALL_BROWSER=false`
+- `NMKR_PHASE2_WP_READY_TIMEOUT_SECONDS=120`
+- `NMKR_PHASE2_WP_READY_INTERVAL_SECONDS=5`
+- `NMKR_PHASE2_WP_READY_HTTP_TIMEOUT_SECONDS=10`
 - `NMKR_PHASE2_LOG_DIR=$REPO_ROOT/.phase2-private`
 
 `NMKR_PHASE2_INSTALL_DEPS` accepts `auto`, `true`, or `false`. `auto` runs `npm ci` only when `node_modules` is missing.
 
 `NMKR_PHASE2_INSTALL_BROWSER=true` runs `npx playwright install chromium`; otherwise browser installation is skipped.
+
+The WordPress readiness timeout, retry interval, and per-request HTTP timeout can be tuned with the `NMKR_PHASE2_WP_READY_*` variables. They must be positive integers.
 
 ## Running Phase 2
 
@@ -84,9 +89,22 @@ bash scripts/nmkr-phase2-test-runner.sh
 The runner performs these validation stages in order:
 
 1. Deployment, unless `NMKR_PHASE2_SKIP_DEPLOY=true`.
-2. Playwright admin smoke checks.
-3. WP-CLI smoke checks.
-4. WP-CLI database-state validation via `scripts/nmkr-wpcli-db-state.sh`.
+2. Dependency installation, when enabled or needed.
+3. Browser installation, when enabled.
+4. WordPress readiness gate.
+5. Playwright admin smoke checks.
+6. WP-CLI smoke checks.
+7. WP-CLI database-state validation via `scripts/nmkr-wpcli-db-state.sh`.
+
+## WordPress readiness gate
+
+Before Playwright starts, the runner checks that WordPress is ready to serve the admin login page. The `wordpress-ready` gate runs after deployment, dependency setup, and optional browser installation, and before the Playwright suite.
+
+The readiness gate detects temporary WordPress maintenance mode by checking for `WP_PATH/.maintenance` and known maintenance-page text from `wp-login.php`. It also verifies that `wp-login.php` returns HTTP 200 and contains the login form marker. If WordPress is still in maintenance mode or not ready, the runner waits and retries until the configured timeout, then fails the `wordpress-ready` step instead of reporting a misleading Playwright regression.
+
+The gate writes detailed diagnostics to `wordpress-ready.log` in the private run directory. Public console output remains concise and safe: it does not print private URLs, response bodies, cookies, nonces, secrets, screenshots, traces, videos, or private logs.
+
+The readiness gate only detects and waits for `.maintenance`; it does not remove `.maintenance`. It also does not retry the full Playwright suite. Bad credentials and real UI regressions still fail in Playwright.
 
 ## Deployment wiring
 
@@ -126,6 +144,7 @@ Phase 2 summary
   deploy: PASS
   dependencies: SKIPPED
   browser: SKIPPED
+  wordpress-ready: PASS
   playwright: PASS
   wpcli: PASS
   db-state: PASS
