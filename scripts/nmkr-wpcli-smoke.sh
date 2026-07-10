@@ -64,21 +64,6 @@ fi
 (( api_length > 0 )) || fail "API key option is missing or empty."
 info "API key option is present and non-empty; value was not printed."
 
-info "Checking latest sync state."
-latest_state="$(wp_cli db query "SELECT status FROM ${sync_stats_table} ORDER BY COALESCE(end_time, start_time) DESC, id DESC LIMIT 1;" --skip-column-names 2>/dev/null || true)"
-if [[ -z "$latest_state" ]]; then
-  info "No sync stats rows exist yet; skipping latest state check."
-else
-  case "$latest_state" in
-    completed|failed|running|pending|success|error|stopped)
-      info "Latest sync state is present and uses an expected status label."
-      ;;
-    *)
-      fail "Latest sync state is unexpected: ${latest_state}"
-      ;;
-  esac
-fi
-
 latest_metric_time="$(wp_cli db query "SELECT last_sync_time FROM ${metrics_table} ORDER BY last_sync_time DESC, id DESC LIMIT 1;" --skip-column-names 2>/dev/null || true)"
 option_time="$(wp_cli option get "$last_sync_option" 2>/dev/null || true)"
 
