@@ -84,3 +84,13 @@ Rollback is a normal Git revert of the Phase 15 commit. No WordPress state rollb
 ## Phase 16A boundary
 
 Phase 16A must revalidate race-sensitive conditions immediately before Start. The receipt alone must never be treated as sufficient without immediate Phase 16A rechecks. Phase 15 creates authorization evidence for a future step, but it is not a mutating test and does not permit browser Start.
+
+## Review-hardening notes
+
+Phase 15 validates the private state path before creating directories or files. The proposed path is canonicalized through its nearest existing parent, symlinked components are rejected where practical, and paths that equal, contain, or sit inside the source checkout or WordPress root are rejected before filesystem mutation. Existing state directories or `runs` directories with unsafe ownership, permissions, or symlink status fail closed; the preflight does not repair them with `chmod`.
+
+The deployed plugin directory must be a separate canonical checkout that neither contains nor is contained by the source checkout. Its Git top-level must equal the configured deployed plugin directory so `git -C` cannot implicitly select a parent repository. Cleanliness checks explicitly enable `core.fileMode=true` so mode-only drift is detected even when local Git configuration would ignore executable-bit changes.
+
+Cron inspection reads the raw `cron` option and supports only the current versioned cron-array structure. Unsupported, malformed, legacy, or ambiguous cron structures are not repaired and cause the preflight to fail closed through the aggregate inspectability flag.
+
+HTTP readiness keeps normal TLS certificate verification enabled. A private CA bundle can be supplied through `NMKR_PHASE2_CURL_CA_BUNDLE` in the private environment file when needed. Redirects are followed only if the final effective URL remains on the exact approved origin; a cross-origin redirect fails without printing the raw origin or effective URL.

@@ -102,16 +102,29 @@ if ($external_object_cache) {
 }
 
 $pending_sync_cron_count = 0;
-$cron = _get_cron_array();
+$cron_state_inspectable = true;
+$cron = get_option('cron', array());
 $blocked_hooks = array('nmkr_execute_sync_background', 'nmkr_process_batch_hook', 'nmkr_sync_cron_hook', 'nmkr_install_sync_cron_hook');
-if (is_array($cron)) {
-    foreach ($cron as $timestamp_events) {
-        if (!is_array($timestamp_events)) {
+if (!is_array($cron)) {
+    $cron_state_inspectable = false;
+} elseif (!isset($cron['version']) || (int) $cron['version'] !== 2) {
+    $cron_state_inspectable = false;
+} else {
+    foreach ($cron as $timestamp => $timestamp_events) {
+        if ($timestamp === 'version') {
             continue;
         }
-        foreach ($blocked_hooks as $hook) {
-            if (isset($timestamp_events[$hook]) && is_array($timestamp_events[$hook])) {
-                $pending_sync_cron_count += count($timestamp_events[$hook]);
+        if (!is_scalar($timestamp) || !ctype_digit((string) $timestamp) || !is_array($timestamp_events)) {
+            $cron_state_inspectable = false;
+            break;
+        }
+        foreach ($timestamp_events as $hook => $events) {
+            if (!is_string($hook) || !is_array($events)) {
+                $cron_state_inspectable = false;
+                break 2;
+            }
+            if (in_array($hook, $blocked_hooks, true)) {
+                $pending_sync_cron_count += count($events);
             }
         }
     }
@@ -147,6 +160,7 @@ $result = array(
     'external_cache_active_marker_count' => $external_cache_active_marker_count,
     'sync_data_active' => $sync_data_is_active,
     'pending_sync_cron_count' => $pending_sync_cron_count,
+    'cron_state_inspectable' => $cron_state_inspectable,
     'profile_guard_passed' => $profile_guard_passed,
     'admin_capability_ok' => $admin_capability_ok,
 );

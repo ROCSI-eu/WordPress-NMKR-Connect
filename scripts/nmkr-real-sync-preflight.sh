@@ -31,6 +31,7 @@ NMKR_PHASE2_WP_READY_HTTP_TIMEOUT_SECONDS="${NMKR_PHASE2_WP_READY_HTTP_TIMEOUT_S
 NMKR_REAL_SYNC_MAX_DURATION_SECONDS="${NMKR_REAL_SYNC_MAX_DURATION_SECONDS:-1800}"
 NMKR_REAL_SYNC_POLL_TIMEOUT_SECONDS="${NMKR_REAL_SYNC_POLL_TIMEOUT_SECONDS:-45}"
 NMKR_REAL_SYNC_RECEIPT_TTL_SECONDS="${NMKR_REAL_SYNC_RECEIPT_TTL_SECONDS:-300}"
+NMKR_PHASE2_CURL_CA_BUNDLE="${NMKR_PHASE2_CURL_CA_BUNDLE:-}"
 
 CONFIRMATIONS_STATUS="PENDING"; PRIVATE_STATE_STATUS="PENDING"; SOURCE_INTEGRITY_STATUS="PENDING"; DEPLOYMENT_INTEGRITY_STATUS="PENDING"
 ORIGIN_GUARD_STATUS="PENDING"; WORDPRESS_READY_STATUS="PENDING"; PLUGIN_ACTIVE_STATUS="PENDING"; CAPABILITY_STATUS="PENDING"
@@ -77,17 +78,59 @@ done
 CONFIRMATIONS_STATUS="PASS"
 
 umask 077
-[[ -n "${NMKR_PHASE2_LOG_DIR:-}" && "$NMKR_PHASE2_LOG_DIR" = /* ]] || { mark_fail PRIVATE_STATE_STATUS; fail_gate "private-state"; }
-[[ ! -L "$NMKR_PHASE2_LOG_DIR" ]] || { mark_fail PRIVATE_STATE_STATUS; fail_gate "private-state"; }
-mkdir -p "$NMKR_PHASE2_LOG_DIR/runs"
-chmod go-rwx "$NMKR_PHASE2_LOG_DIR" "$NMKR_PHASE2_LOG_DIR/runs" 2>/dev/null || true
-LOG_REAL="$(realpath_existing "$NMKR_PHASE2_LOG_DIR")"; REPO_REAL="$(realpath_existing "$REPO_ROOT")"
-[[ "$LOG_REAL" != "$REPO_REAL" && "$LOG_REAL" != "$REPO_REAL"/* ]] || { mark_fail PRIVATE_STATE_STATUS; fail_gate "private-state"; }
-if [[ -n "${WP_PATH:-}" ]]; then WP_REAL="$(realpath_existing "$WP_PATH")"; [[ "$LOG_REAL" != "$WP_REAL" && "$LOG_REAL" != "$WP_REAL"/* ]] || { mark_fail PRIVATE_STATE_STATUS; fail_gate "private-state"; }; fi
-OWNER_UID="$(python3 -c 'import os,sys; print(os.stat(sys.argv[1]).st_uid)' "$NMKR_PHASE2_LOG_DIR")"; [[ "$OWNER_UID" == "$(id -u)" ]] || { mark_fail PRIVATE_STATE_STATUS; fail_gate "private-state"; }
-PERM="$(python3 -c 'import os,stat,sys; print(oct(stat.S_IMODE(os.stat(sys.argv[1]).st_mode) & 0o077))' "$NMKR_PHASE2_LOG_DIR")"; [[ "$PERM" == "0o0" ]] || { mark_fail PRIVATE_STATE_STATUS; fail_gate "private-state"; }
-[[ -w "$NMKR_PHASE2_LOG_DIR" ]] || { mark_fail PRIVATE_STATE_STATUS; fail_gate "private-state"; }
-RUN_STAMP="$(date -u +%Y%m%dT%H%M%SZ)-$$"; RUN_DIR="$NMKR_PHASE2_LOG_DIR/runs/$RUN_STAMP"; mkdir -m 700 -p "$RUN_DIR"; DIAGNOSTIC_FILE="$RUN_DIR/preflight.log"; : >"$DIAGNOSTIC_FILE"; chmod 600 "$DIAGNOSTIC_FILE"
+[[ -n "${WP_PATH:-}" ]] || { mark_fail PRIVATE_STATE_STATUS; fail_gate "private-state"; }
+PRIVATE_STATE_JSON="$(python3 - "${NMKR_PHASE2_LOG_DIR:-}" "$REPO_ROOT" "$WP_PATH" <<'PY'
+import json, os, stat, sys
+state, repo, wp = sys.argv[1:4]
+uid = os.getuid()
+def fail():
+    raise SystemExit(1)
+def is_inside_or_equal(path, root):
+    return path == root or path.startswith(root.rstrip(os.sep) + os.sep)
+def any_symlink_component(path):
+    cur = os.sep
+    for part in [p for p in path.split(os.sep) if p]:
+        cur = os.path.join(cur, part)
+        if os.path.islink(cur):
+            return True
+    return False
+if not state or not os.path.isabs(state): fail()
+repo_real = os.path.realpath(repo)
+wp_real = os.path.realpath(wp)
+if not os.path.isdir(repo_real) or not os.path.isdir(wp_real): fail()
+probe = state.rstrip(os.sep) or os.sep
+missing = []
+while not os.path.exists(probe):
+    parent = os.path.dirname(probe)
+    if parent == probe: fail()
+    missing.append(os.path.basename(probe))
+    probe = parent
+if any_symlink_component(probe): fail()
+parent_real = os.path.realpath(probe)
+intended = parent_real
+for part in reversed(missing):
+    intended = os.path.join(intended, part)
+state_real = os.path.realpath(state) if os.path.exists(state) else intended
+for root in (repo_real, wp_real):
+    if is_inside_or_equal(state_real, root) or is_inside_or_equal(root, state_real): fail()
+if os.path.exists(state):
+    if os.path.islink(state) or any_symlink_component(state): fail()
+    st = os.stat(state)
+    if not stat.S_ISDIR(st.st_mode) or st.st_uid != uid or (stat.S_IMODE(st.st_mode) & 0o077) != 0 or not os.access(state, os.W_OK): fail()
+runs = os.path.join(state, 'runs')
+if os.path.exists(runs):
+    if os.path.islink(runs) or any_symlink_component(runs): fail()
+    st = os.stat(runs)
+    if not stat.S_ISDIR(st.st_mode) or st.st_uid != uid or (stat.S_IMODE(st.st_mode) & 0o077) != 0 or not os.access(runs, os.W_OK): fail()
+print(json.dumps({'state_real': state_real, 'repo_real': repo_real, 'wp_real': wp_real}, separators=(',', ':')))
+PY
+)" || { mark_fail PRIVATE_STATE_STATUS; fail_gate "private-state"; }
+LOG_REAL="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["state_real"])' "$PRIVATE_STATE_JSON")"
+REPO_REAL="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["repo_real"])' "$PRIVATE_STATE_JSON")"
+WP_REAL="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["wp_real"])' "$PRIVATE_STATE_JSON")"
+if [[ ! -d "$NMKR_PHASE2_LOG_DIR" ]]; then mkdir -m 700 "$NMKR_PHASE2_LOG_DIR" || { mark_fail PRIVATE_STATE_STATUS; fail_gate "private-state"; }; fi
+if [[ ! -d "$NMKR_PHASE2_LOG_DIR/runs" ]]; then mkdir -m 700 "$NMKR_PHASE2_LOG_DIR/runs" || { mark_fail PRIVATE_STATE_STATUS; fail_gate "private-state"; }; fi
+RUN_STAMP="$(date -u +%Y%m%dT%H%M%SZ)-$$"; RUN_DIR="$NMKR_PHASE2_LOG_DIR/runs/$RUN_STAMP"; mkdir -m 700 "$RUN_DIR"; DIAGNOSTIC_FILE="$RUN_DIR/preflight.log"; : >"$DIAGNOSTIC_FILE"; chmod 600 "$DIAGNOSTIC_FILE"
 PRIVATE_STATE_STATUS="PASS"
 
 for tool in bash git php python3 curl; do require_tool "$tool"; done
@@ -95,17 +138,25 @@ require_tool "$WP_CLI_BIN"
 
 git -C "$REPO_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>>"$DIAGNOSTIC_FILE" || { mark_fail SOURCE_INTEGRITY_STATUS; fail_gate "source-integrity" "$DIAGNOSTIC_FILE"; }
 SOURCE_COMMIT="$(git -C "$REPO_ROOT" rev-parse HEAD 2>>"$DIAGNOSTIC_FILE")"; [[ "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]] || { mark_fail SOURCE_INTEGRITY_STATUS; fail_gate "source-integrity" "$DIAGNOSTIC_FILE"; }
-[[ -z "$(git -C "$REPO_ROOT" status --porcelain=v1 --untracked-files=all 2>>"$DIAGNOSTIC_FILE")" ]] || { mark_fail SOURCE_INTEGRITY_STATUS; fail_gate "source-integrity" "$DIAGNOSTIC_FILE"; }
+[[ -z "$(git -C "$REPO_ROOT" -c core.fileMode=true status --porcelain=v1 --untracked-files=all 2>>"$DIAGNOSTIC_FILE")" ]] || { mark_fail SOURCE_INTEGRITY_STATUS; fail_gate "source-integrity" "$DIAGNOSTIC_FILE"; }
 SRC_OWNER="$(python3 -c 'import os,sys; print(os.stat(sys.argv[1]).st_uid)' "$REPO_ROOT")"; [[ "$SRC_OWNER" == "$(id -u)" ]] || { mark_fail SOURCE_INTEGRITY_STATUS; fail_gate "source-integrity" "$DIAGNOSTIC_FILE"; }
 SOURCE_INTEGRITY_STATUS="PASS"
 
 [[ -n "${WP_PATH:-}" ]] || { mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
 if [[ -n "${NMKR_DEPLOYED_PLUGIN_PATH:-}" ]]; then DEPLOYED_PATH="$NMKR_DEPLOYED_PLUGIN_PATH"; else DEPLOYED_PATH="${WP_PATH%/}/wp-content/plugins/${NMKR_PLUGIN_SLUG%/*}"; fi
 DEPLOYED_REAL="$(realpath_existing "$DEPLOYED_PATH" 2>>"$DIAGNOSTIC_FILE")" || { mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
-[[ "$DEPLOYED_REAL" != "$REPO_REAL" ]] || { mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
+python3 - "$DEPLOYED_REAL" "$REPO_REAL" <<'PY' || { mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
+import os,sys
+deployed, repo = map(os.path.realpath, sys.argv[1:3])
+def inside_or_equal(a,b): return a == b or a.startswith(b.rstrip(os.sep) + os.sep)
+if inside_or_equal(deployed, repo) or inside_or_equal(repo, deployed): raise SystemExit(1)
+PY
 git -C "$DEPLOYED_REAL" rev-parse --is-inside-work-tree >/dev/null 2>>"$DIAGNOSTIC_FILE" || { mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
+DEPLOYED_TOP="$(git -C "$DEPLOYED_REAL" rev-parse --show-toplevel 2>>"$DIAGNOSTIC_FILE")" || { mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
+DEPLOYED_TOP_REAL="$(realpath_existing "$DEPLOYED_TOP")"
+[[ "$DEPLOYED_TOP_REAL" == "$DEPLOYED_REAL" ]] || { mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
 DEPLOYED_COMMIT="$(git -C "$DEPLOYED_REAL" rev-parse HEAD 2>>"$DIAGNOSTIC_FILE")"; [[ "$DEPLOYED_COMMIT" =~ ^[0-9a-f]{40}$ ]] || { mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
-[[ -z "$(git -C "$DEPLOYED_REAL" status --porcelain=v1 --untracked-files=all 2>>"$DIAGNOSTIC_FILE")" ]] || { mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
+[[ -z "$(git -C "$DEPLOYED_REAL" -c core.fileMode=true status --porcelain=v1 --untracked-files=all 2>>"$DIAGNOSTIC_FILE")" ]] || { mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
 [[ "$SOURCE_COMMIT" == "$DEPLOYED_COMMIT" ]] || { mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
 DEPLOYMENT_INTEGRITY_STATUS="PASS"
 
@@ -141,17 +192,31 @@ ORIGIN_SHA256="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))
 wp_cli core is-installed >/dev/null 2>>"$DIAGNOSTIC_FILE" || { mark_fail WORDPRESS_READY_STATUS; fail_gate "wordpress-ready" "$DIAGNOSTIC_FILE"; }
 wp_cli db prefix >/dev/null 2>>"$DIAGNOSTIC_FILE" || { mark_fail WORDPRESS_READY_STATUS; fail_gate "wordpress-ready" "$DIAGNOSTIC_FILE"; }
 [[ ! -e "${WP_PATH%/}/.maintenance" ]] || { mark_fail WORDPRESS_READY_STATUS; fail_gate "wordpress-ready" "$DIAGNOSTIC_FILE"; }
-BODY_FILE="$RUN_DIR/login-body.tmp"; CURL_ERR="$RUN_DIR/login-curl.err"; LOGIN_URL="${WP_BASE_URL%/}/wp-login.php"
-HTTP_STATUS="$(curl -ksSL --max-time "$NMKR_PHASE2_WP_READY_HTTP_TIMEOUT_SECONDS" -o "$BODY_FILE" -w '%{http_code}' "$LOGIN_URL" 2>"$CURL_ERR" || printf '000')"
-if [[ "$HTTP_STATUS" != "200" ]] || ! grep -qi 'id="user_login"' "$BODY_FILE"; then rm -f "$BODY_FILE" "$CURL_ERR"; mark_fail WORDPRESS_READY_STATUS; fail_gate "wordpress-ready" "$DIAGNOSTIC_FILE"; fi
-rm -f "$BODY_FILE" "$CURL_ERR"; WORDPRESS_READY_STATUS="PASS"
+BODY_FILE="$RUN_DIR/login-body.tmp"; CURL_ERR="$RUN_DIR/login-curl.err"; CURL_META="$RUN_DIR/login-curl.meta"; LOGIN_URL="${WP_BASE_URL%/}/wp-login.php"
+CURL_ARGS=(-sS -L --max-time "$NMKR_PHASE2_WP_READY_HTTP_TIMEOUT_SECONDS" -o "$BODY_FILE" -w '%{http_code} %{url_effective}' "$LOGIN_URL")
+if [[ -n "$NMKR_PHASE2_CURL_CA_BUNDLE" ]]; then CURL_ARGS=(--cacert "$NMKR_PHASE2_CURL_CA_BUNDLE" "${CURL_ARGS[@]}"); fi
+if ! curl "${CURL_ARGS[@]}" >"$CURL_META" 2>"$CURL_ERR"; then rm -f "$BODY_FILE" "$CURL_ERR" "$CURL_META"; mark_fail WORDPRESS_READY_STATUS; fail_gate "wordpress-ready" "$DIAGNOSTIC_FILE"; fi
+HTTP_STATUS="$(awk '{print $1}' "$CURL_META")"
+EFFECTIVE_URL="$(cut -d' ' -f2- "$CURL_META")"
+if [[ "$HTTP_STATUS" != "200" ]] || ! grep -qi 'id="user_login"' "$BODY_FILE"; then rm -f "$BODY_FILE" "$CURL_ERR" "$CURL_META"; mark_fail WORDPRESS_READY_STATUS; fail_gate "wordpress-ready" "$DIAGNOSTIC_FILE"; fi
+python3 - "$ORIGIN_SHA256" "$EFFECTIVE_URL" <<'PY' || { rm -f "$BODY_FILE" "$CURL_ERR" "$CURL_META"; mark_fail WORDPRESS_READY_STATUS; fail_gate "wordpress-ready" "$DIAGNOSTIC_FILE"; }
+import hashlib,sys,urllib.parse
+expected,url=sys.argv[1:3]
+p=urllib.parse.urlsplit(url.strip())
+try: port=p.port
+except ValueError: raise SystemExit(1)
+if p.scheme != 'https' or not p.hostname or p.username or p.password or port is not None: raise SystemExit(1)
+origin='https://' + p.hostname.lower().rstrip('.')
+if hashlib.sha256(origin.encode()).hexdigest() != expected: raise SystemExit(1)
+PY
+rm -f "$BODY_FILE" "$CURL_ERR" "$CURL_META"; WORDPRESS_READY_STATUS="PASS"
 
 wp_cli plugin is-active "$NMKR_PLUGIN_SLUG" >/dev/null 2>>"$DIAGNOSTIC_FILE" || { mark_fail PLUGIN_ACTIVE_STATUS; fail_gate "plugin-active" "$DIAGNOSTIC_FILE"; }; PLUGIN_ACTIVE_STATUS="PASS"
 DB_LOG="$RUN_DIR/db-state.log"; if ! NMKR_DB_STATE_ALLOW_ACTIVE_SYNC=false WP_PATH="$WP_PATH" WP_CLI_BIN="$WP_CLI_BIN" NMKR_PLUGIN_SLUG="$NMKR_PLUGIN_SLUG" bash "$REPO_ROOT/scripts/nmkr-wpcli-db-state.sh" >"$DB_LOG" 2>&1; then mark_fail DB_STATE_STATUS; fail_gate "db-state" "$DB_LOG"; fi; chmod 600 "$DB_LOG"; DB_STATE_STATUS="PASS"
 RUNTIME_JSON="$RUN_DIR/runtime-state.json"; wp_cli eval-file "$REPO_ROOT/scripts/nmkr-real-sync-runtime-state.php" >"$RUNTIME_JSON" 2>>"$DIAGNOSTIC_FILE" || { mark_fail RUNTIME_STATE_STATUS; fail_gate "runtime-state" "$DIAGNOSTIC_FILE"; }; chmod 600 "$RUNTIME_JSON"
 python3 - "$RUNTIME_JSON" <<'PY' || { mark_fail RUNTIME_STATE_STATUS; fail_gate "runtime-state" "$DIAGNOSTIC_FILE"; }
 import json,sys
-d=json.load(open(sys.argv[1])); schema={'external_object_cache':bool,'runtime_transient_checks_performed':bool,'option_active_marker_count':int,'external_cache_active_marker_count':int,'sync_data_active':bool,'pending_sync_cron_count':int,'profile_guard_passed':bool,'admin_capability_ok':bool}
+d=json.load(open(sys.argv[1])); schema={'external_object_cache':bool,'runtime_transient_checks_performed':bool,'option_active_marker_count':int,'external_cache_active_marker_count':int,'sync_data_active':bool,'pending_sync_cron_count':int,'cron_state_inspectable':bool,'profile_guard_passed':bool,'admin_capability_ok':bool}
 if set(d)!=set(schema): raise SystemExit(1)
 for k,t in schema.items():
     if type(d[k]) is not t: raise SystemExit(1)
@@ -171,7 +236,7 @@ then mark_fail RUNTIME_STATE_STATUS; fail_gate "runtime-state" "$DIAGNOSTIC_FILE
 RUNTIME_STATE_STATUS="PASS"
 if ! python3 - "$RUNTIME_JSON" <<'PY'
 import json,sys
-d=json.load(open(sys.argv[1])); raise SystemExit(0 if d['pending_sync_cron_count'] == 0 else 1)
+d=json.load(open(sys.argv[1])); raise SystemExit(0 if d['cron_state_inspectable'] and d['pending_sync_cron_count'] == 0 else 1)
 PY
 then mark_fail CRON_STATE_STATUS; fail_gate "cron-state" "$DIAGNOSTIC_FILE"; fi
 CRON_STATE_STATUS="PASS"
