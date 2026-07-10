@@ -211,7 +211,7 @@ if [[ ! "$NMKR_DB_STATE_STALE_SYNC_MINUTES" =~ ^[1-9][0-9]*$ ]]; then
   fail "NMKR_DB_STATE_STALE_SYNC_MINUTES must be a positive integer."
 fi
 
-stale_cutoff="$(wp_cli eval "echo gmdate('Y-m-d H:i:s', current_time('timestamp') - (${NMKR_DB_STATE_STALE_SYNC_MINUTES} * MINUTE_IN_SECONDS));" --skip-plugins --skip-themes 2>/dev/null | normalize_scalar_output)" || fail "Stale sync cutoff could not be calculated."
+stale_cutoff="$(wp_cli eval "echo current_datetime()->modify('-${NMKR_DB_STATE_STALE_SYNC_MINUTES} minutes')->format('Y-m-d H:i:s');" --skip-plugins --skip-themes 2>/dev/null | normalize_scalar_output)" || fail "Stale sync cutoff could not be calculated."
 if [[ ! "$stale_cutoff" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}[[:space:]][0-9]{2}:[0-9]{2}:[0-9]{2}$ ]]; then
   fail "Stale sync cutoff could not be calculated."
 fi
