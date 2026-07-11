@@ -172,7 +172,10 @@ require_tool "$WP_CLI_BIN"
 
 git -C "$REPO_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>>"$DIAGNOSTIC_FILE" || { mark_fail SOURCE_INTEGRITY_STATUS; fail_gate "source-integrity" "$DIAGNOSTIC_FILE"; }
 SOURCE_COMMIT="$(git -C "$REPO_ROOT" rev-parse HEAD 2>>"$DIAGNOSTIC_FILE")"; [[ "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]] || { mark_fail SOURCE_INTEGRITY_STATUS; fail_gate "source-integrity" "$DIAGNOSTIC_FILE"; }
-[[ -z "$(git -C "$REPO_ROOT" -c core.fileMode=true status --porcelain=v1 --untracked-files=all 2>>"$DIAGNOSTIC_FILE")" ]] || { mark_fail SOURCE_INTEGRITY_STATUS; fail_gate "source-integrity" "$DIAGNOSTIC_FILE"; }
+if ! SOURCE_STATUS="$(git -C "$REPO_ROOT" -c core.fileMode=true status --porcelain=v1 --untracked-files=all 2>>"$DIAGNOSTIC_FILE")"; then
+  mark_fail SOURCE_INTEGRITY_STATUS; fail_gate "source-integrity" "$DIAGNOSTIC_FILE"
+fi
+[[ -z "$SOURCE_STATUS" ]] || { mark_fail SOURCE_INTEGRITY_STATUS; fail_gate "source-integrity" "$DIAGNOSTIC_FILE"; }
 SRC_OWNER="$(python3 -c 'import os,sys; print(os.stat(sys.argv[1]).st_uid)' "$REPO_ROOT")"; [[ "$SRC_OWNER" == "$(id -u)" ]] || { mark_fail SOURCE_INTEGRITY_STATUS; fail_gate "source-integrity" "$DIAGNOSTIC_FILE"; }
 SOURCE_INTEGRITY_STATUS="PASS"
 
@@ -190,7 +193,10 @@ DEPLOYED_TOP="$(git -C "$DEPLOYED_REAL" rev-parse --show-toplevel 2>>"$DIAGNOSTI
 DEPLOYED_TOP_REAL="$(realpath_existing "$DEPLOYED_TOP")"
 [[ "$DEPLOYED_TOP_REAL" == "$DEPLOYED_REAL" ]] || { mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
 DEPLOYED_COMMIT="$(git -C "$DEPLOYED_REAL" rev-parse HEAD 2>>"$DIAGNOSTIC_FILE")"; [[ "$DEPLOYED_COMMIT" =~ ^[0-9a-f]{40}$ ]] || { mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
-[[ -z "$(git -C "$DEPLOYED_REAL" -c core.fileMode=true status --porcelain=v1 --untracked-files=all 2>>"$DIAGNOSTIC_FILE")" ]] || { mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
+if ! DEPLOYED_STATUS="$(git -C "$DEPLOYED_REAL" -c core.fileMode=true status --porcelain=v1 --untracked-files=all 2>>"$DIAGNOSTIC_FILE")"; then
+  mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"
+fi
+[[ -z "$DEPLOYED_STATUS" ]] || { mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
 [[ "$SOURCE_COMMIT" == "$DEPLOYED_COMMIT" ]] || { mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
 DEPLOYMENT_INTEGRITY_STATUS="PASS"
 

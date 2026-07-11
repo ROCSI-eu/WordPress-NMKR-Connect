@@ -155,6 +155,45 @@ if base_env WP_PATH="$WP1" NMKR_PHASE2_LOG_DIR="$TMP/valid-state-structural" NMK
 grep -q 'failed gate: origin-guard' "$STRUCT_OUT" || { cat "$STRUCT_OUT"; fail "valid separate deployed checkout did not pass structural checks before later guard"; }
 pass "valid separate deployed Git checkout passed structural checks"
 
+REAL_GIT_BIN="$(command -v git)"
+GIT_WRAPPER_DIR="$TMP/git-wrapper"; mkdir -p "$GIT_WRAPPER_DIR"
+cat > "$GIT_WRAPPER_DIR/git" <<'EOF'
+#!/usr/bin/env bash
+repo=""
+args=("$@")
+idx=0
+while (( idx < ${#args[@]} )); do
+  case "${args[$idx]}" in
+    -C) repo="${args[$((idx+1))]}"; idx=$((idx+2));;
+    -c) idx=$((idx+2));;
+    --*) idx=$((idx+1));;
+    *) break;;
+  esac
+done
+cmd="${args[$idx]:-}"
+if [[ "$cmd" == "status" && -n "${FAIL_GIT_STATUS_REPO:-}" ]]; then
+  repo_real="$(python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "${repo:-.}")"
+  fail_real="$(python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$FAIL_GIT_STATUS_REPO")"
+  if [[ "$repo_real" == "$fail_real" ]]; then
+    printf 'fatal: mocked status failure\n' >&2
+    exit 128
+  fi
+fi
+exec "$REAL_GIT_BIN" "$@"
+EOF
+chmod +x "$GIT_WRAPPER_DIR/git"
+FAIL_SOURCE_OUT="$TMP/git-status-source-fail.out"
+if PATH="$GIT_WRAPPER_DIR:$PATH" REAL_GIT_BIN="$REAL_GIT_BIN" FAIL_GIT_STATUS_REPO="$SRC1" base_env WP_PATH="$WP1" NMKR_PHASE2_LOG_DIR="$TMP/status-source-state" NMKR_DEPLOYED_PLUGIN_PATH="$STRUCT_CLONE" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$FAIL_SOURCE_OUT" 2>&1; then
+  fail "mocked source git status failure unexpectedly passed"
+fi
+grep -q 'failed gate: source-integrity' "$FAIL_SOURCE_OUT" || fail "mocked source git status failure did not fail at source-integrity"
+FAIL_DEPLOYED_OUT="$TMP/git-status-deployed-fail.out"
+if PATH="$GIT_WRAPPER_DIR:$PATH" REAL_GIT_BIN="$REAL_GIT_BIN" FAIL_GIT_STATUS_REPO="$STRUCT_CLONE" base_env WP_PATH="$WP1" NMKR_PHASE2_LOG_DIR="$TMP/status-deployed-state" NMKR_DEPLOYED_PLUGIN_PATH="$STRUCT_CLONE" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$FAIL_DEPLOYED_OUT" 2>&1; then
+  fail "mocked deployed git status failure unexpectedly passed"
+fi
+grep -q 'failed gate: deployment-integrity' "$FAIL_DEPLOYED_OUT" || fail "mocked deployed git status failure did not fail at deployment-integrity"
+pass "git status failures fail closed"
+
 RAW_ORIGIN="https://phase15-origin.invalid"
 ORIGIN_STATE="$TMP/origin-state"
 WPCLI_MOCK="$TMP/wpcli-origin-mock"
@@ -241,16 +280,31 @@ cat > "$TMP/runtime-harness.php" <<'PHP'
 define('ABSPATH', __DIR__);
 class WP_User {}
 $GLOBALS['cron_value'] = array('version' => 2);
-function get_option($name, $default = false) { if ($name === 'cron') return $GLOBALS['cron_value']; if ($name === 'nmkr_connect_options') return array('sync_profile'=>'light','sync_batch_size'=>1,'sync_batch_delay'=>3); return $default; }
+$GLOBALS['options'] = array();
+function get_option($name, $default = false) { if ($name === 'cron') return $GLOBALS['cron_value']; if ($name === 'nmkr_connect_options') return array('sync_profile'=>'light','sync_batch_size'=>1,'sync_batch_delay'=>3); return array_key_exists($name, $GLOBALS['options']) ? $GLOBALS['options'][$name] : $default; }
 function get_transient($name) { return false; }
 function wp_using_ext_object_cache() { return false; }
 function is_email($value) { return strpos($value, '@') !== false; }
 function get_user_by($field, $value) { return new WP_User(); }
 function user_can($user, $cap) { return true; }
 function wp_json_encode($value, $flags = 0) { return json_encode($value, $flags); }
+function update_option() { throw new Exception('write attempted'); }
+function delete_option() { throw new Exception('write attempted'); }
+function set_transient() { throw new Exception('write attempted'); }
+function delete_transient() { throw new Exception('write attempted'); }
 $case = $argv[1];
 if ($case === 'blocked') $GLOBALS['cron_value'] = array('version'=>2, time()=>array('nmkr_sync_cron_hook'=>array('k'=>array('args'=>array()))));
 if ($case === 'malformed') $GLOBALS['cron_value'] = array(time()=>array());
+if ($case === 'completed_leftovers') $GLOBALS['options'] = array('nmkr_sync_in_progress'=>false,'nmkr_sync_progress'=>100,'nmkr_sync_status'=>'completed','nmkr_sync_data'=>array('completed'=>true,'status'=>'completed'),'nmkr_sync_near_completion'=>true,'nmkr_sync_heartbeat'=>123);
+if ($case === 'failed_leftovers') $GLOBALS['options'] = array('nmkr_sync_status'=>'failed','nmkr_sync_data'=>array('completed'=>true,'status'=>'failed'),'nmkr_sync_near_completion'=>true,'nmkr_sync_heartbeat'=>123);
+if ($case === 'stopped_leftovers') $GLOBALS['options'] = array('nmkr_sync_status'=>'stopped','nmkr_sync_data'=>array('completed'=>true,'status'=>'stopped'),'nmkr_sync_near_completion'=>true,'nmkr_sync_heartbeat'=>123);
+if ($case === 'in_progress_active') $GLOBALS['options'] = array('nmkr_sync_in_progress'=>true);
+if ($case === 'status_active') $GLOBALS['options'] = array('nmkr_sync_status'=>'processing_tokens');
+if ($case === 'sync_data_active') $GLOBALS['options'] = array('nmkr_sync_data'=>array('completed'=>false,'status'=>'completed'));
+if ($case === 'active_leftovers') $GLOBALS['options'] = array('nmkr_sync_status'=>'running','nmkr_sync_near_completion'=>true,'nmkr_sync_heartbeat'=>123);
+if ($case === 'progress_active') $GLOBALS['options'] = array('nmkr_sync_progress'=>50);
+if ($case === 'progress_zero') $GLOBALS['options'] = array('nmkr_sync_progress'=>0);
+if ($case === 'progress_done') $GLOBALS['options'] = array('nmkr_sync_progress'=>100);
 include $argv[2];
 PHP
 valid_json="$(WP_ADMIN_USER=admin php "$TMP/runtime-harness.php" valid "$ROOT/scripts/nmkr-real-sync-runtime-state.php")"
@@ -260,6 +314,18 @@ python3 -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["cron_state_ins
 malformed_json="$(WP_ADMIN_USER=admin php "$TMP/runtime-harness.php" malformed "$ROOT/scripts/nmkr-real-sync-runtime-state.php")"
 python3 -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["cron_state_inspectable"] is False' "$malformed_json" || fail "malformed cron did not fail inspectability"
 pass "cron helper regression cases"
+for case_name in completed_leftovers failed_leftovers stopped_leftovers progress_zero progress_done; do
+  json="$(WP_ADMIN_USER=admin php "$TMP/runtime-harness.php" "$case_name" "$ROOT/scripts/nmkr-real-sync-runtime-state.php")"
+  python3 -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["option_active_marker_count"] == 0' "$json" || fail "terminal runtime leftovers blocked for $case_name"
+done
+for case_name in in_progress_active status_active sync_data_active progress_active; do
+  json="$(WP_ADMIN_USER=admin php "$TMP/runtime-harness.php" "$case_name" "$ROOT/scripts/nmkr-real-sync-runtime-state.php")"
+  python3 -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["option_active_marker_count"] >= 1' "$json" || fail "active runtime marker did not block for $case_name"
+done
+active_leftovers_json="$(WP_ADMIN_USER=admin php "$TMP/runtime-harness.php" active_leftovers "$ROOT/scripts/nmkr-real-sync-runtime-state.php")"
+python3 -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["option_active_marker_count"] >= 3' "$active_leftovers_json" || fail "active durable state did not count leftovers"
+! grep -Eq 'update_option|delete_option|set_transient|delete_transient|wp_schedule_event|wp_clear_scheduled_hook' "$ROOT/scripts/nmkr-real-sync-runtime-state.php" || fail "runtime helper contains write primitive"
+pass "runtime option-marker classification cases"
 
 # HTTP/TLS static coverage for the readiness guard.
 grep -q -- '--cacert' "$ROOT/scripts/nmkr-real-sync-preflight.sh" || fail "private CA bundle support missing"

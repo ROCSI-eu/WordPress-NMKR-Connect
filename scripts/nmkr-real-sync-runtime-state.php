@@ -59,26 +59,29 @@ $sync_data_active = static function ($value) use ($is_active_status): bool {
 };
 
 $option_active_marker_count = 0;
+$in_progress_active = $is_truthy(get_option('nmkr_sync_in_progress', false));
+$progress_active = $is_progress_active(get_option('nmkr_sync_progress', 0));
+$status_active = $is_active_status(get_option('nmkr_sync_status', ''));
+$sync_data_is_active = $sync_data_active(get_option('nmkr_sync_data', array()));
+$durable_sync_active = $in_progress_active || $status_active || $sync_data_is_active;
 
-if ($is_truthy(get_option('nmkr_sync_in_progress', false))) {
+if ($in_progress_active) {
     $option_active_marker_count++;
 }
-if ($is_progress_active(get_option('nmkr_sync_progress', 0))) {
+if ($progress_active) {
     $option_active_marker_count++;
 }
-if ($is_active_status(get_option('nmkr_sync_status', ''))) {
+if ($status_active) {
     $option_active_marker_count++;
 }
-if ($is_truthy(get_option('nmkr_sync_near_completion', false))) {
+if ($sync_data_is_active) {
+    $option_active_marker_count++;
+}
+if ($durable_sync_active && $is_truthy(get_option('nmkr_sync_near_completion', false))) {
     $option_active_marker_count++;
 }
 $heartbeat = get_option('nmkr_sync_heartbeat', 0);
-if (is_numeric($heartbeat) && (float) $heartbeat > 0) {
-    $option_active_marker_count++;
-}
-
-$sync_data_is_active = $sync_data_active(get_option('nmkr_sync_data', array()));
-if ($sync_data_is_active) {
+if ($durable_sync_active && is_numeric($heartbeat) && (float) $heartbeat > 0) {
     $option_active_marker_count++;
 }
 
