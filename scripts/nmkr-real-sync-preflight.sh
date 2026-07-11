@@ -105,13 +105,20 @@ def fail():
     raise SystemExit(1)
 def is_inside_or_equal(path, root):
     return path == root or path.startswith(root.rstrip(os.sep) + os.sep)
-def any_symlink_component(path):
+def mode_private(path):
+    st = os.stat(path)
+    return stat.S_ISDIR(st.st_mode) and st.st_uid == uid and (stat.S_IMODE(st.st_mode) & 0o077) == 0 and os.access(path, os.W_OK)
+def ensure_component_safe(path):
+    if os.path.islink(path) or not os.path.isdir(path) or not mode_private(path):
+        fail()
+def existing_components(path):
     cur = os.sep
     for part in [p for p in path.split(os.sep) if p]:
         cur = os.path.join(cur, part)
-        if os.path.islink(cur):
-            return True
-    return False
+        if os.path.exists(cur):
+            yield cur
+        else:
+            break
 if not state or not os.path.isabs(state): fail()
 repo_real = os.path.realpath(repo)
 wp_real = os.path.realpath(wp)
@@ -123,7 +130,9 @@ while not os.path.exists(probe):
     if parent == probe: fail()
     missing.append(os.path.basename(probe))
     probe = parent
-if any_symlink_component(probe): fail()
+for component in existing_components(state):
+    if os.path.islink(component): fail()
+ensure_component_safe(probe)
 parent_real = os.path.realpath(probe)
 intended = parent_real
 for part in reversed(missing):
@@ -131,23 +140,30 @@ for part in reversed(missing):
 state_real = os.path.realpath(state) if os.path.exists(state) else intended
 for root in (repo_real, wp_real):
     if is_inside_or_equal(state_real, root) or is_inside_or_equal(root, state_real): fail()
-if os.path.exists(state):
-    if os.path.islink(state) or any_symlink_component(state): fail()
-    st = os.stat(state)
-    if not stat.S_ISDIR(st.st_mode) or st.st_uid != uid or (stat.S_IMODE(st.st_mode) & 0o077) != 0 or not os.access(state, os.W_OK): fail()
+create_path = probe
+for part in reversed(missing):
+    ensure_component_safe(create_path)
+    create_path = os.path.join(create_path, part)
+    if os.path.exists(create_path):
+        ensure_component_safe(create_path)
+    else:
+        os.mkdir(create_path, 0o700)
+        ensure_component_safe(create_path)
+if os.path.realpath(state) != state_real: fail()
+ensure_component_safe(state)
+for root in (repo_real, wp_real):
+    if is_inside_or_equal(os.path.realpath(state), root) or is_inside_or_equal(root, os.path.realpath(state)): fail()
 runs = os.path.join(state, 'runs')
 if os.path.exists(runs):
-    if os.path.islink(runs) or any_symlink_component(runs): fail()
-    st = os.stat(runs)
-    if not stat.S_ISDIR(st.st_mode) or st.st_uid != uid or (stat.S_IMODE(st.st_mode) & 0o077) != 0 or not os.access(runs, os.W_OK): fail()
-print(json.dumps({'state_real': state_real, 'repo_real': repo_real, 'wp_real': wp_real}, separators=(',', ':')))
+    ensure_component_safe(runs)
+print(json.dumps({'state_real': os.path.realpath(state), 'repo_real': repo_real, 'wp_real': wp_real}, separators=(',', ':')))
 PY
 )" || { mark_fail PRIVATE_STATE_STATUS; fail_gate "private-state"; }
 LOG_REAL="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["state_real"])' "$PRIVATE_STATE_JSON")"
 REPO_REAL="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["repo_real"])' "$PRIVATE_STATE_JSON")"
 WP_REAL="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["wp_real"])' "$PRIVATE_STATE_JSON")"
-if [[ ! -d "$NMKR_PHASE2_LOG_DIR" ]]; then mkdir -m 700 "$NMKR_PHASE2_LOG_DIR" || { mark_fail PRIVATE_STATE_STATUS; fail_gate "private-state"; }; fi
 if [[ ! -d "$NMKR_PHASE2_LOG_DIR/runs" ]]; then mkdir -m 700 "$NMKR_PHASE2_LOG_DIR/runs" || { mark_fail PRIVATE_STATE_STATUS; fail_gate "private-state"; }; fi
+
 RUN_STAMP="$(date -u +%Y%m%dT%H%M%SZ)-$$"; RUN_DIR="$NMKR_PHASE2_LOG_DIR/runs/$RUN_STAMP"; mkdir -m 700 "$RUN_DIR"; DIAGNOSTIC_FILE="$RUN_DIR/preflight.log"; : >"$DIAGNOSTIC_FILE"; chmod 600 "$DIAGNOSTIC_FILE"
 PRIVATE_STATE_STATUS="PASS"
 

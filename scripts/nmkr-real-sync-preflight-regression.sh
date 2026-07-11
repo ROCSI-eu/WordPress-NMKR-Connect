@@ -89,6 +89,37 @@ grep -q 'failed gate: ci-refusal' "$POST_OUT" || fail "post-source CI refusal di
 [[ "$(stat -c %a "$POST_ENV_PARENT")" == "$post_env_parent_perm_before" ]] || fail "post-source CI refusal changed parent permissions"
 pass "post-source CI refusal rejects env-introduced marker"
 
+NESTED_PARENT="$TMP/nested-parent"; mkdir -m 700 "$NESTED_PARENT"; nested_parent_perm_before="$(stat -c %a "$NESTED_PARENT")"
+NESTED_STATE="$NESTED_PARENT/one/two/three"; NESTED_OUT="$TMP/nested-valid.out"
+if base_env WP_PATH="$WP1" NMKR_PHASE2_LOG_DIR="$NESTED_STATE" NMKR_DEPLOYED_PLUGIN_PATH="$SRC1" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$NESTED_OUT" 2>&1; then
+  fail "nested first-time private state unexpectedly passed full preflight"
+fi
+grep -q 'failed gate: deployment-integrity' "$NESTED_OUT" || { cat "$NESTED_OUT"; fail "nested first-time private state did not reach later deployment guard"; }
+for component in "$NESTED_PARENT/one" "$NESTED_PARENT/one/two" "$NESTED_PARENT/one/two/three" "$NESTED_PARENT/one/two/three/runs"; do
+  [[ -d "$component" && ! -L "$component" ]] || fail "nested component missing or symlinked"
+  [[ "$(stat -c %a "$component")" == "700" ]] || fail "nested component mode was not 0700"
+done
+[[ "$(stat -c %a "$NESTED_PARENT")" == "$nested_parent_perm_before" ]] || fail "nested parent permissions changed"
+pass "nested first-time private state reaches later guard"
+
+NESTED_REPO_STATE="$SRC1/nested/one/two"
+run_expect_fail "nested repository private state" base_env WP_PATH="$WP1" NMKR_PHASE2_LOG_DIR="$NESTED_REPO_STATE" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh"
+[[ ! -e "$SRC1/nested" ]] || fail "nested repository private state created components"
+
+NESTED_WP_STATE="$WP1/nested/one/two"
+run_expect_fail "nested WordPress private state" base_env WP_PATH="$WP1" NMKR_PHASE2_LOG_DIR="$NESTED_WP_STATE" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh"
+[[ ! -e "$WP1/nested" ]] || fail "nested WordPress private state created components"
+
+LINK_PARENT="$TMP/link-parent"; LINK_TARGET="$TMP/link-target"; mkdir -m 700 "$LINK_PARENT" "$LINK_TARGET"; ln -s "$LINK_TARGET" "$LINK_PARENT/link"; link_target_perm_before="$(stat -c %a "$LINK_TARGET")"
+run_expect_fail "symlinked intermediate private state" base_env WP_PATH="$WP1" NMKR_PHASE2_LOG_DIR="$LINK_PARENT/link/one/two" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh"
+[[ ! -e "$LINK_TARGET/one" ]] || fail "symlinked intermediate target modified"
+[[ "$(stat -c %a "$LINK_TARGET")" == "$link_target_perm_before" ]] || fail "symlinked intermediate target permissions changed"
+
+UNSAFE_PARENT="$TMP/unsafe-parent"; mkdir -m 700 "$UNSAFE_PARENT"; mkdir -m 755 "$UNSAFE_PARENT/unsafe"; unsafe_perm_before="$(stat -c %a "$UNSAFE_PARENT/unsafe")"
+run_expect_fail "unsafe intermediate private state" base_env WP_PATH="$WP1" NMKR_PHASE2_LOG_DIR="$UNSAFE_PARENT/unsafe/one/two" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh"
+[[ ! -e "$UNSAFE_PARENT/unsafe/one" ]] || fail "unsafe intermediate private state created components"
+[[ "$(stat -c %a "$UNSAFE_PARENT/unsafe")" == "$unsafe_perm_before" ]] || fail "unsafe intermediate permissions changed"
+
 perm_before="$(stat -c %a "$SRC1")"
 run_expect_fail "repository root as private state" base_env WP_PATH="$WP1" NMKR_PHASE2_LOG_DIR="$SRC1" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh"
 [[ ! -e "$SRC1/runs" ]] || fail "invalid repository-root state created runs"
