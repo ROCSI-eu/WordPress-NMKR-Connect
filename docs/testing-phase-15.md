@@ -27,7 +27,7 @@ Generic truthy values are not accepted.
 
 ## Source and deployed Git alignment
 
-The source checkout and deployed plugin directory must be separate canonical paths. Both must be clean Git worktrees, including staged, unstaged, untracked, and mode-only changes. The deployed plugin must be a Git checkout in Phase 15. Source and deployed full 40-character commits must match exactly. Ignored runtime dependency files are fail-closed by default; the guard permits only the known required ignored dependency locations used by the plugin vendor bootstrap and still rejects unexpected ignored runtime files.
+The source checkout and deployed plugin directory must be separate canonical paths. Both must be clean Git worktrees, including staged, unstaged, untracked, and mode-only changes. The deployed plugin must be a Git checkout in Phase 15. Source and deployed full 40-character commits must match exactly. Ignored files in the deployed checkout are enumerated across the whole plugin tree and are fail-closed by default; the guard permits only the known required ignored dependency locations used by the plugin vendor bootstrap and still rejects unexpected ignored runtime, artifact, private, or dependency files.
 
 ## Phase 13B reuse
 

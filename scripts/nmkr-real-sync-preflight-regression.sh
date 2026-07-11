@@ -24,7 +24,13 @@ EOF
   git -C "$dir" init -q
   git -C "$dir" config user.email public@example.invalid
   git -C "$dir" config user.name PublicTest
-  printf '/vendor/\n' > "$dir/.gitignore"
+  cat > "$dir/.gitignore" <<'EOF'
+/vendor/
+/.env
+/node_modules/
+*.zip
+ignored-root.php
+EOF
   git -C "$dir" add .gitignore scripts
   git -C "$dir" commit -q -m init
 }
@@ -199,6 +205,23 @@ fi
 grep -q 'failed gate: deployment-integrity' "$VENDOR_UNEXPECTED_OUT" || { cat "$VENDOR_UNEXPECTED_OUT"; fail "unexpected ignored vendor files did not fail deployment-integrity"; }
 pass "unexpected ignored vendor files fail closed"
 
+for ignored_case in env:.env node:node_modules/ignored.js zip:archive.zip php:ignored-root.php; do
+  case_label="${ignored_case%%:*}"
+  case_path="${ignored_case#*:}"
+  CASE_WP="$TMP/wp-ignored-$case_label"; mkdir -p "$CASE_WP/wp-content/plugins"; git clone -q "$SRC1" "$CASE_WP/wp-content/plugins/nmkr-connect"
+  mkdir -p "$CASE_WP/wp-content/plugins/nmkr-connect/vendor/freemius/wordpress-sdk/includes" "$CASE_WP/wp-content/plugins/nmkr-connect/$(dirname "$case_path")"
+  touch "$CASE_WP/wp-content/plugins/nmkr-connect/vendor/freemius/wordpress-sdk/start.php"
+  touch "$CASE_WP/wp-content/plugins/nmkr-connect/vendor/freemius/wordpress-sdk/includes/class-freemius.php"
+  touch "$CASE_WP/wp-content/plugins/nmkr-connect/$case_path"
+  CASE_OUT="$TMP/ignored-$case_label.out"
+  if base_env WP_PATH="$CASE_WP" NMKR_PHASE2_LOG_DIR="$TMP/ignored-$case_label-state" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$CASE_OUT" 2>&1; then
+    fail "ignored $case_label file unexpectedly passed"
+  fi
+  grep -q 'failed gate: deployment-integrity' "$CASE_OUT" || { cat "$CASE_OUT"; fail "ignored $case_label file did not fail deployment-integrity"; }
+  ! grep -Fq "$case_path" "$CASE_OUT" || fail "ignored $case_label filename leaked to public output"
+done
+pass "non-allowlisted ignored files fail closed without filename leaks"
+
 REAL_GIT_BIN="$(command -v git)"
 GIT_WRAPPER_DIR="$TMP/git-wrapper"; mkdir -p "$GIT_WRAPPER_DIR"
 cat > "$GIT_WRAPPER_DIR/git" <<'EOF'
@@ -223,6 +246,14 @@ if [[ "$cmd" == "status" && -n "${FAIL_GIT_STATUS_REPO:-}" ]]; then
     exit 128
   fi
 fi
+if [[ "$cmd" == "ls-files" && -n "${FAIL_GIT_LSFILES_REPO:-}" ]]; then
+  repo_real="$(python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "${repo:-.}")"
+  fail_real="$(python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$FAIL_GIT_LSFILES_REPO")"
+  if [[ "$repo_real" == "$fail_real" ]]; then
+    printf 'fatal: mocked ignored-file enumeration failure\n' >&2
+    exit 128
+  fi
+fi
 exec "$REAL_GIT_BIN" "$@"
 EOF
 chmod +x "$GIT_WRAPPER_DIR/git"
@@ -236,7 +267,12 @@ if PATH="$GIT_WRAPPER_DIR:$PATH" REAL_GIT_BIN="$REAL_GIT_BIN" FAIL_GIT_STATUS_RE
   fail "mocked deployed git status failure unexpectedly passed"
 fi
 grep -q 'failed gate: deployment-integrity' "$FAIL_DEPLOYED_OUT" || fail "mocked deployed git status failure did not fail at deployment-integrity"
-pass "git status failures fail closed"
+FAIL_LSFILES_OUT="$TMP/git-lsfiles-deployed-fail.out"
+if PATH="$GIT_WRAPPER_DIR:$PATH" REAL_GIT_BIN="$REAL_GIT_BIN" FAIL_GIT_LSFILES_REPO="$STRUCT_CLONE" base_env WP_PATH="$STRUCT_WP" NMKR_PHASE2_LOG_DIR="$TMP/lsfiles-deployed-state" NMKR_DEPLOYED_PLUGIN_PATH="$STRUCT_CLONE" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$FAIL_LSFILES_OUT" 2>&1; then
+  fail "mocked ignored-file enumeration failure unexpectedly passed"
+fi
+grep -q 'failed gate: deployment-integrity' "$FAIL_LSFILES_OUT" || fail "mocked ignored-file enumeration failure did not fail deployment-integrity"
+pass "git status and ignored-file enumeration failures fail closed"
 
 RAW_ORIGIN="https://phase15-origin.invalid"
 ORIGIN_STATE="$TMP/origin-state"

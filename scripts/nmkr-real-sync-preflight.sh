@@ -202,13 +202,18 @@ if ! DEPLOYED_STATUS="$(git -C "$DEPLOYED_REAL" -c core.fileMode=true status --p
   mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"
 fi
 [[ -z "$DEPLOYED_STATUS" ]] || { mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
-if ! DEPLOYED_IGNORED_RUNTIME="$(git -C "$DEPLOYED_REAL" ls-files --others --ignored --exclude-standard -- vendor/ 2>>"$DIAGNOSTIC_FILE")"; then
+DEPLOYED_IGNORED_FILE="$RUN_DIR/deployed-ignored-files.nul"
+if ! git -C "$DEPLOYED_REAL" ls-files --others --ignored --exclude-standard -z >"$DEPLOYED_IGNORED_FILE" 2>>"$DIAGNOSTIC_FILE"; then
+  rm -f "$DEPLOYED_IGNORED_FILE"
   mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"
 fi
-python3 - "$DEPLOYED_REAL" "$DEPLOYED_IGNORED_RUNTIME" <<'PY' || { mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
+chmod 600 "$DEPLOYED_IGNORED_FILE"
+python3 - "$DEPLOYED_REAL" "$DEPLOYED_IGNORED_FILE" <<'PY' || { rm -f "$DEPLOYED_IGNORED_FILE"; mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
 import os, sys
-root = sys.argv[1]
-ignored = [line for line in sys.argv[2].splitlines() if line]
+root, ignored_file = sys.argv[1:3]
+with open(ignored_file, 'rb') as handle:
+    raw = handle.read()
+ignored = [entry.decode('utf-8', 'surrogateescape') for entry in raw.split(b'\0') if entry]
 allowed_files = {'vendor/autoload.php'}
 allowed_prefixes = ('vendor/composer/', 'vendor/freemius/wordpress-sdk/')
 for relpath in ignored:
@@ -218,7 +223,7 @@ for relpath in ignored:
     if not (full == root or full.startswith(root.rstrip(os.sep) + os.sep)):
         raise SystemExit(1)
     current = root
-    for part in relpath.split(os.sep):
+    for part in relpath.split('/'):
         current = os.path.join(current, part)
         if os.path.islink(current):
             raise SystemExit(1)
@@ -232,6 +237,7 @@ if ignored:
         if not os.path.isfile(full) or os.path.islink(full):
             raise SystemExit(1)
 PY
+rm -f "$DEPLOYED_IGNORED_FILE"
 [[ "$SOURCE_COMMIT" == "$DEPLOYED_COMMIT" ]] || { mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
 DEPLOYMENT_INTEGRITY_STATUS="PASS"
 
