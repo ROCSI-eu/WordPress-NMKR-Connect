@@ -119,7 +119,7 @@ if [[ -d "$ORIGIN_STATE" ]]; then
 fi
 pass "origin failure does not persist raw origin"
 
-MISMATCH="$TMP/deployed-mismatch"; git clone -q "$SRC1" "$MISMATCH"; echo mismatch > "$MISMATCH/mismatch.txt"; git -C "$MISMATCH" add mismatch.txt; git -C "$MISMATCH" commit -q -m mismatch
+MISMATCH="$TMP/deployed-mismatch"; git clone -q "$SRC1" "$MISMATCH"; git -C "$MISMATCH" config user.email public@example.invalid; git -C "$MISMATCH" config user.name PublicTest; echo mismatch > "$MISMATCH/mismatch.txt"; git -C "$MISMATCH" add mismatch.txt; git -C "$MISMATCH" commit -q -m mismatch
 run_expect_fail "source/deployed commit mismatch" base_env WP_PATH="$WP1" NMKR_PHASE2_LOG_DIR="$TMP/valid-state-mismatch" NMKR_DEPLOYED_PLUGIN_PATH="$MISMATCH" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh"
 
 CLONE="$TMP/deployed-clone"; git clone -q "$SRC1" "$CLONE"; chmod +x "$CLONE/scripts/nmkr-wpcli-db-state.sh"; git -C "$CLONE" config core.fileMode false; chmod -x "$CLONE/scripts/nmkr-real-sync-preflight.sh"
