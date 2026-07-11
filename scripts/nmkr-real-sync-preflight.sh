@@ -8,6 +8,24 @@ else
   REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 fi
 
+ci_marker_is_active() {
+  local value="${1:-}"
+  [[ -n "$value" && "$value" != "0" && "$value" != "false" ]]
+}
+
+pre_source_ci_refusal() {
+  printf '\nPhase 15 real-sync preflight summary\n'
+  printf '  result: FAIL\n'
+  printf '  failed gate: ci-refusal\n'
+  exit 1
+}
+
+for ci_name in CI GITHUB_ACTIONS GITLAB_CI CIRCLECI BUILDKITE TF_BUILD; do
+  if ci_marker_is_active "${!ci_name:-}"; then
+    pre_source_ci_refusal
+  fi
+done
+
 ENV_FILE=""
 if [[ -n "${NMKR_PHASE2_ENV_FILE:-}" ]]; then
   ENV_FILE="$NMKR_PHASE2_ENV_FILE"
@@ -69,7 +87,7 @@ wp_cli() { local args=("$WP_CLI_BIN"); [[ -n "${WP_PATH:-}" ]] && args+=("--path
 realpath_existing() { python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$1"; }
 
 for ci_name in CI GITHUB_ACTIONS GITLAB_CI CIRCLECI BUILDKITE TF_BUILD; do
-  if [[ -n "${!ci_name:-}" && "${!ci_name:-}" != "0" && "${!ci_name:-}" != "false" ]]; then mark_fail CONFIRMATIONS_STATUS; fail_gate "ci-refusal"; fi
+  if ci_marker_is_active "${!ci_name:-}"; then mark_fail CONFIRMATIONS_STATUS; fail_gate "ci-refusal"; fi
 done
 [[ "$RUN_REAL_SYNC" == "true" ]] || { mark_fail CONFIRMATIONS_STATUS; fail_gate "confirmations"; }
 [[ "${NMKR_REAL_SYNC_CONFIRM:-}" == "I_UNDERSTAND_THIS_MUTATES_DEV" ]] || { mark_fail CONFIRMATIONS_STATUS; fail_gate "confirmations"; }

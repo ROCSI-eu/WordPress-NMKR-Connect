@@ -57,6 +57,38 @@ grep -q 'failed gate: ci-refusal' "$CI_OUT" || fail "CI refusal did not fail at 
 [[ ! -e "$CI_PARENT/ci-state" && ! -e "$CI_PARENT/ci-state/runs" ]] || fail "CI refusal created private state"
 [[ "$(stat -c %a "$CI_PARENT")" == "$ci_parent_perm_before" ]] || fail "CI refusal changed parent permissions"
 pass "CI refusal before private-state mutation"
+
+PRE_ENV_PARENT="$TMP/pre-env-parent"; mkdir -p "$PRE_ENV_PARENT"; pre_env_parent_perm_before="$(stat -c %a "$PRE_ENV_PARENT")"
+PRE_SENTINEL="$TMP/pre-env-sentinel"; PRE_ENV_FILE="$TMP/pre-source.env"; PRE_OUT="$TMP/pre-source-ci.out"
+cat > "$PRE_ENV_FILE" <<EOF
+CI=false
+GITHUB_ACTIONS=false
+touch "$PRE_SENTINEL"
+EOF
+if env CI=true NMKR_PHASE2_ENV_FILE="$PRE_ENV_FILE" NMKR_PHASE2_LOG_DIR="$PRE_ENV_PARENT/state" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$PRE_OUT" 2>&1; then
+  fail "pre-source CI refusal unexpectedly passed"
+fi
+grep -q 'failed gate: ci-refusal' "$PRE_OUT" || fail "pre-source CI refusal did not fail at ci-refusal"
+[[ ! -e "$PRE_SENTINEL" ]] || fail "pre-source CI refusal sourced env file"
+[[ ! -e "$PRE_ENV_PARENT/state" && ! -e "$PRE_ENV_PARENT/state/runs" ]] || fail "pre-source CI refusal created private state"
+[[ "$(stat -c %a "$PRE_ENV_PARENT")" == "$pre_env_parent_perm_before" ]] || fail "pre-source CI refusal changed parent permissions"
+pass "pre-source CI refusal does not source env file"
+
+POST_ENV_PARENT="$TMP/post-env-parent"; mkdir -p "$POST_ENV_PARENT"; post_env_parent_perm_before="$(stat -c %a "$POST_ENV_PARENT")"
+POST_SENTINEL="$TMP/post-env-sentinel"; POST_ENV_FILE="$TMP/post-source.env"; POST_OUT="$TMP/post-source-ci.out"
+cat > "$POST_ENV_FILE" <<EOF
+CI=true
+touch "$POST_SENTINEL"
+EOF
+if env -u CI -u GITHUB_ACTIONS -u GITLAB_CI -u CIRCLECI -u BUILDKITE -u TF_BUILD NMKR_PHASE2_ENV_FILE="$POST_ENV_FILE" NMKR_PHASE2_LOG_DIR="$POST_ENV_PARENT/state" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$POST_OUT" 2>&1; then
+  fail "post-source CI refusal unexpectedly passed"
+fi
+grep -q 'failed gate: ci-refusal' "$POST_OUT" || fail "post-source CI refusal did not fail at ci-refusal"
+[[ -e "$POST_SENTINEL" ]] || fail "post-source CI refusal did not source env file"
+[[ ! -e "$POST_ENV_PARENT/state" && ! -e "$POST_ENV_PARENT/state/runs" ]] || fail "post-source CI refusal created private state"
+[[ "$(stat -c %a "$POST_ENV_PARENT")" == "$post_env_parent_perm_before" ]] || fail "post-source CI refusal changed parent permissions"
+pass "post-source CI refusal rejects env-introduced marker"
+
 perm_before="$(stat -c %a "$SRC1")"
 run_expect_fail "repository root as private state" base_env WP_PATH="$WP1" NMKR_PHASE2_LOG_DIR="$SRC1" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh"
 [[ ! -e "$SRC1/runs" ]] || fail "invalid repository-root state created runs"
