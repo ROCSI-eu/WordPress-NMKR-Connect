@@ -35,7 +35,7 @@ Phase 15 invokes the existing WP-CLI DB-state validator with active synchronizat
 
 ## Runtime state and object-cache handling
 
-The WP-CLI runtime helper emits only aggregate booleans and counts. It does not print option values, transient values, user identities, URLs, cron arguments, or serialized state. Final `nmkr_sync_data` may remain after a completed or failed sync and is not a failure by itself. Historical metrics snapshots are not active state by themselves.
+The WP-CLI runtime helper emits only aggregate booleans and counts. It does not print option values, transient values, user identities, URLs, cron arguments, or serialized state. It is invoked with WP-CLI `--skip-plugins --skip-themes --skip-packages` so normal plugins, themes, and packages are not bootstrapped during the read-only probe; WordPress core remains loaded, and WP-CLI does not skip must-use plugins with `--skip-plugins`. Final `nmkr_sync_data` may remain after a completed or failed sync and is not a failure by itself. Historical metrics snapshots are not active state by themselves.
 
 When persistent object cache is disabled, Phase 15 does not inspect database-backed transients through `get_transient()`, avoiding expiry side effects. When persistent object cache is enabled, runtime transient checks are required and only aggregate active-marker counts are returned. The preflight never flushes or deletes cache entries.
 

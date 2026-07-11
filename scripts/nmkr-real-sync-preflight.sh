@@ -253,8 +253,8 @@ if na != nb: raise SystemExit(1)
 print(hashlib.sha256(na.encode()).hexdigest())
 PY
 )" || { mark_fail ORIGIN_GUARD_STATUS; fail_gate "origin-guard" "$DIAGNOSTIC_FILE"; }
-WP_HOME="$(wp_cli option get home --skip-plugins --skip-themes 2>/dev/null)" || { mark_fail ORIGIN_GUARD_STATUS; fail_gate "origin-guard" "$DIAGNOSTIC_FILE"; }
-WP_SITEURL="$(wp_cli option get siteurl --skip-plugins --skip-themes 2>/dev/null)" || { mark_fail ORIGIN_GUARD_STATUS; fail_gate "origin-guard" "$DIAGNOSTIC_FILE"; }
+WP_HOME="$(wp_cli option get home --skip-plugins --skip-themes --skip-packages 2>/dev/null)" || { mark_fail ORIGIN_GUARD_STATUS; fail_gate "origin-guard" "$DIAGNOSTIC_FILE"; }
+WP_SITEURL="$(wp_cli option get siteurl --skip-plugins --skip-themes --skip-packages 2>/dev/null)" || { mark_fail ORIGIN_GUARD_STATUS; fail_gate "origin-guard" "$DIAGNOSTIC_FILE"; }
 python3 - "$ORIGIN_SHA256" "$WP_HOME" "$WP_SITEURL" <<'PY' || { mark_fail ORIGIN_GUARD_STATUS; fail_gate "origin-guard" "$DIAGNOSTIC_FILE"; }
 import hashlib,sys,urllib.parse
 expected = sys.argv[1]
@@ -269,8 +269,8 @@ if any(digest(v) != expected for v in sys.argv[2:]): raise SystemExit(1)
 PY
 ORIGIN_GUARD_STATUS="PASS"
 
-wp_cli core is-installed >/dev/null 2>>"$DIAGNOSTIC_FILE" || { mark_fail WORDPRESS_READY_STATUS; fail_gate "wordpress-ready" "$DIAGNOSTIC_FILE"; }
-wp_cli db prefix >/dev/null 2>>"$DIAGNOSTIC_FILE" || { mark_fail WORDPRESS_READY_STATUS; fail_gate "wordpress-ready" "$DIAGNOSTIC_FILE"; }
+wp_cli core is-installed --skip-plugins --skip-themes --skip-packages >/dev/null 2>>"$DIAGNOSTIC_FILE" || { mark_fail WORDPRESS_READY_STATUS; fail_gate "wordpress-ready" "$DIAGNOSTIC_FILE"; }
+wp_cli db prefix --skip-plugins --skip-themes --skip-packages >/dev/null 2>>"$DIAGNOSTIC_FILE" || { mark_fail WORDPRESS_READY_STATUS; fail_gate "wordpress-ready" "$DIAGNOSTIC_FILE"; }
 [[ ! -e "${WP_PATH%/}/.maintenance" ]] || { mark_fail WORDPRESS_READY_STATUS; fail_gate "wordpress-ready" "$DIAGNOSTIC_FILE"; }
 BODY_FILE="$RUN_DIR/login-body.tmp"; CURL_ERR="$RUN_DIR/login-curl.err"; CURL_META="$RUN_DIR/login-curl.meta"; LOGIN_URL="${WP_BASE_URL%/}/wp-login.php"
 CURL_ARGS=(-sS -L --max-time "$NMKR_PHASE2_WP_READY_HTTP_TIMEOUT_SECONDS" -o "$BODY_FILE" -w '%{http_code} %{url_effective}' "$LOGIN_URL")
@@ -291,9 +291,9 @@ if hashlib.sha256(origin.encode()).hexdigest() != expected: raise SystemExit(1)
 PY
 rm -f "$BODY_FILE" "$CURL_ERR" "$CURL_META"; WORDPRESS_READY_STATUS="PASS"
 
-wp_cli plugin is-active "$NMKR_PLUGIN_SLUG" >/dev/null 2>>"$DIAGNOSTIC_FILE" || { mark_fail PLUGIN_ACTIVE_STATUS; fail_gate "plugin-active" "$DIAGNOSTIC_FILE"; }; PLUGIN_ACTIVE_STATUS="PASS"
-DB_LOG="$RUN_DIR/db-state.log"; if ! NMKR_DB_STATE_ALLOW_ACTIVE_SYNC=false WP_PATH="$WP_PATH" WP_CLI_BIN="$WP_CLI_BIN" NMKR_PLUGIN_SLUG="$NMKR_PLUGIN_SLUG" bash "$REPO_ROOT/scripts/nmkr-wpcli-db-state.sh" >"$DB_LOG" 2>&1; then mark_fail DB_STATE_STATUS; fail_gate "db-state" "$DB_LOG"; fi; chmod 600 "$DB_LOG"; DB_STATE_STATUS="PASS"
-RUNTIME_JSON="$RUN_DIR/runtime-state.json"; wp_cli eval-file "$REPO_ROOT/scripts/nmkr-real-sync-runtime-state.php" >"$RUNTIME_JSON" 2>>"$DIAGNOSTIC_FILE" || { mark_fail RUNTIME_STATE_STATUS; fail_gate "runtime-state" "$DIAGNOSTIC_FILE"; }; chmod 600 "$RUNTIME_JSON"
+wp_cli plugin is-active "$NMKR_PLUGIN_SLUG" --skip-plugins --skip-themes --skip-packages >/dev/null 2>>"$DIAGNOSTIC_FILE" || { mark_fail PLUGIN_ACTIVE_STATUS; fail_gate "plugin-active" "$DIAGNOSTIC_FILE"; }; PLUGIN_ACTIVE_STATUS="PASS"
+DB_LOG="$RUN_DIR/db-state.log"; if ! NMKR_DB_STATE_ALLOW_ACTIVE_SYNC=false NMKR_WPCLI_ISOLATION=true WP_PATH="$WP_PATH" WP_CLI_BIN="$WP_CLI_BIN" NMKR_PLUGIN_SLUG="$NMKR_PLUGIN_SLUG" bash "$REPO_ROOT/scripts/nmkr-wpcli-db-state.sh" >"$DB_LOG" 2>&1; then mark_fail DB_STATE_STATUS; fail_gate "db-state" "$DB_LOG"; fi; chmod 600 "$DB_LOG"; DB_STATE_STATUS="PASS"
+RUNTIME_JSON="$RUN_DIR/runtime-state.json"; wp_cli eval-file "$REPO_ROOT/scripts/nmkr-real-sync-runtime-state.php" --skip-plugins --skip-themes --skip-packages >"$RUNTIME_JSON" 2>>"$DIAGNOSTIC_FILE" || { mark_fail RUNTIME_STATE_STATUS; fail_gate "runtime-state" "$DIAGNOSTIC_FILE"; }; chmod 600 "$RUNTIME_JSON"
 python3 - "$RUNTIME_JSON" <<'PY' || { mark_fail RUNTIME_STATE_STATUS; fail_gate "runtime-state" "$DIAGNOSTIC_FILE"; }
 import json,sys
 d=json.load(open(sys.argv[1])); schema={'external_object_cache':bool,'runtime_transient_checks_performed':bool,'option_active_marker_count':int,'external_cache_active_marker_count':int,'sync_data_active':bool,'pending_sync_cron_count':int,'cron_state_inspectable':bool,'profile_guard_passed':bool,'admin_capability_ok':bool}

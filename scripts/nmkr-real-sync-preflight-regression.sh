@@ -381,6 +381,31 @@ grep -q '%{url_effective}' "$ROOT/scripts/nmkr-real-sync-preflight.sh" || fail "
 grep -q 'ORIGIN_SHA256' "$ROOT/scripts/nmkr-real-sync-preflight.sh" || fail "same-origin digest check missing"
 pass "HTTP readiness guard static checks"
 
+grep -q 'eval-file.*--skip-plugins.*--skip-themes.*--skip-packages' "$ROOT/scripts/nmkr-real-sync-preflight.sh" || fail "runtime eval-file isolation flags missing"
+grep -q 'plugin is-active.*--skip-plugins.*--skip-themes.*--skip-packages' "$ROOT/scripts/nmkr-real-sync-preflight.sh" || fail "plugin-active gate isolation flags missing"
+grep -q 'NMKR_WPCLI_ISOLATION=true' "$ROOT/scripts/nmkr-real-sync-preflight.sh" || fail "Phase 13B isolation opt-in missing"
+grep -q 'NMKR_WPCLI_ISOLATION' "$ROOT/scripts/nmkr-wpcli-db-state.sh" || fail "DB-state isolation opt-in not implemented"
+grep -q 'get_option' "$ROOT/scripts/nmkr-real-sync-runtime-state.php" || fail "runtime helper option checks missing"
+grep -q 'cron_state_inspectable' "$ROOT/scripts/nmkr-real-sync-runtime-state.php" || fail "runtime helper cron inspectability missing"
+grep -q 'wp_using_ext_object_cache' "$ROOT/scripts/nmkr-real-sync-runtime-state.php" || fail "runtime helper object-cache check missing"
+grep -q 'user_can.*nmkr_manage_sync' "$ROOT/scripts/nmkr-real-sync-runtime-state.php" || fail "runtime helper capability check missing"
+grep -q 'sync_profile' "$ROOT/scripts/nmkr-real-sync-runtime-state.php" || fail "runtime helper profile check missing"
+WPCLI_FLAG_MOCK="$TMP/wpcli-flag-mock"
+cat > "$WPCLI_FLAG_MOCK" <<'EOF'
+#!/usr/bin/env bash
+args=" $* "
+for flag in --skip-plugins --skip-themes --skip-packages; do
+  [[ "$args" == *" $flag "* ]] || exit 42
+done
+exit 0
+EOF
+chmod +x "$WPCLI_FLAG_MOCK"
+"$WPCLI_FLAG_MOCK" eval-file helper.php --skip-plugins --skip-themes --skip-packages || fail "mock WP-CLI rejected isolated eval-file invocation"
+if "$WPCLI_FLAG_MOCK" eval-file helper.php --skip-plugins --skip-themes >/dev/null 2>&1; then
+  fail "mock WP-CLI accepted eval-file invocation without all isolation flags"
+fi
+pass "WP-CLI isolation flag regression checks"
+
 # Dynamic TLS and same-origin readiness primitives without contacting external hosts.
 if command -v openssl >/dev/null 2>&1; then
   CERT_DIR="$TMP/cert"; mkdir -p "$CERT_DIR"
