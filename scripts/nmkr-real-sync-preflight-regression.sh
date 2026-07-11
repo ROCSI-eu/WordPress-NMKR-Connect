@@ -115,6 +115,12 @@ NESTED_REPO_STATE="$SRC1/nested/one/two"
 run_expect_fail "nested repository private state" base_env WP_PATH="$WP1" NMKR_PHASE2_LOG_DIR="$NESTED_REPO_STATE" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh"
 [[ ! -e "$SRC1/nested" ]] || fail "nested repository private state created components"
 
+DOTDOT_PARENT="$TMP/dotdot-parent"; mkdir -m 700 "$DOTDOT_PARENT"
+DOTDOT_STATE="$DOTDOT_PARENT/missing/../../src1/state"
+run_expect_fail "dotdot private state into repository" base_env WP_PATH="$WP1" NMKR_PHASE2_LOG_DIR="$DOTDOT_STATE" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh"
+[[ ! -e "$DOTDOT_PARENT/missing" ]] || fail "dotdot private state created missing component"
+[[ ! -e "$SRC1/state" ]] || fail "dotdot private state created repository component"
+
 NESTED_WP_STATE="$WP1/nested/one/two"
 run_expect_fail "nested WordPress private state" base_env WP_PATH="$WP1" NMKR_PHASE2_LOG_DIR="$NESTED_WP_STATE" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh"
 [[ ! -e "$WP1/nested" ]] || fail "nested WordPress private state created components"

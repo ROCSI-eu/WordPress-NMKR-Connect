@@ -120,6 +120,8 @@ def existing_components(path):
         else:
             break
 if not state or not os.path.isabs(state): fail()
+state_parts = [part for part in state.split(os.sep) if part]
+if any(part in ('.', '..') for part in state_parts): fail()
 repo_real = os.path.realpath(repo)
 wp_real = os.path.realpath(wp)
 if not os.path.isdir(repo_real) or not os.path.isdir(wp_real): fail()
