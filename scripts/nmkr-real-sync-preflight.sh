@@ -180,8 +180,11 @@ SRC_OWNER="$(python3 -c 'import os,sys; print(os.stat(sys.argv[1]).st_uid)' "$RE
 SOURCE_INTEGRITY_STATUS="PASS"
 
 [[ -n "${WP_PATH:-}" ]] || { mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
-if [[ -n "${NMKR_DEPLOYED_PLUGIN_PATH:-}" ]]; then DEPLOYED_PATH="$NMKR_DEPLOYED_PLUGIN_PATH"; else DEPLOYED_PATH="${WP_PATH%/}/wp-content/plugins/${NMKR_PLUGIN_SLUG%/*}"; fi
+ACTIVE_PLUGIN_PATH="${WP_PATH%/}/wp-content/plugins/${NMKR_PLUGIN_SLUG%/*}"
+ACTIVE_PLUGIN_REAL="$(realpath_existing "$ACTIVE_PLUGIN_PATH" 2>>"$DIAGNOSTIC_FILE")" || { mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
+if [[ -n "${NMKR_DEPLOYED_PLUGIN_PATH:-}" ]]; then DEPLOYED_PATH="$NMKR_DEPLOYED_PLUGIN_PATH"; else DEPLOYED_PATH="$ACTIVE_PLUGIN_PATH"; fi
 DEPLOYED_REAL="$(realpath_existing "$DEPLOYED_PATH" 2>>"$DIAGNOSTIC_FILE")" || { mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
+[[ "$DEPLOYED_REAL" == "$ACTIVE_PLUGIN_REAL" ]] || { mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
 python3 - "$DEPLOYED_REAL" "$REPO_REAL" <<'PY' || { mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
 import os,sys
 deployed, repo = map(os.path.realpath, sys.argv[1:3])
@@ -197,6 +200,10 @@ if ! DEPLOYED_STATUS="$(git -C "$DEPLOYED_REAL" -c core.fileMode=true status --p
   mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"
 fi
 [[ -z "$DEPLOYED_STATUS" ]] || { mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
+if ! DEPLOYED_IGNORED_RUNTIME="$(git -C "$DEPLOYED_REAL" ls-files --others --ignored --exclude-standard --directory -- vendor/ 2>>"$DIAGNOSTIC_FILE")"; then
+  mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"
+fi
+[[ -z "$DEPLOYED_IGNORED_RUNTIME" ]] || { mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
 [[ "$SOURCE_COMMIT" == "$DEPLOYED_COMMIT" ]] || { mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
 DEPLOYMENT_INTEGRITY_STATUS="PASS"
 

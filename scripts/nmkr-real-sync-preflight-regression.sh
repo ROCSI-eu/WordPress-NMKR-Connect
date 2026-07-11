@@ -46,6 +46,15 @@ base_env() {
   "$@"
 }
 
+wp_with_plugin_link() {
+  local target="$1"
+  local name="$2"
+  local wp_dir="$TMP/wp-${name}"
+  mkdir -p "$wp_dir/wp-content/plugins"
+  ln -s "$target" "$wp_dir/wp-content/plugins/nmkr-connect"
+  printf '%s' "$wp_dir"
+}
+
 # Private-state path tests: invalid locations fail before creating runs or chmodding.
 SRC1="$TMP/src1"; WP1="$TMP/wp1"; mkdir -p "$WP1"; make_repo "$SRC1"
 
@@ -150,10 +159,17 @@ run_expect_fail "deployed Git top-level parent" base_env WP_PATH="$WP1" NMKR_PHA
 
 [[ -z "$(git -C "$SRC1" -c core.fileMode=true status --porcelain=v1 --untracked-files=all)" ]] || fail "source fixture dirty before structural checkout test"
 STRUCT_CLONE="$TMP/deployed-structural"; git clone -q "$SRC1" "$STRUCT_CLONE"
+STRUCT_WP="$(wp_with_plugin_link "$STRUCT_CLONE" structural)"
 STRUCT_OUT="$TMP/structural.out"
-if base_env WP_PATH="$WP1" NMKR_PHASE2_LOG_DIR="$TMP/valid-state-structural" NMKR_DEPLOYED_PLUGIN_PATH="$STRUCT_CLONE" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$STRUCT_OUT" 2>&1; then fail "structural clean checkout unexpectedly passed full preflight"; fi
+if base_env WP_PATH="$STRUCT_WP" NMKR_PHASE2_LOG_DIR="$TMP/valid-state-structural" NMKR_DEPLOYED_PLUGIN_PATH="$STRUCT_CLONE" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$STRUCT_OUT" 2>&1; then fail "structural clean checkout unexpectedly passed full preflight"; fi
 grep -q 'failed gate: origin-guard' "$STRUCT_OUT" || { cat "$STRUCT_OUT"; fail "valid separate deployed checkout did not pass structural checks before later guard"; }
 pass "valid separate deployed Git checkout passed structural checks"
+
+OVERRIDE_OTHER="$TMP/deployed-override-other"; git clone -q "$SRC1" "$OVERRIDE_OTHER"
+run_expect_fail "override not matching active plugin path" base_env WP_PATH="$STRUCT_WP" NMKR_PHASE2_LOG_DIR="$TMP/override-mismatch-state" NMKR_DEPLOYED_PLUGIN_PATH="$OVERRIDE_OTHER" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh"
+
+VENDOR_WP="$TMP/wp-vendor"; mkdir -p "$VENDOR_WP/wp-content/plugins"; git clone -q "$SRC1" "$VENDOR_WP/wp-content/plugins/nmkr-connect"; mkdir -p "$VENDOR_WP/wp-content/plugins/nmkr-connect/vendor/freemius"; touch "$VENDOR_WP/wp-content/plugins/nmkr-connect/vendor/freemius/ignored-runtime.php"
+run_expect_fail "ignored runtime vendor files" base_env WP_PATH="$VENDOR_WP" NMKR_PHASE2_LOG_DIR="$TMP/ignored-runtime-state" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh"
 
 REAL_GIT_BIN="$(command -v git)"
 GIT_WRAPPER_DIR="$TMP/git-wrapper"; mkdir -p "$GIT_WRAPPER_DIR"
@@ -183,12 +199,12 @@ exec "$REAL_GIT_BIN" "$@"
 EOF
 chmod +x "$GIT_WRAPPER_DIR/git"
 FAIL_SOURCE_OUT="$TMP/git-status-source-fail.out"
-if PATH="$GIT_WRAPPER_DIR:$PATH" REAL_GIT_BIN="$REAL_GIT_BIN" FAIL_GIT_STATUS_REPO="$SRC1" base_env WP_PATH="$WP1" NMKR_PHASE2_LOG_DIR="$TMP/status-source-state" NMKR_DEPLOYED_PLUGIN_PATH="$STRUCT_CLONE" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$FAIL_SOURCE_OUT" 2>&1; then
+if PATH="$GIT_WRAPPER_DIR:$PATH" REAL_GIT_BIN="$REAL_GIT_BIN" FAIL_GIT_STATUS_REPO="$SRC1" base_env WP_PATH="$STRUCT_WP" NMKR_PHASE2_LOG_DIR="$TMP/status-source-state" NMKR_DEPLOYED_PLUGIN_PATH="$STRUCT_CLONE" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$FAIL_SOURCE_OUT" 2>&1; then
   fail "mocked source git status failure unexpectedly passed"
 fi
 grep -q 'failed gate: source-integrity' "$FAIL_SOURCE_OUT" || fail "mocked source git status failure did not fail at source-integrity"
 FAIL_DEPLOYED_OUT="$TMP/git-status-deployed-fail.out"
-if PATH="$GIT_WRAPPER_DIR:$PATH" REAL_GIT_BIN="$REAL_GIT_BIN" FAIL_GIT_STATUS_REPO="$STRUCT_CLONE" base_env WP_PATH="$WP1" NMKR_PHASE2_LOG_DIR="$TMP/status-deployed-state" NMKR_DEPLOYED_PLUGIN_PATH="$STRUCT_CLONE" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$FAIL_DEPLOYED_OUT" 2>&1; then
+if PATH="$GIT_WRAPPER_DIR:$PATH" REAL_GIT_BIN="$REAL_GIT_BIN" FAIL_GIT_STATUS_REPO="$STRUCT_CLONE" base_env WP_PATH="$STRUCT_WP" NMKR_PHASE2_LOG_DIR="$TMP/status-deployed-state" NMKR_DEPLOYED_PLUGIN_PATH="$STRUCT_CLONE" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$FAIL_DEPLOYED_OUT" 2>&1; then
   fail "mocked deployed git status failure unexpectedly passed"
 fi
 grep -q 'failed gate: deployment-integrity' "$FAIL_DEPLOYED_OUT" || fail "mocked deployed git status failure did not fail at deployment-integrity"
@@ -208,7 +224,7 @@ exit 0
 EOF
 chmod +x "$WPCLI_MOCK"
 ORIGIN_OUT="$TMP/origin-failure.out"
-if base_env WP_CLI_BIN="$WPCLI_MOCK" WP_PATH="$WP1" NMKR_PHASE2_LOG_DIR="$ORIGIN_STATE" NMKR_DEPLOYED_PLUGIN_PATH="$STRUCT_CLONE" WP_BASE_URL="$RAW_ORIGIN" NMKR_REAL_SYNC_ALLOWED_ORIGIN="$RAW_ORIGIN" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$ORIGIN_OUT" 2>&1; then
+if base_env WP_CLI_BIN="$WPCLI_MOCK" WP_PATH="$STRUCT_WP" NMKR_PHASE2_LOG_DIR="$ORIGIN_STATE" NMKR_DEPLOYED_PLUGIN_PATH="$STRUCT_CLONE" WP_BASE_URL="$RAW_ORIGIN" NMKR_REAL_SYNC_ALLOWED_ORIGIN="$RAW_ORIGIN" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$ORIGIN_OUT" 2>&1; then
   fail "origin failure unexpectedly passed"
 fi
 grep -q 'failed gate: origin-guard' "$ORIGIN_OUT" || fail "origin failure did not reach origin-guard"
@@ -222,17 +238,20 @@ fi
 pass "origin failure does not persist raw origin"
 
 MISMATCH="$TMP/deployed-mismatch"; git clone -q "$SRC1" "$MISMATCH"; git -C "$MISMATCH" config user.email public@example.invalid; git -C "$MISMATCH" config user.name PublicTest; echo mismatch > "$MISMATCH/mismatch.txt"; git -C "$MISMATCH" add mismatch.txt; git -C "$MISMATCH" commit -q -m mismatch
-run_expect_fail "source/deployed commit mismatch" base_env WP_PATH="$WP1" NMKR_PHASE2_LOG_DIR="$TMP/valid-state-mismatch" NMKR_DEPLOYED_PLUGIN_PATH="$MISMATCH" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh"
+MISMATCH_WP="$(wp_with_plugin_link "$MISMATCH" mismatch)"
+run_expect_fail "source/deployed commit mismatch" base_env WP_PATH="$MISMATCH_WP" NMKR_PHASE2_LOG_DIR="$TMP/valid-state-mismatch" NMKR_DEPLOYED_PLUGIN_PATH="$MISMATCH" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh"
 
 CLONE="$TMP/deployed-clone"; git clone -q "$SRC1" "$CLONE"; chmod +x "$CLONE/scripts/nmkr-wpcli-db-state.sh"; git -C "$CLONE" config core.fileMode false; chmod -x "$CLONE/scripts/nmkr-real-sync-preflight.sh"
-run_expect_fail "mode-only deployed change with fileMode false" base_env WP_PATH="$WP1" NMKR_PHASE2_LOG_DIR="$TMP/valid-state4" NMKR_DEPLOYED_PLUGIN_PATH="$CLONE" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh"
+CLONE_WP="$(wp_with_plugin_link "$CLONE" clone)"
+run_expect_fail "mode-only deployed change with fileMode false" base_env WP_PATH="$CLONE_WP" NMKR_PHASE2_LOG_DIR="$TMP/valid-state4" NMKR_DEPLOYED_PLUGIN_PATH="$CLONE" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh"
 
 git -C "$SRC1" config core.fileMode false; chmod -x "$SRC1/scripts/nmkr-real-sync-preflight.sh"
-run_expect_fail "mode-only source change with fileMode false" base_env WP_PATH="$WP1" NMKR_PHASE2_LOG_DIR="$TMP/valid-state5" NMKR_DEPLOYED_PLUGIN_PATH="$CLONE" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh"
+run_expect_fail "mode-only source change with fileMode false" base_env WP_PATH="$CLONE_WP" NMKR_PHASE2_LOG_DIR="$TMP/valid-state5" NMKR_DEPLOYED_PLUGIN_PATH="$CLONE" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh"
 chmod +x "$SRC1/scripts/nmkr-real-sync-preflight.sh"
 
 git clone -q "$SRC1" "$TMP/deployed-clean"; touch "$TMP/deployed-clean/untracked.txt"
-run_expect_fail "untracked deployed file" base_env WP_PATH="$WP1" NMKR_PHASE2_LOG_DIR="$TMP/valid-state6" NMKR_DEPLOYED_PLUGIN_PATH="$TMP/deployed-clean" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh"
+UNCLEAN_WP="$(wp_with_plugin_link "$TMP/deployed-clean" unclean)"
+run_expect_fail "untracked deployed file" base_env WP_PATH="$UNCLEAN_WP" NMKR_PHASE2_LOG_DIR="$TMP/valid-state6" NMKR_DEPLOYED_PLUGIN_PATH="$TMP/deployed-clean" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh"
 
 
 # Backup timestamp parser must require exact canonical UTC shape before parsing.
