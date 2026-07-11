@@ -160,13 +160,14 @@ DEPLOYED_COMMIT="$(git -C "$DEPLOYED_REAL" rev-parse HEAD 2>>"$DIAGNOSTIC_FILE")
 [[ "$SOURCE_COMMIT" == "$DEPLOYED_COMMIT" ]] || { mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
 DEPLOYMENT_INTEGRITY_STATUS="PASS"
 
-origin_json="$RUN_DIR/origin.json"
-python3 - "$origin_json" "${NMKR_REAL_SYNC_ALLOWED_ORIGIN:-}" "${WP_BASE_URL:-}" <<'PY' || { mark_fail ORIGIN_GUARD_STATUS; fail_gate "origin-guard" "$DIAGNOSTIC_FILE"; }
-import hashlib,json,sys,urllib.parse
-out, allowed, base = sys.argv[1:4]
+ORIGIN_SHA256="$(python3 - "${NMKR_REAL_SYNC_ALLOWED_ORIGIN:-}" "${WP_BASE_URL:-}" <<'PY'
+import hashlib,sys,urllib.parse
+allowed, base = sys.argv[1:3]
 def norm(value):
     p=urllib.parse.urlsplit(value.strip())
-    if p.scheme != 'https' or not p.hostname or p.username or p.password or p.query or p.fragment or p.path not in ('','/') or p.port is not None:
+    try: port = p.port
+    except ValueError: raise SystemExit(1)
+    if p.scheme != 'https' or not p.hostname or p.username or p.password or p.query or p.fragment or p.path not in ('','/') or port is not None:
         raise SystemExit(1)
     host=p.hostname.lower().rstrip('.')
     if '*' in host:
@@ -174,20 +175,24 @@ def norm(value):
     return 'https://' + host
 na, nb = norm(allowed), norm(base)
 if na != nb: raise SystemExit(1)
-json.dump({'origin':na,'sha256':hashlib.sha256(na.encode()).hexdigest()}, open(out,'w'), separators=(',',':'))
+print(hashlib.sha256(na.encode()).hexdigest())
 PY
+)" || { mark_fail ORIGIN_GUARD_STATUS; fail_gate "origin-guard" "$DIAGNOSTIC_FILE"; }
 WP_HOME="$(wp_cli option get home --skip-plugins --skip-themes 2>/dev/null)" || { mark_fail ORIGIN_GUARD_STATUS; fail_gate "origin-guard" "$DIAGNOSTIC_FILE"; }
 WP_SITEURL="$(wp_cli option get siteurl --skip-plugins --skip-themes 2>/dev/null)" || { mark_fail ORIGIN_GUARD_STATUS; fail_gate "origin-guard" "$DIAGNOSTIC_FILE"; }
-python3 - "$origin_json" "$WP_HOME" "$WP_SITEURL" <<'PY' || { mark_fail ORIGIN_GUARD_STATUS; fail_gate "origin-guard" "$DIAGNOSTIC_FILE"; }
-import json,sys,urllib.parse
-data=json.load(open(sys.argv[1]))
-def norm(value):
+python3 - "$ORIGIN_SHA256" "$WP_HOME" "$WP_SITEURL" <<'PY' || { mark_fail ORIGIN_GUARD_STATUS; fail_gate "origin-guard" "$DIAGNOSTIC_FILE"; }
+import hashlib,sys,urllib.parse
+expected = sys.argv[1]
+def digest(value):
     p=urllib.parse.urlsplit(value.strip())
-    if p.scheme!='https' or not p.hostname or p.username or p.password or p.query or p.fragment or p.path not in ('','/') or p.port is not None: raise SystemExit(1)
-    return 'https://' + p.hostname.lower().rstrip('.')
-if any(norm(v)!=data['origin'] for v in sys.argv[2:]): raise SystemExit(1)
+    try: port = p.port
+    except ValueError: raise SystemExit(1)
+    if p.scheme!='https' or not p.hostname or p.username or p.password or p.query or p.fragment or p.path not in ('','/') or port is not None: raise SystemExit(1)
+    origin = 'https://' + p.hostname.lower().rstrip('.')
+    return hashlib.sha256(origin.encode()).hexdigest()
+if any(digest(v) != expected for v in sys.argv[2:]): raise SystemExit(1)
 PY
-ORIGIN_SHA256="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["sha256"])' "$origin_json")"; rm -f "$origin_json"; ORIGIN_GUARD_STATUS="PASS"
+ORIGIN_GUARD_STATUS="PASS"
 
 wp_cli core is-installed >/dev/null 2>>"$DIAGNOSTIC_FILE" || { mark_fail WORDPRESS_READY_STATUS; fail_gate "wordpress-ready" "$DIAGNOSTIC_FILE"; }
 wp_cli db prefix >/dev/null 2>>"$DIAGNOSTIC_FILE" || { mark_fail WORDPRESS_READY_STATUS; fail_gate "wordpress-ready" "$DIAGNOSTIC_FILE"; }

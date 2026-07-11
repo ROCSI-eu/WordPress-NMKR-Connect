@@ -62,9 +62,8 @@ run_expect_fail "repository root as private state" base_env WP_PATH="$WP1" NMKR_
 [[ ! -e "$SRC1/runs" ]] || fail "invalid repository-root state created runs"
 [[ "$(stat -c %a "$SRC1")" == "$perm_before" ]] || fail "invalid repository-root state permissions changed"
 
-mkdir -p "$SRC1/private-state"
-run_expect_fail "repository subdirectory as private state" base_env WP_PATH="$WP1" NMKR_PHASE2_LOG_DIR="$SRC1/private-state" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh"
-[[ ! -e "$SRC1/private-state/runs" ]] || fail "invalid repository-subdirectory state created runs"
+run_expect_fail "repository subdirectory as private state" base_env WP_PATH="$WP1" NMKR_PHASE2_LOG_DIR="$SRC1/scripts" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh"
+[[ ! -e "$SRC1/scripts/runs" ]] || fail "invalid repository-subdirectory state created runs"
 
 run_expect_fail "WP_PATH as private state" base_env WP_PATH="$WP1" NMKR_PHASE2_LOG_DIR="$WP1" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh"
 [[ ! -e "$WP1/runs" ]] || fail "invalid WP_PATH state created runs"
@@ -86,11 +85,39 @@ run_expect_fail "source root deployed path" base_env WP_PATH="$WP1" NMKR_PHASE2_
 PARENT_DEPLOY="$TMP/parent-deploy"; mkdir -p "$PARENT_DEPLOY/plugin"; git -C "$PARENT_DEPLOY" init -q; git -C "$PARENT_DEPLOY" config user.email public@example.invalid; git -C "$PARENT_DEPLOY" config user.name PublicTest; touch "$PARENT_DEPLOY/file"; git -C "$PARENT_DEPLOY" add file; git -C "$PARENT_DEPLOY" commit -q -m init
 run_expect_fail "deployed Git top-level parent" base_env WP_PATH="$WP1" NMKR_PHASE2_LOG_DIR="$TMP/valid-state3" NMKR_DEPLOYED_PLUGIN_PATH="$PARENT_DEPLOY/plugin" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh"
 
+[[ -z "$(git -C "$SRC1" -c core.fileMode=true status --porcelain=v1 --untracked-files=all)" ]] || fail "source fixture dirty before structural checkout test"
 STRUCT_CLONE="$TMP/deployed-structural"; git clone -q "$SRC1" "$STRUCT_CLONE"
 STRUCT_OUT="$TMP/structural.out"
 if base_env WP_PATH="$WP1" NMKR_PHASE2_LOG_DIR="$TMP/valid-state-structural" NMKR_DEPLOYED_PLUGIN_PATH="$STRUCT_CLONE" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$STRUCT_OUT" 2>&1; then fail "structural clean checkout unexpectedly passed full preflight"; fi
 grep -q 'failed gate: origin-guard' "$STRUCT_OUT" || { cat "$STRUCT_OUT"; fail "valid separate deployed checkout did not pass structural checks before later guard"; }
 pass "valid separate deployed Git checkout passed structural checks"
+
+RAW_ORIGIN="https://phase15-origin.invalid"
+ORIGIN_STATE="$TMP/origin-state"
+WPCLI_MOCK="$TMP/wpcli-origin-mock"
+cat > "$WPCLI_MOCK" <<'EOF'
+#!/usr/bin/env bash
+if [[ "$1" == --path=* ]]; then shift; fi
+if [[ "$1 $2 $3" == "option get home" || "$1 $2 $3" == "option get siteurl" ]]; then
+  printf 'https://different-origin.invalid\n'
+  exit 0
+fi
+exit 0
+EOF
+chmod +x "$WPCLI_MOCK"
+ORIGIN_OUT="$TMP/origin-failure.out"
+if base_env WP_CLI_BIN="$WPCLI_MOCK" WP_PATH="$WP1" NMKR_PHASE2_LOG_DIR="$ORIGIN_STATE" NMKR_DEPLOYED_PLUGIN_PATH="$STRUCT_CLONE" WP_BASE_URL="$RAW_ORIGIN" NMKR_REAL_SYNC_ALLOWED_ORIGIN="$RAW_ORIGIN" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$ORIGIN_OUT" 2>&1; then
+  fail "origin failure unexpectedly passed"
+fi
+grep -q 'failed gate: origin-guard' "$ORIGIN_OUT" || fail "origin failure did not reach origin-guard"
+! grep -Fq "$RAW_ORIGIN" "$ORIGIN_OUT" || fail "raw origin appeared in captured output"
+if [[ -d "$ORIGIN_STATE" ]]; then
+  if find "$ORIGIN_STATE" -type f -print0 | xargs -0 grep -Fq "$RAW_ORIGIN" 2>/dev/null; then
+    fail "raw origin persisted in private run directory"
+  fi
+  [[ -z "$(find "$ORIGIN_STATE" -name origin.json -print -quit)" ]] || fail "origin.json persisted after origin failure"
+fi
+pass "origin failure does not persist raw origin"
 
 MISMATCH="$TMP/deployed-mismatch"; git clone -q "$SRC1" "$MISMATCH"; echo mismatch > "$MISMATCH/mismatch.txt"; git -C "$MISMATCH" add mismatch.txt; git -C "$MISMATCH" commit -q -m mismatch
 run_expect_fail "source/deployed commit mismatch" base_env WP_PATH="$WP1" NMKR_PHASE2_LOG_DIR="$TMP/valid-state-mismatch" NMKR_DEPLOYED_PLUGIN_PATH="$MISMATCH" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh"
