@@ -195,6 +195,45 @@ chmod +x "$SRC1/scripts/nmkr-real-sync-preflight.sh"
 git clone -q "$SRC1" "$TMP/deployed-clean"; touch "$TMP/deployed-clean/untracked.txt"
 run_expect_fail "untracked deployed file" base_env WP_PATH="$WP1" NMKR_PHASE2_LOG_DIR="$TMP/valid-state6" NMKR_DEPLOYED_PLUGIN_PATH="$TMP/deployed-clean" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh"
 
+
+# Backup timestamp parser must require exact canonical UTC shape before parsing.
+python3 - <<'PY' || fail "backup timestamp parser regression cases failed"
+import datetime, re, sys
+def check(value):
+    if not re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z', value):
+        raise ValueError('shape')
+    dt = datetime.datetime.strptime(value, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=datetime.timezone.utc)
+    if dt.strftime('%Y-%m-%dT%H:%M:%SZ') != value:
+        raise ValueError('roundtrip')
+    now = datetime.datetime.now(datetime.timezone.utc)
+    if dt < now - datetime.timedelta(hours=24) or dt > now + datetime.timedelta(minutes=5):
+        raise ValueError('age')
+    return int(dt.timestamp())
+now = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0)
+canonical = now.strftime('%Y-%m-%dT%H:%M:%SZ')
+check(canonical)
+invalids = [
+    f'{now.year}-7-{now.day:02d}T{now.hour:02d}:{now.minute:02d}:{now.second:02d}Z',
+    f'{now.year}-{now.month:02d}-3T{now.hour:02d}:{now.minute:02d}:{now.second:02d}Z',
+    f'{now.year}-{now.month:02d}-{now.day:02d}T7:{now.minute:02d}:{now.second:02d}Z',
+    f'{now.year}-{now.month:02d}-{now.day:02d}T{now.hour:02d}:5:{now.second:02d}Z',
+    f'{now.year}-{now.month:02d}-{now.day:02d}T{now.hour:02d}:{now.minute:02d}:4Z',
+    canonical[:-1] + '.123Z',
+    canonical[:-1] + '+00:00',
+    canonical[:-1] + 'z',
+    ' ' + canonical,
+    canonical + ' ',
+    f'{now.year}-02-30T{now.hour:02d}:{now.minute:02d}:{now.second:02d}Z',
+]
+for value in invalids:
+    try:
+        check(value)
+    except Exception:
+        continue
+    raise SystemExit(f'invalid timestamp accepted: {value!r}')
+PY
+pass "backup timestamp parser rejects non-canonical forms"
+
 # Cron/runtime static and harness tests.
 ! grep -q '_get_cron_array' "$ROOT/scripts/nmkr-real-sync-runtime-state.php" || fail "runtime helper calls _get_cron_array"
 cat > "$TMP/runtime-harness.php" <<'PHP'

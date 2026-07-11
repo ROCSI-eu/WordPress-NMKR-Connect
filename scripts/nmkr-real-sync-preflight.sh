@@ -287,10 +287,16 @@ then mark_fail PROFILE_STATUS; fail_gate "profile" "$DIAGNOSTIC_FILE"; fi
 PROFILE_STATUS="PASS"
 
 python3 - "${NMKR_REAL_SYNC_BACKUP_CONFIRMED_AT:-}" "$RUN_DIR/backup_epoch" <<'PY' || { mark_fail BACKUP_STATUS; fail_gate "backup" "$DIAGNOSTIC_FILE"; }
-import datetime,sys
+import datetime,re,sys
 value=sys.argv[1]
-try: dt=datetime.datetime.strptime(value, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=datetime.timezone.utc)
-except Exception: raise SystemExit(1)
+if not re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z', value):
+    raise SystemExit(1)
+try:
+    dt=datetime.datetime.strptime(value, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=datetime.timezone.utc)
+except Exception:
+    raise SystemExit(1)
+if dt.strftime('%Y-%m-%dT%H:%M:%SZ') != value:
+    raise SystemExit(1)
 now=datetime.datetime.now(datetime.timezone.utc)
 if dt < now - datetime.timedelta(hours=24) or dt > now + datetime.timedelta(minutes=5): raise SystemExit(1)
 open(sys.argv[2],'w').write(str(int(dt.timestamp())))
