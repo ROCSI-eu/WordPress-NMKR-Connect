@@ -24,7 +24,8 @@ EOF
   git -C "$dir" init -q
   git -C "$dir" config user.email public@example.invalid
   git -C "$dir" config user.name PublicTest
-  git -C "$dir" add scripts
+  printf '/vendor/\n' > "$dir/.gitignore"
+  git -C "$dir" add .gitignore scripts
   git -C "$dir" commit -q -m init
 }
 base_env() {
@@ -174,8 +175,29 @@ pass "valid separate deployed Git checkout passed structural checks"
 OVERRIDE_OTHER="$TMP/deployed-override-other"; git clone -q "$SRC1" "$OVERRIDE_OTHER"
 run_expect_fail "override not matching active plugin path" base_env WP_PATH="$STRUCT_WP" NMKR_PHASE2_LOG_DIR="$TMP/override-mismatch-state" NMKR_DEPLOYED_PLUGIN_PATH="$OVERRIDE_OTHER" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh"
 
-VENDOR_WP="$TMP/wp-vendor"; mkdir -p "$VENDOR_WP/wp-content/plugins"; git clone -q "$SRC1" "$VENDOR_WP/wp-content/plugins/nmkr-connect"; mkdir -p "$VENDOR_WP/wp-content/plugins/nmkr-connect/vendor/freemius"; touch "$VENDOR_WP/wp-content/plugins/nmkr-connect/vendor/freemius/ignored-runtime.php"
-run_expect_fail "ignored runtime vendor files" base_env WP_PATH="$VENDOR_WP" NMKR_PHASE2_LOG_DIR="$TMP/ignored-runtime-state" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh"
+VENDOR_ALLOWED_WP="$TMP/wp-vendor-allowed"; mkdir -p "$VENDOR_ALLOWED_WP/wp-content/plugins"; git clone -q "$SRC1" "$VENDOR_ALLOWED_WP/wp-content/plugins/nmkr-connect"
+mkdir -p "$VENDOR_ALLOWED_WP/wp-content/plugins/nmkr-connect/vendor/freemius/wordpress-sdk/includes" "$VENDOR_ALLOWED_WP/wp-content/plugins/nmkr-connect/vendor/composer"
+touch "$VENDOR_ALLOWED_WP/wp-content/plugins/nmkr-connect/vendor/freemius/wordpress-sdk/start.php"
+touch "$VENDOR_ALLOWED_WP/wp-content/plugins/nmkr-connect/vendor/freemius/wordpress-sdk/includes/class-freemius.php"
+touch "$VENDOR_ALLOWED_WP/wp-content/plugins/nmkr-connect/vendor/autoload.php" "$VENDOR_ALLOWED_WP/wp-content/plugins/nmkr-connect/vendor/composer/installed.php"
+VENDOR_ALLOWED_OUT="$TMP/vendor-allowed.out"
+if base_env WP_PATH="$VENDOR_ALLOWED_WP" NMKR_PHASE2_LOG_DIR="$TMP/allowed-vendor-state" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$VENDOR_ALLOWED_OUT" 2>&1; then
+  fail "allowed ignored vendor dependencies unexpectedly passed full preflight"
+fi
+grep -q 'failed gate: origin-guard' "$VENDOR_ALLOWED_OUT" || { cat "$VENDOR_ALLOWED_OUT"; fail "allowed ignored vendor dependencies did not reach later guard"; }
+pass "required ignored vendor dependencies allowed"
+
+VENDOR_WP="$TMP/wp-vendor"; mkdir -p "$VENDOR_WP/wp-content/plugins"; git clone -q "$SRC1" "$VENDOR_WP/wp-content/plugins/nmkr-connect"
+mkdir -p "$VENDOR_WP/wp-content/plugins/nmkr-connect/vendor/freemius/wordpress-sdk/includes"
+touch "$VENDOR_WP/wp-content/plugins/nmkr-connect/vendor/freemius/wordpress-sdk/start.php"
+touch "$VENDOR_WP/wp-content/plugins/nmkr-connect/vendor/freemius/wordpress-sdk/includes/class-freemius.php"
+touch "$VENDOR_WP/wp-content/plugins/nmkr-connect/vendor/unexpected-runtime.php"
+VENDOR_UNEXPECTED_OUT="$TMP/vendor-unexpected.out"
+if base_env WP_PATH="$VENDOR_WP" NMKR_PHASE2_LOG_DIR="$TMP/ignored-runtime-state" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$VENDOR_UNEXPECTED_OUT" 2>&1; then
+  fail "unexpected ignored vendor files unexpectedly passed"
+fi
+grep -q 'failed gate: deployment-integrity' "$VENDOR_UNEXPECTED_OUT" || { cat "$VENDOR_UNEXPECTED_OUT"; fail "unexpected ignored vendor files did not fail deployment-integrity"; }
+pass "unexpected ignored vendor files fail closed"
 
 REAL_GIT_BIN="$(command -v git)"
 GIT_WRAPPER_DIR="$TMP/git-wrapper"; mkdir -p "$GIT_WRAPPER_DIR"

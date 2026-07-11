@@ -202,10 +202,36 @@ if ! DEPLOYED_STATUS="$(git -C "$DEPLOYED_REAL" -c core.fileMode=true status --p
   mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"
 fi
 [[ -z "$DEPLOYED_STATUS" ]] || { mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
-if ! DEPLOYED_IGNORED_RUNTIME="$(git -C "$DEPLOYED_REAL" ls-files --others --ignored --exclude-standard --directory -- vendor/ 2>>"$DIAGNOSTIC_FILE")"; then
+if ! DEPLOYED_IGNORED_RUNTIME="$(git -C "$DEPLOYED_REAL" ls-files --others --ignored --exclude-standard -- vendor/ 2>>"$DIAGNOSTIC_FILE")"; then
   mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"
 fi
-[[ -z "$DEPLOYED_IGNORED_RUNTIME" ]] || { mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
+python3 - "$DEPLOYED_REAL" "$DEPLOYED_IGNORED_RUNTIME" <<'PY' || { mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
+import os, sys
+root = sys.argv[1]
+ignored = [line for line in sys.argv[2].splitlines() if line]
+allowed_files = {'vendor/autoload.php'}
+allowed_prefixes = ('vendor/composer/', 'vendor/freemius/wordpress-sdk/')
+for relpath in ignored:
+    if not (relpath in allowed_files or relpath.startswith(allowed_prefixes)):
+        raise SystemExit(1)
+    full = os.path.normpath(os.path.join(root, relpath))
+    if not (full == root or full.startswith(root.rstrip(os.sep) + os.sep)):
+        raise SystemExit(1)
+    current = root
+    for part in relpath.split(os.sep):
+        current = os.path.join(current, part)
+        if os.path.islink(current):
+            raise SystemExit(1)
+if ignored:
+    required = (
+        'vendor/freemius/wordpress-sdk/start.php',
+        'vendor/freemius/wordpress-sdk/includes/class-freemius.php',
+    )
+    for relpath in required:
+        full = os.path.join(root, relpath)
+        if not os.path.isfile(full) or os.path.islink(full):
+            raise SystemExit(1)
+PY
 [[ "$SOURCE_COMMIT" == "$DEPLOYED_COMMIT" ]] || { mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
 DEPLOYMENT_INTEGRITY_STATUS="PASS"
 
