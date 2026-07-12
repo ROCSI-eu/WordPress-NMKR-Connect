@@ -26,17 +26,46 @@ for ci_name in CI GITHUB_ACTIONS GITLAB_CI CIRCLECI BUILDKITE TF_BUILD; do
   fi
 done
 
+pre_source_fail() {
+  local gate="$1"
+  printf '\nPhase 15 real-sync preflight summary\n'
+  printf '  result: FAIL\n'
+  printf '  failed gate: %s\n' "$gate"
+  exit 1
+}
+
+path_inside_or_equal() {
+  python3 - "$1" "$2" <<'PY'
+import os, sys
+child = os.path.realpath(sys.argv[1])
+parent = os.path.realpath(sys.argv[2])
+if child == parent or child.startswith(parent.rstrip(os.sep) + os.sep):
+    raise SystemExit(0)
+raise SystemExit(1)
+PY
+}
+
 ENV_FILE=""
+ENV_FILE_REAL=""
+REPO_REAL="$(python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$REPO_ROOT")"
 if [[ -n "${NMKR_PHASE2_ENV_FILE:-}" ]]; then
   ENV_FILE="$NMKR_PHASE2_ENV_FILE"
-elif [[ -f "$REPO_ROOT/.env.tests" ]]; then
-  ENV_FILE="$REPO_ROOT/.env.tests"
-fi
-if [[ -n "$ENV_FILE" ]]; then
-  [[ -f "$ENV_FILE" ]] || { printf 'ERROR: configured private environment file is unavailable.\n' >&2; exit 1; }
+  [[ "$ENV_FILE" = /* ]] || pre_source_fail "env-file"
+  [[ -f "$ENV_FILE" && ! -L "$ENV_FILE" ]] || pre_source_fail "env-file"
+  ENV_FILE_REAL="$(python3 - "$ENV_FILE" <<'PY'
+import os, sys
+path = sys.argv[1]
+real = os.path.realpath(path)
+if real != os.path.abspath(path):
+    raise SystemExit(1)
+print(real)
+PY
+  )" || pre_source_fail "env-file"
+  if path_inside_or_equal "$ENV_FILE_REAL" "$REPO_REAL"; then pre_source_fail "env-file"; fi
+  if [[ -n "${WP_PATH:-}" ]] && path_inside_or_equal "$ENV_FILE_REAL" "$WP_PATH"; then pre_source_fail "env-file"; fi
   set -a
   # shellcheck source=/dev/null
-  source "$ENV_FILE"
+  source "$ENV_FILE_REAL"
   set +a
 fi
 
@@ -50,6 +79,10 @@ NMKR_REAL_SYNC_MAX_DURATION_SECONDS="${NMKR_REAL_SYNC_MAX_DURATION_SECONDS:-1800
 NMKR_REAL_SYNC_POLL_TIMEOUT_SECONDS="${NMKR_REAL_SYNC_POLL_TIMEOUT_SECONDS:-45}"
 NMKR_REAL_SYNC_RECEIPT_TTL_SECONDS="${NMKR_REAL_SYNC_RECEIPT_TTL_SECONDS:-300}"
 NMKR_PHASE2_CURL_CA_BUNDLE="${NMKR_PHASE2_CURL_CA_BUNDLE:-}"
+
+if [[ -n "$ENV_FILE_REAL" && -n "${WP_PATH:-}" ]] && path_inside_or_equal "$ENV_FILE_REAL" "$WP_PATH"; then
+  pre_source_fail "env-file"
+fi
 
 CONFIRMATIONS_STATUS="PENDING"; PRIVATE_STATE_STATUS="PENDING"; SOURCE_INTEGRITY_STATUS="PENDING"; DEPLOYMENT_INTEGRITY_STATUS="PENDING"
 ORIGIN_GUARD_STATUS="PENDING"; WORDPRESS_READY_STATUS="PENDING"; PLUGIN_ACTIVE_STATUS="PENDING"; CAPABILITY_STATUS="PENDING"

@@ -41,6 +41,7 @@ base_env() {
   -u CIRCLECI \
   -u BUILDKITE \
   -u TF_BUILD \
+  -u NMKR_PHASE2_ENV_FILE \
   RUN_REAL_SYNC=true \
   NMKR_REAL_SYNC_CONFIRM=I_UNDERSTAND_THIS_MUTATES_DEV \
   PW_SAVE_ARTIFACTS=false \
@@ -64,6 +65,95 @@ wp_with_plugin_link() {
 
 # Private-state path tests: invalid locations fail before creating runs or chmodding.
 SRC1="$TMP/src1"; WP1="$TMP/wp1"; mkdir -p "$WP1"; make_repo "$SRC1"
+
+REPO_LOCAL_SENTINEL="$TMP/repo-local-env-sentinel"
+cat > "$SRC1/.env.tests" <<EOF
+touch "$REPO_LOCAL_SENTINEL"
+RUN_REAL_SYNC=true
+EOF
+REPO_LOCAL_OUT="$TMP/repo-local-env.out"
+if env -u CI -u GITHUB_ACTIONS -u GITLAB_CI -u CIRCLECI -u BUILDKITE -u TF_BUILD bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$REPO_LOCAL_OUT" 2>&1; then
+  fail "repo-local .env.tests unexpectedly passed"
+fi
+[[ ! -e "$REPO_LOCAL_SENTINEL" ]] || fail "repo-local .env.tests was sourced implicitly"
+[[ ! -e "$SRC1/.phase2-private" ]] || fail "repo-local .env.tests created private state"
+! grep -Fq "$SRC1/.env.tests" "$REPO_LOCAL_OUT" || fail "repo-local env path leaked"
+rm -f "$SRC1/.env.tests"
+pass "repo-local .env.tests is not sourced implicitly"
+
+EXPLICIT_REPO_SENTINEL="$TMP/explicit-repo-env-sentinel"
+cat > "$SRC1/.env.tests" <<EOF
+touch "$EXPLICIT_REPO_SENTINEL"
+RUN_REAL_SYNC=true
+EOF
+EXPLICIT_REPO_OUT="$TMP/explicit-repo-env.out"
+if env -u CI -u GITHUB_ACTIONS -u GITLAB_CI -u CIRCLECI -u BUILDKITE -u TF_BUILD NMKR_PHASE2_ENV_FILE="$SRC1/.env.tests" NMKR_PHASE2_LOG_DIR="$TMP/explicit-repo-state" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$EXPLICIT_REPO_OUT" 2>&1; then
+  fail "explicit repo-local env file unexpectedly passed"
+fi
+grep -q 'failed gate: env-file' "$EXPLICIT_REPO_OUT" || fail "explicit repo-local env file did not fail env-file gate"
+[[ ! -e "$EXPLICIT_REPO_SENTINEL" ]] || fail "explicit repo-local env file was sourced"
+[[ ! -e "$TMP/explicit-repo-state" ]] || fail "explicit repo-local env file created private state"
+! grep -Fq "$SRC1/.env.tests" "$EXPLICIT_REPO_OUT" || fail "explicit repo-local env path leaked"
+rm -f "$SRC1/.env.tests"
+pass "explicit repo-local env file rejected before sourcing"
+
+REL_ENV_SENTINEL="$TMP/relative-env-sentinel"
+cat > "$TMP/relative.env" <<EOF
+touch "$REL_ENV_SENTINEL"
+RUN_REAL_SYNC=true
+EOF
+REL_ENV_OUT="$TMP/relative-env.out"
+if ( cd "$TMP" && env -u CI -u GITHUB_ACTIONS -u GITLAB_CI -u CIRCLECI -u BUILDKITE -u TF_BUILD NMKR_PHASE2_ENV_FILE="relative.env" NMKR_PHASE2_LOG_DIR="$TMP/relative-state" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$REL_ENV_OUT" 2>&1 ); then
+  fail "relative env file unexpectedly passed"
+fi
+grep -q 'failed gate: env-file' "$REL_ENV_OUT" || fail "relative env file did not fail env-file gate"
+[[ ! -e "$REL_ENV_SENTINEL" ]] || fail "relative env file was sourced"
+[[ ! -e "$TMP/relative-state" ]] || fail "relative env file created private state"
+pass "relative env file path rejected"
+
+OUTSIDE_ENV_SENTINEL="$TMP/outside-env-sentinel"
+OUTSIDE_ENV_FILE="$TMP/outside-private.env"
+cat > "$OUTSIDE_ENV_FILE" <<EOF
+touch "$OUTSIDE_ENV_SENTINEL"
+RUN_REAL_SYNC=false
+EOF
+OUTSIDE_ENV_OUT="$TMP/outside-env.out"
+if env -u CI -u GITHUB_ACTIONS -u GITLAB_CI -u CIRCLECI -u BUILDKITE -u TF_BUILD NMKR_PHASE2_ENV_FILE="$OUTSIDE_ENV_FILE" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$OUTSIDE_ENV_OUT" 2>&1; then
+  fail "outside env file unexpectedly passed without opt-in"
+fi
+[[ -e "$OUTSIDE_ENV_SENTINEL" ]] || fail "outside env file was not sourced"
+grep -q 'failed gate: confirmations' "$OUTSIDE_ENV_OUT" || fail "outside env file did not reach confirmation gate"
+! grep -Fq "$OUTSIDE_ENV_FILE" "$OUTSIDE_ENV_OUT" || fail "outside env path leaked"
+pass "absolute outside env file can be sourced"
+
+WP_ENV_DIR="$WP1/private-env"; mkdir -p "$WP_ENV_DIR"
+WP_ENV_SENTINEL="$TMP/wp-env-sentinel"; WP_ENV_FILE="$WP_ENV_DIR/phase15.env"
+cat > "$WP_ENV_FILE" <<EOF
+touch "$WP_ENV_SENTINEL"
+RUN_REAL_SYNC=true
+EOF
+WP_ENV_OUT="$TMP/wp-env.out"
+if env -u CI -u GITHUB_ACTIONS -u GITLAB_CI -u CIRCLECI -u BUILDKITE -u TF_BUILD WP_PATH="$WP1" NMKR_PHASE2_ENV_FILE="$WP_ENV_FILE" NMKR_PHASE2_LOG_DIR="$TMP/wp-env-state" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$WP_ENV_OUT" 2>&1; then
+  fail "WP-local env file unexpectedly passed"
+fi
+grep -q 'failed gate: env-file' "$WP_ENV_OUT" || fail "WP-local env file did not fail env-file gate"
+[[ ! -e "$WP_ENV_SENTINEL" ]] || fail "WP-local env file was sourced"
+[[ ! -e "$TMP/wp-env-state" ]] || fail "WP-local env file created private state"
+! grep -Fq "$WP_ENV_FILE" "$WP_ENV_OUT" || fail "WP-local env path leaked"
+pass "WP-local env file rejected before sourcing when WP_PATH is known"
+
+INHERITED_ENV_SENTINEL="$TMP/inherited-env-sentinel"; INHERITED_ENV_FILE="$TMP/inherited-private.env"
+cat > "$INHERITED_ENV_FILE" <<EOF
+touch "$INHERITED_ENV_SENTINEL"
+RUN_REAL_SYNC=false
+EOF
+INHERITED_ENV_OUT="$TMP/inherited-env.out"
+if ( export NMKR_PHASE2_ENV_FILE="$INHERITED_ENV_FILE"; base_env WP_PATH="$WP1" NMKR_PHASE2_LOG_DIR="$TMP/inherited-state" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$INHERITED_ENV_OUT" 2>&1 ); then
+  fail "base_env inherited env-file fixture unexpectedly passed"
+fi
+[[ ! -e "$INHERITED_ENV_SENTINEL" ]] || fail "base_env did not scrub inherited env file"
+! grep -q 'failed gate: confirmations' "$INHERITED_ENV_OUT" || fail "base_env fixture was controlled by inherited env file"
+pass "base_env scrubs inherited env-file configuration"
 
 CI_PARENT="$TMP/ci-parent"; mkdir -p "$CI_PARENT"; ci_parent_perm_before="$(stat -c %a "$CI_PARENT")"; CI_OUT="$TMP/ci-refusal.out"
 if env CI=true RUN_REAL_SYNC=true NMKR_REAL_SYNC_CONFIRM=I_UNDERSTAND_THIS_MUTATES_DEV PW_SAVE_ARTIFACTS=false NMKR_REAL_SYNC_BACKUP_CONFIRM=I_CONFIRMED_A_RECENT_DEV_BACKUP WP_PATH="$WP1" NMKR_PHASE2_LOG_DIR="$CI_PARENT/ci-state" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$CI_OUT" 2>&1; then

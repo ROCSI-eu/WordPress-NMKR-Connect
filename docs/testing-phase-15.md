@@ -6,7 +6,7 @@ Phase 15 is a private, read-only preflight for a future controlled real synchron
 
 ## Private-only architecture
 
-Run the preflight only from a private development VM with a private environment file outside the repository. Do not run it against production or any unknown target. Actual origins, credentials, and private paths remain in that private environment file. `NMKR_PHASE2_LOG_DIR` is mandatory and must point outside both the repository and the WordPress web root.
+Run the preflight only from a private development VM. Configuration must be supplied either as direct exported environment variables or through an explicit absolute `NMKR_PHASE2_ENV_FILE` outside both the repository and the WordPress root; Phase 15 does not implicitly source repository-local `.env.tests`. Do not run it against production or any unknown target. Actual origins, credentials, and private paths remain in that private environment file. `NMKR_PHASE2_LOG_DIR` is mandatory and must point outside both the repository and the WordPress web root.
 
 ## Exact confirmation variables
 
