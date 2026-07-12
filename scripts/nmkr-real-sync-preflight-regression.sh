@@ -442,6 +442,38 @@ if "$WPCLI_FLAG_MOCK" eval-file helper.php --skip-plugins --skip-themes >/dev/nu
 fi
 pass "WP-CLI isolation flag regression checks"
 
+SUMMARY_FUNC_FILE="$TMP/summary-func.sh"
+awk '/^print_summary\(\)/{capture=1} capture && /^fail_gate\(\)/{exit} capture{print}' "$ROOT/scripts/nmkr-real-sync-preflight.sh" > "$SUMMARY_FUNC_FILE"
+SUMMARY_PRIVATE="$TMP/private-summary-path"
+mkdir -p "$SUMMARY_PRIVATE"
+SUMMARY_SUCCESS_OUT="$TMP/summary-success.out"
+(
+  source "$SUMMARY_FUNC_FILE"
+  CONFIRMATIONS_STATUS=PASS; PRIVATE_STATE_STATUS=PASS; SOURCE_INTEGRITY_STATUS=PASS; DEPLOYMENT_INTEGRITY_STATUS=PASS
+  ORIGIN_GUARD_STATUS=PASS; WORDPRESS_READY_STATUS=PASS; PLUGIN_ACTIVE_STATUS=PASS; CAPABILITY_STATUS=PASS
+  DB_STATE_STATUS=PASS; RUNTIME_STATE_STATUS=PASS; CRON_STATE_STATUS=PASS; PROFILE_STATUS=PASS; BACKUP_STATUS=PASS
+  TIMEOUT_BOUNDS_STATUS=PASS; RECEIPT_STATUS=PASS; RESULT_STATUS=PASS; FAILED_GATE=""
+  SOURCE_COMMIT=0123456789abcdef0123456789abcdef01234567; DEPLOYED_COMMIT=0123456789abcdef0123456789abcdef01234567
+  RUN_DIR="$SUMMARY_PRIVATE/run"; DIAGNOSTIC_FILE="$SUMMARY_PRIVATE/run/preflight.log"
+  print_summary
+) > "$SUMMARY_SUCCESS_OUT"
+! grep -Fq "$SUMMARY_PRIVATE" "$SUMMARY_SUCCESS_OUT" || fail "successful summary leaked private path"
+! grep -q 'private diagnostic file:' "$SUMMARY_SUCCESS_OUT" || fail "successful summary printed diagnostic path"
+grep -q 'result: PASS' "$SUMMARY_SUCCESS_OUT" || fail "successful summary did not report PASS"
+SUMMARY_FAIL_OUT="$TMP/summary-fail.out"
+(
+  source "$SUMMARY_FUNC_FILE"
+  CONFIRMATIONS_STATUS=FAIL; PRIVATE_STATE_STATUS=PENDING; SOURCE_INTEGRITY_STATUS=PENDING; DEPLOYMENT_INTEGRITY_STATUS=PENDING
+  ORIGIN_GUARD_STATUS=PENDING; WORDPRESS_READY_STATUS=PENDING; PLUGIN_ACTIVE_STATUS=PENDING; CAPABILITY_STATUS=PENDING
+  DB_STATE_STATUS=PENDING; RUNTIME_STATE_STATUS=PENDING; CRON_STATE_STATUS=PENDING; PROFILE_STATUS=PENDING; BACKUP_STATUS=PENDING
+  TIMEOUT_BOUNDS_STATUS=PENDING; RECEIPT_STATUS=PENDING; RESULT_STATUS=FAIL; FAILED_GATE="confirmations"
+  SOURCE_COMMIT=""; DEPLOYED_COMMIT=""; RUN_DIR="$SUMMARY_PRIVATE/run"; DIAGNOSTIC_FILE="$SUMMARY_PRIVATE/run/preflight.log"
+  print_summary
+) > "$SUMMARY_FAIL_OUT"
+grep -Fq "$SUMMARY_PRIVATE/run/preflight.log" "$SUMMARY_FAIL_OUT" || fail "failed summary omitted diagnostic path"
+grep -q 'failed gate: confirmations' "$SUMMARY_FAIL_OUT" || fail "failed summary omitted gate"
+pass "summary diagnostic path gating"
+
 # Dynamic TLS and same-origin readiness primitives without contacting external hosts.
 if command -v openssl >/dev/null 2>&1; then
   CERT_DIR="$TMP/cert"; mkdir -p "$CERT_DIR"

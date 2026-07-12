@@ -78,7 +78,8 @@ print_summary() {
   [[ -n "$SOURCE_COMMIT" ]] && printf '  source commit: %.12s\n' "$SOURCE_COMMIT"
   [[ -n "$DEPLOYED_COMMIT" ]] && printf '  deployed commit: %.12s\n' "$DEPLOYED_COMMIT"
   [[ -n "$FAILED_GATE" ]] && printf '  failed gate: %s\n' "$FAILED_GATE"
-  [[ -n "$DIAGNOSTIC_FILE" ]] && printf '  private diagnostic file: %s\n' "$DIAGNOSTIC_FILE"
+  [[ "$RESULT_STATUS" == "FAIL" && -n "$DIAGNOSTIC_FILE" ]] && printf '  private diagnostic file: %s\n' "$DIAGNOSTIC_FILE"
+  return 0
 }
 fail_gate() { FAILED_GATE="$1"; DIAGNOSTIC_FILE="${2:-}"; RESULT_STATUS="FAIL"; print_summary; exit 1; }
 mark_fail() { local var="$1"; printf -v "$var" 'FAIL'; }
