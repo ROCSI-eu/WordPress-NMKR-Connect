@@ -41,7 +41,7 @@ When persistent object cache is disabled, Phase 15 does not inspect database-bac
 
 ## Cron guard
 
-Queued synchronization cron events block the preflight. Only aggregate counts are used. Timestamps, schedules, arguments, and serialized cron data are not printed or stored.
+Queued synchronization cron events block the preflight. Only aggregate counts are used. Timestamps, schedules, arguments, and serialized cron data are not printed or stored. The runtime cron guard runs before the login-page HTTP readiness probe so a browser-like request cannot dispatch a due synchronization cron hook before Phase 15 has counted and blocked it.
 
 ## Light-profile requirement
 

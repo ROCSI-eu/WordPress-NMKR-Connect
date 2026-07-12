@@ -279,25 +279,6 @@ ORIGIN_GUARD_STATUS="PASS"
 wp_cli core is-installed --skip-plugins --skip-themes --skip-packages >/dev/null 2>>"$DIAGNOSTIC_FILE" || { mark_fail WORDPRESS_READY_STATUS; fail_gate "wordpress-ready" "$DIAGNOSTIC_FILE"; }
 wp_cli db prefix --skip-plugins --skip-themes --skip-packages >/dev/null 2>>"$DIAGNOSTIC_FILE" || { mark_fail WORDPRESS_READY_STATUS; fail_gate "wordpress-ready" "$DIAGNOSTIC_FILE"; }
 [[ ! -e "${WP_PATH%/}/.maintenance" ]] || { mark_fail WORDPRESS_READY_STATUS; fail_gate "wordpress-ready" "$DIAGNOSTIC_FILE"; }
-BODY_FILE="$RUN_DIR/login-body.tmp"; CURL_ERR="$RUN_DIR/login-curl.err"; CURL_META="$RUN_DIR/login-curl.meta"; LOGIN_URL="${WP_BASE_URL%/}/wp-login.php"
-CURL_ARGS=(-sS -L --max-time "$NMKR_PHASE2_WP_READY_HTTP_TIMEOUT_SECONDS" -o "$BODY_FILE" -w '%{http_code} %{url_effective}' "$LOGIN_URL")
-if [[ -n "$NMKR_PHASE2_CURL_CA_BUNDLE" ]]; then CURL_ARGS=(--cacert "$NMKR_PHASE2_CURL_CA_BUNDLE" "${CURL_ARGS[@]}"); fi
-if ! curl "${CURL_ARGS[@]}" >"$CURL_META" 2>"$CURL_ERR"; then rm -f "$BODY_FILE" "$CURL_ERR" "$CURL_META"; mark_fail WORDPRESS_READY_STATUS; fail_gate "wordpress-ready" "$DIAGNOSTIC_FILE"; fi
-HTTP_STATUS="$(awk '{print $1}' "$CURL_META")"
-EFFECTIVE_URL="$(cut -d' ' -f2- "$CURL_META")"
-if [[ "$HTTP_STATUS" != "200" ]] || ! grep -qi 'id="user_login"' "$BODY_FILE"; then rm -f "$BODY_FILE" "$CURL_ERR" "$CURL_META"; mark_fail WORDPRESS_READY_STATUS; fail_gate "wordpress-ready" "$DIAGNOSTIC_FILE"; fi
-python3 - "$ORIGIN_SHA256" "$EFFECTIVE_URL" <<'PY' || { rm -f "$BODY_FILE" "$CURL_ERR" "$CURL_META"; mark_fail WORDPRESS_READY_STATUS; fail_gate "wordpress-ready" "$DIAGNOSTIC_FILE"; }
-import hashlib,sys,urllib.parse
-expected,url=sys.argv[1:3]
-p=urllib.parse.urlsplit(url.strip())
-try: port=p.port
-except ValueError: raise SystemExit(1)
-if p.scheme != 'https' or not p.hostname or p.username or p.password or port is not None: raise SystemExit(1)
-origin='https://' + p.hostname.lower().rstrip('.')
-if hashlib.sha256(origin.encode()).hexdigest() != expected: raise SystemExit(1)
-PY
-rm -f "$BODY_FILE" "$CURL_ERR" "$CURL_META"; WORDPRESS_READY_STATUS="PASS"
-
 wp_cli plugin is-active "$NMKR_PLUGIN_SLUG" --skip-plugins --skip-themes --skip-packages >/dev/null 2>>"$DIAGNOSTIC_FILE" || { mark_fail PLUGIN_ACTIVE_STATUS; fail_gate "plugin-active" "$DIAGNOSTIC_FILE"; }; PLUGIN_ACTIVE_STATUS="PASS"
 DB_LOG="$RUN_DIR/db-state.log"; if ! NMKR_DB_STATE_ALLOW_ACTIVE_SYNC=false NMKR_WPCLI_ISOLATION=true WP_PATH="$WP_PATH" WP_CLI_BIN="$WP_CLI_BIN" NMKR_PLUGIN_SLUG="$NMKR_PLUGIN_SLUG" bash "$REPO_ROOT/scripts/nmkr-wpcli-db-state.sh" >"$DB_LOG" 2>&1; then mark_fail DB_STATE_STATUS; fail_gate "db-state" "$DB_LOG"; fi; chmod 600 "$DB_LOG"; DB_STATE_STATUS="PASS"
 RUNTIME_JSON="$RUN_DIR/runtime-state.json"; wp_cli eval-file "$REPO_ROOT/scripts/nmkr-real-sync-runtime-state.php" --skip-plugins --skip-themes --skip-packages >"$RUNTIME_JSON" 2>>"$DIAGNOSTIC_FILE" || { mark_fail RUNTIME_STATE_STATUS; fail_gate "runtime-state" "$DIAGNOSTIC_FILE"; }; chmod 600 "$RUNTIME_JSON"
@@ -333,6 +314,25 @@ d=json.load(open(sys.argv[1])); raise SystemExit(0 if d['profile_guard_passed'] 
 PY
 then mark_fail PROFILE_STATUS; fail_gate "profile" "$DIAGNOSTIC_FILE"; fi
 PROFILE_STATUS="PASS"
+
+BODY_FILE="$RUN_DIR/login-body.tmp"; CURL_ERR="$RUN_DIR/login-curl.err"; CURL_META="$RUN_DIR/login-curl.meta"; LOGIN_URL="${WP_BASE_URL%/}/wp-login.php"
+CURL_ARGS=(-sS -L --max-time "$NMKR_PHASE2_WP_READY_HTTP_TIMEOUT_SECONDS" -o "$BODY_FILE" -w '%{http_code} %{url_effective}' "$LOGIN_URL")
+if [[ -n "$NMKR_PHASE2_CURL_CA_BUNDLE" ]]; then CURL_ARGS=(--cacert "$NMKR_PHASE2_CURL_CA_BUNDLE" "${CURL_ARGS[@]}"); fi
+if ! curl "${CURL_ARGS[@]}" >"$CURL_META" 2>"$CURL_ERR"; then rm -f "$BODY_FILE" "$CURL_ERR" "$CURL_META"; mark_fail WORDPRESS_READY_STATUS; fail_gate "wordpress-ready" "$DIAGNOSTIC_FILE"; fi
+HTTP_STATUS="$(awk '{print $1}' "$CURL_META")"
+EFFECTIVE_URL="$(cut -d' ' -f2- "$CURL_META")"
+if [[ "$HTTP_STATUS" != "200" ]] || ! grep -qi 'id="user_login"' "$BODY_FILE"; then rm -f "$BODY_FILE" "$CURL_ERR" "$CURL_META"; mark_fail WORDPRESS_READY_STATUS; fail_gate "wordpress-ready" "$DIAGNOSTIC_FILE"; fi
+python3 - "$ORIGIN_SHA256" "$EFFECTIVE_URL" <<'PY' || { rm -f "$BODY_FILE" "$CURL_ERR" "$CURL_META"; mark_fail WORDPRESS_READY_STATUS; fail_gate "wordpress-ready" "$DIAGNOSTIC_FILE"; }
+import hashlib,sys,urllib.parse
+expected,url=sys.argv[1:3]
+p=urllib.parse.urlsplit(url.strip())
+try: port=p.port
+except ValueError: raise SystemExit(1)
+if p.scheme != 'https' or not p.hostname or p.username or p.password or port is not None: raise SystemExit(1)
+origin='https://' + p.hostname.lower().rstrip('.')
+if hashlib.sha256(origin.encode()).hexdigest() != expected: raise SystemExit(1)
+PY
+rm -f "$BODY_FILE" "$CURL_ERR" "$CURL_META"; WORDPRESS_READY_STATUS="PASS"
 
 python3 - "${NMKR_REAL_SYNC_BACKUP_CONFIRMED_AT:-}" "$RUN_DIR/backup_epoch" <<'PY' || { mark_fail BACKUP_STATUS; fail_gate "backup" "$DIAGNOSTIC_FILE"; }
 import datetime,re,sys

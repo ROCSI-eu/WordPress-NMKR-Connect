@@ -426,6 +426,20 @@ grep -q 'cron_state_inspectable' "$ROOT/scripts/nmkr-real-sync-runtime-state.php
 grep -q 'wp_using_ext_object_cache' "$ROOT/scripts/nmkr-real-sync-runtime-state.php" || fail "runtime helper object-cache check missing"
 grep -q 'user_can.*nmkr_manage_sync' "$ROOT/scripts/nmkr-real-sync-runtime-state.php" || fail "runtime helper capability check missing"
 grep -q 'sync_profile' "$ROOT/scripts/nmkr-real-sync-runtime-state.php" || fail "runtime helper profile check missing"
+python3 - "$ROOT/scripts/nmkr-real-sync-preflight.sh" <<'PY' || fail "runtime cron guard does not precede login HTTP request"
+import sys
+lines = open(sys.argv[1], encoding='utf-8').read().splitlines()
+def first(fragment):
+    for i, line in enumerate(lines, 1):
+        if fragment in line:
+            return i
+    raise SystemExit(1)
+eval_line = first('eval-file "$REPO_ROOT/scripts/nmkr-real-sync-runtime-state.php"')
+cron_line = first("d['cron_state_inspectable']")
+http_line = first('LOGIN_URL="${WP_BASE_URL%/}/wp-login.php"')
+if not (eval_line < http_line and cron_line < http_line):
+    raise SystemExit(1)
+PY
 WPCLI_FLAG_MOCK="$TMP/wpcli-flag-mock"
 cat > "$WPCLI_FLAG_MOCK" <<'EOF'
 #!/usr/bin/env bash
