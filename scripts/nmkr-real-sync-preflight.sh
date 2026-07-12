@@ -50,6 +50,16 @@ ENV_FILE_REAL=""
 REPO_REAL="$(python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$REPO_ROOT")"
 if [[ -n "${NMKR_PHASE2_ENV_FILE:-}" ]]; then
   ENV_FILE="$NMKR_PHASE2_ENV_FILE"
+  [[ -n "${WP_PATH:-}" && "$WP_PATH" = /* ]] || pre_source_fail "env-file"
+  WP_PATH_REAL_PRE="$(python3 - "$WP_PATH" <<'PY'
+import os, sys
+path = sys.argv[1]
+real = os.path.realpath(path)
+if real != os.path.abspath(path):
+    raise SystemExit(1)
+print(real)
+PY
+  )" || pre_source_fail "env-file"
   [[ "$ENV_FILE" = /* ]] || pre_source_fail "env-file"
   [[ -f "$ENV_FILE" && ! -L "$ENV_FILE" ]] || pre_source_fail "env-file"
   ENV_FILE_REAL="$(python3 - "$ENV_FILE" <<'PY'
@@ -62,7 +72,7 @@ print(real)
 PY
   )" || pre_source_fail "env-file"
   if path_inside_or_equal "$ENV_FILE_REAL" "$REPO_REAL"; then pre_source_fail "env-file"; fi
-  if [[ -n "${WP_PATH:-}" ]] && path_inside_or_equal "$ENV_FILE_REAL" "$WP_PATH"; then pre_source_fail "env-file"; fi
+  if path_inside_or_equal "$ENV_FILE_REAL" "$WP_PATH_REAL_PRE"; then pre_source_fail "env-file"; fi
   set -a
   # shellcheck source=/dev/null
   source "$ENV_FILE_REAL"
@@ -79,10 +89,6 @@ NMKR_REAL_SYNC_MAX_DURATION_SECONDS="${NMKR_REAL_SYNC_MAX_DURATION_SECONDS:-1800
 NMKR_REAL_SYNC_POLL_TIMEOUT_SECONDS="${NMKR_REAL_SYNC_POLL_TIMEOUT_SECONDS:-45}"
 NMKR_REAL_SYNC_RECEIPT_TTL_SECONDS="${NMKR_REAL_SYNC_RECEIPT_TTL_SECONDS:-300}"
 NMKR_PHASE2_CURL_CA_BUNDLE="${NMKR_PHASE2_CURL_CA_BUNDLE:-}"
-
-if [[ -n "$ENV_FILE_REAL" && -n "${WP_PATH:-}" ]] && path_inside_or_equal "$ENV_FILE_REAL" "$WP_PATH"; then
-  pre_source_fail "env-file"
-fi
 
 CONFIRMATIONS_STATUS="PENDING"; PRIVATE_STATE_STATUS="PENDING"; SOURCE_INTEGRITY_STATUS="PENDING"; DEPLOYMENT_INTEGRITY_STATUS="PENDING"
 ORIGIN_GUARD_STATUS="PENDING"; WORDPRESS_READY_STATUS="PENDING"; PLUGIN_ACTIVE_STATUS="PENDING"; CAPABILITY_STATUS="PENDING"
@@ -348,13 +354,13 @@ PY
 then mark_fail PROFILE_STATUS; fail_gate "profile" "$DIAGNOSTIC_FILE"; fi
 PROFILE_STATUS="PASS"
 
-BODY_FILE="$RUN_DIR/login-body.tmp"; CURL_ERR="$RUN_DIR/login-curl.err"; CURL_META="$RUN_DIR/login-curl.meta"; LOGIN_URL="${WP_BASE_URL%/}/wp-login.php"
-CURL_ARGS=(-sS -L --max-time "$NMKR_PHASE2_WP_READY_HTTP_TIMEOUT_SECONDS" -o "$BODY_FILE" -w '%{http_code} %{url_effective}' "$LOGIN_URL")
+BODY_FILE="$RUN_DIR/static-ready-body.tmp"; CURL_ERR="$RUN_DIR/static-ready-curl.err"; CURL_META="$RUN_DIR/static-ready-curl.meta"; STATIC_READY_URL="${WP_BASE_URL%/}/wp-includes/css/dashicons.min.css"
+CURL_ARGS=(-sS -L --max-time "$NMKR_PHASE2_WP_READY_HTTP_TIMEOUT_SECONDS" -o "$BODY_FILE" -w '%{http_code} %{url_effective}' "$STATIC_READY_URL")
 if [[ -n "$NMKR_PHASE2_CURL_CA_BUNDLE" ]]; then CURL_ARGS=(--cacert "$NMKR_PHASE2_CURL_CA_BUNDLE" "${CURL_ARGS[@]}"); fi
 if ! curl "${CURL_ARGS[@]}" >"$CURL_META" 2>"$CURL_ERR"; then rm -f "$BODY_FILE" "$CURL_ERR" "$CURL_META"; mark_fail WORDPRESS_READY_STATUS; fail_gate "wordpress-ready" "$DIAGNOSTIC_FILE"; fi
 HTTP_STATUS="$(awk '{print $1}' "$CURL_META")"
 EFFECTIVE_URL="$(cut -d' ' -f2- "$CURL_META")"
-if [[ "$HTTP_STATUS" != "200" ]] || ! grep -qi 'id="user_login"' "$BODY_FILE"; then rm -f "$BODY_FILE" "$CURL_ERR" "$CURL_META"; mark_fail WORDPRESS_READY_STATUS; fail_gate "wordpress-ready" "$DIAGNOSTIC_FILE"; fi
+if [[ "$HTTP_STATUS" != "200" ]] || ! grep -qi 'dashicons' "$BODY_FILE"; then rm -f "$BODY_FILE" "$CURL_ERR" "$CURL_META"; mark_fail WORDPRESS_READY_STATUS; fail_gate "wordpress-ready" "$DIAGNOSTIC_FILE"; fi
 python3 - "$ORIGIN_SHA256" "$EFFECTIVE_URL" <<'PY' || { rm -f "$BODY_FILE" "$CURL_ERR" "$CURL_META"; mark_fail WORDPRESS_READY_STATUS; fail_gate "wordpress-ready" "$DIAGNOSTIC_FILE"; }
 import hashlib,sys,urllib.parse
 expected,url=sys.argv[1:3]

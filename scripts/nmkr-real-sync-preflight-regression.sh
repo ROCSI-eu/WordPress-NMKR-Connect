@@ -111,20 +111,46 @@ grep -q 'failed gate: env-file' "$REL_ENV_OUT" || fail "relative env file did no
 [[ ! -e "$TMP/relative-state" ]] || fail "relative env file created private state"
 pass "relative env file path rejected"
 
+ENV_SUPPLIES_WP_SENTINEL="$TMP/env-supplies-wp-sentinel"
+ENV_SUPPLIES_WP_FILE="$TMP/env-supplies-wp.env"
+cat > "$ENV_SUPPLIES_WP_FILE" <<EOF
+touch "$ENV_SUPPLIES_WP_SENTINEL"
+WP_PATH="$WP1"
+RUN_REAL_SYNC=true
+EOF
+ENV_SUPPLIES_WP_OUT="$TMP/env-supplies-wp.out"
+if env -u CI -u GITHUB_ACTIONS -u GITLAB_CI -u CIRCLECI -u BUILDKITE -u TF_BUILD NMKR_PHASE2_ENV_FILE="$ENV_SUPPLIES_WP_FILE" NMKR_PHASE2_LOG_DIR="$TMP/env-supplies-wp-state" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$ENV_SUPPLIES_WP_OUT" 2>&1; then
+  fail "env file supplying WP_PATH unexpectedly passed"
+fi
+grep -q 'failed gate: env-file' "$ENV_SUPPLIES_WP_OUT" || fail "env file supplying WP_PATH did not fail env-file gate"
+[[ ! -e "$ENV_SUPPLIES_WP_SENTINEL" ]] || fail "env file supplying WP_PATH was sourced"
+[[ ! -e "$TMP/env-supplies-wp-state" ]] || fail "env file supplying WP_PATH created private state"
+! grep -Fq "$ENV_SUPPLIES_WP_FILE" "$ENV_SUPPLIES_WP_OUT" || fail "env file supplying WP_PATH path leaked"
+pass "env file cannot supply WP_PATH"
+
 OUTSIDE_ENV_SENTINEL="$TMP/outside-env-sentinel"
 OUTSIDE_ENV_FILE="$TMP/outside-private.env"
 cat > "$OUTSIDE_ENV_FILE" <<EOF
 touch "$OUTSIDE_ENV_SENTINEL"
-RUN_REAL_SYNC=false
+RUN_REAL_SYNC=true
+NMKR_REAL_SYNC_CONFIRM=I_UNDERSTAND_THIS_MUTATES_DEV
+PW_SAVE_ARTIFACTS=false
+NMKR_REAL_SYNC_BACKUP_CONFIRM=I_CONFIRMED_A_RECENT_DEV_BACKUP
+WP_CLI_BIN=true
+WP_BASE_URL=https://example.invalid
+NMKR_REAL_SYNC_ALLOWED_ORIGIN=https://example.invalid
+WP_ADMIN_USER=admin
+NMKR_REAL_SYNC_BACKUP_CONFIRMED_AT=2099-01-01T00:00:00Z
+NMKR_PHASE2_LOG_DIR=$TMP/outside-env-state
 EOF
 OUTSIDE_ENV_OUT="$TMP/outside-env.out"
-if env -u CI -u GITHUB_ACTIONS -u GITLAB_CI -u CIRCLECI -u BUILDKITE -u TF_BUILD NMKR_PHASE2_ENV_FILE="$OUTSIDE_ENV_FILE" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$OUTSIDE_ENV_OUT" 2>&1; then
-  fail "outside env file unexpectedly passed without opt-in"
+if env -u CI -u GITHUB_ACTIONS -u GITLAB_CI -u CIRCLECI -u BUILDKITE -u TF_BUILD WP_PATH="$WP1" NMKR_PHASE2_ENV_FILE="$OUTSIDE_ENV_FILE" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$OUTSIDE_ENV_OUT" 2>&1; then
+  fail "outside env file unexpectedly passed full preflight"
 fi
 [[ -e "$OUTSIDE_ENV_SENTINEL" ]] || fail "outside env file was not sourced"
-grep -q 'failed gate: confirmations' "$OUTSIDE_ENV_OUT" || fail "outside env file did not reach confirmation gate"
+grep -q 'failed gate: deployment-integrity' "$OUTSIDE_ENV_OUT" || fail "outside env file did not reach later deployment gate"
 ! grep -Fq "$OUTSIDE_ENV_FILE" "$OUTSIDE_ENV_OUT" || fail "outside env path leaked"
-pass "absolute outside env file can be sourced"
+pass "absolute outside env file with exported WP_PATH reaches later gate"
 
 WP_ENV_DIR="$WP1/private-env"; mkdir -p "$WP_ENV_DIR"
 WP_ENV_SENTINEL="$TMP/wp-env-sentinel"; WP_ENV_FILE="$WP_ENV_DIR/phase15.env"
@@ -186,7 +212,7 @@ cat > "$POST_ENV_FILE" <<EOF
 CI=true
 touch "$POST_SENTINEL"
 EOF
-if env -u CI -u GITHUB_ACTIONS -u GITLAB_CI -u CIRCLECI -u BUILDKITE -u TF_BUILD NMKR_PHASE2_ENV_FILE="$POST_ENV_FILE" NMKR_PHASE2_LOG_DIR="$POST_ENV_PARENT/state" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$POST_OUT" 2>&1; then
+if env -u CI -u GITHUB_ACTIONS -u GITLAB_CI -u CIRCLECI -u BUILDKITE -u TF_BUILD WP_PATH="$WP1" NMKR_PHASE2_ENV_FILE="$POST_ENV_FILE" NMKR_PHASE2_LOG_DIR="$POST_ENV_PARENT/state" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$POST_OUT" 2>&1; then
   fail "post-source CI refusal unexpectedly passed"
 fi
 grep -q 'failed gate: ci-refusal' "$POST_OUT" || fail "post-source CI refusal did not fail at ci-refusal"
@@ -505,6 +531,8 @@ grep -q -- '--cacert' "$ROOT/scripts/nmkr-real-sync-preflight.sh" || fail "priva
 ! grep -q 'curl -k' "$ROOT/scripts/nmkr-real-sync-preflight.sh" || fail "insecure curl -k present"
 grep -q '%{url_effective}' "$ROOT/scripts/nmkr-real-sync-preflight.sh" || fail "effective URL check missing"
 grep -q 'ORIGIN_SHA256' "$ROOT/scripts/nmkr-real-sync-preflight.sh" || fail "same-origin digest check missing"
+grep -q 'wp-includes/css/dashicons.min.css' "$ROOT/scripts/nmkr-real-sync-preflight.sh" || fail "static readiness asset missing"
+! grep -Eq 'wp-login\.php|WP_BASE_URL%/?}/?$|admin-ajax\.php' "$ROOT/scripts/nmkr-real-sync-preflight.sh" || fail "readiness probe loads WordPress web lifecycle"
 pass "HTTP readiness guard static checks"
 
 grep -q 'eval-file.*--skip-plugins.*--skip-themes.*--skip-packages' "$ROOT/scripts/nmkr-real-sync-preflight.sh" || fail "runtime eval-file isolation flags missing"
@@ -526,7 +554,7 @@ def first(fragment):
     raise SystemExit(1)
 eval_line = first('eval-file "$REPO_ROOT/scripts/nmkr-real-sync-runtime-state.php"')
 cron_line = first("d['cron_state_inspectable']")
-http_line = first('LOGIN_URL="${WP_BASE_URL%/}/wp-login.php"')
+http_line = first('STATIC_READY_URL="${WP_BASE_URL%/}/wp-includes/css/dashicons.min.css"')
 if not (eval_line < http_line and cron_line < http_line):
     raise SystemExit(1)
 PY
@@ -605,7 +633,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(b'<form id="loginform"><input id="user_login"></form>')
+        self.wfile.write(b'.dashicons{font-family:dashicons}')
     def log_message(self, *args): pass
 server = http.server.HTTPServer(('127.0.0.1', 0), Handler)
 print(server.server_port, flush=True)
@@ -619,11 +647,11 @@ PY
   for _ in {1..50}; do [[ -s "$CERT_DIR/port" ]] && break; sleep 0.1; done
   port="$(cat "$CERT_DIR/port")"
   for _ in {1..50}; do
-    curl -sS --cacert "$CERT_DIR/cert.pem" --max-time 1 "https://localhost:$port/wp-login.php" >/dev/null 2>&1 && break
+    curl -sS --cacert "$CERT_DIR/cert.pem" --max-time 1 "https://localhost:$port/wp-includes/css/dashicons.min.css" >/dev/null 2>&1 && break
     sleep 0.1
   done
-  if curl -sS --max-time 3 "https://localhost:$port/wp-login.php" >/dev/null 2>&1; then kill "$server_pid"; fail "invalid TLS certificate unexpectedly passed without CA bundle"; fi
-  curl -sS --cacert "$CERT_DIR/cert.pem" --max-time 3 "https://localhost:$port/wp-login.php" | grep -q 'id="user_login"' || { kill "$server_pid"; fail "configured CA bundle did not permit valid local TLS response"; }
+  if curl -sS --max-time 3 "https://localhost:$port/wp-includes/css/dashicons.min.css" >/dev/null 2>&1; then kill "$server_pid"; fail "invalid TLS certificate unexpectedly passed without CA bundle"; fi
+  curl -sS --cacert "$CERT_DIR/cert.pem" --max-time 3 "https://localhost:$port/wp-includes/css/dashicons.min.css" | grep -q 'dashicons' || { kill "$server_pid"; fail "configured CA bundle did not permit valid local TLS response"; }
   kill "$server_pid"
   pass "TLS readiness primitives"
 fi

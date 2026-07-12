@@ -6,7 +6,7 @@ Phase 15 is a private, read-only preflight for a future controlled real synchron
 
 ## Private-only architecture
 
-Run the preflight only from a private development VM. Configuration must be supplied either as direct exported environment variables or through an explicit absolute `NMKR_PHASE2_ENV_FILE` outside both the repository and the WordPress root; Phase 15 does not implicitly source repository-local `.env.tests`. Do not run it against production or any unknown target. Actual origins, credentials, and private paths remain in that private environment file. `NMKR_PHASE2_LOG_DIR` is mandatory and must point outside both the repository and the WordPress web root.
+Run the preflight only from a private development VM. Configuration must be supplied either as direct exported environment variables or through an explicit absolute `NMKR_PHASE2_ENV_FILE` outside both the repository and the WordPress root; Phase 15 does not implicitly source repository-local `.env.tests`. When `NMKR_PHASE2_ENV_FILE` is used, `WP_PATH` must already be exported directly by the caller so the env file can be rejected before sourcing if it is inside the WordPress root. Do not run it against production or any unknown target. Actual origins, credentials, and private paths remain in that private environment file. `NMKR_PHASE2_LOG_DIR` is mandatory and must point outside both the repository and the WordPress web root.
 
 ## Exact confirmation variables
 
@@ -41,7 +41,7 @@ When persistent object cache is disabled, Phase 15 does not inspect database-bac
 
 ## Cron guard
 
-Queued synchronization cron events block the preflight. Only aggregate counts are used. Timestamps, schedules, arguments, and serialized cron data are not printed or stored. The runtime cron guard runs before the login-page HTTP readiness probe so a browser-like request cannot dispatch a due synchronization cron hook before Phase 15 has counted and blocked it.
+Queued synchronization cron events block the preflight. Only aggregate counts are used. Timestamps, schedules, arguments, and serialized cron data are not printed or stored. The runtime cron guard runs before the static-asset HTTPS readiness probe so no browser-like readiness request can dispatch a due synchronization cron hook before Phase 15 has counted and blocked it.
 
 ## Light-profile requirement
 
@@ -93,4 +93,4 @@ The deployed plugin directory must be a separate canonical checkout that neither
 
 Cron inspection reads the raw `cron` option and supports only the current versioned cron-array structure. Unsupported, malformed, legacy, or ambiguous cron structures are not repaired and cause the preflight to fail closed through the aggregate inspectability flag.
 
-HTTP readiness keeps normal TLS certificate verification enabled. A private CA bundle can be supplied through `NMKR_PHASE2_CURL_CA_BUNDLE` in the private environment file when needed. Redirects are followed only if the final effective URL remains on the exact approved origin; a cross-origin redirect fails without printing the raw origin or effective URL.
+HTTP readiness checks a same-origin static WordPress core asset rather than `wp-login.php`, the site root, or another PHP/bootstrap URL. Normal TLS certificate verification remains enabled. A private CA bundle can be supplied through `NMKR_PHASE2_CURL_CA_BUNDLE` in the private environment file when needed. Redirects are followed only if the final effective URL remains on the exact approved origin; a cross-origin redirect fails without printing the raw origin or effective URL.
