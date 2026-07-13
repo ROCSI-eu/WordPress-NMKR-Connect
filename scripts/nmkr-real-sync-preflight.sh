@@ -371,7 +371,7 @@ then mark_fail PROFILE_STATUS; fail_gate "profile" "$DIAGNOSTIC_FILE"; fi
 PROFILE_STATUS="PASS"
 
 BODY_FILE="$RUN_DIR/static-ready-body.tmp"; CURL_ERR="$RUN_DIR/static-ready-curl.err"; CURL_META="$RUN_DIR/static-ready-curl.meta"; STATIC_READY_URL="${WP_BASE_URL%/}/wp-includes/css/dashicons.min.css"
-CURL_ARGS=(-sS -L --max-time "$NMKR_PHASE2_WP_READY_HTTP_TIMEOUT_SECONDS" -o "$BODY_FILE" -w '%{http_code} %{url_effective}' "$STATIC_READY_URL")
+CURL_ARGS=(-sS --max-time "$NMKR_PHASE2_WP_READY_HTTP_TIMEOUT_SECONDS" -o "$BODY_FILE" -w '%{http_code} %{url_effective}' "$STATIC_READY_URL")
 if [[ -n "$NMKR_PHASE2_CURL_CA_BUNDLE" ]]; then CURL_ARGS=(--cacert "$NMKR_PHASE2_CURL_CA_BUNDLE" "${CURL_ARGS[@]}"); fi
 if ! curl "${CURL_ARGS[@]}" >"$CURL_META" 2>"$CURL_ERR"; then rm -f "$BODY_FILE" "$CURL_ERR" "$CURL_META"; mark_fail WORDPRESS_READY_STATUS; fail_gate "wordpress-ready" "$DIAGNOSTIC_FILE"; fi
 HTTP_STATUS="$(awk '{print $1}' "$CURL_META")"

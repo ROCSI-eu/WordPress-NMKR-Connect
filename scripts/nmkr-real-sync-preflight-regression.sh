@@ -613,6 +613,7 @@ grep -q -- '--cacert' "$ROOT/scripts/nmkr-real-sync-preflight.sh" || fail "priva
 ! grep -q 'curl -k' "$ROOT/scripts/nmkr-real-sync-preflight.sh" || fail "insecure curl -k present"
 grep -q '%{url_effective}' "$ROOT/scripts/nmkr-real-sync-preflight.sh" || fail "effective URL check missing"
 grep -q 'ORIGIN_SHA256' "$ROOT/scripts/nmkr-real-sync-preflight.sh" || fail "same-origin digest check missing"
+! grep -Eq 'CURL_ARGS=.*(^|[[:space:]])-L([[:space:]]|$)|--location' "$ROOT/scripts/nmkr-real-sync-preflight.sh" || fail "readiness curl follows redirects"
 grep -q 'wp-includes/css/dashicons.min.css' "$ROOT/scripts/nmkr-real-sync-preflight.sh" || fail "static readiness asset missing"
 ! grep -Eq 'wp-login\.php|WP_BASE_URL%/?}/?$|admin-ajax\.php' "$ROOT/scripts/nmkr-real-sync-preflight.sh" || fail "readiness probe loads WordPress web lifecycle"
 pass "HTTP readiness guard static checks"
@@ -706,12 +707,27 @@ EOF
   openssl req -x509 -newkey rsa:2048 -nodes -days 1 -keyout "$CERT_DIR/key.pem" -out "$CERT_DIR/cert.pem" -config "$CERT_DIR/openssl.cnf" >/dev/null 2>&1
   cat > "$CERT_DIR/https_server.py" <<'PY'
 import http.server, ssl, sys
+log_path = sys.argv[3]
 class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
-        if self.path == '/redirect':
+        with open(log_path, 'a', encoding='utf-8') as handle:
+            handle.write(self.path + '\n')
+        if self.path == '/redirect-cross':
             self.send_response(302)
             self.send_header('Location', 'https://other.example/wp-login.php')
             self.end_headers()
+            return
+        if self.path == '/redirect-same':
+            self.send_response(302)
+            self.send_header('Location', 'https://%s/wp-login.php' % self.headers.get('Host', 'localhost'))
+            self.end_headers()
+            return
+        if self.path.startswith('/wp-login.php'):
+            with open(log_path, 'a', encoding='utf-8') as handle:
+                handle.write('BOOTSTRAP_TARGET_CONTACTED\n')
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b'php bootstrap target')
             return
         self.send_response(200)
         self.end_headers()
@@ -724,7 +740,8 @@ context.load_cert_chain(certfile=sys.argv[1], keyfile=sys.argv[2])
 server.socket = context.wrap_socket(server.socket, server_side=True)
 server.serve_forever()
 PY
-  python3 "$CERT_DIR/https_server.py" "$CERT_DIR/cert.pem" "$CERT_DIR/key.pem" >"$CERT_DIR/port" 2>/dev/null &
+  : > "$CERT_DIR/requests.log"
+  python3 "$CERT_DIR/https_server.py" "$CERT_DIR/cert.pem" "$CERT_DIR/key.pem" "$CERT_DIR/requests.log" >"$CERT_DIR/port" 2>/dev/null &
   server_pid=$!
   for _ in {1..50}; do [[ -s "$CERT_DIR/port" ]] && break; sleep 0.1; done
   port="$(cat "$CERT_DIR/port")"
@@ -734,8 +751,16 @@ PY
   done
   if curl -sS --max-time 3 "https://localhost:$port/wp-includes/css/dashicons.min.css" >/dev/null 2>&1; then kill "$server_pid"; fail "invalid TLS certificate unexpectedly passed without CA bundle"; fi
   curl -sS --cacert "$CERT_DIR/cert.pem" --max-time 3 "https://localhost:$port/wp-includes/css/dashicons.min.css" | grep -q 'dashicons' || { kill "$server_pid"; fail "configured CA bundle did not permit valid local TLS response"; }
+  cross_status="$(curl -sS --cacert "$CERT_DIR/cert.pem" --max-time 3 -o /dev/null -w '%{http_code}' "https://localhost:$port/redirect-cross")" || { kill "$server_pid"; fail "cross-origin redirect request failed unexpectedly"; }
+  [[ "$cross_status" == "302" ]] || { kill "$server_pid"; fail "cross-origin redirect was not rejected as 302"; }
+  same_status="$(curl -sS --cacert "$CERT_DIR/cert.pem" --max-time 3 -o /dev/null -w '%{http_code}' "https://localhost:$port/redirect-same")" || { kill "$server_pid"; fail "same-origin bootstrap redirect request failed unexpectedly"; }
+  [[ "$same_status" == "302" ]] || { kill "$server_pid"; fail "same-origin bootstrap redirect was not rejected as 302"; }
+  ! grep -q 'BOOTSTRAP_TARGET_CONTACTED' "$CERT_DIR/requests.log" || { kill "$server_pid"; fail "redirect target was contacted"; }
+  [[ "$(grep -c '^/redirect-cross$' "$CERT_DIR/requests.log")" == "1" ]] || { kill "$server_pid"; fail "cross-origin redirect counter unexpected"; }
+  [[ "$(grep -c '^/redirect-same$' "$CERT_DIR/requests.log")" == "1" ]] || { kill "$server_pid"; fail "same-origin redirect counter unexpected"; }
   kill "$server_pid"
   pass "TLS readiness primitives"
+  pass "readiness redirects are rejected without following targets"
 fi
 python3 - <<'PY' || fail "cross-origin redirect helper failed"
 import hashlib, urllib.parse, sys
