@@ -73,9 +73,13 @@ PY
   )" || pre_source_fail "env-file"
   if path_inside_or_equal "$ENV_FILE_REAL" "$REPO_REAL"; then pre_source_fail "env-file"; fi
   if path_inside_or_equal "$ENV_FILE_REAL" "$WP_PATH_REAL_PRE"; then pre_source_fail "env-file"; fi
+  readonly WP_PATH_REAL_PRE
   set -a
   # shellcheck source=/dev/null
-  source "$ENV_FILE_REAL"
+  if ! source "$ENV_FILE_REAL" >/dev/null 2>/dev/null; then
+    set +a
+    pre_source_fail "env-file"
+  fi
   set +a
   [[ -n "${WP_PATH:-}" && "$WP_PATH" = /* ]] || pre_source_fail "env-file"
   WP_PATH_REAL_POST="$(python3 - "$WP_PATH" <<'PY'

@@ -158,6 +158,40 @@ grep -q 'failed gate: env-file' "$ENV_CHANGES_WP_OUT" || fail "env file that cha
 ! grep -Fq "$ALT_WP" "$ENV_CHANGES_WP_OUT" || fail "alternate WP_PATH leaked for changed WP_PATH failure"
 pass "env file cannot redirect WP_PATH after sourcing"
 
+AUTHORITY_ALT_WP="$TMP/authority-alternate-wp"; mkdir -p "$AUTHORITY_ALT_WP"
+AUTHORITY_WPCLI_SENTINEL="$AUTHORITY_ALT_WP/wpcli-invoked"
+AUTHORITY_TARGET_SENTINEL="$AUTHORITY_ALT_WP/target-touched"
+AUTHORITY_WPCLI_MOCK="$TMP/authority-wpcli-mock"
+cat > "$AUTHORITY_WPCLI_MOCK" <<EOF
+#!/usr/bin/env bash
+touch "$AUTHORITY_WPCLI_SENTINEL"
+exit 0
+EOF
+chmod +x "$AUTHORITY_WPCLI_MOCK"
+ENV_OVERWRITES_AUTHORITY_FILE="$TMP/env-overwrites-authority.env"
+cat > "$ENV_OVERWRITES_AUTHORITY_FILE" <<EOF
+WP_PATH="$AUTHORITY_ALT_WP"
+WP_PATH_REAL_PRE="$AUTHORITY_ALT_WP"
+WP_CLI_BIN="$AUTHORITY_WPCLI_MOCK"
+RUN_REAL_SYNC=true
+NMKR_REAL_SYNC_CONFIRM=I_UNDERSTAND_THIS_MUTATES_DEV
+PW_SAVE_ARTIFACTS=false
+NMKR_REAL_SYNC_BACKUP_CONFIRM=I_CONFIRMED_A_RECENT_DEV_BACKUP
+NMKR_PHASE2_LOG_DIR=$TMP/env-overwrites-authority-state
+EOF
+ENV_OVERWRITES_AUTHORITY_OUT="$TMP/env-overwrites-authority.out"
+if env -u CI -u GITHUB_ACTIONS -u GITLAB_CI -u CIRCLECI -u BUILDKITE -u TF_BUILD WP_PATH="$WP1" NMKR_PHASE2_ENV_FILE="$ENV_OVERWRITES_AUTHORITY_FILE" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$ENV_OVERWRITES_AUTHORITY_OUT" 2>&1; then
+  fail "env file that overwrites authority variable unexpectedly passed"
+fi
+grep -q 'failed gate: env-file' "$ENV_OVERWRITES_AUTHORITY_OUT" || fail "env file that overwrites authority variable did not fail env-file gate"
+[[ ! -e "$TMP/env-overwrites-authority-state" ]] || fail "env file that overwrites authority variable created private state"
+[[ ! -e "$AUTHORITY_WPCLI_SENTINEL" ]] || fail "env file that overwrites authority variable invoked WP-CLI"
+[[ ! -e "$AUTHORITY_TARGET_SENTINEL" ]] || fail "env file that overwrites authority variable touched alternate target"
+! grep -Fq "$WP1" "$ENV_OVERWRITES_AUTHORITY_OUT" || fail "original WP_PATH leaked for authority overwrite failure"
+! grep -Fq "$AUTHORITY_ALT_WP" "$ENV_OVERWRITES_AUTHORITY_OUT" || fail "alternate WP_PATH leaked for authority overwrite failure"
+! grep -Fq "$ENV_OVERWRITES_AUTHORITY_FILE" "$ENV_OVERWRITES_AUTHORITY_OUT" || fail "env path leaked for authority overwrite failure"
+pass "env file cannot overwrite protected WP_PATH authority"
+
 for wp_mutation_case in empty unset; do
   WP_MUTATION_FILE="$TMP/env-wp-$wp_mutation_case.env"
   if [[ "$wp_mutation_case" == "empty" ]]; then
