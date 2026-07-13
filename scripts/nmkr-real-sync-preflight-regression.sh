@@ -119,7 +119,7 @@ WP_PATH="$WP1"
 RUN_REAL_SYNC=true
 EOF
 ENV_SUPPLIES_WP_OUT="$TMP/env-supplies-wp.out"
-if env -u CI -u GITHUB_ACTIONS -u GITLAB_CI -u CIRCLECI -u BUILDKITE -u TF_BUILD NMKR_PHASE2_ENV_FILE="$ENV_SUPPLIES_WP_FILE" NMKR_PHASE2_LOG_DIR="$TMP/env-supplies-wp-state" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$ENV_SUPPLIES_WP_OUT" 2>&1; then
+if env -u CI -u GITHUB_ACTIONS -u GITLAB_CI -u CIRCLECI -u BUILDKITE -u TF_BUILD -u WP_PATH NMKR_PHASE2_ENV_FILE="$ENV_SUPPLIES_WP_FILE" NMKR_PHASE2_LOG_DIR="$TMP/env-supplies-wp-state" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$ENV_SUPPLIES_WP_OUT" 2>&1; then
   fail "env file supplying WP_PATH unexpectedly passed"
 fi
 grep -q 'failed gate: env-file' "$ENV_SUPPLIES_WP_OUT" || fail "env file supplying WP_PATH did not fail env-file gate"
@@ -127,6 +127,54 @@ grep -q 'failed gate: env-file' "$ENV_SUPPLIES_WP_OUT" || fail "env file supplyi
 [[ ! -e "$TMP/env-supplies-wp-state" ]] || fail "env file supplying WP_PATH created private state"
 ! grep -Fq "$ENV_SUPPLIES_WP_FILE" "$ENV_SUPPLIES_WP_OUT" || fail "env file supplying WP_PATH path leaked"
 pass "env file cannot supply WP_PATH"
+
+ALT_WP="$TMP/alternate-wp"; mkdir -p "$ALT_WP"
+ALT_WPCLI_SENTINEL="$ALT_WP/wpcli-invoked"
+ALT_WPCLI_MOCK="$TMP/alternate-wpcli-mock"
+cat > "$ALT_WPCLI_MOCK" <<EOF
+#!/usr/bin/env bash
+touch "$ALT_WPCLI_SENTINEL"
+exit 0
+EOF
+chmod +x "$ALT_WPCLI_MOCK"
+ENV_CHANGES_WP_FILE="$TMP/env-changes-wp.env"
+cat > "$ENV_CHANGES_WP_FILE" <<EOF
+WP_PATH="$ALT_WP"
+WP_CLI_BIN="$ALT_WPCLI_MOCK"
+RUN_REAL_SYNC=true
+NMKR_REAL_SYNC_CONFIRM=I_UNDERSTAND_THIS_MUTATES_DEV
+PW_SAVE_ARTIFACTS=false
+NMKR_REAL_SYNC_BACKUP_CONFIRM=I_CONFIRMED_A_RECENT_DEV_BACKUP
+NMKR_PHASE2_LOG_DIR=$TMP/env-changes-wp-state
+EOF
+ENV_CHANGES_WP_OUT="$TMP/env-changes-wp.out"
+if env -u CI -u GITHUB_ACTIONS -u GITLAB_CI -u CIRCLECI -u BUILDKITE -u TF_BUILD WP_PATH="$WP1" NMKR_PHASE2_ENV_FILE="$ENV_CHANGES_WP_FILE" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$ENV_CHANGES_WP_OUT" 2>&1; then
+  fail "env file that changes WP_PATH unexpectedly passed"
+fi
+grep -q 'failed gate: env-file' "$ENV_CHANGES_WP_OUT" || fail "env file that changes WP_PATH did not fail env-file gate"
+[[ ! -e "$TMP/env-changes-wp-state" ]] || fail "env file that changes WP_PATH created private state"
+[[ ! -e "$ALT_WPCLI_SENTINEL" ]] || fail "env file that changes WP_PATH invoked WP-CLI"
+! grep -Fq "$WP1" "$ENV_CHANGES_WP_OUT" || fail "original WP_PATH leaked for changed WP_PATH failure"
+! grep -Fq "$ALT_WP" "$ENV_CHANGES_WP_OUT" || fail "alternate WP_PATH leaked for changed WP_PATH failure"
+pass "env file cannot redirect WP_PATH after sourcing"
+
+for wp_mutation_case in empty unset; do
+  WP_MUTATION_FILE="$TMP/env-wp-$wp_mutation_case.env"
+  if [[ "$wp_mutation_case" == "empty" ]]; then
+    printf 'WP_PATH=\nRUN_REAL_SYNC=true\nNMKR_PHASE2_LOG_DIR=%s\n' "$TMP/env-wp-empty-state" > "$WP_MUTATION_FILE"
+    WP_MUTATION_STATE="$TMP/env-wp-empty-state"
+  else
+    printf 'unset WP_PATH\nRUN_REAL_SYNC=true\nNMKR_PHASE2_LOG_DIR=%s\n' "$TMP/env-wp-unset-state" > "$WP_MUTATION_FILE"
+    WP_MUTATION_STATE="$TMP/env-wp-unset-state"
+  fi
+  WP_MUTATION_OUT="$TMP/env-wp-$wp_mutation_case.out"
+  if env -u CI -u GITHUB_ACTIONS -u GITLAB_CI -u CIRCLECI -u BUILDKITE -u TF_BUILD WP_PATH="$WP1" NMKR_PHASE2_ENV_FILE="$WP_MUTATION_FILE" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$WP_MUTATION_OUT" 2>&1; then
+    fail "env file with WP_PATH $wp_mutation_case unexpectedly passed"
+  fi
+  grep -q 'failed gate: env-file' "$WP_MUTATION_OUT" || fail "env file with WP_PATH $wp_mutation_case did not fail env-file gate"
+  [[ ! -e "$WP_MUTATION_STATE" ]] || fail "env file with WP_PATH $wp_mutation_case created private state"
+done
+pass "env file cannot empty or unset WP_PATH"
 
 OUTSIDE_ENV_SENTINEL="$TMP/outside-env-sentinel"
 OUTSIDE_ENV_FILE="$TMP/outside-private.env"

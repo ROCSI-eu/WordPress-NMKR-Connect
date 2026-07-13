@@ -77,6 +77,18 @@ PY
   # shellcheck source=/dev/null
   source "$ENV_FILE_REAL"
   set +a
+  [[ -n "${WP_PATH:-}" && "$WP_PATH" = /* ]] || pre_source_fail "env-file"
+  WP_PATH_REAL_POST="$(python3 - "$WP_PATH" <<'PY'
+import os, sys
+path = sys.argv[1]
+real = os.path.realpath(path)
+if real != os.path.abspath(path):
+    raise SystemExit(1)
+print(real)
+PY
+  )" || pre_source_fail "env-file"
+  [[ "$WP_PATH_REAL_POST" == "$WP_PATH_REAL_PRE" ]] || pre_source_fail "env-file"
+  export WP_PATH="$WP_PATH_REAL_PRE"
 fi
 
 RUN_REAL_SYNC="${RUN_REAL_SYNC:-false}"
