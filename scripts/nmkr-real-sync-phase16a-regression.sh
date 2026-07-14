@@ -17,8 +17,8 @@ d={'receipt_version':1,'purpose':'nmkr-real-sync-preflight','created_at_epoch':n
 json.dump(d,open(p,'w')); os.chmod(p,0o600)
 PY
 }
-state_json(){ local history="$1" metrics="$2" maxh="$3" maxm="$4" digest="$5"; cat <<JSON
-{"schema_version":1,"required_tables_present":{"projects":true,"tokens":true,"token_details":true,"sync_stats":true,"sync_metrics":true},"project_count":1,"project_max_id":1,"token_count":1,"token_max_id":1,"token_detail_count":1,"token_detail_max_id":1,"sync_history_total_count":$history,"active_history_count":0,"terminal_history_count":$history,"max_history_id":$maxh,"metrics_total_count":$metrics,"max_metrics_id":$maxm,"duplicate_project_uid_count":0,"duplicate_token_uid_count":0,"duplicate_token_detail_uid_count":0,"invalid_relationship_count":0,"impossible_counter_count":0,"option_active_marker_count":0,"transient_active_marker_count":0,"stale_recovery_marker_count":0,"heartbeat_worker_evidence_count":0,"sync_data_classification":"absent","blocked_cron_hook_counts":{"nmkr_execute_sync_background":0,"nmkr_process_batch_hook":0,"nmkr_sync_cron_hook":0,"nmkr_install_sync_cron_hook":0},"blocked_sync_cron_count":0,"cron_inspectable":true,"light_profile_guard":true,"api_key_present":true,"last_sync_time_matches_latest_metrics":true,"terminal_history_digest":"$digest","latest_history_id":$maxh,"latest_history_status_classification":"completed","latest_history_completed":true,"latest_history_end_time_valid":true,"snapshot_epoch":1}
+state_json(){ local history="$1" metrics="$2" maxh="$3" maxm="$4" digest="$5" sync_class="${6:-absent}"; cat <<JSON
+{"schema_version":1,"required_tables_present":{"projects":true,"tokens":true,"token_details":true,"sync_stats":true,"sync_metrics":true},"project_count":1,"project_max_id":1,"token_count":1,"token_max_id":1,"token_detail_count":1,"token_detail_max_id":1,"sync_history_total_count":$history,"active_history_count":0,"terminal_history_count":$history,"max_history_id":$maxh,"metrics_total_count":$metrics,"max_metrics_id":$maxm,"duplicate_project_uid_count":0,"duplicate_token_uid_count":0,"duplicate_token_detail_uid_count":0,"invalid_relationship_count":0,"impossible_counter_count":0,"option_active_marker_count":0,"transient_active_marker_count":0,"stale_recovery_marker_count":0,"heartbeat_worker_evidence_count":0,"sync_data_classification":"$sync_class","blocked_cron_hook_counts":{"nmkr_execute_sync_background":0,"nmkr_process_batch_hook":0,"nmkr_sync_cron_hook":0,"nmkr_install_sync_cron_hook":0},"blocked_sync_cron_count":0,"cron_inspectable":true,"light_profile_guard":true,"api_key_present":true,"last_sync_time_matches_latest_metrics":true,"terminal_history_digest":"$digest","latest_history_id":$maxh,"latest_history_status_classification":"completed","latest_history_completed":true,"latest_history_end_time_valid":true,"snapshot_epoch":1}
 JSON
 }
 FAKE_WP="$TMP/fake-wp"; cat >"$FAKE_WP" <<'SH'
@@ -60,6 +60,26 @@ grep -q '^before:unconsumed$' "$LOG" || fail "driver started after premature con
 grep -q '^after:consumed$' "$LOG" || fail "receipt not consumed during final authorization"
 [[ -f "$C" && ! -f "$R" ]] || fail "receipt consumption was not atomic"
 pass "authorized synthetic path invokes driver exactly once after initial validation and consumes during final authorization"
+
+for sync_class in absent terminal active unknown; do
+  D="$TMP/post-sync-$sync_class"; mkdir -m700 "$D"; mkdir -p "$D/runs/phase15"; chmod 700 "$D/runs" "$D/runs/phase15"
+  R="$D/runs/phase15/real-sync-preflight.receipt.json"; C="$D/runs/phase15/real-sync-preflight.receipt.consumed.json"; make_receipt "$R"
+  PRE="$TMP/post-sync-$sync_class.pre.json"; POST="$TMP/post-sync-$sync_class.post.json"; LOG="$TMP/post-sync-$sync_class.driver"
+  state_json 1 1 1 1 abc absent >"$PRE"; state_json 2 2 2 2 abc "$sync_class" >"$POST"
+  if [[ "$sync_class" == absent || "$sync_class" == terminal ]]; then
+    base_env "$D" NMKR_PHASE16A_RECEIPT="$R" NMKR_FAKE_PRE_STATE="$PRE" NMKR_FAKE_POST_STATE="$POST" NMKR_FAKE_DRIVER_LOG="$LOG" NMKR_FAKE_CONSUMED="$C" bash "$ROOT/scripts/nmkr-real-sync-phase16a.sh" >"$TMP/post-sync-$sync_class.out" 2>&1 || { cat "$TMP/post-sync-$sync_class.out"; fail "post-run $sync_class state unexpectedly failed"; }
+    grep -q '^after:consumed$' "$LOG" || fail "post-run $sync_class did not consume receipt"
+    pass "post-run sync_data_classification=$sync_class accepted"
+  else
+    if base_env "$D" NMKR_PHASE16A_RECEIPT="$R" NMKR_FAKE_PRE_STATE="$PRE" NMKR_FAKE_POST_STATE="$POST" NMKR_FAKE_DRIVER_LOG="$LOG" NMKR_FAKE_CONSUMED="$C" bash "$ROOT/scripts/nmkr-real-sync-phase16a.sh" >"$TMP/post-sync-$sync_class.out" 2>&1; then
+      fail "post-run $sync_class state unexpectedly passed"
+    fi
+    [[ "$(wc -l <"$LOG")" -eq 2 ]] || fail "post-run $sync_class invoked driver more than once or skipped authorized Start"
+    grep -q '^after:consumed$' "$LOG" || fail "post-run $sync_class did not consume before final failure"
+    [[ -f "$C" ]] || fail "post-run $sync_class did not preserve consumed receipt"
+    pass "post-run sync_data_classification=$sync_class rejected after one authorized synthetic Start"
+  fi
+done
 for case in "allowed origin mismatch" "wordpress home mismatch" "wordpress siteurl mismatch" "http origin" "explicit port" "path query fragment" "missing administrator identifier" "capability failure"; do
   D="$TMP/${case// /_}"; mkdir -m700 "$D"; mkdir -p "$D/runs/phase15"; chmod 700 "$D/runs" "$D/runs/phase15"; R="$D/runs/phase15/real-sync-preflight.receipt.json"; make_receipt "$R"; PRE="$TMP/${case// /_}.pre.json"; POST="$TMP/${case// /_}.post.json"; state_json 1 1 1 1 abc >"$PRE"; state_json 2 2 2 2 abc >"$POST"; : >"$TMP/$case.driver"
   extra=(WP_ADMIN_USER="admin@example.invalid")

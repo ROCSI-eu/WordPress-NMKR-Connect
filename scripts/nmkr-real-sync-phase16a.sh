@@ -326,7 +326,7 @@ for k in ['active_history_count','option_active_marker_count','transient_active_
     if post.get(k) != 0: raise SystemExit(1)
 if not all(post['required_tables_present'].values()): raise SystemExit(1)
 if not post['cron_inspectable'] or not post['light_profile_guard'] or not post['api_key_present']: raise SystemExit(1)
-if post['sync_data_classification'] == 'active': raise SystemExit(1)
+if post['sync_data_classification'] not in ('absent', 'terminal'): raise SystemExit(1)
 if not post['last_sync_time_matches_latest_metrics']: raise SystemExit(1)
 for k in ['project_count','token_count','token_detail_count']:
     if post[k] < pre[k]: raise SystemExit(1)
