@@ -17,7 +17,8 @@
     "test:e2e:sync-state": "playwright test tests/e2e/nmkr-sync-state.regression.spec.ts",
     "test:wpcli:db-state": "bash scripts/nmkr-wpcli-db-state.sh",
     "test:e2e:sync-resilience": "playwright test tests/e2e/nmkr-sync-resilience.regression.spec.ts",
-    "test:e2e:sync-final-state": "playwright test tests/e2e/nmkr-sync-final-state.regression.spec.ts"
+    "test:e2e:sync-final-state": "playwright test tests/e2e/nmkr-sync-final-state.regression.spec.ts",
+    "test:real-sync:preflight": "bash scripts/nmkr-real-sync-preflight.sh"
   },
   "devDependencies": {
     "@playwright/test": "^1.53.0",

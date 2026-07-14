@@ -6,6 +6,7 @@ WP_CLI_BIN="${WP_CLI_BIN:-wp}"
 NMKR_PLUGIN_SLUG="${NMKR_PLUGIN_SLUG:-nmkr-connect/nmkr-connect.php}"
 NMKR_DB_STATE_ALLOW_ACTIVE_SYNC="${NMKR_DB_STATE_ALLOW_ACTIVE_SYNC:-false}"
 NMKR_DB_STATE_STALE_SYNC_MINUTES="${NMKR_DB_STATE_STALE_SYNC_MINUTES:-180}"
+NMKR_WPCLI_ISOLATION="${NMKR_WPCLI_ISOLATION:-false}"
 
 ACTIVE_SYNC_STATUSES_SQL="'initializing','processing_projects','processing_tokens','in_progress','running','pending'"
 TERMINAL_SYNC_STATUSES_SQL="'completed','success','failed','error','stopped','cancelled'"
@@ -25,6 +26,10 @@ wp_cli() {
 
   if [[ -n "$WP_PATH" ]]; then
     args+=("--path=$WP_PATH")
+  fi
+
+  if [[ "$NMKR_WPCLI_ISOLATION" == "true" ]]; then
+    args+=("--skip-plugins" "--skip-themes" "--skip-packages")
   fi
 
   args+=("$@")

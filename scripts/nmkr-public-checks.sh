@@ -17,5 +17,8 @@ done
 printf '\n== Public-safe Playwright test discovery ==\n'
 npm run test:e2e -- --list --reporter=list
 
+printf '\n== Public-safe Phase 15 preflight regression checks ==\n'
+bash scripts/nmkr-real-sync-preflight-regression.sh
+
 printf '\n== Public-safe PHP 7.4 compatibility guard ==\n'
 npm run test:php74
