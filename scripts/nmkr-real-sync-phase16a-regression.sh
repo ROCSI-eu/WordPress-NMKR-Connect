@@ -175,7 +175,7 @@ for case in "consumed destination collision" "expired receipt" "insufficient rem
   fi
 done
 node --input-type=module <<'NODE' >"$TMP/driver-state.out"
-import {runExactlyOnceSync, actionFromRequestLike, routeDecisionForAction, buildStartForm, buildProgressForm} from './scripts/nmkr-real-sync-phase16a-driver.mjs';
+import {runExactlyOnceSync, actionFromRequestLike, routeDecisionForAction, frozenRouteDecisionForUrl, buildStartForm, buildProgressForm} from './scripts/nmkr-real-sync-phase16a-driver.mjs';
 const secret='nonce-fixture-value'; let starts=[], polls=[];
 const fakeClock = () => {
   let fakeNow = 0;
@@ -191,6 +191,16 @@ if(actionFromRequestLike({url:'https://x/wp-admin/admin-ajax.php',method:'POST',
 if(routeDecisionForAction('nmkr_check_api_status','prepare')!=='synthetic-ok') throw Error('api status route failed');
 if(routeDecisionForAction('heartbeat','frozen')!=='block'||routeDecisionForAction('nmkr_get_sync_statistics','frozen')!=='block') throw Error('frozen blocking failed');
 if(routeDecisionForAction('nmkr_start_sync','after-start',true)!=='block') throw Error('second Start not blocked');
+const base='https://example.invalid';
+for (const path of ['/', '/?foo=bar', '/wp-json/', '/wp-json/example/v1/test', '/example-pretty-permalink/', '/index.php?rest_route=/example', '/wp-admin/admin.php?page=nmkr-connect-dashboard', '/wp-admin/admin-ajax.php', '/wp-content/plugins/nmkr-connect/example.js', '/wp-includes/css/example.css']) {
+  if (frozenRouteDecisionForUrl(new URL(path, base).toString(), base) !== 'block') throw Error(`same-origin frozen URL was not blocked: ${path}`);
+}
+if (frozenRouteDecisionForUrl('https://example.invalid.attacker.invalid/wp-admin/admin-ajax.php', base) !== 'allow') throw Error('hostname substring matched as origin');
+if (frozenRouteDecisionForUrl('https://user@example.invalid/wp-json/', base) !== 'block') throw Error('userinfo URL did not fail closed');
+if (frozenRouteDecisionForUrl('https://[malformed', base) !== 'block') throw Error('malformed HTTP-like URL did not fail closed');
+for (const url of ['about:blank', 'data:text/plain,ok', 'blob:https://example.invalid/token']) {
+  if (frozenRouteDecisionForUrl(url, base) !== 'allow') throw Error(`non-HTTP browser URL misclassified: ${url}`);
+}
 let clock=fakeClock();
 result=await runExactlyOnceSync({nonce:'n',receipt:{maxDurationSeconds:20,pollTimeoutSeconds:5},now:clock.now,sleep:clock.sleep,transport:{start:async()=>({status:200,json:{success:true}}),poll:async()=>({status:200,json:{data:{progress:10,in_progress:false}}})}}); if(!result.timeout) throw Error('explicit not in progress without terminal should not succeed');
 result=await runExactlyOnceSync({nonce:'n',receipt:{maxDurationSeconds:20,pollTimeoutSeconds:5},sleep:async()=>{},transport:{start:async()=>({timeout:true}),poll:async()=>{throw Error('no poll')}}}); if(!result.ambiguous||result.sanitized.startCount!==1) throw Error('ambiguous retry failed');
@@ -205,9 +215,25 @@ if(!lm.timeout || !lm.sanitized.validLiveMetricsObserved) throw Error('live_metr
 clock=fakeClock();
 let legacy=await runExactlyOnceSync({nonce:'n',receipt:{maxDurationSeconds:20,pollTimeoutSeconds:5},now:clock.now,sleep:clock.sleep,transport:{start:async()=>({status:200,json:{success:true}}),poll:async()=>({status:200,json:{data:{progress:5,in_progress:true,metrics:{api_requests:1}}}})}});
 if(!legacy.sanitized.validLiveMetricsObserved) throw Error('legacy metrics fallback failed');
+async function assertProgressSuccessFalse(json, label) {
+  let pollCount=0, sleeps=0;
+  const r=await runExactlyOnceSync({nonce:'n',receipt:{maxDurationSeconds:20,pollTimeoutSeconds:5},sleep:async()=>{sleeps++;},transport:{start:async()=>({status:200,json:{success:true}}),poll:async()=>{pollCount++; return {status:200,json};}}});
+  if(!r.fatal || r.timeout || r.ambiguous) throw Error(`${label} was not immediate fatal`);
+  if(r.sanitized.startCount!==1 || r.sanitized.pollCount!==1 || pollCount!==1 || sleeps!==0) throw Error(`${label} retried or counted incorrectly`);
+  if(JSON.stringify(r).includes('Synchronization failed') || JSON.stringify(r).includes('payload-secret')) throw Error(`${label} leaked response content`);
+}
+await assertProgressSuccessFalse({success:false,data:{message:'Synchronization failed',detail:'payload-secret'}}, 'success false object data');
+await assertProgressSuccessFalse({success:false,data:'Synchronization failed payload-secret'}, 'success false string data');
+await assertProgressSuccessFalse({success:false}, 'success false no data');
+let compatiblePolls=0;
+let compatible=await runExactlyOnceSync({nonce:'n',receipt:{maxDurationSeconds:20,pollTimeoutSeconds:5},sleep:async()=>{},transport:{start:async()=>({status:200,json:{success:true}}),poll:async()=>++compatiblePolls===1?{status:200,json:{success:true,data:{progress:10,in_progress:true,live_metrics:{api_requests:1}}}}:{status:200,json:{success:true,data:{progress:100,completed:true}}}}});
+if(!compatible.ok || compatible.sanitized.pollCount!==2) throw Error('success true progress compatibility failed');
+compatiblePolls=0;
+compatible=await runExactlyOnceSync({nonce:'n',receipt:{maxDurationSeconds:20,pollTimeoutSeconds:5},sleep:async()=>{},transport:{start:async()=>({status:200,json:{success:true}}),poll:async()=>++compatiblePolls===1?{status:200,json:{data:{progress:10,in_progress:true,live_metrics:{api_requests:1}}}}:{status:200,json:{data:{progress:100,completed:true}}}}});
+if(!compatible.ok || compatible.sanitized.pollCount!==2) throw Error('missing success key progress compatibility failed');
 console.log('driver route and nonce synthetic checks passed');
 NODE
-pass "driver nonce, POST routing, frozen blocking, second Start, and ambiguous/no-terminal regressions"
+pass "driver nonce, POST routing, frozen same-origin blocking, progress success false, second Start, and ambiguous/no-terminal regressions"
 find "$TMP" \( -path '*/playwright-report' -o -path '*/test-results' -o -path '*/blob-report' -o -path '*/playwright/.cache' -o -name '*.webm' -o -name 'trace.zip' \) -print -quit | grep -q . && fail "Playwright artifacts created"
 if find "$TMP" -maxdepth 1 -type f -print0 | xargs -0 --no-run-if-empty rg -n 'nonce-fixture-value|private-token-fixture|cookie-fixture' >/dev/null 2>&1; then fail "fixture secret value appeared in output"; fi
 npx playwright test --list --reporter=list 2>/dev/null | rg 'nmkr-real-sync-phase16a-driver' && fail "private driver discovered by Playwright"

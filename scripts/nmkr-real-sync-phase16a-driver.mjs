@@ -34,6 +34,26 @@ export function routeDecisionForAction(action, mode = 'prepare', startAlreadySen
 }
 export const routeDecision = routeDecisionForAction;
 
+function normalizedHttpOrigin(value, baseUrl) {
+  const parsed = new URL(value, baseUrl);
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+  if (parsed.username || parsed.password) return 'invalid-http';
+  const port = parsed.port || (parsed.protocol === 'https:' ? '443' : '80');
+  return `${parsed.protocol}//${parsed.hostname.toLowerCase()}:${port}`;
+}
+
+export function frozenRouteDecisionForUrl(requestUrl, baseUrl) {
+  try {
+    const requestOrigin = normalizedHttpOrigin(requestUrl, baseUrl);
+    if (requestOrigin === null) return 'allow';
+    if (requestOrigin === 'invalid-http') return 'block';
+    const baseOrigin = normalizedHttpOrigin(baseUrl, undefined);
+    return requestOrigin === baseOrigin ? 'block' : 'allow';
+  } catch {
+    return /^(https?:)?\/\//i.test(String(requestUrl)) || /^[/?#]/.test(String(requestUrl)) ? 'block' : 'allow';
+  }
+}
+
 export function sanitizeResult(state) {
   return {
     startCount: state.startCount || 0,
@@ -66,6 +86,7 @@ function classifyPoll(response) {
   if (response.transportError || response.timeout || response.offline || (response.status >= 500 && response.status < 600)) return { kind: 'retry' };
   if (response.status >= 400 && response.status < 500) return { kind: 'fatal' };
   if (response.malformed || !response.json || typeof response.json !== 'object') return { kind: 'fatal' };
+  if (response.json.success === false) return { kind: 'fatal' };
   const data = response.json.data && typeof response.json.data === 'object' ? response.json.data : response.json;
   const progress = Number(data.progress ?? data.percentage ?? 0);
   if (!Number.isFinite(progress) || progress < 0 || progress > 100) return { kind: 'fatal' };
@@ -161,7 +182,7 @@ async function realCli() {
     await page.route('**/*', async (route, request) => {
       const url = request.url();
       const isAjax = url.includes('/admin-ajax.php');
-      if (routingMode === 'frozen' && (isAjax || url.includes('/wp-admin/') || url.endsWith('.php'))) return route.fulfill({ status: 403, body: '{}' });
+      if (routingMode === 'frozen' && frozenRouteDecisionForUrl(url, baseUrl) === 'block') return route.fulfill({ status: 403, body: '{}' });
       if (!isAjax) return route.continue();
       const action = actionFromRequestLike(request);
       const decision = routeDecisionForAction(action, routingMode, startAlreadySent);
