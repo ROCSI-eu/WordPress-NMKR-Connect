@@ -283,15 +283,24 @@ for relpath in ignored:
         current = os.path.join(current, part)
         if os.path.islink(current):
             raise SystemExit(1)
-if ignored:
-    required = (
-        'vendor/freemius/wordpress-sdk/start.php',
-        'vendor/freemius/wordpress-sdk/includes/class-freemius.php',
-    )
-    for relpath in required:
-        full = os.path.join(root, relpath)
-        if not os.path.isfile(full) or os.path.islink(full):
+required = (
+    'vendor/freemius/wordpress-sdk/start.php',
+    'vendor/freemius/wordpress-sdk/includes/class-freemius.php',
+)
+for relpath in required:
+    full = os.path.normpath(os.path.join(root, relpath))
+    if not (full == root or full.startswith(root.rstrip(os.sep) + os.sep)):
+        raise SystemExit(1)
+    real = os.path.realpath(full)
+    if not (real == root or real.startswith(root.rstrip(os.sep) + os.sep)):
+        raise SystemExit(1)
+    current = root
+    for part in relpath.split('/'):
+        current = os.path.join(current, part)
+        if os.path.islink(current):
             raise SystemExit(1)
+    if not os.path.isfile(full):
+        raise SystemExit(1)
 PY
 rm -f "$DEPLOYED_IGNORED_FILE"
 [[ "$SOURCE_COMMIT" == "$DEPLOYED_COMMIT" ]] || { mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }

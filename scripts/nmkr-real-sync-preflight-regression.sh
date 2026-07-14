@@ -63,6 +63,14 @@ wp_with_plugin_link() {
   printf '%s' "$wp_dir"
 }
 
+create_required_vendor() {
+  local plugin_dir="$1"
+  mkdir -p "$plugin_dir/vendor/freemius/wordpress-sdk/includes" "$plugin_dir/vendor/composer"
+  touch "$plugin_dir/vendor/freemius/wordpress-sdk/start.php"
+  touch "$plugin_dir/vendor/freemius/wordpress-sdk/includes/class-freemius.php"
+  touch "$plugin_dir/vendor/autoload.php" "$plugin_dir/vendor/composer/installed.php"
+}
+
 # Private-state path tests: invalid locations fail before creating runs or chmodding.
 SRC1="$TMP/src1"; WP1="$TMP/wp1"; mkdir -p "$WP1"; make_repo "$SRC1"
 
@@ -368,8 +376,53 @@ run_expect_fail "source root deployed path" base_env WP_PATH="$WP1" NMKR_PHASE2_
 PARENT_DEPLOY="$TMP/parent-deploy"; mkdir -p "$PARENT_DEPLOY/plugin"; git -C "$PARENT_DEPLOY" init -q; git -C "$PARENT_DEPLOY" config user.email public@example.invalid; git -C "$PARENT_DEPLOY" config user.name PublicTest; touch "$PARENT_DEPLOY/file"; git -C "$PARENT_DEPLOY" add file; git -C "$PARENT_DEPLOY" commit -q -m init
 run_expect_fail "deployed Git top-level parent" base_env WP_PATH="$WP1" NMKR_PHASE2_LOG_DIR="$TMP/valid-state3" NMKR_DEPLOYED_PLUGIN_PATH="$PARENT_DEPLOY/plugin" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh"
 
+NO_VENDOR_DEPLOY="$TMP/deployed-no-vendor"; git clone -q "$SRC1" "$NO_VENDOR_DEPLOY"
+NO_VENDOR_WP="$(wp_with_plugin_link "$NO_VENDOR_DEPLOY" no-vendor)"
+NO_VENDOR_STATE="$TMP/no-vendor-state"; NO_VENDOR_OUT="$TMP/no-vendor.out"
+if base_env WP_PATH="$NO_VENDOR_WP" NMKR_PHASE2_LOG_DIR="$NO_VENDOR_STATE" NMKR_DEPLOYED_PLUGIN_PATH="$NO_VENDOR_DEPLOY" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$NO_VENDOR_OUT" 2>&1; then
+  fail "deployed checkout without vendor unexpectedly passed"
+fi
+grep -q 'failed gate: deployment-integrity' "$NO_VENDOR_OUT" || { cat "$NO_VENDOR_OUT"; fail "deployed checkout without vendor did not fail deployment-integrity"; }
+[[ -z "$(find "$NO_VENDOR_STATE" -name real-sync-preflight.receipt.json -print -quit 2>/dev/null)" ]] || fail "deployed checkout without vendor created receipt"
+pass "deployed checkout without required vendor fails closed"
+
+for missing_case in start class; do
+  MISSING_DEPLOY="$TMP/deployed-missing-$missing_case"; git clone -q "$SRC1" "$MISSING_DEPLOY"; create_required_vendor "$MISSING_DEPLOY"
+  if [[ "$missing_case" == "start" ]]; then
+    rm -f "$MISSING_DEPLOY/vendor/freemius/wordpress-sdk/start.php"
+  else
+    rm -f "$MISSING_DEPLOY/vendor/freemius/wordpress-sdk/includes/class-freemius.php"
+  fi
+  MISSING_WP="$(wp_with_plugin_link "$MISSING_DEPLOY" "missing-$missing_case")"
+  MISSING_OUT="$TMP/missing-$missing_case.out"
+  if base_env WP_PATH="$MISSING_WP" NMKR_PHASE2_LOG_DIR="$TMP/missing-$missing_case-state" NMKR_DEPLOYED_PLUGIN_PATH="$MISSING_DEPLOY" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$MISSING_OUT" 2>&1; then
+    fail "missing Freemius $missing_case file unexpectedly passed"
+  fi
+  grep -q 'failed gate: deployment-integrity' "$MISSING_OUT" || { cat "$MISSING_OUT"; fail "missing Freemius $missing_case file did not fail deployment-integrity"; }
+done
+pass "missing required Freemius files fail closed"
+
+for symlink_case in start class; do
+  SYMLINK_DEPLOY="$TMP/deployed-symlink-$symlink_case"; git clone -q "$SRC1" "$SYMLINK_DEPLOY"; create_required_vendor "$SYMLINK_DEPLOY"
+  if [[ "$symlink_case" == "start" ]]; then
+    rm -f "$SYMLINK_DEPLOY/vendor/freemius/wordpress-sdk/start.php"
+    ln -s "$SYMLINK_DEPLOY/vendor/autoload.php" "$SYMLINK_DEPLOY/vendor/freemius/wordpress-sdk/start.php"
+  else
+    rm -f "$SYMLINK_DEPLOY/vendor/freemius/wordpress-sdk/includes/class-freemius.php"
+    ln -s "$SYMLINK_DEPLOY/vendor/autoload.php" "$SYMLINK_DEPLOY/vendor/freemius/wordpress-sdk/includes/class-freemius.php"
+  fi
+  SYMLINK_WP="$(wp_with_plugin_link "$SYMLINK_DEPLOY" "symlink-$symlink_case")"
+  SYMLINK_OUT="$TMP/symlink-$symlink_case.out"
+  if base_env WP_PATH="$SYMLINK_WP" NMKR_PHASE2_LOG_DIR="$TMP/symlink-$symlink_case-state" NMKR_DEPLOYED_PLUGIN_PATH="$SYMLINK_DEPLOY" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$SYMLINK_OUT" 2>&1; then
+    fail "symlinked Freemius $symlink_case file unexpectedly passed"
+  fi
+  grep -q 'failed gate: deployment-integrity' "$SYMLINK_OUT" || { cat "$SYMLINK_OUT"; fail "symlinked Freemius $symlink_case file did not fail deployment-integrity"; }
+done
+pass "symlinked required Freemius files fail closed"
+
 [[ -z "$(git -C "$SRC1" -c core.fileMode=true status --porcelain=v1 --untracked-files=all)" ]] || fail "source fixture dirty before structural checkout test"
 STRUCT_CLONE="$TMP/deployed-structural"; git clone -q "$SRC1" "$STRUCT_CLONE"
+create_required_vendor "$STRUCT_CLONE"
 STRUCT_WP="$(wp_with_plugin_link "$STRUCT_CLONE" structural)"
 STRUCT_OUT="$TMP/structural.out"
 if base_env WP_PATH="$STRUCT_WP" NMKR_PHASE2_LOG_DIR="$TMP/valid-state-structural" NMKR_DEPLOYED_PLUGIN_PATH="$STRUCT_CLONE" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$STRUCT_OUT" 2>&1; then fail "structural clean checkout unexpectedly passed full preflight"; fi
