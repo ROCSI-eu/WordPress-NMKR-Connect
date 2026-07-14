@@ -58,6 +58,50 @@ for p in (state, os.path.join(state, 'runs')):
 PY
 }
 
+origin_digest() {
+  python3 - "$1" "$2" "$3" "$4" <<'PY'
+import hashlib, sys, urllib.parse
+values = sys.argv[1:5]
+def norm(value):
+    p = urllib.parse.urlsplit(value.strip())
+    try: port = p.port
+    except ValueError: raise SystemExit(1)
+    if p.scheme != 'https' or not p.hostname or p.username or p.password or p.query or p.fragment or p.path not in ('','/') or port is not None:
+        raise SystemExit(1)
+    host = p.hostname.lower().rstrip('.')
+    if '*' in host or not host:
+        raise SystemExit(1)
+    return 'https://' + host
+normalized = [norm(v) for v in values]
+if any(v != normalized[0] for v in normalized):
+    raise SystemExit(1)
+print(hashlib.sha256(normalized[0].encode()).hexdigest())
+PY
+}
+
+validate_origin_guard() {
+  local home siteurl digest
+  home="$(wp_cli option get home 2>>"$DIAGNOSTIC_FILE")" || fail origin-guard
+  siteurl="$(wp_cli option get siteurl 2>>"$DIAGNOSTIC_FILE")" || fail origin-guard
+  digest="$(origin_digest "${NMKR_REAL_SYNC_ALLOWED_ORIGIN:-}" "${WP_BASE_URL:-}" "$home" "$siteurl")" || fail origin-guard
+  [[ -z "${1:-}" || "$digest" == "$1" ]] || fail origin-guard
+  printf '%s\n' "$digest"
+}
+
+validate_admin_capability() {
+  [[ -n "${WP_ADMIN_USER:-}" ]] || fail capability
+  WP_ADMIN_USER="$WP_ADMIN_USER" wp_cli eval ' $i = getenv("WP_ADMIN_USER"); $u = get_user_by("login", $i); if (!$u && is_email($i)) { $u = get_user_by("email", $i); } exit(($u instanceof WP_User && user_can($u, "nmkr_manage_sync")) ? 0 : 1); ' >/dev/null 2>>"$DIAGNOSTIC_FILE" || fail capability
+}
+
+validate_target_integrity() {
+  local expected_digest="${1:-}"
+  validate_origin_guard "$expected_digest" >/dev/null
+  wp_cli core is-installed >/dev/null 2>>"$DIAGNOSTIC_FILE" || fail wordpress-ready
+  wp_cli plugin is-active "${NMKR_PLUGIN_SLUG:-nmkr-connect/nmkr-connect.php}" >/dev/null 2>>"$DIAGNOSTIC_FILE" || fail plugin-active
+  validate_admin_capability
+  validate_receipt final "$CONSUMED" "$CONSUMED.never" "$DEPLOYED_REAL" "" >/dev/null 2>>"$DIAGNOSTIC_FILE" || fail deployment-integrity
+}
+
 validate_receipt() {
   local phase="$1" receipt="$2" consumed="$3" deployed="$4" fingerprint_out="$5"
   python3 - "$phase" "$receipt" "$consumed" "$REPO_ROOT" "$deployed" "$fingerprint_out" "$FINAL_MIN_REMAINING_SECONDS" "$REQUIRED_HEAD" <<'PY'
@@ -107,6 +151,8 @@ if not (60 <= data['max_duration_seconds'] <= 7200 and 5 <= data['poll_timeout_s
 for key in ['plugin_active','admin_capability_ok','db_state_clean','api_key_present','runtime_state_clean','cron_state_clean','object_cache_state_clean','profile_guard_passed','backup_confirmed']:
     if data[key] is not True: bad()
 if not isinstance(data['origin_sha256'], str) or len(data['origin_sha256']) != 64 or any(c not in '0123456789abcdef' for c in data['origin_sha256']): bad()
+expected_origin=os.environ.get('NMKR_PHASE16A_CURRENT_ORIGIN_DIGEST','')
+if expected_origin and data['origin_sha256'] != expected_origin: bad()
 src_head=head(src); dep_head=head(deployed)
 if src_head != data['source_commit'] or dep_head != data['deployed_commit'] or src_head != dep_head: bad()
 if required_head and src_head != required_head: bad()
@@ -134,10 +180,11 @@ final_authorize() {
   RUN_DIR="$1"; DIAGNOSTIC_FILE="$RUN_DIR/phase16a.log"
   source "$RUN_DIR/controller.env"
   [[ -d "$LOCK" ]] || fail controller-lock
-  validate_receipt final "$RECEIPT" "$CONSUMED" "$DEPLOYED_REAL" "$RUN_DIR/receipt.sha256" >"$RUN_DIR/final-receipt.json" || fail receipt
+  CURRENT_ORIGIN_DIGEST="$(validate_origin_guard)"
+  NMKR_PHASE16A_CURRENT_ORIGIN_DIGEST="$CURRENT_ORIGIN_DIGEST" validate_receipt final "$RECEIPT" "$CONSUMED" "$DEPLOYED_REAL" "$RUN_DIR/receipt.sha256" >"$RUN_DIR/final-receipt.json" || fail receipt
   wp_cli core is-installed >/dev/null 2>>"$DIAGNOSTIC_FILE" || fail wordpress-ready
   wp_cli plugin is-active "${NMKR_PLUGIN_SLUG:-nmkr-connect/nmkr-connect.php}" >/dev/null 2>>"$DIAGNOSTIC_FILE" || fail plugin-active
-  if [[ -n "${WP_ADMIN_USER:-}" ]]; then wp_cli eval 'exit(current_user_can("nmkr_manage_sync") ? 0 : 1);' >/dev/null 2>>"$DIAGNOSTIC_FILE" || true; fi
+  validate_admin_capability
   capture_state "$RUN_DIR/pre.json"
   python3 - "$RUN_DIR/pre.json" <<'PY' || fail pre-state
 import json,sys
@@ -146,7 +193,7 @@ if not all(d['required_tables_present'].values()): raise SystemExit(1)
 for k in ['active_history_count','option_active_marker_count','transient_active_marker_count','stale_recovery_marker_count','heartbeat_worker_evidence_count','blocked_sync_cron_count','duplicate_project_uid_count','duplicate_token_uid_count','duplicate_token_detail_uid_count','invalid_relationship_count','impossible_counter_count']:
     if d.get(k) != 0: raise SystemExit(1)
 if not d['cron_inspectable'] or not d['light_profile_guard'] or not d['api_key_present']: raise SystemExit(1)
-if d['sync_data_classification'] == 'active': raise SystemExit(1)
+if d['sync_data_classification'] not in ('absent','terminal'): raise SystemExit(1)
 PY
   [[ ! -e "$CONSUMED" ]] || fail receipt
   mv "$RECEIPT" "$CONSUMED" || fail receipt
@@ -186,10 +233,12 @@ mkdir -m 700 "$LOCK" || fail controller-lock; OWN_LOCK=1
 RECEIPT="${NMKR_PHASE16A_RECEIPT:-$NMKR_PHASE2_LOG_DIR/real-sync-preflight.receipt.json}"
 CONSUMED="${RECEIPT%.json}.consumed.json"
 DEPLOYED_REAL="$(python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "${NMKR_DEPLOYED_PLUGIN_PATH:-$REPO_ROOT}")"
-validate_receipt initial "$RECEIPT" "$CONSUMED" "$DEPLOYED_REAL" "$RUN_DIR/receipt.sha256" >"$RUN_DIR/initial-receipt.json" || fail receipt
+CURRENT_ORIGIN_DIGEST="$(validate_origin_guard)"
+NMKR_PHASE16A_CURRENT_ORIGIN_DIGEST="$CURRENT_ORIGIN_DIGEST" validate_receipt initial "$RECEIPT" "$CONSUMED" "$DEPLOYED_REAL" "$RUN_DIR/receipt.sha256" >"$RUN_DIR/initial-receipt.json" || fail receipt
 
 wp_cli core is-installed >/dev/null 2>>"$DIAGNOSTIC_FILE" || fail wordpress-ready
 wp_cli plugin is-active "${NMKR_PLUGIN_SLUG:-nmkr-connect/nmkr-connect.php}" >/dev/null 2>>"$DIAGNOSTIC_FILE" || fail plugin-active
+validate_admin_capability
 
 cat >"$RUN_DIR/controller.env" <<ENV
 WP_PATH=$(printf '%q' "$WP_PATH")
@@ -199,6 +248,9 @@ CONSUMED=$(printf '%q' "$CONSUMED")
 DEPLOYED_REAL=$(printf '%q' "$DEPLOYED_REAL")
 LOCK=$(printf '%q' "$LOCK")
 NMKR_PLUGIN_SLUG=$(printf '%q' "${NMKR_PLUGIN_SLUG:-nmkr-connect/nmkr-connect.php}")
+WP_BASE_URL=$(printf '%q' "${WP_BASE_URL:-}")
+NMKR_REAL_SYNC_ALLOWED_ORIGIN=$(printf '%q' "${NMKR_REAL_SYNC_ALLOWED_ORIGIN:-}")
+WP_ADMIN_USER=$(printf '%q' "${WP_ADMIN_USER:-}")
 ENV
 chmod 600 "$RUN_DIR/controller.env"
 
@@ -233,5 +285,5 @@ PY
 if [[ "${NMKR_PHASE16A_PUBLIC_REGRESSION:-false}" != true ]]; then
   NMKR_DB_STATE_ALLOW_ACTIVE_SYNC=false bash "$REPO_ROOT/scripts/nmkr-wpcli-db-state.sh" >/dev/null 2>>"$DIAGNOSTIC_FILE" || fail db-state
 fi
-validate_receipt final "$CONSUMED" "$CONSUMED.never" "$DEPLOYED_REAL" "" >/dev/null 2>>"$DIAGNOSTIC_FILE" || true
+validate_target_integrity "$CURRENT_ORIGIN_DIGEST"
 summary PASS

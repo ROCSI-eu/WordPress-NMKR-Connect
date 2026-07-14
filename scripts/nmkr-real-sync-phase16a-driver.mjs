@@ -51,10 +51,12 @@ export function sanitizeResult(state) {
 function validMetrics(metrics) {
   return !!metrics && typeof metrics === 'object' && ['total_projects','total_tokens','api_requests','memory_usage'].some((key) => Number.isFinite(Number(metrics[key])) && Number(metrics[key]) >= 0);
 }
+export function buildStartForm(nonce) { return { action: 'nmkr_start_sync', nonce }; }
+export function buildProgressForm(nonce) { return { action: 'nmkr_sync_progress', nonce }; }
 function classifyStart(response) {
   if (!response || typeof response !== 'object') return 'fatal';
   if (response.transportError || response.timeout) return 'ambiguous';
-  if (response.status === 401 || response.status === 403) return 'fatal';
+  if (!Number.isInteger(response.status) || response.status < 200 || response.status >= 300) return 'fatal';
   if (response.malformed || !response.json || typeof response.json !== 'object') return 'fatal';
   if (response.json.success === false) return 'fatal';
   return 'ok';
@@ -70,7 +72,7 @@ function classifyPoll(response) {
   const terminal = data.status === 'completed' || data.completed === true || data.finished === true;
   const explicitNotDone = data.in_progress === false && !terminal;
   const activeHistoryId = Number(data.history_id ?? data.sync_id ?? 0);
-  return { kind: 'ok', progress, terminal, explicitNotDone, activeHistoryId, metrics: data.metrics };
+  return { kind: 'ok', progress, terminal, explicitNotDone, activeHistoryId, metrics: data.live_metrics ?? data.metrics };
 }
 
 export async function runExactlyOnceSync({ transport, nonce, adminAjaxUrl = 'about:blank', receipt, now = () => Date.now(), sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)) }) {
@@ -184,14 +186,14 @@ async function realCli() {
           if (startAlreadySent) return { status: 409, json: { success: false } };
           startAlreadySent = true;
           try {
-            const res = await context.request.post(url, { form: { action: 'nmkr_start_sync', nmkr_sync_nonce: nonce }, timeout: timeoutMs });
+            const res = await context.request.post(url, { form: buildStartForm(nonce), timeout: timeoutMs });
             let json; try { json = await res.json(); } catch { return { status: res.status(), malformed: true }; }
             return { status: res.status(), json };
           } catch (error) { return { timeout: /Timeout|Abort/i.test(String(error?.message || error)), transportError: true }; }
         },
         poll: async ({ timeoutMs, nonce }) => {
           try {
-            const res = await context.request.post(adminAjaxUrl, { form: { action: 'nmkr_sync_progress', nmkr_sync_nonce: nonce }, timeout: timeoutMs });
+            const res = await context.request.post(adminAjaxUrl, { form: buildProgressForm(nonce), timeout: timeoutMs });
             let json; try { json = await res.json(); } catch { return { status: res.status(), malformed: true }; }
             return { status: res.status(), json };
           } catch (error) { return { timeout: /Timeout|Abort/i.test(String(error?.message || error)), transportError: true }; }
