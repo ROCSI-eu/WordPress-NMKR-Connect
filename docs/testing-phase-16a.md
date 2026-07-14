@@ -1,40 +1,40 @@
 # Phase 16A guarded controlled real-sync harness
 
-Phase 16A adds private-only tooling for one later, explicitly operator-approved real synchronization on a development VM. Installing this harness does not start, stop, restart, clean up, or force-stop synchronization. Public validation uses only synthetic receipts, fake repositories, aggregate JSON, and injected driver transports.
+Phase 16A is a private-only harness for one later, explicitly operator-approved real synchronization on a development VM. Installing the harness and running the public regression do not start, stop, restart, clean up, force-stop, or call NMKR.
 
 ## Relationship to Phase 15
 
-Phase 15 remains the read-only preflight. Phase 16A consumes the exact version-1 `nmkr-real-sync-preflight` receipt produced by Phase 15 and does not change that schema. The receipt is treated as necessary but insufficient: after the dashboard has bootstrapped, Phase 16A reruns race-sensitive guards, captures the final pre-run aggregate state, verifies that enough receipt lifetime remains, and only then atomically renames the receipt to a consumed file in the same private filesystem. Every attempted Start consumes the receipt; interrupted, failed, or ambiguous attempts require a new Phase 15 receipt.
+Phase 15 remains the read-only preflight. Phase 16A initially validates the unchanged version-1 `nmkr-real-sync-preflight` receipt without consuming it. After browser login, dashboard bootstrap, preparatory AJAX interception, and the frozen request window, the driver calls the controller-owned final-authorization operation. That operation validates the same receipt again, verifies its fingerprint is unchanged, checks that sufficient lifetime remains, captures the pre-run aggregate snapshot, and atomically renames the receipt to a consumed file. Any attempted Start consumes the receipt; a failed, interrupted, or ambiguous attempt requires a fresh Phase 15 receipt.
 
-## Private-only architecture
+## Private controller sequence
 
-The controller is `scripts/nmkr-real-sync-phase16a.sh`. It refuses CI before sourcing private environment files, requires `RUN_REAL_SYNC=true`, `PW_SAVE_ARTIFACTS=false`, `NMKR_REAL_SYNC_CONFIRM=I_UNDERSTAND_THIS_MUTATES_DEV`, and `NMKR_PHASE16A_CONFIRM=I_AUTHORIZE_EXACTLY_ONE_START`, validates private paths, acquires an owner-only directory lock, consumes the Phase 15 receipt, invokes the browser driver, records sanitized aggregate snapshots, and runs final validation. Paths in operator configuration must be absolute, owner-controlled, non-symlinked where required, and outside both the source checkout and WordPress root.
+The controller `scripts/nmkr-real-sync-phase16a.sh` refuses CI before env sourcing, requires `RUN_REAL_SYNC=true`, `PW_SAVE_ARTIFACTS=false`, `NMKR_REAL_SYNC_CONFIRM=I_UNDERSTAND_THIS_MUTATES_DEV`, and `NMKR_PHASE16A_CONFIRM=I_AUTHORIZE_EXACTLY_ONE_START`, validates owner-controlled private paths, acquires an owner-only lock, validates source/deployed commits and clean worktrees, checks WordPress/plugin readiness, and invokes the driver exactly once. It does not execute the driver for default-refusal tests.
 
-The browser-context driver is `scripts/nmkr-real-sync-phase16a-driver.mjs`. It keeps the exactly-once Start and polling state machine exportable for public synthetic tests. The private CLI path dynamically imports Playwright, launches headless Chromium, disables artifact persistence, and is intentionally outside ordinary Playwright test discovery.
+The required order is: default/CI refusal, private path and lock validation, strict receipt validation without consumption, browser login and dashboard bootstrap, preparatory API-status interception, frozen request mode, final revalidation and pre-run snapshot, atomic receipt consumption, exactly one Start, bounded polling, post-run snapshot, final aggregate validation, DB-state validation, and source/deployment rechecks.
 
-The aggregate state helper is `scripts/nmkr-real-sync-phase16a-state.php`. It is WP-CLI-only, requires WordPress to be loaded, and emits exact-schema JSON with counts, booleans, bounded numeric values, timestamps needed for comparison, and a SHA-256 digest of terminal history rows. It does not print UIDs, names, addresses, metadata, option values, transient values, cron arguments, URLs, credentials, users, API payloads, or raw database rows.
+## Browser login, dashboard bootstrap, and nonce handling
 
-## Dashboard preparation and frozen authorization window
+The driver `scripts/nmkr-real-sync-phase16a-driver.mjs` dynamically imports Playwright only in the private CLI path, launches headless Chromium without screenshots, traces, videos, reports, downloads, or storage-state persistence, logs in through the real WordPress login form using private environment credentials, handles the administration-email confirmation screen when present, and navigates to the NMKR dashboard. It extracts the localized sync nonce from the loaded page in memory. The nonce is never accepted from an environment variable, never written to disk, and never printed.
 
-Dashboard bootstrap occurs before final revalidation because dashboard loading can perform stale-state recovery and initialize `nmkr_last_sync_time`. During preparation, the driver routes `admin-ajax.php` requests before navigation. `nmkr_check_api_status` is fulfilled with a generic synthetic successful status so the preparatory API-status check cannot contact WordPress or NMKR and the first authorized NMKR interaction remains part of the real synchronization lifecycle.
+Before dashboard navigation, the driver installs admin-AJAX routing. During preparation it synthetically fulfils `nmkr_check_api_status` with a generic successful response so the dashboard's preparatory API-status check cannot contact WordPress/NMKR API code. It blocks mutating synchronization actions and allows only bootstrap traffic needed to render the dashboard and obtain the nonce.
 
-Before final authorization the driver enters a frozen request mode. WordPress heartbeat, dashboard polling, background statistics refreshes, unrelated PHP/admin-AJAX requests, and all known mutating sync actions are blocked. Static assets may already have loaded. This keeps the final cron guard, final aggregate snapshot, receipt consumption, and explicit Start request in a narrow controlled window.
+## Frozen window, exactly-once Start, and polling
 
-## Exactly-once Start and polling
+Before final authorization, the driver enters frozen mode. Frozen mode blocks heartbeat, statistics refreshes, dashboard polling, unrelated admin-AJAX, PHP/admin navigation, and requests capable of dispatching WP-Cron. No WordPress/PHP request is allowed between the final cron guard and the explicit Start except the Start request itself.
 
-Immediately after successful final authorization, the driver permits exactly one authenticated `nmkr_start_sync` request to the production `admin-ajax.php` handler using the real in-memory nonce and browser cookies. It increments an internal Start counter, never logs the nonce or cookies, never retries Start, and treats transport failure or timeout after dispatch as ambiguous. Ambiguous Start is not cleaned up and is not retried.
+After final authorization succeeds, the driver permits one already-authorized `nmkr_start_sync` POST to the production authenticated `admin-ajax.php` endpoint. It uses the in-memory nonce and browser cookies, increments a Start counter, and never retries Start. A timeout or transport failure after dispatch is ambiguous and remains non-retriable. After Start, Stop, force-stop, restart, cleanup, metrics-storage, log cleanup, unrelated admin-AJAX, and any second Start are blocked. Polling uses the same nonce on every `nmkr_sync_progress` request, is non-overlapping, begins near three seconds, backs off retriable failures up to about thirty seconds, rejects 4xx/malformed responses and progress decreases, and requires explicit terminal evidence followed by final database validation. `in_progress=false` without terminal evidence is not success.
 
-Polling is a single non-overlapping loop. It starts near a three-second interval, uses bounded request timeouts, backs off retriable transport/server failures up to about thirty seconds, treats 4xx authorization failures and malformed JSON as fatal, rejects progress decreases, and accepts only explicit terminal evidence followed by database validation. Isolated `in_progress=false` is not success. Persisted evidence is sanitized to Start count, poll count, maximum progress, nonterminal observation, live-metrics structure evidence, terminal classification, retry count, and elapsed seconds.
+## Aggregate snapshots and final validation
 
-## Final-state assertions
+The read-only WP-CLI helper `scripts/nmkr-real-sync-phase16a-state.php` emits exact-schema aggregate JSON only: required-table booleans, counts/max IDs, active/terminal history classification, duplicate/relationship/impossible-counter counts, option/transient/stale-recovery/heartbeat-worker evidence, blocked cron hook counts, light-profile validity, API-key presence from `nmkr_connect_options`, timestamp consistency, terminal-history digest, latest history classification, and snapshot epoch. It does not expose UIDs, names, addresses, option values, transient values, cron arguments, credentials, identities, payloads, or raw rows.
 
-Phase 16A fails unless final validation proves exactly one Start, one new completed sync-history row, one new valid metrics row, unchanged digest for pre-existing terminal history, zero active history, zero active option/transient/object-cache markers, zero stale-recovery or heartbeat markers, zero blocked sync cron events, terminal-only retained sync data if present, nondecreasing project/token/detail counts, zero duplicate/relationship/impossible-counter aggregates, matching `nmkr_last_sync_time` and newest metrics timestamp, a passing existing WP-CLI DB-state validator with active sync disallowed, healthy installed WordPress, active plugin, and clean source/deployed worktrees at the tested commit. A production response that appears completed is not sufficient if metrics or aggregate validation fails.
+Final validation requires one Start, exactly one new completed history row with a valid end time, exactly one new metrics row, unchanged digest for pre-existing terminal history, zero active runtime markers, zero blocked cron hooks, inspectable cron, required tables present, valid light profile, API key present, terminal-or-absent retained sync data, matching latest metrics time and `nmkr_last_sync_time`, nondecreasing project/token/detail counts, zero duplicate/relationship/impossible aggregates, the existing DB-state validator passing with active sync disallowed, WordPress/plugin readiness, and clean matching source/deployed commits. A completed frontend response is insufficient without these assertions.
 
 ## Interruption and cleanup boundary
 
-On `SIGINT`, `SIGTERM`, driver error, timeout, or ambiguous Start, Phase 16A stops local driver/polling activity, preserves the consumed receipt, releases only the controller-owned private lock, writes sanitized failure/ambiguous evidence, and performs no WordPress cleanup. Operators must inspect the private VM state using approved procedures and generate a fresh Phase 15 receipt before any later attempt.
+On interrupt, driver error, timeout, or ambiguous Start, Phase 16A stops only local driver/polling activity, preserves any consumed receipt, releases only the controller-owned lock, writes sanitized failure evidence, and performs no WordPress cleanup. Operators must inspect private state through approved procedures and generate a new Phase 15 receipt before another attempt.
 
-## Public-safe regression procedure
+## Public-safe regression
 
 Run:
 
@@ -42,16 +42,8 @@ Run:
 npm run test:real-sync:phase16a:regression
 ```
 
-The regression does not contact WordPress, NMKR, private hosts, or external hosts; does not launch a browser executable; and does not create screenshots, traces, videos, HTML reports, private artifacts, credentials, or live DB data. It covers default refusal, CI refusal, artifact refusal, unsafe paths, strict receipt failures, controller lock refusal, atomic consumption, Start-zero preauthorization failures, exactly-one synthetic Start, fatal and ambiguous Start behavior, polling backoff, malformed progress failure, cleanup sentinels, secret-pattern output scanning, and absence from normal Playwright discovery.
+The regression is synthetic and public-safe: it uses fake receipts, fake WP-CLI output, a fake driver, and injected transports. It proves the driver is invoked zero times on preauthorization refusal, exactly once on the authorized synthetic path, not before the consumed-receipt sentinel, and that consumption occurs only during final authorization. It covers receipt failures, route POST-body parsing, frozen-mode blocking, second-Start blocking, nonce propagation to Start and progress without output leakage, no-terminal polling failure, no browser artifacts, and absence from normal Playwright discovery. No real run was performed in PR testing.
 
-## Private validation gates and expected result
+## Rollback and deferred hardening
 
-A private run should print only generic PASS/FAIL gate names, short commit identifiers where applicable, and private diagnostic paths on failure. The expected successful result is a PASS summary plus sanitized driver and aggregate evidence in the private run directory. Actual real-sync execution remains a separate operator-approved step and must not be performed by public CI or routine test commands.
-
-## Rollback
-
-Rollback of this code change is a normal Git revert of the Phase 16A commit or branch. No WordPress rollback is expected merely from installing the harness, because installation and public regression are non-mutating. If an operator separately authorizes a private real run, operational rollback decisions belong to that private runbook and are not automated by Phase 16A.
-
-## Deferred hardening
-
-Phase 16A is an external harness. Production Start idempotency, durable worker locks, scheduled-event result handling, and stricter production active-sync rejection are intentionally deferred to a later Phase 16B or Phase 16C unless separately approved.
+Rollback is a normal Git revert of the Phase 16A commit or branch. Merely installing the harness should not require WordPress rollback because public paths are non-mutating. Production Start idempotency, durable worker locks, scheduled-event result handling, and stricter production active-sync rejection remain deferred to Phase 16B or Phase 16C.
