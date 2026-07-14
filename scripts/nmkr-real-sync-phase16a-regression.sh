@@ -9,7 +9,11 @@ run_fail(){ local name="$1"; shift; local out="$TMP/${name// /_}.out"; if "$@" >
 ! rg -n 'driver-default|phase16a-driver\.mjs" >/dev/null' "$ROOT/scripts/nmkr-real-sync-phase16a.sh" >/dev/null || fail "premature private driver invocation remains"
 pass "controller contains no premature driver execution"
 
-WP="$TMP/wp"; STATE="$TMP/state"; mkdir -p "$WP" "$STATE"; chmod 700 "$TMP" "$STATE"
+WP="$TMP/wp"; STATE="$TMP/state"; ACTIVE_PLUGIN="$WP/wp-content/plugins/nmkr-connect"
+mkdir -p "$WP/wp-content/plugins" "$STATE"; chmod 700 "$TMP" "$STATE"
+git clone -q "$ROOT" "$ACTIVE_PLUGIN"
+git -C "$ACTIVE_PLUGIN" checkout -q "$(git -C "$ROOT" rev-parse HEAD)"
+reset_active_plugin(){ git -C "$ACTIVE_PLUGIN" reset --hard -q "$(git -C "$ROOT" rev-parse HEAD)"; git -C "$ACTIVE_PLUGIN" clean -fdq; }
 make_receipt(){ local path="$1" exp="${2:-600}"; local head; head="$(git -C "$ROOT" rev-parse HEAD)"; python3 - "$path" "$head" "$exp" <<'PY'
 import json,os,sys,time
 p,head,exp=sys.argv[1:4]; now=int(time.time())
@@ -48,7 +52,7 @@ appendFileSync(log, `after:${existsSync(process.env.NMKR_FAKE_CONSUMED) ? 'consu
 console.log(JSON.stringify({startCount:1,pollCount:2,maxProgress:100,nonterminalObserved:true,validLiveMetricsObserved:true,terminalClassification:'terminal-observed',transportRetryCount:0,activeHistoryIdObserved:2,elapsedSeconds:4}));
 JS
 chmod +x "$FAKE_DRIVER"
-base_env(){ local state_dir="$1"; shift; env -u CI -u GITHUB_ACTIONS -u GITLAB_CI -u CIRCLECI -u BUILDKITE -u TF_BUILD RUN_REAL_SYNC=true PW_SAVE_ARTIFACTS=false NMKR_REAL_SYNC_CONFIRM=I_UNDERSTAND_THIS_MUTATES_DEV NMKR_PHASE16A_CONFIRM=I_AUTHORIZE_EXACTLY_ONE_START WP_PATH="$WP" WP_CLI_BIN="$FAKE_WP" WP_BASE_URL="${NMKR_TEST_WP_BASE_URL:-https://example.invalid}" NMKR_REAL_SYNC_ALLOWED_ORIGIN="${NMKR_TEST_ALLOWED_ORIGIN:-https://example.invalid}" WP_ADMIN_USER="admin@example.invalid" NMKR_PHASE2_LOG_DIR="$state_dir" NMKR_DEPLOYED_PLUGIN_PATH="$ROOT" NMKR_PHASE16A_PUBLIC_REGRESSION=true NMKR_PHASE16A_TEST_DRIVER_BIN="$FAKE_DRIVER" "$@"; }
+base_env(){ local state_dir="$1"; shift; env -u CI -u GITHUB_ACTIONS -u GITLAB_CI -u CIRCLECI -u BUILDKITE -u TF_BUILD RUN_REAL_SYNC=true PW_SAVE_ARTIFACTS=false NMKR_REAL_SYNC_CONFIRM=I_UNDERSTAND_THIS_MUTATES_DEV NMKR_PHASE16A_CONFIRM=I_AUTHORIZE_EXACTLY_ONE_START WP_PATH="$WP" WP_CLI_BIN="$FAKE_WP" WP_BASE_URL="${NMKR_TEST_WP_BASE_URL:-https://example.invalid}" NMKR_REAL_SYNC_ALLOWED_ORIGIN="${NMKR_TEST_ALLOWED_ORIGIN:-https://example.invalid}" WP_ADMIN_USER="admin@example.invalid" NMKR_PHASE2_LOG_DIR="$state_dir" NMKR_PHASE16A_PUBLIC_REGRESSION=true NMKR_PHASE16A_TEST_DRIVER_BIN="$FAKE_DRIVER" "$@"; }
 run_refusal(){ local name="$1"; shift; local d="$TMP/$name"; mkdir -m700 "$d"; : >"$TMP/$name.driver"; run_fail "$name" env -u RUN_REAL_SYNC -u CI -u GITHUB_ACTIONS -u GITLAB_CI -u CIRCLECI -u BUILDKITE -u TF_BUILD NMKR_FAKE_DRIVER_LOG="$TMP/$name.driver" "$@"; [[ ! -s "$TMP/$name.driver" ]] || fail "$name invoked driver"; pass "$name driver zero-times"; }
 run_refusal "default RUN_REAL_SYNC=false" WP_PATH="$WP" NMKR_PHASE2_LOG_DIR="$STATE" bash "$ROOT/scripts/nmkr-real-sync-phase16a.sh"
 run_refusal "CI refusal before env" CI=true RUN_REAL_SYNC=true WP_PATH="$WP" NMKR_PHASE2_ENV_FILE="$TMP/nope" NMKR_PHASE2_LOG_DIR="$STATE" bash "$ROOT/scripts/nmkr-real-sync-phase16a.sh"
@@ -60,6 +64,63 @@ grep -q '^before:unconsumed$' "$LOG" || fail "driver started after premature con
 grep -q '^after:consumed$' "$LOG" || fail "receipt not consumed during final authorization"
 [[ -f "$C" && ! -f "$R" ]] || fail "receipt consumption was not atomic"
 pass "authorized synthetic path invokes driver exactly once after initial validation and consumes during final authorization"
+
+D="$TMP/active_override"; mkdir -m700 "$D"; mkdir -p "$D/runs/phase15"; chmod 700 "$D/runs" "$D/runs/phase15"
+R="$D/runs/phase15/real-sync-preflight.receipt.json"; C="$D/runs/phase15/real-sync-preflight.receipt.consumed.json"; make_receipt "$R"
+PRE="$TMP/active_override.pre.json"; POST="$TMP/active_override.post.json"; LOG="$TMP/active_override.driver"
+state_json 1 1 1 1 abc >"$PRE"; state_json 2 2 2 2 abc >"$POST"
+base_env "$D" NMKR_DEPLOYED_PLUGIN_PATH="$ACTIVE_PLUGIN" NMKR_PHASE16A_RECEIPT="$R" NMKR_FAKE_PRE_STATE="$PRE" NMKR_FAKE_POST_STATE="$POST" NMKR_FAKE_DRIVER_LOG="$LOG" NMKR_FAKE_CONSUMED="$C" bash "$ROOT/scripts/nmkr-real-sync-phase16a.sh" >/dev/null 2>&1 || fail "explicit active deployed override unexpectedly failed"
+pass "explicit deployed override resolving to active plugin checkout accepted"
+
+deployment_refusal(){
+  local name="$1"; shift
+  D="$TMP/deploy_${name// /_}"; mkdir -m700 "$D"; mkdir -p "$D/runs/phase15"; chmod 700 "$D/runs" "$D/runs/phase15"
+  R="$D/runs/phase15/real-sync-preflight.receipt.json"; C="$D/runs/phase15/real-sync-preflight.receipt.consumed.json"; make_receipt "$R"
+  PRE="$TMP/deploy_${name// /_}.pre.json"; POST="$TMP/deploy_${name// /_}.post.json"; LOG="$TMP/deploy_${name// /_}.driver"
+  state_json 1 1 1 1 abc >"$PRE"; state_json 2 2 2 2 abc >"$POST"; : >"$LOG"
+  run_fail "deployment $name" base_env "$D" "$@" NMKR_PHASE16A_RECEIPT="$R" NMKR_FAKE_PRE_STATE="$PRE" NMKR_FAKE_POST_STATE="$POST" NMKR_FAKE_DRIVER_LOG="$LOG" NMKR_FAKE_CONSUMED="$C" bash "$ROOT/scripts/nmkr-real-sync-phase16a.sh"
+  [[ ! -s "$LOG" ]] || fail "deployment $name invoked driver"
+  [[ -f "$R" && ! -e "$C" ]] || fail "deployment $name consumed receipt"
+}
+
+reset_active_plugin
+printf 'stale\n' >>"$ACTIVE_PLUGIN/phase16a-stale.txt"; git -C "$ACTIVE_PLUGIN" add phase16a-stale.txt; git -C "$ACTIVE_PLUGIN" -c user.email=a@b.invalid -c user.name=a commit -q -m "phase16a stale deployed fixture"
+deployment_refusal "stale deployed HEAD"
+reset_active_plugin
+printf 'dirty\n' >>"$ACTIVE_PLUGIN/phase16a-dirty.txt"
+deployment_refusal "dirty deployed checkout"
+reset_active_plugin
+deployment_refusal "override source checkout" NMKR_DEPLOYED_PLUGIN_PATH="$ROOT"
+OTHER="$TMP/other-deploy"; git clone -q "$ROOT" "$OTHER"; git -C "$OTHER" checkout -q "$(git -C "$ROOT" rev-parse HEAD)"
+deployment_refusal "override other checkout" NMKR_DEPLOYED_PLUGIN_PATH="$OTHER"
+WP_PARENT="$TMP/wp-parent"; mkdir -p "$WP_PARENT/wp-content/plugins/nmkr-connect"; git -C "$WP_PARENT/wp-content/plugins" init -q; printf 'parent\n' >"$WP_PARENT/wp-content/plugins/nmkr-connect/fixture.txt"; git -C "$WP_PARENT/wp-content/plugins" add nmkr-connect/fixture.txt; git -C "$WP_PARENT/wp-content/plugins" -c user.email=a@b.invalid -c user.name=a commit -q -m parent
+deployment_refusal "active plugin git top-level parent" WP_PATH="$WP_PARENT"
+pass "active deployed checkout gate rejects stale dirty wrong override and parent worktree cases"
+
+mutate_receipt(){ python3 - "$1" "$2" "$3" <<'PY'
+import json,sys
+p,k,v=sys.argv[1:4]
+d=json.load(open(p)); d[k]=int(v); json.dump(d,open(p,'w'))
+PY
+}
+for spec in "max_duration_seconds 300 accept" "max_duration_seconds 3600 accept" "poll_timeout_seconds 10 accept" "poll_timeout_seconds 60 accept" "receipt_ttl_seconds 60 accept" "receipt_ttl_seconds 300 accept"; do
+  set -- $spec; field="$1"; value="$2"
+  D="$TMP/bounds_${field}_${value}"; mkdir -m700 "$D"; mkdir -p "$D/runs/phase15"; chmod 700 "$D/runs" "$D/runs/phase15"
+  R="$D/runs/phase15/real-sync-preflight.receipt.json"; C="$D/runs/phase15/real-sync-preflight.receipt.consumed.json"; make_receipt "$R" 600; mutate_receipt "$R" "$field" "$value"
+  PRE="$TMP/bounds_${field}_${value}.pre.json"; POST="$TMP/bounds_${field}_${value}.post.json"; LOG="$TMP/bounds_${field}_${value}.driver"
+  state_json 1 1 1 1 abc >"$PRE"; state_json 2 2 2 2 abc >"$POST"
+  base_env "$D" NMKR_PHASE16A_RECEIPT="$R" NMKR_FAKE_PRE_STATE="$PRE" NMKR_FAKE_POST_STATE="$POST" NMKR_FAKE_DRIVER_LOG="$LOG" NMKR_FAKE_CONSUMED="$C" bash "$ROOT/scripts/nmkr-real-sync-phase16a.sh" >/dev/null 2>&1 || fail "receipt bound $field=$value unexpectedly failed"
+done
+pass "Phase 15 receipt timeout boundary values accepted"
+for spec in "max_duration_seconds 299" "max_duration_seconds 3601" "poll_timeout_seconds 9" "poll_timeout_seconds 61" "receipt_ttl_seconds 59" "receipt_ttl_seconds 301"; do
+  set -- $spec; field="$1"; value="$2"
+  D="$TMP/bounds_bad_${field}_${value}"; mkdir -m700 "$D"; mkdir -p "$D/runs/phase15"; chmod 700 "$D/runs" "$D/runs/phase15"
+  R="$D/runs/phase15/real-sync-preflight.receipt.json"; C="$D/runs/phase15/real-sync-preflight.receipt.consumed.json"; make_receipt "$R" 600; mutate_receipt "$R" "$field" "$value"; LOG="$TMP/bounds_bad_${field}_${value}.driver"; : >"$LOG"
+  run_fail "receipt bound $field=$value" base_env "$D" NMKR_PHASE16A_RECEIPT="$R" NMKR_FAKE_DRIVER_LOG="$LOG" NMKR_FAKE_CONSUMED="$C" bash "$ROOT/scripts/nmkr-real-sync-phase16a.sh"
+  [[ ! -s "$LOG" ]] || fail "receipt bound $field=$value invoked driver"
+  [[ -f "$R" && ! -e "$C" ]] || fail "receipt bound $field=$value consumed receipt"
+done
+pass "Phase 15 receipt timeout out-of-range values rejected before driver"
 
 for sync_class in absent terminal active unknown; do
   D="$TMP/post-sync-$sync_class"; mkdir -m700 "$D"; mkdir -p "$D/runs/phase15"; chmod 700 "$D/runs" "$D/runs/phase15"
@@ -116,6 +177,10 @@ done
 node --input-type=module <<'NODE' >"$TMP/driver-state.out"
 import {runExactlyOnceSync, actionFromRequestLike, routeDecisionForAction, buildStartForm, buildProgressForm} from './scripts/nmkr-real-sync-phase16a-driver.mjs';
 const secret='nonce-fixture-value'; let starts=[], polls=[];
+const fakeClock = () => {
+  let fakeNow = 0;
+  return { now: () => fakeNow, sleep: async (ms) => { fakeNow += ms; } };
+};
 const sf=buildStartForm(secret), pf=buildProgressForm(secret);
 if(sf.action!=='nmkr_start_sync'||sf.nonce!==secret||Object.hasOwn(sf,'nmkr_sync_nonce')) throw Error('Start form shape failed');
 if(pf.action!=='nmkr_sync_progress'||pf.nonce!==secret||Object.hasOwn(pf,'nmkr_sync_nonce')) throw Error('Progress form shape failed');
@@ -126,21 +191,24 @@ if(actionFromRequestLike({url:'https://x/wp-admin/admin-ajax.php',method:'POST',
 if(routeDecisionForAction('nmkr_check_api_status','prepare')!=='synthetic-ok') throw Error('api status route failed');
 if(routeDecisionForAction('heartbeat','frozen')!=='block'||routeDecisionForAction('nmkr_get_sync_statistics','frozen')!=='block') throw Error('frozen blocking failed');
 if(routeDecisionForAction('nmkr_start_sync','after-start',true)!=='block') throw Error('second Start not blocked');
-result=await runExactlyOnceSync({nonce:'n',receipt:{maxDurationSeconds:20,pollTimeoutSeconds:5},sleep:async()=>{},transport:{start:async()=>({status:200,json:{success:true}}),poll:async()=>({status:200,json:{data:{progress:10,in_progress:false}}})}}); if(!result.timeout) throw Error('explicit not in progress without terminal should not succeed');
+let clock=fakeClock();
+result=await runExactlyOnceSync({nonce:'n',receipt:{maxDurationSeconds:20,pollTimeoutSeconds:5},now:clock.now,sleep:clock.sleep,transport:{start:async()=>({status:200,json:{success:true}}),poll:async()=>({status:200,json:{data:{progress:10,in_progress:false}}})}}); if(!result.timeout) throw Error('explicit not in progress without terminal should not succeed');
 result=await runExactlyOnceSync({nonce:'n',receipt:{maxDurationSeconds:20,pollTimeoutSeconds:5},sleep:async()=>{},transport:{start:async()=>({timeout:true}),poll:async()=>{throw Error('no poll')}}}); if(!result.ambiguous||result.sanitized.startCount!==1) throw Error('ambiguous retry failed');
 
 for (const status of [301,400,401,403,409,500,503]) {
   const r=await runExactlyOnceSync({nonce:'n',receipt:{maxDurationSeconds:20,pollTimeoutSeconds:5},sleep:async()=>{},transport:{start:async()=>({status,json:{success:true}}),poll:async()=>{throw Error('poll forbidden')}}});
   if(!r.fatal || r.sanitized.startCount!==1) throw Error(`HTTP ${status} start was not fatal exactly once`);
 }
-let lm=await runExactlyOnceSync({nonce:'n',receipt:{maxDurationSeconds:20,pollTimeoutSeconds:5},sleep:async()=>{},transport:{start:async()=>({status:200,json:{success:true}}),poll:async()=>({status:200,json:{data:{progress:5,in_progress:true,live_metrics:{api_requests:1}}}})}});
+clock=fakeClock();
+let lm=await runExactlyOnceSync({nonce:'n',receipt:{maxDurationSeconds:20,pollTimeoutSeconds:5},now:clock.now,sleep:clock.sleep,transport:{start:async()=>({status:200,json:{success:true}}),poll:async()=>({status:200,json:{data:{progress:5,in_progress:true,live_metrics:{api_requests:1}}}})}});
 if(!lm.timeout || !lm.sanitized.validLiveMetricsObserved) throw Error('live_metrics evidence failed');
-let legacy=await runExactlyOnceSync({nonce:'n',receipt:{maxDurationSeconds:20,pollTimeoutSeconds:5},sleep:async()=>{},transport:{start:async()=>({status:200,json:{success:true}}),poll:async()=>({status:200,json:{data:{progress:5,in_progress:true,metrics:{api_requests:1}}}})}});
+clock=fakeClock();
+let legacy=await runExactlyOnceSync({nonce:'n',receipt:{maxDurationSeconds:20,pollTimeoutSeconds:5},now:clock.now,sleep:clock.sleep,transport:{start:async()=>({status:200,json:{success:true}}),poll:async()=>({status:200,json:{data:{progress:5,in_progress:true,metrics:{api_requests:1}}}})}});
 if(!legacy.sanitized.validLiveMetricsObserved) throw Error('legacy metrics fallback failed');
 console.log('driver route and nonce synthetic checks passed');
 NODE
 pass "driver nonce, POST routing, frozen blocking, second Start, and ambiguous/no-terminal regressions"
-find "$TMP" \( -name 'playwright-report' -o -name 'test-results' -o -name '*.webm' -o -name '*.zip' -o -name '*.png' \) -print -quit | grep -q . && fail "Playwright artifacts created"
-if rg -n 'nonce-fixture-value|private-token-fixture|cookie-fixture' "$TMP" >/dev/null 2>&1; then fail "fixture secret value appeared in output"; fi
+find "$TMP" \( -path '*/playwright-report' -o -path '*/test-results' -o -path '*/blob-report' -o -path '*/playwright/.cache' -o -name '*.webm' -o -name 'trace.zip' \) -print -quit | grep -q . && fail "Playwright artifacts created"
+if find "$TMP" -maxdepth 1 -type f -print0 | xargs -0 --no-run-if-empty rg -n 'nonce-fixture-value|private-token-fixture|cookie-fixture' >/dev/null 2>&1; then fail "fixture secret value appeared in output"; fi
 npx playwright test --list --reporter=list 2>/dev/null | rg 'nmkr-real-sync-phase16a-driver' && fail "private driver discovered by Playwright"
 pass "no external network, no browser artifacts, no nonce leak, and no private driver discovery"

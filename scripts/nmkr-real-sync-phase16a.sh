@@ -7,7 +7,7 @@ if REPO_ROOT_FROM_GIT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/n
 else
   REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 fi
-FINAL_MIN_REMAINING_SECONDS=120
+FINAL_MIN_REMAINING_SECONDS=30
 REQUIRED_HEAD="${NMKR_PHASE16A_EXPECTED_HEAD:-}"
 
 ci_active() { [[ -n "${1:-}" && "${1:-}" != "0" && "${1:-}" != "false" ]]; }
@@ -102,6 +102,33 @@ validate_target_integrity() {
   validate_target_git >/dev/null 2>>"$DIAGNOSTIC_FILE" || fail deployment-integrity
 }
 
+resolve_deployed_real() {
+  python3 - "$REPO_ROOT" "${WP_PATH:-}" "${NMKR_PLUGIN_SLUG:-nmkr-connect/nmkr-connect.php}" "${NMKR_DEPLOYED_PLUGIN_PATH:-}" <<'PY'
+import os, sys
+repo, wp, slug, override = sys.argv[1:5]
+def bad(): raise SystemExit(1)
+if not wp or not os.path.isabs(wp) or '/' not in slug or slug.startswith('/') or '..' in slug.split('/'):
+    bad()
+plugin_dir = slug.split('/')[0]
+active = os.path.realpath(os.path.join(wp.rstrip(os.sep), 'wp-content', 'plugins', plugin_dir))
+if not os.path.isdir(active):
+    bad()
+selected = active
+if override:
+    if not os.path.isabs(override):
+        bad()
+    selected = os.path.realpath(override)
+    if selected != active:
+        bad()
+repo_real = os.path.realpath(repo)
+def inside_or_equal(a, b):
+    return a == b or a.startswith(b.rstrip(os.sep) + os.sep)
+if inside_or_equal(selected, repo_real) or inside_or_equal(repo_real, selected):
+    bad()
+print(selected)
+PY
+}
+
 validate_target_git() {
   python3 - "$REPO_ROOT" "$DEPLOYED_REAL" "${REQUIRED_HEAD:-}" <<'PY'
 import os, re, subprocess, sys
@@ -109,8 +136,15 @@ src, dep, required = sys.argv[1:4]
 def bad(): raise SystemExit(1)
 def git(repo, *args): return subprocess.check_output(['git','-C',repo,*args], text=True, stderr=subprocess.DEVNULL).strip()
 def clean(repo): return git(repo,'status','--porcelain=v1','--untracked-files=all') == ''
+def inside_or_equal(a, b):
+    a=os.path.realpath(a); b=os.path.realpath(b)
+    return a == b or a.startswith(b.rstrip(os.sep) + os.sep)
+src=os.path.realpath(src); dep=os.path.realpath(dep)
+if inside_or_equal(src, dep) or inside_or_equal(dep, src): bad()
 for repo in (src, dep):
     if git(repo,'rev-parse','--is-inside-work-tree') != 'true': bad()
+    top=os.path.realpath(git(repo,'rev-parse','--show-toplevel'))
+    if top != os.path.realpath(repo): bad()
 src_head=git(src,'rev-parse','HEAD'); dep_head=git(dep,'rev-parse','HEAD')
 if not re.fullmatch(r'[0-9a-f]{40}', src_head) or not re.fullmatch(r'[0-9a-f]{40}', dep_head): bad()
 if src_head != dep_head: bad()
@@ -194,7 +228,7 @@ if data['created_at_epoch'] > now + 300 or data['created_at_epoch'] <= 0: bad()
 if data['expires_at_epoch'] <= now: bad()
 if phase == 'final' and data['expires_at_epoch'] - now < min_remaining: bad()
 if now - data['backup_confirmed_at_epoch'] > 86400 or data['backup_confirmed_at_epoch'] > now + 300: bad()
-if not (60 <= data['max_duration_seconds'] <= 7200 and 5 <= data['poll_timeout_seconds'] <= 120 and 120 <= data['receipt_ttl_seconds'] <= 3600): bad()
+if not (300 <= data['max_duration_seconds'] <= 3600 and 10 <= data['poll_timeout_seconds'] <= 60 and 60 <= data['receipt_ttl_seconds'] <= 300): bad()
 for key in ['plugin_active','admin_capability_ok','db_state_clean','api_key_present','runtime_state_clean','cron_state_clean','object_cache_state_clean','profile_guard_passed','backup_confirmed']:
     if data[key] is not True: bad()
 if not isinstance(data['origin_sha256'], str) or len(data['origin_sha256']) != 64 or any(c not in '0123456789abcdef' for c in data['origin_sha256']): bad()
@@ -280,7 +314,7 @@ mkdir -m 700 "$LOCK" || fail controller-lock; OWN_LOCK=1
 RECEIPT="${NMKR_PHASE16A_RECEIPT:-}"
 validate_receipt_path || fail receipt-path
 CONSUMED="${RECEIPT%.json}.consumed.json"
-DEPLOYED_REAL="$(python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "${NMKR_DEPLOYED_PLUGIN_PATH:-$REPO_ROOT}")"
+DEPLOYED_REAL="$(resolve_deployed_real)" || fail deployment-integrity
 validate_target_git >/dev/null 2>>"$DIAGNOSTIC_FILE" || fail deployment-integrity
 CURRENT_ORIGIN_DIGEST="$(validate_origin_guard)"
 NMKR_PHASE16A_CURRENT_ORIGIN_DIGEST="$CURRENT_ORIGIN_DIGEST" validate_receipt initial "$RECEIPT" "$CONSUMED" "$DEPLOYED_REAL" "$RUN_DIR/receipt.sha256" >"$RUN_DIR/initial-receipt.json" || fail receipt
