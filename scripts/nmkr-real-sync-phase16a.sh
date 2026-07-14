@@ -99,7 +99,54 @@ validate_target_integrity() {
   wp_cli core is-installed >/dev/null 2>>"$DIAGNOSTIC_FILE" || fail wordpress-ready
   wp_cli plugin is-active "${NMKR_PLUGIN_SLUG:-nmkr-connect/nmkr-connect.php}" >/dev/null 2>>"$DIAGNOSTIC_FILE" || fail plugin-active
   validate_admin_capability
-  validate_receipt final "$CONSUMED" "$CONSUMED.never" "$DEPLOYED_REAL" "" >/dev/null 2>>"$DIAGNOSTIC_FILE" || fail deployment-integrity
+  validate_target_git >/dev/null 2>>"$DIAGNOSTIC_FILE" || fail deployment-integrity
+}
+
+validate_target_git() {
+  python3 - "$REPO_ROOT" "$DEPLOYED_REAL" "${REQUIRED_HEAD:-}" <<'PY'
+import os, re, subprocess, sys
+src, dep, required = sys.argv[1:4]
+def bad(): raise SystemExit(1)
+def git(repo, *args): return subprocess.check_output(['git','-C',repo,*args], text=True, stderr=subprocess.DEVNULL).strip()
+def clean(repo): return git(repo,'status','--porcelain=v1','--untracked-files=all') == ''
+for repo in (src, dep):
+    if git(repo,'rev-parse','--is-inside-work-tree') != 'true': bad()
+src_head=git(src,'rev-parse','HEAD'); dep_head=git(dep,'rev-parse','HEAD')
+if not re.fullmatch(r'[0-9a-f]{40}', src_head) or not re.fullmatch(r'[0-9a-f]{40}', dep_head): bad()
+if src_head != dep_head: bad()
+if required and src_head != required: bad()
+if not clean(src) or not clean(dep): bad()
+PY
+}
+
+validate_receipt_path() {
+  python3 - "${NMKR_PHASE16A_RECEIPT:-}" "$NMKR_PHASE2_LOG_DIR" "$REPO_ROOT" "$WP_PATH" <<'PY'
+import os, stat, sys
+receipt, state, repo, wp = sys.argv[1:5]
+uid=os.getuid()
+def bad(): raise SystemExit(1)
+def inside(a,b):
+    a=os.path.realpath(a); b=os.path.realpath(b)
+    return a == b or a.startswith(b.rstrip(os.sep)+os.sep)
+if not receipt or not os.path.isabs(receipt): bad()
+if os.path.basename(receipt) != 'real-sync-preflight.receipt.json': bad()
+if os.path.islink(receipt) or not os.path.isfile(receipt): bad()
+st=os.stat(receipt)
+if st.st_uid != uid or stat.S_IMODE(st.st_mode) != 0o600: bad()
+state_real=os.path.realpath(state); repo_real=os.path.realpath(repo); wp_real=os.path.realpath(wp); receipt_real=os.path.realpath(receipt)
+if inside(receipt_real, repo_real) or inside(receipt_real, wp_real): bad()
+run_dir=os.path.dirname(receipt_real); runs_dir=os.path.dirname(run_dir)
+if os.path.basename(runs_dir) != 'runs' or os.path.dirname(runs_dir) != state_real: bad()
+if run_dir == runs_dir or os.path.dirname(receipt_real) == state_real: bad()
+cur=state_real
+while True:
+    st=os.stat(cur)
+    if os.path.islink(cur) or st.st_uid != uid or (stat.S_IMODE(st.st_mode)&0o077): bad()
+    if cur == run_dir: break
+    nxt = runs_dir if cur == state_real else run_dir if cur == runs_dir else None
+    if not nxt: bad()
+    cur=nxt
+PY
 }
 
 validate_receipt() {
@@ -230,9 +277,11 @@ trap 'printf '\''{"result":"interrupted"}\n'\'' >"$RUN_DIR/result.json"; cleanup
 trap cleanup EXIT
 mkdir -m 700 "$LOCK" || fail controller-lock; OWN_LOCK=1
 
-RECEIPT="${NMKR_PHASE16A_RECEIPT:-$NMKR_PHASE2_LOG_DIR/real-sync-preflight.receipt.json}"
+RECEIPT="${NMKR_PHASE16A_RECEIPT:-}"
+validate_receipt_path || fail receipt-path
 CONSUMED="${RECEIPT%.json}.consumed.json"
 DEPLOYED_REAL="$(python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "${NMKR_DEPLOYED_PLUGIN_PATH:-$REPO_ROOT}")"
+validate_target_git >/dev/null 2>>"$DIAGNOSTIC_FILE" || fail deployment-integrity
 CURRENT_ORIGIN_DIGEST="$(validate_origin_guard)"
 NMKR_PHASE16A_CURRENT_ORIGIN_DIGEST="$CURRENT_ORIGIN_DIGEST" validate_receipt initial "$RECEIPT" "$CONSUMED" "$DEPLOYED_REAL" "$RUN_DIR/receipt.sha256" >"$RUN_DIR/initial-receipt.json" || fail receipt
 

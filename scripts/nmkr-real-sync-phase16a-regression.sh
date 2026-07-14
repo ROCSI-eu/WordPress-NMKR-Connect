@@ -53,7 +53,7 @@ run_refusal(){ local name="$1"; shift; local d="$TMP/$name"; mkdir -m700 "$d"; :
 run_refusal "default RUN_REAL_SYNC=false" WP_PATH="$WP" NMKR_PHASE2_LOG_DIR="$STATE" bash "$ROOT/scripts/nmkr-real-sync-phase16a.sh"
 run_refusal "CI refusal before env" CI=true RUN_REAL_SYNC=true WP_PATH="$WP" NMKR_PHASE2_ENV_FILE="$TMP/nope" NMKR_PHASE2_LOG_DIR="$STATE" bash "$ROOT/scripts/nmkr-real-sync-phase16a.sh"
 run_refusal "PW_SAVE_ARTIFACTS true" RUN_REAL_SYNC=true PW_SAVE_ARTIFACTS=true WP_PATH="$WP" NMKR_PHASE2_LOG_DIR="$STATE" NMKR_REAL_SYNC_CONFIRM=I_UNDERSTAND_THIS_MUTATES_DEV NMKR_PHASE16A_CONFIRM=I_AUTHORIZE_EXACTLY_ONE_START bash "$ROOT/scripts/nmkr-real-sync-phase16a.sh"
-D="$TMP/auth"; mkdir -m700 "$D"; R="$D/real-sync-preflight.receipt.json"; C="$D/real-sync-preflight.receipt.consumed.json"; make_receipt "$R"; PRE="$TMP/pre.json"; POST="$TMP/post.json"; state_json 1 1 1 1 abc >"$PRE"; state_json 2 2 2 2 abc >"$POST"; LOG="$TMP/driver.log"
+D="$TMP/auth"; mkdir -m700 "$D"; mkdir -p "$D/runs/phase15"; chmod 700 "$D/runs" "$D/runs/phase15"; R="$D/runs/phase15/real-sync-preflight.receipt.json"; C="$D/runs/phase15/real-sync-preflight.receipt.consumed.json"; make_receipt "$R"; PRE="$TMP/pre.json"; POST="$TMP/post.json"; state_json 1 1 1 1 abc >"$PRE"; state_json 2 2 2 2 abc >"$POST"; LOG="$TMP/driver.log"
 base_env "$D" NMKR_PHASE16A_RECEIPT="$R" NMKR_FAKE_PRE_STATE="$PRE" NMKR_FAKE_POST_STATE="$POST" NMKR_FAKE_DRIVER_LOG="$LOG" NMKR_FAKE_CONSUMED="$C" bash "$ROOT/scripts/nmkr-real-sync-phase16a.sh" >"$TMP/auth.out" 2>&1 || { cat "$TMP/auth.out"; fail "authorized synthetic path failed"; }
 [[ "$(wc -l <"$LOG")" -eq 2 ]] || fail "driver invoked more than once"
 grep -q '^before:unconsumed$' "$LOG" || fail "driver started after premature consumption sentinel failed"
@@ -61,7 +61,7 @@ grep -q '^after:consumed$' "$LOG" || fail "receipt not consumed during final aut
 [[ -f "$C" && ! -f "$R" ]] || fail "receipt consumption was not atomic"
 pass "authorized synthetic path invokes driver exactly once after initial validation and consumes during final authorization"
 for case in "allowed origin mismatch" "wordpress home mismatch" "wordpress siteurl mismatch" "http origin" "explicit port" "path query fragment" "missing administrator identifier" "capability failure"; do
-  D="$TMP/${case// /_}"; mkdir -m700 "$D"; R="$D/real-sync-preflight.receipt.json"; make_receipt "$R"; PRE="$TMP/${case// /_}.pre.json"; POST="$TMP/${case// /_}.post.json"; state_json 1 1 1 1 abc >"$PRE"; state_json 2 2 2 2 abc >"$POST"; : >"$TMP/$case.driver"
+  D="$TMP/${case// /_}"; mkdir -m700 "$D"; mkdir -p "$D/runs/phase15"; chmod 700 "$D/runs" "$D/runs/phase15"; R="$D/runs/phase15/real-sync-preflight.receipt.json"; make_receipt "$R"; PRE="$TMP/${case// /_}.pre.json"; POST="$TMP/${case// /_}.post.json"; state_json 1 1 1 1 abc >"$PRE"; state_json 2 2 2 2 abc >"$POST"; : >"$TMP/$case.driver"
   extra=(WP_ADMIN_USER="admin@example.invalid")
   case "$case" in
     "allowed origin mismatch") extra=(NMKR_REAL_SYNC_ALLOWED_ORIGIN="https://other.invalid");;
@@ -72,16 +72,16 @@ for case in "allowed origin mismatch" "wordpress home mismatch" "wordpress siteu
     "missing administrator identifier") extra=(WP_ADMIN_USER="");;
     "capability failure") extra=(NMKR_FAKE_CAPABILITY="denied");;
   esac
-  run_fail "$case" base_env "$D" "${extra[@]}" NMKR_PHASE16A_RECEIPT="$R" NMKR_FAKE_PRE_STATE="$PRE" NMKR_FAKE_POST_STATE="$POST" NMKR_FAKE_DRIVER_LOG="$TMP/$case.driver" NMKR_FAKE_CONSUMED="$D/real-sync-preflight.receipt.consumed.json" bash "$ROOT/scripts/nmkr-real-sync-phase16a.sh"
+  run_fail "$case" base_env "$D" "${extra[@]}" NMKR_PHASE16A_RECEIPT="$R" NMKR_FAKE_PRE_STATE="$PRE" NMKR_FAKE_POST_STATE="$POST" NMKR_FAKE_DRIVER_LOG="$TMP/$case.driver" NMKR_FAKE_CONSUMED="$D/runs/phase15/real-sync-preflight.receipt.consumed.json" bash "$ROOT/scripts/nmkr-real-sync-phase16a.sh"
   pass "$case synthetic guard"
 done
-D="$TMP/origin_normalization"; mkdir -m700 "$D"; R="$D/real-sync-preflight.receipt.json"; C="$D/real-sync-preflight.receipt.consumed.json"; make_receipt "$R"; PRE="$TMP/origin_norm.pre.json"; POST="$TMP/origin_norm.post.json"; state_json 1 1 1 1 abc >"$PRE"; state_json 2 2 2 2 abc >"$POST"; LOG="$TMP/origin_norm.driver"
+D="$TMP/origin_normalization"; mkdir -m700 "$D"; mkdir -p "$D/runs/phase15"; chmod 700 "$D/runs" "$D/runs/phase15"; R="$D/runs/phase15/real-sync-preflight.receipt.json"; C="$D/runs/phase15/real-sync-preflight.receipt.consumed.json"; make_receipt "$R"; PRE="$TMP/origin_norm.pre.json"; POST="$TMP/origin_norm.post.json"; state_json 1 1 1 1 abc >"$PRE"; state_json 2 2 2 2 abc >"$POST"; LOG="$TMP/origin_norm.driver"
 base_env "$D" NMKR_REAL_SYNC_ALLOWED_ORIGIN="https://EXAMPLE.INVALID." WP_BASE_URL="https://example.invalid" NMKR_FAKE_WP_ORIGIN="https://example.invalid." NMKR_PHASE16A_RECEIPT="$R" NMKR_FAKE_PRE_STATE="$PRE" NMKR_FAKE_POST_STATE="$POST" NMKR_FAKE_DRIVER_LOG="$LOG" NMKR_FAKE_CONSUMED="$C" bash "$ROOT/scripts/nmkr-real-sync-phase16a.sh" >/dev/null 2>&1 || fail "origin normalization unexpectedly failed"
 pass "origin hostname case and trailing-dot normalization"
 for case in "consumed destination collision" "expired receipt" "insufficient remaining lifetime after dashboard bootstrap" "stale backup"; do
-  D="$TMP/${case// /_}"; mkdir -m700 "$D"; R="$D/real-sync-preflight.receipt.json"; make_receipt "$R"
+  D="$TMP/${case// /_}"; mkdir -m700 "$D"; mkdir -p "$D/runs/phase15"; chmod 700 "$D/runs" "$D/runs/phase15"; R="$D/runs/phase15/real-sync-preflight.receipt.json"; make_receipt "$R"
   case "$case" in
-    "consumed destination collision") touch "$D/real-sync-preflight.receipt.consumed.json";;
+    "consumed destination collision") touch "$D/runs/phase15/real-sync-preflight.receipt.consumed.json";;
     "expired receipt") make_receipt "$R" -1;;
     "insufficient remaining lifetime after dashboard bootstrap") make_receipt "$R" 60;;
     "stale backup") python3 - "$R" -c 'import json,sys,time; d=json.load(open(sys.argv[1])); d["backup_confirmed_at_epoch"]=int(time.time())-900000; json.dump(d,open(sys.argv[1],"w"))';;
