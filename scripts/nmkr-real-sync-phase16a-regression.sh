@@ -174,6 +174,97 @@ for case in "consumed destination collision" "expired receipt" "insufficient rem
     [[ ! -s "$TMP/$case.driver" ]] || fail "$case invoked driver"
   fi
 done
+STATE_HELPER_HARNESS="$TMP/state-helper-harness.php"; cat >"$STATE_HELPER_HARNESS" <<'PHP'
+<?php
+define('ABSPATH', __DIR__);
+define('ARRAY_A', 'ARRAY_A');
+function esc_sql($value) { return str_replace("'", "''", (string) $value); }
+function wp_json_encode($value, $flags = 0) { return json_encode($value, $flags); }
+function get_option($key, $default = false) {
+    if ($key === 'nmkr_connect_options') { return array('sync_profile' => 'light', 'sync_batch_size' => 1, 'sync_batch_delay' => 3, 'api_key' => 'synthetic'); }
+    if ($key === 'cron') { return array('version' => 2); }
+    return $default;
+}
+function wp_using_ext_object_cache() { return false; }
+function get_transient($key) { return false; }
+class NMKR16FakeWpdb {
+    public $prefix = 'wp_';
+    private $history;
+    public function __construct() { $this->history = json_decode(getenv('NMKR_PHASE16A_FAKE_HISTORY_JSON') ?: '[]', true); }
+    public function prepare($sql, $value) { return str_replace('%s', "'" . str_replace("'", "''", $value) . "'", $sql); }
+    private function tableFrom($sql) { return preg_match('/FROM `([^`]+)`/', $sql, $m) ? $m[1] : ''; }
+    private function terminal($row) { return in_array(strtolower($row['status']), array('completed','success','failed','error','stopped','cancelled','aborted'), true); }
+    private function boundedRows($sql) {
+        $rows = array_values(array_filter($this->history, function($row) { return $this->terminal($row); }));
+        if (preg_match('/id <= ([0-9]+)/', $sql, $m)) { $limit = (int) $m[1]; $rows = array_values(array_filter($rows, function($row) use ($limit) { return (int) $row['id'] <= $limit; })); }
+        usort($rows, function($a, $b) { return (int) $a['id'] <=> (int) $b['id']; });
+        return $rows;
+    }
+    public function get_results($sql, $format = null) { return $this->boundedRows($sql); }
+    public function get_var($sql) {
+        if (strpos($sql, 'SHOW TABLES LIKE') === 0 && preg_match("/'([^']+)'/", $sql, $m)) { return $m[1]; }
+        if (strpos($sql, 'SHOW COLUMNS FROM') === 0) { return null; }
+        $table = $this->tableFrom($sql);
+        if (strpos($sql, 'MAX(id)') !== false) { return $table === 'wp_nmkr_sync_stats' && $this->history ? max(array_map(function($row) { return (int) $row['id']; }, $this->history)) : 0; }
+        if (strpos($sql, 'ORDER BY id DESC LIMIT 1') !== false) {
+            if (!$this->history) { return ''; }
+            $rows = $this->history; usort($rows, function($a, $b) { return (int) $b['id'] <=> (int) $a['id']; });
+            return $rows[0]['status'];
+        }
+        if (strpos($sql, 'end_time IS NOT NULL') !== false && strpos($sql, 'SELECT MAX(id)') !== false) {
+            if (!$this->history) { return 0; }
+            $max = max(array_map(function($row) { return (int) $row['id']; }, $this->history));
+            foreach ($this->history as $row) { if ((int) $row['id'] === $max) { return empty($row['end_time']) ? 0 : 1; } }
+            return 0;
+        }
+        if (strpos($sql, 'COUNT(*)') !== false) {
+            if ($table !== 'wp_nmkr_sync_stats') { return 0; }
+            if (strpos($sql, 'BINARY status IN') !== false) { return count($this->boundedRows($sql)); }
+            return count($this->history);
+        }
+        return '';
+    }
+}
+$wpdb = new NMKR16FakeWpdb();
+require getenv('NMKR_PHASE16A_STATE_HELPER');
+PHP
+state_helper_snapshot(){
+  local rows="$1" limit="${2-__unset__}" out="$3"
+  if [[ "$limit" == __unset__ ]]; then
+    env -u NMKR_PHASE16A_HISTORY_MAX_ID NMKR_PHASE16A_FAKE_HISTORY_JSON="$rows" NMKR_PHASE16A_STATE_HELPER="$ROOT/scripts/nmkr-real-sync-phase16a-state.php" php "$STATE_HELPER_HARNESS" >"$out"
+  else
+    NMKR_PHASE16A_HISTORY_MAX_ID="$limit" NMKR_PHASE16A_FAKE_HISTORY_JSON="$rows" NMKR_PHASE16A_STATE_HELPER="$ROOT/scripts/nmkr-real-sync-phase16a-state.php" php "$STATE_HELPER_HARNESS" >"$out"
+  fi
+}
+state_json_get(){ python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))[sys.argv[2]])' "$1" "$2"; }
+EMPTY_ROWS='[]'
+ONE_ROW='[{"id":1,"sync_type":"manual","start_time":"2026-01-01 00:00:00","end_time":"2026-01-01 00:01:00","status":"completed","items_processed":1,"items_successful":1,"items_failed":0,"updated_at":"2026-01-01 00:01:00"}]'
+TWO_ROWS='[{"id":1,"sync_type":"manual","start_time":"2026-01-01 00:00:00","end_time":"2026-01-01 00:01:00","status":"completed","items_processed":1,"items_successful":1,"items_failed":0,"updated_at":"2026-01-01 00:01:00"},{"id":2,"sync_type":"manual","start_time":"2026-01-02 00:00:00","end_time":"2026-01-02 00:01:00","status":"completed","items_processed":2,"items_successful":2,"items_failed":0,"updated_at":"2026-01-02 00:01:00"}]'
+THREE_ROWS='[{"id":1,"sync_type":"manual","start_time":"2026-01-01 00:00:00","end_time":"2026-01-01 00:01:00","status":"completed","items_processed":1,"items_successful":1,"items_failed":0,"updated_at":"2026-01-01 00:01:00"},{"id":2,"sync_type":"manual","start_time":"2026-01-02 00:00:00","end_time":"2026-01-02 00:01:00","status":"completed","items_processed":2,"items_successful":2,"items_failed":0,"updated_at":"2026-01-02 00:01:00"},{"id":3,"sync_type":"manual","start_time":"2026-01-03 00:00:00","end_time":"2026-01-03 00:01:00","status":"completed","items_processed":3,"items_successful":3,"items_failed":0,"updated_at":"2026-01-03 00:01:00"}]'
+MUTATED_THREE_ROWS='[{"id":1,"sync_type":"manual","start_time":"2026-01-01 00:00:00","end_time":"2026-01-01 00:01:00","status":"completed","items_processed":1,"items_successful":1,"items_failed":0,"updated_at":"2026-01-01 00:01:00"},{"id":2,"sync_type":"manual","start_time":"2026-01-02 00:00:00","end_time":"2026-01-02 00:01:00","status":"completed","items_processed":99,"items_successful":2,"items_failed":0,"updated_at":"2026-01-02 00:01:00"},{"id":3,"sync_type":"manual","start_time":"2026-01-03 00:00:00","end_time":"2026-01-03 00:01:00","status":"completed","items_processed":3,"items_successful":3,"items_failed":0,"updated_at":"2026-01-03 00:01:00"}]'
+state_helper_snapshot "$EMPTY_ROWS" __unset__ "$TMP/state-empty-pre.json"
+state_helper_snapshot "$ONE_ROW" 0 "$TMP/state-one-bounded-zero.json"
+state_helper_snapshot "$ONE_ROW" __unset__ "$TMP/state-one-unbounded.json"
+[[ "$(state_json_get "$TMP/state-empty-pre.json" terminal_history_digest)" == "$(state_json_get "$TMP/state-one-bounded-zero.json" terminal_history_digest)" ]] || fail "zero history boundary did not preserve empty digest"
+[[ "$(state_json_get "$TMP/state-empty-pre.json" terminal_history_digest)" != "$(state_json_get "$TMP/state-one-unbounded.json" terminal_history_digest)" ]] || fail "unbounded digest did not include new history row"
+[[ "$(state_json_get "$TMP/state-one-bounded-zero.json" sync_history_total_count)" == 1 && "$(state_json_get "$TMP/state-one-bounded-zero.json" max_history_id)" == 1 && "$(state_json_get "$TMP/state-one-bounded-zero.json" latest_history_id)" == 1 ]] || fail "bounded zero snapshot hid post-run history counts"
+pass "state helper honors explicit zero history boundary"
+state_helper_snapshot "$TWO_ROWS" __unset__ "$TMP/state-two-pre.json"
+state_helper_snapshot "$THREE_ROWS" 2 "$TMP/state-three-bounded-two.json"
+state_helper_snapshot "$MUTATED_THREE_ROWS" 2 "$TMP/state-three-mutated-bounded-two.json"
+[[ "$(state_json_get "$TMP/state-two-pre.json" terminal_history_digest)" == "$(state_json_get "$TMP/state-three-bounded-two.json" terminal_history_digest)" ]] || fail "positive history boundary included new row"
+[[ "$(state_json_get "$TMP/state-two-pre.json" terminal_history_digest)" != "$(state_json_get "$TMP/state-three-mutated-bounded-two.json" terminal_history_digest)" ]] || fail "positive boundary did not detect pre-existing row change"
+pass "state helper honors positive history boundary and detects bounded row changes"
+state_helper_snapshot "$THREE_ROWS" __unset__ "$TMP/state-three-unset.json"
+[[ "$(state_json_get "$TMP/state-three-unset.json" terminal_history_digest)" != "$(state_json_get "$TMP/state-three-bounded-two.json" terminal_history_digest)" ]] || fail "unset history boundary did not include all rows"
+pass "state helper unset history boundary remains unbounded"
+for invalid_limit in -1 1.5 1e3 abc; do
+  if NMKR_PHASE16A_HISTORY_MAX_ID="$invalid_limit" NMKR_PHASE16A_FAKE_HISTORY_JSON="$ONE_ROW" NMKR_PHASE16A_STATE_HELPER="$ROOT/scripts/nmkr-real-sync-phase16a-state.php" php "$STATE_HELPER_HARNESS" >"$TMP/state-invalid-$invalid_limit.out" 2>&1; then
+    fail "invalid history boundary $invalid_limit unexpectedly passed"
+  fi
+  ! rg -n 'manual|completed|items_processed|2026-01' "$TMP/state-invalid-$invalid_limit.out" >/dev/null || fail "invalid history boundary leaked row content"
+done
+pass "state helper invalid history boundaries fail closed without row leaks"
 node --input-type=module <<'NODE' >"$TMP/driver-state.out"
 import {runExactlyOnceSync, actionFromRequestLike, routeDecisionForAction, frozenRouteDecisionForUrl, buildStartForm, buildProgressForm} from './scripts/nmkr-real-sync-phase16a-driver.mjs';
 const secret='nonce-fixture-value'; let starts=[], polls=[];

@@ -87,7 +87,13 @@ function nmkr16_terminal_digest($table) {
         return hash('sha256', 'missing');
     }
     $limit = getenv('NMKR_PHASE16A_HISTORY_MAX_ID');
-    $limit_sql = (is_numeric($limit) && (int) $limit > 0) ? ' AND id <= ' . (int) $limit : '';
+    $limit_sql = '';
+    if ($limit !== false) {
+        if (!is_string($limit) || !preg_match('/^(0|[1-9][0-9]*)$/', $limit)) {
+            exit(1);
+        }
+        $limit_sql = ' AND id <= ' . (int) $limit;
+    }
     $rows = $wpdb->get_results('SELECT id,sync_type,start_time,end_time,status,items_processed,items_successful,items_failed,updated_at FROM ' . nmkr16_sql_ident($table) . ' WHERE BINARY status IN (' . nmkr16_sql_list(nmkr16_terminal_statuses()) . ')' . $limit_sql . ' ORDER BY id ASC', ARRAY_A);
     $ctx = hash_init('sha256');
     foreach ((array) $rows as $row) {
