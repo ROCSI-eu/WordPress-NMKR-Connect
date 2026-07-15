@@ -35,14 +35,14 @@ build_clean_source_fixture "$REAL_ROOT" "$DIRTY_INPUT"
 printf '\nphase16a tracked fixture change\n' >>"$DIRTY_INPUT/README.md"
 printf 'untracked sentinel\n' >"$DIRTY_INPUT/untracked-phase16a-sentinel.txt"
 build_clean_source_fixture "$DIRTY_INPUT" "$CLEAN_FROM_DIRTY"
-rg -q 'phase16a tracked fixture change' "$CLEAN_FROM_DIRTY/README.md" || fail "tracked dirty input was not represented in clean fixture"
+grep -Eq -- 'phase16a tracked fixture change' "$CLEAN_FROM_DIRTY/README.md" || fail "tracked dirty input was not represented in clean fixture"
 [[ ! -e "$CLEAN_FROM_DIRTY/untracked-phase16a-sentinel.txt" ]] || fail "untracked dirty input sentinel copied"
 [[ -z "$(git -C "$CLEAN_FROM_DIRTY" status --porcelain=v1 --untracked-files=all)" ]] || fail "clean dirty-input fixture not clean"
 pass "clean source fixture captures tracked WIP and excludes untracked sentinels"
 
 ROOT="$TMP/clean-source"
 build_clean_source_fixture "$REAL_ROOT" "$ROOT"
-! rg -n 'driver-default|phase16a-driver\.mjs" >/dev/null' "$ROOT/scripts/nmkr-real-sync-phase16a.sh" >/dev/null || fail "premature private driver invocation remains"
+! grep -En -- 'driver-default|phase16a-driver\.mjs" >/dev/null' "$ROOT/scripts/nmkr-real-sync-phase16a.sh" >/dev/null || fail "premature private driver invocation remains"
 pass "controller contains no premature driver execution"
 
 WP="$TMP/wp"; STATE="$TMP/state"; ACTIVE_PLUGIN="$WP/wp-content/plugins/nmkr-connect"
@@ -351,7 +351,7 @@ for invalid_limit in -1 1.5 1e3 abc; do
   if NMKR_PHASE16A_HISTORY_MAX_ID="$invalid_limit" NMKR_PHASE16A_FAKE_HISTORY_JSON="$ONE_ROW" NMKR_PHASE16A_STATE_HELPER="$ROOT/scripts/nmkr-real-sync-phase16a-state.php" php "$STATE_HELPER_HARNESS" >"$TMP/state-invalid-$invalid_limit.out" 2>&1; then
     fail "invalid history boundary $invalid_limit unexpectedly passed"
   fi
-  ! rg -n 'manual|completed|items_processed|2026-01' "$TMP/state-invalid-$invalid_limit.out" >/dev/null || fail "invalid history boundary leaked row content"
+  ! grep -En -- 'manual|completed|items_processed|2026-01' "$TMP/state-invalid-$invalid_limit.out" >/dev/null || fail "invalid history boundary leaked row content"
 done
 pass "state helper invalid history boundaries fail closed without row leaks"
 option_count_case(){
@@ -456,6 +456,6 @@ console.log('driver route and nonce synthetic checks passed');
 NODE
 pass "driver nonce, POST routing, frozen same-origin blocking, progress success false, second Start, and ambiguous/no-terminal regressions"
 find "$TMP" \( -path '*/playwright-report' -o -path '*/test-results' -o -path '*/blob-report' -o -path '*/playwright/.cache' -o -name '*.webm' -o -name 'trace.zip' \) -print -quit | grep -q . && fail "Playwright artifacts created"
-if find "$TMP" -maxdepth 1 -type f -print0 | xargs -0 --no-run-if-empty rg -n 'nonce-fixture-value|private-token-fixture|cookie-fixture' >/dev/null 2>&1; then fail "fixture secret value appeared in output"; fi
-npx playwright test --list --reporter=list 2>/dev/null | rg 'nmkr-real-sync-phase16a-driver' && fail "private driver discovered by Playwright"
+if find "$TMP" -maxdepth 1 -type f -print0 | xargs -0 --no-run-if-empty grep -En -- 'nonce-fixture-value|private-token-fixture|cookie-fixture' >/dev/null 2>&1; then fail "fixture secret value appeared in output"; fi
+npx playwright test --list --reporter=list 2>/dev/null | grep -E -- 'nmkr-real-sync-phase16a-driver' && fail "private driver discovered by Playwright"
 pass "no external network, no browser artifacts, no nonce leak, and no private driver discovery"
