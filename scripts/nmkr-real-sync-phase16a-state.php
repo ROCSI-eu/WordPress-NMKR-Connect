@@ -103,11 +103,16 @@ function nmkr16_terminal_digest($table) {
 }
 function nmkr16_option_active_count() {
     $count = 0;
-    if (nmkr16_truthy(get_option('nmkr_sync_in_progress', false))) { $count++; }
-    if (nmkr16_progress_active(get_option('nmkr_sync_progress', 0))) { $count++; }
-    if (nmkr16_is_active_status(get_option('nmkr_sync_status', ''))) { $count++; }
-    if (nmkr16_sync_data_classification(get_option('nmkr_sync_data', array())) === 'active') { $count++; }
-    if (nmkr16_truthy(get_option('nmkr_sync_near_completion', false))) { $count++; }
+    $in_progress_active = nmkr16_truthy(get_option('nmkr_sync_in_progress', false));
+    $progress_active = nmkr16_progress_active(get_option('nmkr_sync_progress', 0));
+    $status_active = nmkr16_is_active_status(get_option('nmkr_sync_status', ''));
+    $sync_data_active = nmkr16_sync_data_classification(get_option('nmkr_sync_data', array())) === 'active';
+    $durable_sync_active = $in_progress_active || $status_active || $sync_data_active;
+    if ($in_progress_active) { $count++; }
+    if ($progress_active) { $count++; }
+    if ($status_active) { $count++; }
+    if ($sync_data_active) { $count++; }
+    if ($durable_sync_active && nmkr16_truthy(get_option('nmkr_sync_near_completion', false))) { $count++; }
     return $count;
 }
 function nmkr16_transient_active_count() {
@@ -181,7 +186,7 @@ $present = array(
 $active_sql = nmkr16_sql_list(nmkr16_active_statuses());
 $terminal_sql = nmkr16_sql_list(nmkr16_terminal_statuses());
 $history_total = $present['sync_stats'] ? nmkr16_count_sql('SELECT COUNT(*) FROM ' . nmkr16_sql_ident($history)) : 0;
-$active_history = $present['sync_stats'] ? nmkr16_count_sql('SELECT COUNT(*) FROM ' . nmkr16_sql_ident($history) . ' WHERE BINARY status IN (' . $active_sql . ') AND (end_time IS NULL OR end_time = "")') : 0;
+$active_history = $present['sync_stats'] ? nmkr16_count_sql('SELECT COUNT(*) FROM ' . nmkr16_sql_ident($history) . ' WHERE BINARY status IN (' . $active_sql . ')') : 0;
 $terminal_history = $present['sync_stats'] ? nmkr16_count_sql('SELECT COUNT(*) FROM ' . nmkr16_sql_ident($history) . ' WHERE BINARY status IN (' . $terminal_sql . ')') : 0;
 $metrics_total = $present['sync_metrics'] ? nmkr16_count_sql('SELECT COUNT(*) FROM ' . nmkr16_sql_ident($metrics)) : 0;
 $latest_metric_time = $present['sync_metrics'] ? (string) $wpdb->get_var('SELECT last_sync_time FROM ' . nmkr16_sql_ident($metrics) . ' ORDER BY last_sync_time DESC, id DESC LIMIT 1') : '';

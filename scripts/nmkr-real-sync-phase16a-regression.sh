@@ -181,6 +181,22 @@ define('ARRAY_A', 'ARRAY_A');
 function esc_sql($value) { return str_replace("'", "''", (string) $value); }
 function wp_json_encode($value, $flags = 0) { return json_encode($value, $flags); }
 function get_option($key, $default = false) {
+    $case = getenv('NMKR_PHASE16A_FAKE_OPTION_CASE');
+    if ($case === 'near-terminal-residue' && $key === 'nmkr_sync_near_completion') { return true; }
+    if ($case === 'near-in-progress' && ($key === 'nmkr_sync_in_progress' || $key === 'nmkr_sync_near_completion')) { return true; }
+    if ($case === 'near-active-status' && $key === 'nmkr_sync_status') { return 'processing'; }
+    if ($case === 'near-active-status' && $key === 'nmkr_sync_near_completion') { return true; }
+    if ($case === 'near-active-sync-data' && $key === 'nmkr_sync_data') { return array('status' => 'processing'); }
+    if ($case === 'near-active-sync-data' && $key === 'nmkr_sync_near_completion') { return true; }
+    if ($case === 'near-progress-only' && $key === 'nmkr_sync_progress') { return 50; }
+    if ($case === 'near-progress-only' && $key === 'nmkr_sync_near_completion') { return true; }
+    if ($case === 'near-terminal-status-data' && $key === 'nmkr_sync_status') { return 'completed'; }
+    if ($case === 'near-terminal-status-data' && $key === 'nmkr_sync_data') { return array('status' => 'completed'); }
+    if ($case === 'near-terminal-status-data' && $key === 'nmkr_sync_near_completion') { return true; }
+    $fixture_path = getenv('NMKR_PHASE16A_FAKE_OPTIONS_JSON_FILE');
+    $fixture_raw = $fixture_path ? file_get_contents($fixture_path) : (getenv('NMKR_PHASE16A_FAKE_OPTIONS_JSON') ?: '{}');
+    $fixture = json_decode($fixture_raw, true);
+    if (is_array($fixture) && array_key_exists($key, $fixture)) { return $fixture[$key]; }
     if ($key === 'nmkr_connect_options') { return array('sync_profile' => 'light', 'sync_batch_size' => 1, 'sync_batch_delay' => 3, 'api_key' => 'synthetic'); }
     if ($key === 'cron') { return array('version' => 2); }
     return $default;
@@ -194,6 +210,7 @@ class NMKR16FakeWpdb {
     public function prepare($sql, $value) { return str_replace('%s', "'" . str_replace("'", "''", $value) . "'", $sql); }
     private function tableFrom($sql) { return preg_match('/FROM `([^`]+)`/', $sql, $m) ? $m[1] : ''; }
     private function terminal($row) { return in_array(strtolower($row['status']), array('completed','success','failed','error','stopped','cancelled','aborted'), true); }
+    private function active($row) { return in_array(strtolower($row['status']), array('initializing','processing','processing_projects','processing_tokens','in_progress','running','pending','active','started'), true); }
     private function boundedRows($sql) {
         $rows = array_values(array_filter($this->history, function($row) { return $this->terminal($row); }));
         if (preg_match('/id <= ([0-9]+)/', $sql, $m)) { $limit = (int) $m[1]; $rows = array_values(array_filter($rows, function($row) use ($limit) { return (int) $row['id'] <= $limit; })); }
@@ -219,6 +236,7 @@ class NMKR16FakeWpdb {
         }
         if (strpos($sql, 'COUNT(*)') !== false) {
             if ($table !== 'wp_nmkr_sync_stats') { return 0; }
+            if (strpos($sql, 'BINARY status IN') !== false && strpos($sql, "'processing'") !== false) { return count(array_filter($this->history, function($row) { return $this->active($row); })); }
             if (strpos($sql, 'BINARY status IN') !== false) { return count($this->boundedRows($sql)); }
             return count($this->history);
         }
@@ -229,11 +247,13 @@ $wpdb = new NMKR16FakeWpdb();
 require getenv('NMKR_PHASE16A_STATE_HELPER');
 PHP
 state_helper_snapshot(){
-  local rows="$1" limit="${2-__unset__}" out="$3"
+  local rows="$1" limit="${2-__unset__}" out="$3" options="${4:-{}}"
+  local optfile; optfile="$TMP/options-${name:-snapshot}-$RANDOM.json"
+  printf '%s' "$options" >"$optfile"
   if [[ "$limit" == __unset__ ]]; then
-    env -u NMKR_PHASE16A_HISTORY_MAX_ID NMKR_PHASE16A_FAKE_HISTORY_JSON="$rows" NMKR_PHASE16A_STATE_HELPER="$ROOT/scripts/nmkr-real-sync-phase16a-state.php" php "$STATE_HELPER_HARNESS" >"$out"
+    env -u NMKR_PHASE16A_HISTORY_MAX_ID NMKR_PHASE16A_FAKE_HISTORY_JSON="$rows" NMKR_PHASE16A_FAKE_OPTIONS_JSON_FILE="$optfile" NMKR_PHASE16A_STATE_HELPER="$ROOT/scripts/nmkr-real-sync-phase16a-state.php" php "$STATE_HELPER_HARNESS" >"$out"
   else
-    NMKR_PHASE16A_HISTORY_MAX_ID="$limit" NMKR_PHASE16A_FAKE_HISTORY_JSON="$rows" NMKR_PHASE16A_STATE_HELPER="$ROOT/scripts/nmkr-real-sync-phase16a-state.php" php "$STATE_HELPER_HARNESS" >"$out"
+    NMKR_PHASE16A_HISTORY_MAX_ID="$limit" NMKR_PHASE16A_FAKE_HISTORY_JSON="$rows" NMKR_PHASE16A_FAKE_OPTIONS_JSON_FILE="$optfile" NMKR_PHASE16A_STATE_HELPER="$ROOT/scripts/nmkr-real-sync-phase16a-state.php" php "$STATE_HELPER_HARNESS" >"$out"
   fi
 }
 state_json_get(){ python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))[sys.argv[2]])' "$1" "$2"; }
@@ -265,6 +285,47 @@ for invalid_limit in -1 1.5 1e3 abc; do
   ! rg -n 'manual|completed|items_processed|2026-01' "$TMP/state-invalid-$invalid_limit.out" >/dev/null || fail "invalid history boundary leaked row content"
 done
 pass "state helper invalid history boundaries fail closed without row leaks"
+option_count_case(){
+  local name="$1" options="$2" expected="$3" out
+  out="$TMP/option-$name.json"
+  NMKR_PHASE16A_FAKE_OPTION_CASE="$name" state_helper_snapshot "$EMPTY_ROWS" __unset__ "$out" "$options"
+  local actual; actual="$(state_json_get "$out" option_active_marker_count)"
+  [[ "$actual" == "$expected" ]] || fail "option active marker case $name expected $expected got $actual"
+}
+option_count_case "near-terminal-residue" '{"nmkr_sync_near_completion":true}' 0
+option_count_case "near-in-progress" '{"nmkr_sync_in_progress":true,"nmkr_sync_near_completion":true}' 2
+option_count_case "near-active-status" '{"nmkr_sync_status":"processing","nmkr_sync_near_completion":true}' 2
+option_count_case "near-active-sync-data" '{"nmkr_sync_data":{"status":"processing"},"nmkr_sync_near_completion":true}' 2
+option_count_case "near-progress-only" '{"nmkr_sync_progress":50,"nmkr_sync_near_completion":true}' 1
+option_count_case "near-terminal-status-data" '{"nmkr_sync_status":"completed","nmkr_sync_data":{"status":"completed"},"nmkr_sync_near_completion":true}' 0
+pass "state helper gates near_completion on durable active sync state"
+ACTIVE_EMPTY_END='[{"id":4,"sync_type":"manual","start_time":"2026-01-04 00:00:00","end_time":"","status":"processing","items_processed":0,"items_successful":0,"items_failed":0,"updated_at":"2026-01-04 00:00:00"}]'
+ACTIVE_POPULATED_END='[{"id":5,"sync_type":"manual","start_time":"2026-01-05 00:00:00","end_time":"2026-01-05 00:01:00","status":"processing","items_processed":0,"items_successful":0,"items_failed":0,"updated_at":"2026-01-05 00:01:00"}]'
+TERMINAL_POPULATED_END='[{"id":6,"sync_type":"manual","start_time":"2026-01-06 00:00:00","end_time":"2026-01-06 00:01:00","status":"completed","items_processed":1,"items_successful":1,"items_failed":0,"updated_at":"2026-01-06 00:01:00"}]'
+MIXED_ACTIVE_POPULATED='[{"id":6,"sync_type":"manual","start_time":"2026-01-06 00:00:00","end_time":"2026-01-06 00:01:00","status":"completed","items_processed":1,"items_successful":1,"items_failed":0,"updated_at":"2026-01-06 00:01:00"},{"id":7,"sync_type":"manual","start_time":"2026-01-07 00:00:00","end_time":"2026-01-07 00:01:00","status":"processing","items_processed":0,"items_successful":0,"items_failed":0,"updated_at":"2026-01-07 00:01:00"}]'
+UNKNOWN_HISTORY='[{"id":8,"sync_type":"manual","start_time":"2026-01-08 00:00:00","end_time":"2026-01-08 00:01:00","status":"mystery","items_processed":0,"items_successful":0,"items_failed":0,"updated_at":"2026-01-08 00:01:00"}]'
+state_helper_snapshot "$ACTIVE_EMPTY_END" __unset__ "$TMP/history-active-empty.json"
+state_helper_snapshot "$ACTIVE_POPULATED_END" __unset__ "$TMP/history-active-populated.json"
+state_helper_snapshot "$TERMINAL_POPULATED_END" __unset__ "$TMP/history-terminal-populated.json"
+state_helper_snapshot "$MIXED_ACTIVE_POPULATED" __unset__ "$TMP/history-mixed-active.json"
+state_helper_snapshot "$UNKNOWN_HISTORY" __unset__ "$TMP/history-unknown.json"
+[[ "$(state_json_get "$TMP/history-active-empty.json" active_history_count)" == 1 ]] || fail "active empty end_time not counted"
+[[ "$(state_json_get "$TMP/history-active-populated.json" active_history_count)" == 1 ]] || fail "active populated end_time not counted"
+[[ "$(state_json_get "$TMP/history-terminal-populated.json" active_history_count)" == 0 ]] || fail "terminal row counted active"
+[[ "$(state_json_get "$TMP/history-mixed-active.json" active_history_count)" == 1 ]] || fail "mixed active populated end_time not counted"
+[[ "$(state_json_get "$TMP/history-unknown.json" active_history_count)" == 0 ]] || fail "unknown status counted active"
+pass "state helper counts active history regardless of end_time without counting terminal or unknown statuses"
+state_json_active_history(){ local history="$1" metrics="$2" maxh="$3" maxm="$4" digest="$5"; cat <<JSON
+{"schema_version":1,"required_tables_present":{"projects":true,"tokens":true,"token_details":true,"sync_stats":true,"sync_metrics":true},"project_count":1,"project_max_id":1,"token_count":1,"token_max_id":1,"token_detail_count":1,"token_detail_max_id":1,"sync_history_total_count":$history,"active_history_count":1,"terminal_history_count":$history,"max_history_id":$maxh,"metrics_total_count":$metrics,"max_metrics_id":$maxm,"duplicate_project_uid_count":0,"duplicate_token_uid_count":0,"duplicate_token_detail_uid_count":0,"invalid_relationship_count":0,"impossible_counter_count":0,"option_active_marker_count":0,"transient_active_marker_count":0,"stale_recovery_marker_count":0,"heartbeat_worker_evidence_count":0,"sync_data_classification":"absent","blocked_cron_hook_counts":{"nmkr_execute_sync_background":0,"nmkr_process_batch_hook":0,"nmkr_sync_cron_hook":0,"nmkr_install_sync_cron_hook":0},"blocked_sync_cron_count":0,"cron_inspectable":true,"light_profile_guard":true,"api_key_present":true,"last_sync_time_matches_latest_metrics":true,"terminal_history_digest":"$digest","latest_history_id":$maxh,"latest_history_status_classification":"active","latest_history_completed":false,"latest_history_end_time_valid":true,"snapshot_epoch":1}
+JSON
+}
+D="$TMP/active_history_authorization"; mkdir -m700 "$D"; mkdir -p "$D/runs/phase15"; chmod 700 "$D/runs" "$D/runs/phase15"; R="$D/runs/phase15/real-sync-preflight.receipt.json"; C="$D/runs/phase15/real-sync-preflight.receipt.consumed.json"; make_receipt "$R"
+PRE="$TMP/active-history-auth.pre.json"; POST="$TMP/active-history-auth.post.json"; LOG="$TMP/active-history-auth.driver"; state_json_active_history 1 1 1 1 abc >"$PRE"; state_json 2 2 2 2 abc >"$POST"; : >"$LOG"
+run_fail "active history with populated end_time blocks authorization" base_env "$D" NMKR_PHASE16A_RECEIPT="$R" NMKR_FAKE_PRE_STATE="$PRE" NMKR_FAKE_POST_STATE="$POST" NMKR_FAKE_DRIVER_LOG="$LOG" NMKR_FAKE_CONSUMED="$C" bash "$ROOT/scripts/nmkr-real-sync-phase16a.sh"
+grep -q "^before:unconsumed$" "$LOG" || fail "active history authorization did not reach final pre-state guard"
+! grep -q "^after:consumed$" "$LOG" || fail "active history authorization consumed receipt"
+[[ -f "$R" && ! -e "$C" ]] || fail "active history authorization consumed receipt artifact"
+pass "controller rejects active history snapshot before receipt consumption and synthetic Start"
 node --input-type=module <<'NODE' >"$TMP/driver-state.out"
 import {runExactlyOnceSync, actionFromRequestLike, routeDecisionForAction, frozenRouteDecisionForUrl, buildStartForm, buildProgressForm} from './scripts/nmkr-real-sync-phase16a-driver.mjs';
 const secret='nonce-fixture-value'; let starts=[], polls=[];
