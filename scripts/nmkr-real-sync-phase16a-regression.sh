@@ -1,11 +1,47 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+REAL_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 fail(){ echo "FAIL: $1" >&2; exit 1; }
 pass(){ echo "PASS: $1"; }
 run_fail(){ local name="$1"; shift; local out="$TMP/${name// /_}.out"; if "$@" >"$out" 2>&1; then fail "$name unexpectedly passed"; fi; pass "$name"; }
 
+build_clean_source_fixture(){
+  local src="$1" dest="$2"
+  rm -rf "$dest"; mkdir -p "$dest"
+  git -C "$src" ls-files -z | python3 -c '
+import os, shutil, sys
+src, dest = sys.argv[1:3]
+for raw in [p for p in sys.stdin.buffer.read().split(b"\0") if p]:
+    rel = raw.decode("utf-8")
+    if rel.startswith(("vendor/", "node_modules/")):
+        continue
+    source = os.path.join(src, rel)
+    target = os.path.join(dest, rel)
+    os.makedirs(os.path.dirname(target), exist_ok=True)
+    if os.path.islink(source):
+        os.symlink(os.readlink(source), target)
+    else:
+        shutil.copy2(source, target)
+' "$src" "$dest"
+  git -C "$dest" init -q
+  git -C "$dest" add -A
+  git -C "$dest" -c user.email=phase16a@example.invalid -c user.name=Phase16A commit -q -m "phase16a clean source fixture"
+  [[ -z "$(git -C "$dest" status --porcelain=v1 --untracked-files=all)" ]] || fail "clean source fixture dirty"
+}
+
+DIRTY_INPUT="$TMP/dirty-input"; CLEAN_FROM_DIRTY="$TMP/clean-from-dirty"
+git clone -q "$REAL_ROOT" "$DIRTY_INPUT"
+printf '\nphase16a tracked fixture change\n' >>"$DIRTY_INPUT/README.md"
+printf 'untracked sentinel\n' >"$DIRTY_INPUT/untracked-phase16a-sentinel.txt"
+build_clean_source_fixture "$DIRTY_INPUT" "$CLEAN_FROM_DIRTY"
+rg -q 'phase16a tracked fixture change' "$CLEAN_FROM_DIRTY/README.md" || fail "tracked dirty input was not represented in clean fixture"
+[[ ! -e "$CLEAN_FROM_DIRTY/untracked-phase16a-sentinel.txt" ]] || fail "untracked dirty input sentinel copied"
+[[ -z "$(git -C "$CLEAN_FROM_DIRTY" status --porcelain=v1 --untracked-files=all)" ]] || fail "clean dirty-input fixture not clean"
+pass "clean source fixture captures tracked WIP and excludes untracked sentinels"
+
+ROOT="$TMP/clean-source"
+build_clean_source_fixture "$REAL_ROOT" "$ROOT"
 ! rg -n 'driver-default|phase16a-driver\.mjs" >/dev/null' "$ROOT/scripts/nmkr-real-sync-phase16a.sh" >/dev/null || fail "premature private driver invocation remains"
 pass "controller contains no premature driver execution"
 
@@ -14,10 +50,10 @@ mkdir -p "$WP/wp-content/plugins" "$STATE"; chmod 700 "$TMP" "$STATE"
 git clone -q "$ROOT" "$ACTIVE_PLUGIN"
 git -C "$ACTIVE_PLUGIN" checkout -q "$(git -C "$ROOT" rev-parse HEAD)"
 reset_active_plugin(){ git -C "$ACTIVE_PLUGIN" reset --hard -q "$(git -C "$ROOT" rev-parse HEAD)"; git -C "$ACTIVE_PLUGIN" clean -fdq; }
-make_receipt(){ local path="$1" exp="${2:-600}"; local head; head="$(git -C "$ROOT" rev-parse HEAD)"; python3 - "$path" "$head" "$exp" <<'PY'
+make_receipt(){ local path="$1" ttl="${2:-300}" created_offset="${3:-0}"; local head; head="$(git -C "$ROOT" rev-parse HEAD)"; python3 - "$path" "$head" "$ttl" "$created_offset" <<'PY'
 import json,os,sys,time
-p,head,exp=sys.argv[1:4]; now=int(time.time())
-d={'receipt_version':1,'purpose':'nmkr-real-sync-preflight','created_at_epoch':now,'expires_at_epoch':now+int(exp),'source_commit':head,'deployed_commit':head,'origin_sha256':'95bd8950c21c1294c6c0408521381453bde62be1df02df429f79791abb319f37','plugin_active':True,'admin_capability_ok':True,'db_state_clean':True,'api_key_present':True,'runtime_state_clean':True,'cron_state_clean':True,'object_cache_state_clean':True,'profile_guard_passed':True,'backup_confirmed':True,'backup_confirmed_at_epoch':now,'max_duration_seconds':300,'poll_timeout_seconds':10,'receipt_ttl_seconds':300}
+p,head,ttl,created_offset=sys.argv[1:5]; now=int(time.time()); created=now+int(created_offset); ttl=int(ttl)
+d={'receipt_version':1,'purpose':'nmkr-real-sync-preflight','created_at_epoch':created,'expires_at_epoch':created+ttl,'source_commit':head,'deployed_commit':head,'origin_sha256':'95bd8950c21c1294c6c0408521381453bde62be1df02df429f79791abb319f37','plugin_active':True,'admin_capability_ok':True,'db_state_clean':True,'api_key_present':True,'runtime_state_clean':True,'cron_state_clean':True,'object_cache_state_clean':True,'profile_guard_passed':True,'backup_confirmed':True,'backup_confirmed_at_epoch':now,'max_duration_seconds':300,'poll_timeout_seconds':10,'receipt_ttl_seconds':ttl}
 json.dump(d,open(p,'w')); os.chmod(p,0o600)
 PY
 }
@@ -103,10 +139,16 @@ p,k,v=sys.argv[1:4]
 d=json.load(open(p)); d[k]=int(v); json.dump(d,open(p,'w'))
 PY
 }
+set_receipt_ttl(){ python3 - "$1" "$2" <<'PY'
+import json,sys
+p,ttl=sys.argv[1:3]
+d=json.load(open(p)); d['receipt_ttl_seconds']=int(ttl); d['expires_at_epoch']=d['created_at_epoch']+int(ttl); json.dump(d,open(p,'w'))
+PY
+}
 for spec in "max_duration_seconds 300 accept" "max_duration_seconds 3600 accept" "poll_timeout_seconds 10 accept" "poll_timeout_seconds 60 accept" "receipt_ttl_seconds 60 accept" "receipt_ttl_seconds 300 accept"; do
   set -- $spec; field="$1"; value="$2"
   D="$TMP/bounds_${field}_${value}"; mkdir -m700 "$D"; mkdir -p "$D/runs/phase15"; chmod 700 "$D/runs" "$D/runs/phase15"
-  R="$D/runs/phase15/real-sync-preflight.receipt.json"; C="$D/runs/phase15/real-sync-preflight.receipt.consumed.json"; make_receipt "$R" 600; mutate_receipt "$R" "$field" "$value"
+  R="$D/runs/phase15/real-sync-preflight.receipt.json"; C="$D/runs/phase15/real-sync-preflight.receipt.consumed.json"; make_receipt "$R"; if [[ "$field" == receipt_ttl_seconds ]]; then set_receipt_ttl "$R" "$value"; else mutate_receipt "$R" "$field" "$value"; fi
   PRE="$TMP/bounds_${field}_${value}.pre.json"; POST="$TMP/bounds_${field}_${value}.post.json"; LOG="$TMP/bounds_${field}_${value}.driver"
   state_json 1 1 1 1 abc >"$PRE"; state_json 2 2 2 2 abc >"$POST"
   base_env "$D" NMKR_PHASE16A_RECEIPT="$R" NMKR_FAKE_PRE_STATE="$PRE" NMKR_FAKE_POST_STATE="$POST" NMKR_FAKE_DRIVER_LOG="$LOG" NMKR_FAKE_CONSUMED="$C" bash "$ROOT/scripts/nmkr-real-sync-phase16a.sh" >/dev/null 2>&1 || fail "receipt bound $field=$value unexpectedly failed"
@@ -115,12 +157,39 @@ pass "Phase 15 receipt timeout boundary values accepted"
 for spec in "max_duration_seconds 299" "max_duration_seconds 3601" "poll_timeout_seconds 9" "poll_timeout_seconds 61" "receipt_ttl_seconds 59" "receipt_ttl_seconds 301"; do
   set -- $spec; field="$1"; value="$2"
   D="$TMP/bounds_bad_${field}_${value}"; mkdir -m700 "$D"; mkdir -p "$D/runs/phase15"; chmod 700 "$D/runs" "$D/runs/phase15"
-  R="$D/runs/phase15/real-sync-preflight.receipt.json"; C="$D/runs/phase15/real-sync-preflight.receipt.consumed.json"; make_receipt "$R" 600; mutate_receipt "$R" "$field" "$value"; LOG="$TMP/bounds_bad_${field}_${value}.driver"; : >"$LOG"
+  R="$D/runs/phase15/real-sync-preflight.receipt.json"; C="$D/runs/phase15/real-sync-preflight.receipt.consumed.json"; make_receipt "$R"; mutate_receipt "$R" "$field" "$value"; LOG="$TMP/bounds_bad_${field}_${value}.driver"; : >"$LOG"
   run_fail "receipt bound $field=$value" base_env "$D" NMKR_PHASE16A_RECEIPT="$R" NMKR_FAKE_DRIVER_LOG="$LOG" NMKR_FAKE_CONSUMED="$C" bash "$ROOT/scripts/nmkr-real-sync-phase16a.sh"
   [[ ! -s "$LOG" ]] || fail "receipt bound $field=$value invoked driver"
   [[ -f "$R" && ! -e "$C" ]] || fail "receipt bound $field=$value consumed receipt"
 done
 pass "Phase 15 receipt timeout out-of-range values rejected before driver"
+for case in "expiry plus one" "expiry minus one" "old creation future expiry" "unrelated future expiry" "expiry equals creation" "expiry before creation"; do
+  D="$TMP/timing_${case// /_}"; mkdir -m700 "$D"; mkdir -p "$D/runs/phase15"; chmod 700 "$D/runs" "$D/runs/phase15"
+  R="$D/runs/phase15/real-sync-preflight.receipt.json"; C="$D/runs/phase15/real-sync-preflight.receipt.consumed.json"; make_receipt "$R"; LOG="$TMP/timing_${case// /_}.driver"; : >"$LOG"
+  python3 - "$R" "$case" <<'PY'
+import json,sys,time
+p,case=sys.argv[1:3]
+d=json.load(open(p))
+if case == 'expiry plus one':
+    d['expires_at_epoch'] = d['created_at_epoch'] + d['receipt_ttl_seconds'] + 1
+elif case == 'expiry minus one':
+    d['expires_at_epoch'] = d['created_at_epoch'] + d['receipt_ttl_seconds'] - 1
+elif case == 'old creation future expiry':
+    d['created_at_epoch'] = int(time.time()) - 1000
+    d['expires_at_epoch'] = int(time.time()) + 200
+elif case == 'unrelated future expiry':
+    d['expires_at_epoch'] = int(time.time()) + 123
+elif case == 'expiry equals creation':
+    d['expires_at_epoch'] = d['created_at_epoch']
+elif case == 'expiry before creation':
+    d['expires_at_epoch'] = d['created_at_epoch'] - 1
+json.dump(d,open(p,'w'))
+PY
+  run_fail "receipt timing $case" base_env "$D" NMKR_PHASE16A_RECEIPT="$R" NMKR_FAKE_DRIVER_LOG="$LOG" NMKR_FAKE_CONSUMED="$C" bash "$ROOT/scripts/nmkr-real-sync-phase16a.sh"
+  [[ ! -s "$LOG" ]] || fail "receipt timing $case invoked driver"
+  [[ -f "$R" && ! -e "$C" ]] || fail "receipt timing $case consumed receipt"
+done
+pass "receipt creation expiry TTL mismatches rejected before driver"
 
 for sync_class in absent terminal active unknown; do
   D="$TMP/post-sync-$sync_class"; mkdir -m700 "$D"; mkdir -p "$D/runs/phase15"; chmod 700 "$D/runs" "$D/runs/phase15"
@@ -164,7 +233,7 @@ for case in "consumed destination collision" "expired receipt" "insufficient rem
   case "$case" in
     "consumed destination collision") touch "$D/runs/phase15/real-sync-preflight.receipt.consumed.json";;
     "expired receipt") make_receipt "$R" -1;;
-    "insufficient remaining lifetime after dashboard bootstrap") make_receipt "$R" 60;;
+    "insufficient remaining lifetime after dashboard bootstrap") make_receipt "$R" 60 -40;;
     "stale backup") python3 - "$R" -c 'import json,sys,time; d=json.load(open(sys.argv[1])); d["backup_confirmed_at_epoch"]=int(time.time())-900000; json.dump(d,open(sys.argv[1],"w"))';;
   esac
   : >"$TMP/$case.driver"; run_fail "$case" base_env "$D" NMKR_PHASE16A_RECEIPT="$R" NMKR_FAKE_DRIVER_LOG="$TMP/$case.driver" bash "$ROOT/scripts/nmkr-real-sync-phase16a.sh"

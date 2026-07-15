@@ -229,6 +229,7 @@ if data['expires_at_epoch'] <= now: bad()
 if phase == 'final' and data['expires_at_epoch'] - now < min_remaining: bad()
 if now - data['backup_confirmed_at_epoch'] > 86400 or data['backup_confirmed_at_epoch'] > now + 300: bad()
 if not (300 <= data['max_duration_seconds'] <= 3600 and 10 <= data['poll_timeout_seconds'] <= 60 and 60 <= data['receipt_ttl_seconds'] <= 300): bad()
+if data['expires_at_epoch'] != data['created_at_epoch'] + data['receipt_ttl_seconds']: bad()
 for key in ['plugin_active','admin_capability_ok','db_state_clean','api_key_present','runtime_state_clean','cron_state_clean','object_cache_state_clean','profile_guard_passed','backup_confirmed']:
     if data[key] is not True: bad()
 if not isinstance(data['origin_sha256'], str) or len(data['origin_sha256']) != 64 or any(c not in '0123456789abcdef' for c in data['origin_sha256']): bad()
