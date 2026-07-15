@@ -31,7 +31,7 @@ for raw in [p for p in sys.stdin.buffer.read().split(b"\0") if p]:
 }
 
 DIRTY_INPUT="$TMP/dirty-input"; CLEAN_FROM_DIRTY="$TMP/clean-from-dirty"
-git clone -q "$REAL_ROOT" "$DIRTY_INPUT"
+build_clean_source_fixture "$REAL_ROOT" "$DIRTY_INPUT"
 printf '\nphase16a tracked fixture change\n' >>"$DIRTY_INPUT/README.md"
 printf 'untracked sentinel\n' >"$DIRTY_INPUT/untracked-phase16a-sentinel.txt"
 build_clean_source_fixture "$DIRTY_INPUT" "$CLEAN_FROM_DIRTY"
