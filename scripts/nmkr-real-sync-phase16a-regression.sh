@@ -234,14 +234,44 @@ for case in "consumed destination collision" "expired receipt" "insufficient rem
     "consumed destination collision") touch "$D/runs/phase15/real-sync-preflight.receipt.consumed.json";;
     "expired receipt") make_receipt "$R" -1;;
     "insufficient remaining lifetime after dashboard bootstrap") make_receipt "$R" 60 -40;;
-    "stale backup") python3 - "$R" -c 'import json,sys,time; d=json.load(open(sys.argv[1])); d["backup_confirmed_at_epoch"]=int(time.time())-900000; json.dump(d,open(sys.argv[1],"w"))';;
+    "stale backup")
+      fresh_backup_epoch="$(python3 -c 'import json,sys; value=json.load(open(sys.argv[1]))["backup_confirmed_at_epoch"]; print(value if isinstance(value, int) and not isinstance(value, bool) else "")' "$R")"
+      [[ -n "$fresh_backup_epoch" ]] || fail "stale backup fresh epoch was not an exact integer"
+      python3 -c '
+import json, sys, time
+path = sys.argv[1]
+with open(path) as fh:
+    receipt = json.load(fh)
+fresh = receipt.get("backup_confirmed_at_epoch")
+if not isinstance(fresh, int) or isinstance(fresh, bool):
+    raise SystemExit("backup_confirmed_at_epoch was not an exact integer")
+stale = int(time.time()) - 900000
+if stale == fresh:
+    raise SystemExit("stale backup epoch did not change")
+receipt["backup_confirmed_at_epoch"] = stale
+with open(path, "w") as fh:
+    json.dump(receipt, fh)
+' "$R"
+      stale_backup_epoch="$(python3 -c 'import json,sys; value=json.load(open(sys.argv[1]))["backup_confirmed_at_epoch"]; print(value if isinstance(value, int) and not isinstance(value, bool) else "")' "$R")"
+      [[ -n "$stale_backup_epoch" ]] || fail "stale backup read-back epoch was not an exact integer"
+      [[ "$stale_backup_epoch" != "$fresh_backup_epoch" ]] || fail "stale backup epoch did not change from fresh value"
+      (( $(date +%s) - stale_backup_epoch > 86400 )) || fail "stale backup epoch was not older than freshness threshold"
+      ;;
   esac
-  : >"$TMP/$case.driver"; run_fail "$case" base_env "$D" NMKR_PHASE16A_RECEIPT="$R" NMKR_FAKE_DRIVER_LOG="$TMP/$case.driver" bash "$ROOT/scripts/nmkr-real-sync-phase16a.sh"
-  if [[ "$case" == "insufficient remaining lifetime after dashboard bootstrap" || "$case" == "stale backup" ]]; then
-    [[ -s "$TMP/$case.driver" ]] || fail "$case did not reach driver/final authorization"
-  else
-    [[ ! -s "$TMP/$case.driver" ]] || fail "$case invoked driver"
-  fi
+  : >"$TMP/$case.driver"; OUT="$TMP/${case// /_}.out"; run_fail "$case" base_env "$D" NMKR_PHASE16A_RECEIPT="$R" NMKR_FAKE_DRIVER_LOG="$TMP/$case.driver" bash "$ROOT/scripts/nmkr-real-sync-phase16a.sh"
+  case "$case" in
+    "insufficient remaining lifetime after dashboard bootstrap")
+      [[ -s "$TMP/$case.driver" ]] || fail "$case did not reach driver/final authorization"
+      ;;
+    "stale backup")
+      [[ ! -s "$TMP/$case.driver" ]] || fail "$case invoked driver"
+      [[ -f "$R" && ! -e "$D/runs/phase15/real-sync-preflight.receipt.consumed.json" ]] || fail "$case consumed receipt"
+      grep -q 'failed gate: receipt' "$OUT" || fail "$case did not report receipt gate"
+      ;;
+    *)
+      [[ ! -s "$TMP/$case.driver" ]] || fail "$case invoked driver"
+      ;;
+  esac
 done
 STATE_HELPER_HARNESS="$TMP/state-helper-harness.php"; cat >"$STATE_HELPER_HARNESS" <<'PHP'
 <?php
