@@ -510,13 +510,16 @@ function nmkr_sync_progress_handler() {
     $user_requested_abort = get_transient('nmkr_sync_user_stopped');
     $user_requested_abort = ($user_requested_abort !== false) ? (bool) $user_requested_abort : false;
     $durable_user_requested_abort = (bool) get_option('nmkr_sync_user_stopped', false);
+    $resume_pending = is_array($sync_data) && !empty($sync_data['sync_stats_id'])
+        ? nmkr_sync_finalization_resume_pending((int) $sync_data['sync_stats_id']) : false;
     
     $canonically_finished = nmkr_is_sync_canonically_finished(
         $sync_data,
         $sync_in_progress_option,
         $sync_in_progress_flag,
         $durable_user_requested_abort,
-        $user_requested_abort
+        $user_requested_abort,
+        $resume_pending
     );
     $response_data = array(
         'in_progress'  => $sync_in_progress_flag,

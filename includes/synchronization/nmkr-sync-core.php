@@ -663,6 +663,7 @@ function nmkr_sync_data() {
     $sync_log = array();
     $completed_steps = 0;
     $total_steps = 0;
+    $business_data_complete = false;
     
     // Initialize tracking variables for final summary
     $sync_start_time = microtime(true);
@@ -1022,14 +1023,20 @@ function nmkr_sync_data() {
             nmkr_log_data_sync('⚠️ No live sync statistics found for final metrics save.', 'warning');
         }
         
-        $terminal = nmkr_sync_data_complete(true, '', array(
-            'metrics' => $live,
+        $business_data_complete = true;
+        $final = array(
+            'metrics' => nmkr_build_final_sync_metrics($live, nmkr_get_sync_data(), array(
+                'total_projects' => count($project_uids),
+                'total_tokens' => count($token_project_map),
+            )),
             'items_processed' => $total_tokens,
             'items_successful' => $total_successful_tokens,
             'items_failed' => $total_failed_tokens,
             'items_skipped' => $total_skipped_tokens,
             'token_details_synced' => $token_details_synced,
-        ));
+        );
+        $prepared = nmkr_prepare_sync_finalization($sync_stats_id, $final, nmkr_get_sync_data());
+        $terminal = $prepared ? nmkr_sync_data_complete(true, '', $prepared, false, true) : false;
         if (!is_array($terminal) || !in_array($terminal['status'] ?? '', array('completed', 'success'), true)) {
             throw new Exception('Canonical synchronization finalization failed');
         }
@@ -1067,8 +1074,8 @@ function nmkr_sync_data() {
         // Durable success evidence makes this a resumable finalization, not a
         // business-data failure. Preserve active/finalizing state so a retry
         // can finish history verification and cleanup without relabeling it.
-        if ($sync_stats_id && function_exists('nmkr_sync_has_committed_success')
-            && nmkr_sync_has_committed_success($sync_stats_id)) {
+        if ($sync_stats_id && ($business_data_complete || (function_exists('nmkr_sync_has_committed_success')
+            && nmkr_sync_has_committed_success($sync_stats_id)))) {
             $resume_data = nmkr_get_sync_data();
             if (is_array($resume_data) && ($resume_data['status'] ?? '') === 'completed'
                 && !empty($resume_data['completed']) && (int) ($resume_data['sync_stats_id'] ?? 0) === (int) $sync_stats_id) {
