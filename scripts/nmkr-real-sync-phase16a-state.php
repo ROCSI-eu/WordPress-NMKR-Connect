@@ -48,7 +48,7 @@ function nmkr16_progress_active($value) {
     return is_numeric($value) && (float) $value > 0 && (float) $value < 100;
 }
 function nmkr16_active_statuses() {
-    return array('initializing', 'processing', 'processing_projects', 'processing_tokens', 'in_progress', 'running', 'pending', 'active', 'started');
+    return array('initializing', 'finalizing', 'processing', 'processing_projects', 'processing_tokens', 'in_progress', 'running', 'pending', 'active', 'started');
 }
 function nmkr16_terminal_statuses() {
     return function_exists('nmkr_sync_terminal_statuses')

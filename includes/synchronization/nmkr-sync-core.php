@@ -1063,6 +1063,28 @@ function nmkr_sync_data() {
             'line' => $e->getLine(),
             'trace' => $e->getTraceAsString()
         ));
+
+        // Durable success evidence makes this a resumable finalization, not a
+        // business-data failure. Preserve active/finalizing state so a retry
+        // can finish history verification and cleanup without relabeling it.
+        if ($sync_stats_id && function_exists('nmkr_sync_has_committed_success')
+            && nmkr_sync_has_committed_success($sync_stats_id)) {
+            $resume_data = nmkr_get_sync_data();
+            if (is_array($resume_data) && ($resume_data['status'] ?? '') === 'completed'
+                && !empty($resume_data['completed']) && (int) ($resume_data['sync_stats_id'] ?? 0) === (int) $sync_stats_id) {
+                return defined('DOING_AJAX') && DOING_AJAX
+                    ? array('success' => true, 'message' => 'Sync process completed successfully.', 'log' => $sync_log, 'progress' => 100)
+                    : 'Sync process completed successfully.';
+            }
+            if (is_array($resume_data) && (int) ($resume_data['sync_stats_id'] ?? 0) === (int) $sync_stats_id) {
+                $resume_data['status'] = 'finalizing';
+                $resume_data['completed'] = false;
+                nmkr_save_sync_data($resume_data);
+            }
+            update_option('nmkr_sync_in_progress', true);
+            set_transient('nmkr_sync_in_progress', true, NMKR_SYNC_TRANSIENT_TTL);
+            return new WP_Error('sync_finalization_pending', 'Synchronization data was saved; terminal cleanup remains pending.');
+        }
         
         // Update sync stats with critical failure
         if ($sync_stats_id) {
@@ -1258,4 +1280,4 @@ function nmkr_log_sync_summary(&$sync_log, $project_uids, $token_project_map, $s
 add_action('nmkr_process_batch_hook', 'nmkr_process_next_batch');
 
 // Note: Background sync execution hook is defined in nmkr-sync-ajax-handlers.php
-// add_action('nmkr_execute_sync_background', 'nmkr_execute_sync_background_job');                                
+// add_action('nmkr_execute_sync_background', 'nmkr_execute_sync_background_job');

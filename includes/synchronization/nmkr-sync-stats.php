@@ -13,9 +13,10 @@ if (!defined('ABSPATH')) {
  * Validate that sync metrics are complete before saving
  *
  * @param array $metrics Array of performance metrics to validate
+ * @param bool  $trusted_finalizer Allow the canonical finalizer's active state
  * @return bool True if metrics are complete, false otherwise
  */
-function nmkr_validate_metrics_complete($metrics) {
+function nmkr_validate_metrics_complete($metrics, $trusted_finalizer = false) {
     if (empty($metrics) || !is_array($metrics)) {
         nmkr_log_data_sync('❌ Metrics validation failed: metrics array is empty or invalid.');
         return false;
@@ -43,7 +44,7 @@ function nmkr_validate_metrics_complete($metrics) {
     
     // Check if sync is still in progress (should not save metrics while sync is running)
     $sync_in_progress = get_option('nmkr_sync_in_progress', false);
-    if ($sync_in_progress) {
+    if ($sync_in_progress && !$trusted_finalizer) {
         nmkr_log_data_sync('❌ Metrics validation failed: sync is still in progress, will not save incomplete metrics.');
         return false;
     }
@@ -56,14 +57,15 @@ function nmkr_validate_metrics_complete($metrics) {
  * Save sync metrics to the database
  *
  * @param array $metrics Array of performance metrics to save
+ * @param bool  $trusted_finalizer Allow the canonical finalizer's active state
  * @return bool|int False on failure, number of rows affected on success
  */
-function nmkr_save_sync_metrics($metrics) {
+function nmkr_save_sync_metrics($metrics, $trusted_finalizer = false) {
     global $wpdb;
     $table_name = $wpdb->prefix . 'nmkr_sync_metrics';
 
     // Validate metrics are complete before saving
-    if (!nmkr_validate_metrics_complete($metrics)) {
+    if (!nmkr_validate_metrics_complete($metrics, $trusted_finalizer)) {
         nmkr_log_data_sync('❌ Metrics save aborted: validation failed.');
         return false;
     }
@@ -262,4 +264,4 @@ function nmkr_get_recent_sync_stats($limit = 10) {
     }
     
     return $stats;
-}   
+}

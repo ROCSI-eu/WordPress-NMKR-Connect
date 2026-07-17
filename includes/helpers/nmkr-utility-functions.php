@@ -470,6 +470,8 @@ function nmkr_detect_and_recover_stale_sync() {
     set_transient('nmkr_stale_recovery_running', true, 60);
 
     $in_progress   = (bool) get_option('nmkr_sync_in_progress', false);
+    $sync_data     = nmkr_get_sync_data();
+    $is_finalizing = is_array($sync_data) && isset($sync_data['status']) && $sync_data['status'] === 'finalizing';
     $heartbeat_age = function_exists('nmkr_get_heartbeat_age') ? nmkr_get_heartbeat_age() : -1;
     $last_update   = (int) get_option('nmkr_last_progress_update_time', 0);
 
@@ -478,7 +480,7 @@ function nmkr_detect_and_recover_stale_sync() {
 
     $stale_heartbeat = ($heartbeat_age < 0 || $heartbeat_age >= $grace);
     $stale_progress  = ($last_update <= 0 || ( time() - $last_update ) >= $grace);
-    $is_stale        = ( $in_progress && ( $stale_heartbeat || $stale_progress ) );
+    $is_stale        = ( ( $in_progress || $is_finalizing ) && ( $stale_heartbeat || $stale_progress ) );
 
     if ( ! $is_stale ) {
         return array('stale'=>false,'recovered'=>false,'grace'=>$grace,'heartbeat_age'=>$heartbeat_age,'last_update'=>$last_update);

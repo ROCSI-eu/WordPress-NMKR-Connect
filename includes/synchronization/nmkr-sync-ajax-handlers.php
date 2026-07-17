@@ -503,11 +503,13 @@ function nmkr_sync_progress_handler() {
     $sync_in_progress_option = (bool) get_option('nmkr_sync_in_progress', false);
     $user_requested_abort = get_transient('nmkr_sync_user_stopped');
     $user_requested_abort = ($user_requested_abort !== false) ? (bool) $user_requested_abort : false;
+    $durable_user_requested_abort = (bool) get_option('nmkr_sync_user_stopped', false);
     
     $canonically_finished = nmkr_is_sync_canonically_finished(
         $sync_data,
         $sync_in_progress_option,
         $sync_in_progress_flag,
+        $durable_user_requested_abort,
         $user_requested_abort
     );
     $response_data = array(
@@ -1100,6 +1102,10 @@ function nmkr_execute_sync_background_job() {
         
         // Handle different response types and set appropriate completion/error states
         if (is_wp_error($response)) {
+            if ($response->get_error_code() === 'sync_finalization_pending') {
+                nmkr_log_data_sync('Background sync is awaiting resumable terminal cleanup.', 'warning');
+                return;
+            }
             // WP_Error response - set error state
             nmkr_log_data_sync('❌ Background sync job completed with WP_Error: ' . $response->get_error_message(), 'error');
             
