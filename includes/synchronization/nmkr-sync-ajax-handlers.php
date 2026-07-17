@@ -41,7 +41,7 @@ function nmkr_start_sync_handler() {
     }
 
     $existing_sync_data = nmkr_get_sync_data();
-    if (is_array($existing_sync_data) && ($existing_sync_data['status'] ?? '') === 'finalizing') {
+    if (nmkr_sync_start_blocked_by_finalization($existing_sync_data)) {
         wp_send_json_error(array('message' => __('Synchronization finalization is still pending.', 'nmkr-connect')), 409);
         return;
     }

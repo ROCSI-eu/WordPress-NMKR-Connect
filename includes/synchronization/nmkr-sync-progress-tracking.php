@@ -89,6 +89,34 @@ function nmkr_sync_finalization_resume_pending($sync_stats_id) {
         || (bool) wp_next_scheduled('nmkr_resume_sync_finalization', array($sync_stats_id));
 }
 
+function nmkr_sync_start_blocked_by_finalization($sync_data) {
+    $sync_stats_id = is_array($sync_data) && isset($sync_data['sync_stats_id'])
+        && is_numeric($sync_data['sync_stats_id']) && (int) $sync_data['sync_stats_id'] > 0
+        ? (int) $sync_data['sync_stats_id'] : 0;
+    return (is_array($sync_data) && ($sync_data['status'] ?? '') === 'finalizing')
+        || ($sync_stats_id > 0 && nmkr_sync_finalization_resume_pending($sync_stats_id));
+}
+
+function nmkr_get_canonical_dashboard_sync_state() {
+    $sync_data = nmkr_get_sync_data();
+    $option_in_progress = (bool) get_option('nmkr_sync_in_progress', false);
+    $transient_in_progress = (bool) get_transient('nmkr_sync_in_progress');
+    $option_aborted = (bool) get_option('nmkr_sync_user_stopped', false);
+    $transient_aborted = (bool) get_transient('nmkr_sync_user_stopped');
+    $sync_stats_id = is_array($sync_data) && isset($sync_data['sync_stats_id']) && is_numeric($sync_data['sync_stats_id'])
+        && (int) $sync_data['sync_stats_id'] > 0 ? (int) $sync_data['sync_stats_id'] : 0;
+    $resume_pending = $sync_stats_id > 0 ? nmkr_sync_finalization_resume_pending($sync_stats_id) : false;
+    $finished = nmkr_is_sync_canonically_finished($sync_data, $option_in_progress, $transient_in_progress, $option_aborted, $transient_aborted, $resume_pending);
+    $status = is_array($sync_data) ? (string) ($sync_data['status'] ?? '') : '';
+    $active_status = in_array($status, array('initializing', 'finalizing', 'processing', 'processing_projects', 'processing_tokens', 'in_progress', 'running', 'pending'), true);
+    return array(
+        'sync_data' => $sync_data,
+        'finished' => $finished,
+        'finalization_pending' => $resume_pending,
+        'running' => !$finished && ($active_status || $resume_pending || $option_in_progress || $transient_in_progress),
+    );
+}
+
 function nmkr_prepare_sync_finalization($sync_stats_id, $final, $sync_data) {
     $final['metrics'] = nmkr_build_final_sync_metrics($final['metrics'] ?? array(), $sync_data);
     $saved = nmkr_save_sync_finalization_resume($sync_stats_id, $final);
