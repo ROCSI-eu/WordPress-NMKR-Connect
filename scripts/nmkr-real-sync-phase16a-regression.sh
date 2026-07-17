@@ -101,6 +101,90 @@ grep -q '^after:consumed$' "$LOG" || fail "receipt not consumed during final aut
 [[ -f "$C" && ! -f "$R" ]] || fail "receipt consumption was not atomic"
 pass "authorized synthetic path invokes driver exactly once after initial validation and consumes during final authorization"
 
+# A conventional public ancestor is not itself sensitive; owner-only control begins
+# at the configured state boundary and continues through every authorization node.
+PUBLIC_PARENT="$TMP/conventional-ancestor"; mkdir -m755 "$PUBLIC_PARENT"
+D="$PUBLIC_PARENT/private-state"; mkdir -m700 "$D"; mkdir -m700 "$D/runs" "$D/runs/phase15"
+R="$D/runs/phase15/real-sync-preflight.receipt.json"; C="${R%.json}.consumed.json"; make_receipt "$R"
+PRE="$TMP/conventional.pre.json"; POST="$TMP/conventional.post.json"; LOG="$TMP/conventional.driver"
+state_json 1 1 1 1 abc >"$PRE"; state_json 2 2 2 2 abc >"$POST"
+base_env "$D" NMKR_PHASE16A_RECEIPT="$R" NMKR_FAKE_PRE_STATE="$PRE" NMKR_FAKE_POST_STATE="$POST" NMKR_FAKE_DRIVER_LOG="$LOG" NMKR_FAKE_CONSUMED="$C" bash "$ROOT/scripts/nmkr-real-sync-phase16a.sh" >/dev/null 2>&1 || fail "conventional ancestor authorized path failed"
+[[ "$(wc -l <"$LOG")" -eq 2 ]] || fail "conventional ancestor driver count was not exactly one"
+grep -q '^before:unconsumed$' "$LOG" || fail "conventional ancestor initial receipt validation consumed receipt"
+grep -q '^after:consumed$' "$LOG" || fail "conventional ancestor final receipt validation did not consume receipt"
+[[ -f "$C" && ! -e "$R" ]] || fail "conventional ancestor receipt rename was not atomic"
+pass "mode-0755 generic ancestor passes initial and final receipt validation"
+
+# Missing sensitive components are made one at a time below an already-private
+# parent, including runs.  The successful controller run also creates Phase 16A.
+PRIVATE_PARENT="$TMP/private-creation-parent"; mkdir -m700 "$PRIVATE_PARENT"
+D="$PRIVATE_PARENT/missing/state"; mkdir -m700 "$PRIVATE_PARENT/missing"; mkdir -m700 "$D"
+# Leave runs missing for the controller, then supply the Phase 15 receipt only
+# after independently exercising state-component creation in a refusal run.
+MISSING_STATE="$PRIVATE_PARENT/new/state"
+run_refusal "safe missing state components" RUN_REAL_SYNC=true PW_SAVE_ARTIFACTS=false NMKR_REAL_SYNC_CONFIRM=I_UNDERSTAND_THIS_MUTATES_DEV NMKR_PHASE16A_CONFIRM=I_AUTHORIZE_EXACTLY_ONE_START WP_PATH="$WP" NMKR_PHASE2_LOG_DIR="$MISSING_STATE" NMKR_PHASE16A_RECEIPT="$TMP/missing-receipt" bash "$ROOT/scripts/nmkr-real-sync-phase16a.sh"
+for node in "$PRIVATE_PARENT/new" "$MISSING_STATE" "$MISSING_STATE/runs"; do
+  [[ -d "$node" && ! -L "$node" && "$(stat -c %u "$node")" == "$(id -u)" && "$(stat -c %a "$node")" == 700 ]] || fail "created sensitive node was not owner-only: $node"
+done
+mkdir -m700 "$MISSING_STATE/runs/phase15"; R="$MISSING_STATE/runs/phase15/real-sync-preflight.receipt.json"; C="${R%.json}.consumed.json"; make_receipt "$R"
+PRE="$TMP/missing-state.pre.json"; POST="$TMP/missing-state.post.json"; LOG="$TMP/missing-state.driver"; state_json 1 1 1 1 abc >"$PRE"; state_json 2 2 2 2 abc >"$POST"
+base_env "$MISSING_STATE" NMKR_PHASE16A_RECEIPT="$R" NMKR_FAKE_PRE_STATE="$PRE" NMKR_FAKE_POST_STATE="$POST" NMKR_FAKE_DRIVER_LOG="$LOG" NMKR_FAKE_CONSUMED="$C" bash "$ROOT/scripts/nmkr-real-sync-phase16a.sh" >/dev/null 2>&1 || fail "created sensitive path could not continue"
+[[ -f "$C" && "$(wc -l <"$LOG")" -eq 2 ]] || fail "created sensitive path authorization sequencing failed"
+pass "missing sensitive state components and runs are created, post-validated, and continue"
+
+path_refusal(){
+  local name="$1" state="$2" receipt="$3" original="${4:-$3}" log original_regular=0 consumed_preexisting=0
+  log="$TMP/${name// /_}.driver"
+  [[ -f "$original" && ! -L "$original" ]] && original_regular=1
+  [[ -e "${original%.json}.consumed.json" ]] && consumed_preexisting=1
+  : >"$log"
+  run_fail "$name" base_env "$state" NMKR_PHASE16A_RECEIPT="$receipt" NMKR_FAKE_DRIVER_LOG="$log" bash "$ROOT/scripts/nmkr-real-sync-phase16a.sh"
+  [[ ! -s "$log" ]] || fail "$name invoked driver"
+  [[ "$consumed_preexisting" == 1 || ! -e "${original%.json}.consumed.json" ]] || fail "$name consumed receipt"
+  [[ "$original_regular" == 0 || -f "$original" ]] || fail "$name removed original receipt"
+  pass "$name driver zero-times and no receipt consumption"
+}
+
+# State aliases are rejected lexically, before realpath can hide them.
+REAL_STATE="$TMP/state-symlink-real"; mkdir -m700 "$REAL_STATE"; mkdir -m700 "$REAL_STATE/runs" "$REAL_STATE/runs/phase15"; REAL_R="$REAL_STATE/runs/phase15/real-sync-preflight.receipt.json"; make_receipt "$REAL_R"
+ln -s "$REAL_STATE" "$TMP/state-leaf-link"
+path_refusal "state leaf symlink" "$TMP/state-leaf-link" "$REAL_R" "$REAL_R"
+mkdir -m700 "$TMP/state-link-prefix"; ln -s "$REAL_STATE" "$TMP/state-link-prefix/alias"
+path_refusal "state intermediate symlink" "$TMP/state-link-prefix/alias/private" "$REAL_R" "$REAL_R"
+
+receipt_fixture(){ local d="$1"; mkdir -m700 "$d"; mkdir -m700 "$d/runs" "$d/runs/phase15"; make_receipt "$d/runs/phase15/real-sync-preflight.receipt.json"; }
+for spec in "private-state 750" "runs 750" "phase15 750"; do
+  read -r target mode <<<"$spec"; D="$TMP/unsafe-$target"; receipt_fixture "$D"; R="$D/runs/phase15/real-sync-preflight.receipt.json"
+  case "$target" in private-state) chmod "$mode" "$D";; runs) chmod "$mode" "$D/runs";; phase15) chmod "$mode" "$D/runs/phase15";; esac
+  path_refusal "unsafe $target permissions" "$D" "$R" "$R"
+  case "$target" in private-state) node="$D";; runs) node="$D/runs";; phase15) node="$D/runs/phase15";; esac
+  [[ "$(stat -c %a "$node")" == "$mode" ]] || fail "unsafe $target was silently repaired"
+done
+pass "unsafe pre-existing sensitive directories are rejected rather than repaired"
+
+# Receipt aliases and malformed confinement shapes all stop before the driver.
+D="$TMP/receipt-aliases"; receipt_fixture "$D"; R="$D/runs/phase15/real-sync-preflight.receipt.json"; mv "$R" "$D/runs/phase15/receipt-target.json"; ln -s "$D/runs/phase15/receipt-target.json" "$R"
+path_refusal "direct receipt symlink" "$D" "$R" "$D/runs/phase15/receipt-target.json"
+rm "$R"; mv "$D/runs/phase15/receipt-target.json" "$R"
+mv "$D/runs" "$D/real-runs"; ln -s "$D/real-runs" "$D/runs"
+path_refusal "symlinked runs component" "$D" "$D/runs/phase15/real-sync-preflight.receipt.json" "$D/real-runs/phase15/real-sync-preflight.receipt.json"
+rm "$D/runs"; mv "$D/real-runs" "$D/runs"; mv "$D/runs/phase15" "$D/runs/real-phase15"; ln -s "$D/runs/real-phase15" "$D/runs/phase15"
+path_refusal "symlinked Phase 15 run directory" "$D" "$D/runs/phase15/real-sync-preflight.receipt.json" "$D/runs/real-phase15/real-sync-preflight.receipt.json"
+D="$TMP/receipt-intermediate"; receipt_fixture "$D"; mkdir -m700 "$D/alias-parent"; ln -s "$D/runs" "$D/alias-parent/runs"
+path_refusal "intermediate receipt path symlink" "$D" "$D/alias-parent/runs/phase15/real-sync-preflight.receipt.json" "$D/runs/phase15/real-sync-preflight.receipt.json"
+
+receipt_shape_refusal(){ local name="$1" state="$2" receipt="$3"; path_refusal "$name" "$state" "$receipt" "$receipt"; }
+D="$TMP/receipt-shapes"; receipt_fixture "$D"; GOOD="$D/runs/phase15/real-sync-preflight.receipt.json"
+chmod 640 "$GOOD"; receipt_shape_refusal "receipt mode not 0600" "$D" "$GOOD"; chmod 600 "$GOOD"
+receipt_shape_refusal "missing receipt" "$D" "$D/runs/phase15/missing/real-sync-preflight.receipt.json"
+mv "$GOOD" "$D/runs/phase15/receipt-file"; mkdir -m700 "$GOOD"; receipt_shape_refusal "receipt directory" "$D" "$GOOD"; rmdir "$GOOD"; mv "$D/runs/phase15/receipt-file" "$GOOD"
+cp "$GOOD" "$D/real-sync-preflight.receipt.json"; chmod 600 "$D/real-sync-preflight.receipt.json"; receipt_shape_refusal "receipt directly under state" "$D" "$D/real-sync-preflight.receipt.json"
+cp "$GOOD" "$D/runs/real-sync-preflight.receipt.json"; chmod 600 "$D/runs/real-sync-preflight.receipt.json"; receipt_shape_refusal "receipt directly under runs" "$D" "$D/runs/real-sync-preflight.receipt.json"
+mkdir -m700 "$D/runs/phase15/deep"; cp "$GOOD" "$D/runs/phase15/deep/real-sync-preflight.receipt.json"; chmod 600 "$D/runs/phase15/deep/real-sync-preflight.receipt.json"; receipt_shape_refusal "receipt too deeply nested" "$D" "$D/runs/phase15/deep/real-sync-preflight.receipt.json"
+OUTSIDE="$TMP/outside-receipt"; receipt_fixture "$OUTSIDE"; receipt_shape_refusal "receipt outside state" "$D" "$OUTSIDE/runs/phase15/real-sync-preflight.receipt.json"
+touch "${GOOD%.json}.consumed.json"; chmod 600 "${GOOD%.json}.consumed.json"; receipt_shape_refusal "receipt consumed destination collision path" "$D" "$GOOD"
+pass "receipt metadata confinement and consumed-destination refusals preserve authorization sequencing"
+
 D="$TMP/active_override"; mkdir -m700 "$D"; mkdir -p "$D/runs/phase15"; chmod 700 "$D/runs" "$D/runs/phase15"
 R="$D/runs/phase15/real-sync-preflight.receipt.json"; C="$D/runs/phase15/real-sync-preflight.receipt.consumed.json"; make_receipt "$R"
 PRE="$TMP/active_override.pre.json"; POST="$TMP/active_override.post.json"; LOG="$TMP/active_override.driver"

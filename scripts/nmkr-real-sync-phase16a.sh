@@ -29,32 +29,57 @@ import os, stat, sys
 state, repo, wp = sys.argv[1:4]
 uid = os.getuid()
 def bad(): raise SystemExit(1)
+def private_dir(path):
+    try: st=os.lstat(path)
+    except OSError: bad()
+    if not stat.S_ISDIR(st.st_mode) or stat.S_ISLNK(st.st_mode) or st.st_uid != uid or (stat.S_IMODE(st.st_mode) & 0o077): bad()
+    if not os.access(path, os.W_OK | os.X_OK): bad()
 def inside(a,b):
     a=os.path.realpath(a); b=os.path.realpath(b)
     return a == b or a.startswith(b.rstrip(os.sep) + os.sep)
 if not state or not os.path.isabs(state) or not wp or not os.path.isabs(wp): bad()
-if any(part in ('.','..') for part in state.split(os.sep)): bad()
+parts=state.split(os.sep)
+if any(part in ('.','..') for part in parts): bad()
 if any(inside(state, root) or inside(root, state) for root in (repo, wp)): bad()
-probe = state
-missing=[]
-while not os.path.exists(probe):
-    missing.append(os.path.basename(probe)); parent=os.path.dirname(probe)
-    if parent == probe: bad()
-    probe=parent
 cur = os.sep
-for part in [p for p in state.split(os.sep) if p]:
-    cur=os.path.join(cur, part)
-    if os.path.exists(cur):
-        if cur in ('/tmp','/var/tmp','/private/tmp','/'):
-            continue
-        st=os.stat(cur)
-        if os.path.islink(cur) or st.st_uid != uid or (stat.S_IMODE(st.st_mode) & 0o077): bad()
+missing=[]
+for part in [p for p in parts if p]:
+    nxt=os.path.join(cur, part)
+    if missing:
+        missing.append(nxt)
     else:
-        break
-os.makedirs(os.path.join(state, 'runs'), mode=0o700, exist_ok=True)
-for p in (state, os.path.join(state, 'runs')):
-    st=os.stat(p)
-    if os.path.islink(p) or st.st_uid != uid or (stat.S_IMODE(st.st_mode) & 0o077): bad()
+        try: st=os.lstat(nxt)
+        except FileNotFoundError: missing.append(nxt)
+        except OSError: bad()
+        else:
+            if stat.S_ISLNK(st.st_mode) or not stat.S_ISDIR(st.st_mode): bad()
+    cur=nxt
+if missing:
+    private_dir(os.path.dirname(missing[0]))
+    for path in missing:
+        private_dir(os.path.dirname(path))
+        try: os.mkdir(path, 0o700)
+        except OSError: bad()
+        private_dir(path)
+else: private_dir(state)
+runs=os.path.join(state, 'runs')
+try: os.lstat(runs)
+except FileNotFoundError:
+    private_dir(state)
+    try: os.mkdir(runs, 0o700)
+    except OSError: bad()
+except OSError: bad()
+private_dir(runs)
+if any(inside(state, root) or inside(root, state) for root in (repo, wp)): bad()
+PY
+}
+
+validate_sensitive_dir() {
+  python3 - "$1" <<'PY'
+import os,stat,sys
+try: st=os.lstat(sys.argv[1])
+except OSError: raise SystemExit(1)
+raise SystemExit(0 if stat.S_ISDIR(st.st_mode) and not stat.S_ISLNK(st.st_mode) and st.st_uid == os.getuid() and not (stat.S_IMODE(st.st_mode)&0o077) and os.access(sys.argv[1],os.W_OK|os.X_OK) else 1)
 PY
 }
 
@@ -163,10 +188,16 @@ def inside(a,b):
     a=os.path.realpath(a); b=os.path.realpath(b)
     return a == b or a.startswith(b.rstrip(os.sep)+os.sep)
 if not receipt or not os.path.isabs(receipt): bad()
+if any(part in ('.','..') for part in receipt.split(os.sep)): bad()
 if os.path.basename(receipt) != 'real-sync-preflight.receipt.json': bad()
-if os.path.islink(receipt) or not os.path.isfile(receipt): bad()
-st=os.stat(receipt)
-if st.st_uid != uid or stat.S_IMODE(st.st_mode) != 0o600: bad()
+cur=os.sep
+for part in [p for p in receipt.split(os.sep) if p]:
+    cur=os.path.join(cur,part)
+    try: st=os.lstat(cur)
+    except OSError: bad()
+    if stat.S_ISLNK(st.st_mode): bad()
+    if cur != receipt and not stat.S_ISDIR(st.st_mode): bad()
+if not stat.S_ISREG(st.st_mode) or st.st_uid != uid or stat.S_IMODE(st.st_mode) != 0o600: bad()
 state_real=os.path.realpath(state); repo_real=os.path.realpath(repo); wp_real=os.path.realpath(wp); receipt_real=os.path.realpath(receipt)
 if inside(receipt_real, repo_real) or inside(receipt_real, wp_real): bad()
 run_dir=os.path.dirname(receipt_real); runs_dir=os.path.dirname(run_dir)
@@ -174,8 +205,8 @@ if os.path.basename(runs_dir) != 'runs' or os.path.dirname(runs_dir) != state_re
 if run_dir == runs_dir or os.path.dirname(receipt_real) == state_real: bad()
 cur=state_real
 while True:
-    st=os.stat(cur)
-    if os.path.islink(cur) or st.st_uid != uid or (stat.S_IMODE(st.st_mode)&0o077): bad()
+    st=os.lstat(cur)
+    if not stat.S_ISDIR(st.st_mode) or stat.S_ISLNK(st.st_mode) or st.st_uid != uid or (stat.S_IMODE(st.st_mode)&0o077) or not os.access(cur,os.W_OK|os.X_OK): bad()
     if cur == run_dir: break
     nxt = runs_dir if cur == state_real else run_dir if cur == runs_dir else None
     if not nxt: bad()
@@ -203,19 +234,10 @@ def clean(repo):
     return subprocess.check_output(['git','-C',repo,'status','--porcelain=v1','--untracked-files=all'], text=True).strip() == ''
 def head(repo):
     return subprocess.check_output(['git','-C',repo,'rev-parse','HEAD'], text=True).strip()
-def parent_private(path):
-    uid=os.getuid(); cur=os.path.dirname(os.path.realpath(path)); root=os.path.parse if False else None
-    while cur and cur != os.path.dirname(cur):
-        if cur in ('/tmp','/var/tmp','/private/tmp','/'):
-            break
-        st=os.stat(cur)
-        if os.path.islink(cur) or st.st_uid != uid or (stat.S_IMODE(st.st_mode) & 0o077): bad()
-        cur=os.path.dirname(cur)
 try: st=os.lstat(receipt)
 except OSError: bad()
 if not stat.S_ISREG(st.st_mode) or stat.S_ISLNK(st.st_mode) or st.st_uid != os.getuid() or stat.S_IMODE(st.st_mode) != 0o600: bad()
-parent_private(receipt)
-if os.path.exists(consumed): bad()
+if os.path.lexists(consumed): bad()
 raw=open(receipt,'rb').read()
 try: data=json.loads(raw.decode('utf-8'))
 except Exception: bad()
@@ -262,6 +284,8 @@ final_authorize() {
   RUN_DIR="$1"; DIAGNOSTIC_FILE="$RUN_DIR/phase16a.log"
   source "$RUN_DIR/controller.env"
   [[ -d "$LOCK" ]] || fail controller-lock
+  validate_sensitive_dir "$LOCK" || fail controller-lock
+  validate_receipt_path || fail receipt-path
   CURRENT_ORIGIN_DIGEST="$(validate_origin_guard)"
   NMKR_PHASE16A_CURRENT_ORIGIN_DIGEST="$CURRENT_ORIGIN_DIGEST" validate_receipt final "$RECEIPT" "$CONSUMED" "$DEPLOYED_REAL" "$RUN_DIR/receipt.sha256" >"$RUN_DIR/final-receipt.json" || fail receipt
   wp_cli core is-installed >/dev/null 2>>"$DIAGNOSTIC_FILE" || fail wordpress-ready
@@ -303,14 +327,15 @@ fi
 
 for tool in bash git python3 node; do require_tool "$tool"; done
 validate_private_state || fail private-state
-mkdir -p "$NMKR_PHASE2_LOG_DIR/runs"
 RUN_DIR="$NMKR_PHASE2_LOG_DIR/runs/phase16a-$(date -u +%Y%m%dT%H%M%SZ)-$$"; mkdir -m 700 "$RUN_DIR" || fail private-state
+validate_sensitive_dir "$RUN_DIR" || fail private-state
 DIAGNOSTIC_FILE="$RUN_DIR/phase16a.log"; : >"$DIAGNOSTIC_FILE"; chmod 600 "$DIAGNOSTIC_FILE"
 LOCK="$NMKR_PHASE2_LOG_DIR/phase16a-controller.lock"; OWN_LOCK=0
 cleanup(){ if [[ "$OWN_LOCK" == 1 && -d "$LOCK" ]]; then rmdir "$LOCK" 2>/dev/null || true; fi; }
 trap 'printf '\''{"result":"interrupted"}\n'\'' >"$RUN_DIR/result.json"; cleanup; exit 130' INT TERM
 trap cleanup EXIT
 mkdir -m 700 "$LOCK" || fail controller-lock; OWN_LOCK=1
+validate_sensitive_dir "$LOCK" || fail controller-lock
 
 RECEIPT="${NMKR_PHASE16A_RECEIPT:-}"
 validate_receipt_path || fail receipt-path
