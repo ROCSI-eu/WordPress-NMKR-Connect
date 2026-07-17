@@ -203,6 +203,14 @@ function nmkr_update_sync_stats($id, $stats) {
     if (isset($stats['items_processed'])) $data['items_processed'] = intval($stats['items_processed']);
     if (isset($stats['items_successful'])) $data['items_successful'] = intval($stats['items_successful']);
     if (isset($stats['items_failed'])) $data['items_failed'] = intval($stats['items_failed']);
+    foreach (array('items_skipped', 'token_details_synced') as $optional_counter) {
+        if (isset($stats[$optional_counter])) {
+            $columns = $wpdb->get_col("DESC $table_name", 0);
+            if (in_array($optional_counter, $columns, true)) {
+                $data[$optional_counter] = intval($stats[$optional_counter]);
+            }
+        }
+    }
     if (isset($stats['error_message'])) $data['error_message'] = $stats['error_message'];
     if (isset($stats['failure_breakdown'])) {
         // Check if column exists

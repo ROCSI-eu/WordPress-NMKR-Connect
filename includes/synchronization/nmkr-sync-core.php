@@ -998,29 +998,8 @@ function nmkr_sync_data() {
         $performance = nmkr_end_performance_tracking($tracking);
         // Note: Metrics saving is handled by the authoritative path below
         
-        // Update sync stats with completion
-        if ($sync_stats_id) {
-            nmkr_update_sync_stats($sync_stats_id, [
-                'status' => 'completed',
-                'end_time' => nmkr_get_timestamp(),
-                'items_processed' => $total_tokens,
-                'items_successful' => $total_successful_tokens,
-                'items_failed' => $total_failed_tokens,
-                'items_skipped' => $total_skipped_tokens,
-                'token_details_synced' => $token_details_synced
-            ]);
-        }
-        
-        // Update final status
-        nmkr_update_sync_progress($total_steps, $total_steps, '✅ Synchronization Completed');
-        update_option('nmkr_sync_in_progress', false);
-        delete_transient('nmkr_sync_in_progress');
-        
-        // Clear user stopped flag for successful completion
-        update_option('nmkr_sync_user_stopped', false);
-        set_transient('nmkr_sync_user_stopped', false, NMKR_SYNC_TRANSIENT_TTL);
-        
-        // Save final metrics to database (single authoritative path)
+        // Build final metrics; the canonical finalizer owns every durable
+        // completion write and all active-state cleanup.
         $live = get_transient('nmkr_current_sync_stats_live');
         if (!empty($live)) {
             // Get computed performance data
@@ -1039,22 +1018,22 @@ function nmkr_sync_data() {
             $live['total_projects'] = count($project_uids);
             $live['total_tokens'] = count($token_project_map);
             
-            // Set last sync time and save
-            $live['last_sync_time'] = nmkr_get_timestamp();
-            update_option('nmkr_last_sync_time', $live['last_sync_time']);
-            set_transient('nmkr_current_sync_stats_summary', $live, NMKR_SYNC_TRANSIENT_TTL);
-            
-            // Save metrics with validation - only saves if all validation passes
-            $metrics_saved = nmkr_save_sync_metrics($live);
-            if ($metrics_saved) {
-                nmkr_log_data_sync('✅ Final sync metrics saved successfully to database.');
-            } else {
-                nmkr_log_data_sync('⚠️ Final sync metrics validation failed, metrics not saved to database.', 'warning');
-            }
         } else {
             nmkr_log_data_sync('⚠️ No live sync statistics found for final metrics save.', 'warning');
         }
         
+        $terminal = nmkr_sync_data_complete(true, '', array(
+            'metrics' => $live,
+            'items_processed' => $total_tokens,
+            'items_successful' => $total_successful_tokens,
+            'items_failed' => $total_failed_tokens,
+            'items_skipped' => $total_skipped_tokens,
+            'token_details_synced' => $token_details_synced,
+        ));
+        if (!$terminal) {
+            throw new Exception('Canonical synchronization finalization failed');
+        }
+
         // Log comprehensive final summary
         nmkr_log_sync_summary($sync_log, $project_uids, $token_project_map, $total_successful_tokens, $total_skipped_tokens, $total_failed_tokens, $token_details_synced, $sync_start_time);
         

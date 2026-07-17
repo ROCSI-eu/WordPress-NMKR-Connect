@@ -465,25 +465,6 @@ function nmkr_sync_progress_handler() {
         // Fix: Calculate remaining tokens directly from total and completed
         $remaining_tokens = max(0, $total_tokens - $completed_tokens);
         
-        // Handle case where all tokens show as processed but stage isn't completed
-        if ($progress === 100 && $remaining_tokens === 0 && $remaining_projects === 0 
-            && $total_tokens > 0 && $completed_tokens === $total_tokens) {
-            // All work appears complete, but status wasn't updated
-            nmkr_update_sync_progress(100, 100, '✅ All data synchronized');
-            $progress = 100;
-            
-            // Update sync stats
-            if (isset($sync_data['sync_stats_id'])) {
-                nmkr_update_sync_stats($sync_data['sync_stats_id'], [
-                    'status' => 'completed',
-                    'end_time' => nmkr_get_timestamp()
-                ]);
-            }
-            
-            // Clean up
-            nmkr_clear_sync_data();
-        }
-        
         // Format batch info for frontend consumption
         $batch_info = array(
             'total_projects' => $total_projects,
@@ -522,13 +503,19 @@ function nmkr_sync_progress_handler() {
     $user_requested_abort = get_transient('nmkr_sync_user_stopped');
     $user_requested_abort = ($user_requested_abort !== false) ? (bool) $user_requested_abort : false;
     
+    $canonically_finished = is_array($sync_data)
+        && isset($sync_data['status'], $sync_data['completed'])
+        && $sync_data['status'] === 'completed'
+        && $sync_data['completed'] === true
+        && !$sync_in_progress_flag
+        && !$user_requested_abort;
     $response_data = array(
         'in_progress'  => $sync_in_progress_flag,
         'progress'     => $progress_int,
         'current_item' => (string) $current_item,
         'error'        => (string) $error,
         'aborted'      => $user_requested_abort,
-        'finished'     => ($progress_int === 100 && !$user_requested_abort),
+        'finished'     => $canonically_finished,
         'total_items'  => $total_items,
     );
 
@@ -550,15 +537,6 @@ function nmkr_sync_progress_handler() {
         'updated_at'            => isset($current_stats['updated_at']) ? (int) $current_stats['updated_at'] : time(),
     );
 
-    // Delete the live stats transient only when sync is finalized
-    if ($progress_int === 100) {
-        delete_transient('nmkr_current_sync_stats_live');
-        
-        // Clean up old metrics transients to ensure clean state for next sync
-        delete_transient('nmkr_active_sync_metrics');
-        delete_transient('nmkr_sync_performance_metrics');
-    }
-    
     // Clean any stray output captured during handler execution
     if (ob_get_length()) { ob_clean(); }
     if ($__nmkr_prev_display_errors !== false) { @ini_set('display_errors', $__nmkr_prev_display_errors); }

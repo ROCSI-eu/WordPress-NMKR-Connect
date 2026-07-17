@@ -51,3 +51,11 @@ The regression is synthetic and public-safe: it uses fake receipts, fake WP-CLI 
 ## Rollback and deferred hardening
 
 Rollback is a normal Git revert of the Phase 16A commit or branch. Merely installing the harness should not require WordPress rollback because public paths are non-mutating. Optional lock device/inode/token identity hardening is a narrowly scoped follow-up; this correction retains atomic acquisition, owner-only post-validation, and controller-owned cleanup. Production Start idempotency, durable worker locks, scheduled-event result handling, and stricter production active-sync rejection remain deferred to Phase 16B or Phase 16C.
+
+## Canonical terminalization regression
+
+Successful direct and batch work now converges through `nmkr_sync_data_complete()`. The finalizer persists one metrics row and uses that row's timestamp for `nmkr_last_sync_time`, completes only the history ID owned by the run, writes a minimal terminal sync-data record, and then removes heartbeat, near-completion, worker hooks, and live metrics. Its terminal record is also the idempotency receipt, so a repeated call cannot rewrite history or metrics.
+
+The progress endpoint is a read-only observer of live metrics. A raw 100% value remains nonterminal while sync data is active; `finished` requires the canonical completed record and inactive run marker. The dashboard follows that server predicate rather than treating 100% as success. This models the Phase 16A defect where business writes had finished while durable runtime markers remained active.
+
+Run the public-safe synthetic check with `bash scripts/nmkr-sync-terminalization-regression.sh`. It uses in-memory fixtures only and neither starts WordPress nor contacts NMKR.

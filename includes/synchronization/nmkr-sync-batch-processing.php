@@ -791,23 +791,16 @@ function nmkr_process_next_batch() {
             '. Projects: ' . $stats['completed_projects'] . '/' . $stats['total_projects'] . 
             ', Tokens: ' . $stats['completed_tokens'] . '/' . $stats['total_tokens']);
         
-        // Update sync stats at completion
-        if ($sync_stats_id) {
-            nmkr_update_sync_stats($sync_stats_id, [
-                'status' => 'completed',
-                'end_time' => nmkr_get_timestamp(),
-                'items_processed' => $sync_data['total_tokens'],
-                'items_successful' => $sync_data['completed_tokens']
-            ]);
-        }
-        
         // Mark sync near completion - all work is done but final flags not yet set
         update_option('nmkr_sync_near_completion', true);
         nmkr_log_data_sync('Marked sync as near completion - batch processing finished, finalizing flags', 'info');
         
         // Complete the sync process
         if (function_exists('nmkr_sync_data_complete')) {
-            nmkr_sync_data_complete(true);
+            return nmkr_sync_data_complete(true, '', array(
+                'items_processed' => isset($sync_data['total_tokens']) ? $sync_data['total_tokens'] : 0,
+                'items_successful' => isset($sync_data['completed_tokens']) ? $sync_data['completed_tokens'] : 0,
+            ));
         }
     }
     

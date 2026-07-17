@@ -79,27 +79,95 @@ function nmkr_update_sync_progress($steps_completed, $total_steps, $current_item
  *
  * @param bool $success Whether the sync completed successfully
  * @param string $error_message Optional error message if sync failed
+ * @param array $final Authoritative metrics, counters, and optional end time
  * @return array|false The final sync status or false on error
  */
-function nmkr_sync_data_complete($success = true, $error_message = '') {
+function nmkr_sync_data_complete($success = true, $error_message = '', $final = array()) {
     // Get the current sync data
     $sync_data = nmkr_get_sync_data();
     
     // Get the sync stats ID
     $sync_stats_id = isset($sync_data['sync_stats_id']) ? $sync_data['sync_stats_id'] : null;
+    $receipt_key = '';
     
-    // Update sync stats based on success/failure
+    // A completed terminal record is the durable idempotency receipt. Never
+    // touch history or metrics again when the same run is finalized twice.
+    if ($success && !empty($sync_stats_id) && isset($sync_data['status'], $sync_data['sync_stats_id'])
+        && $sync_data['status'] === 'completed' && (int) $sync_data['sync_stats_id'] === (int) $sync_stats_id) {
+        return $sync_data;
+    }
+
+    $end_time = !empty($final['end_time']) ? $final['end_time'] : nmkr_get_timestamp();
+
+    if ($success) {
+        $metrics = isset($final['metrics']) && is_array($final['metrics'])
+            ? $final['metrics'] : get_transient('nmkr_current_sync_stats_live');
+        $receipt_key = $sync_stats_id ? 'nmkr_sync_finalizing_' . (int) $sync_stats_id : '';
+        $receipt = $receipt_key ? get_option($receipt_key, array()) : array();
+
+        if (is_array($metrics)) {
+            $performance = nmkr_get_sync_stats();
+            $metrics['total_projects'] = isset($metrics['total_projects']) ? $metrics['total_projects'] : (isset($sync_data['total_projects']) ? $sync_data['total_projects'] : 0);
+            $metrics['total_tokens'] = isset($metrics['total_tokens']) ? $metrics['total_tokens'] : (isset($sync_data['total_tokens']) ? $sync_data['total_tokens'] : 0);
+            $metrics['total_sync_duration'] = isset($metrics['total_sync_duration']) ? $metrics['total_sync_duration'] : (isset($performance['total_duration']) ? $performance['total_duration'] : 0);
+            $metrics['total_api_time'] = isset($metrics['total_api_time']) ? $metrics['total_api_time'] : 0;
+            $metrics['average_response_time'] = isset($metrics['average_response_time']) ? $metrics['average_response_time'] : (isset($performance['average_time']) ? $performance['average_time'] : 0);
+            $metrics['api_requests'] = isset($metrics['api_requests']) ? $metrics['api_requests'] : (isset($performance['request_count']) ? $performance['request_count'] : 0);
+            $metrics['memory_usage'] = isset($metrics['memory_usage']) ? $metrics['memory_usage'] : (isset($performance['memory_used']) ? $performance['memory_used'] : 0);
+        }
+
+        // Metrics validation currently requires this flag to be false. Sync
+        // data remains active until every durable write below has succeeded,
+        // so polling still cannot expose completion during this interval.
+        update_option('nmkr_sync_in_progress', false);
+        delete_transient('nmkr_sync_in_progress');
+
+        if (empty($receipt['metrics_id'])) {
+            if (empty($metrics) || !is_array($metrics)) {
+                return false;
+            }
+            $metrics['last_sync_time'] = $end_time;
+            $metrics_id = nmkr_save_sync_metrics($metrics);
+            if (!$metrics_id) {
+                return false;
+            }
+            $receipt = array('metrics_id' => (int) $metrics_id, 'end_time' => $end_time);
+            if ($receipt_key) {
+                update_option($receipt_key, $receipt, false);
+            }
+        } else {
+            $end_time = $receipt['end_time'];
+        }
+
+        update_option('nmkr_last_sync_time', $end_time);
+        if (!empty($metrics)) {
+            $metrics['last_sync_time'] = $end_time;
+            set_transient('nmkr_current_sync_stats_summary', $metrics, NMKR_SYNC_TRANSIENT_TTL);
+        }
+    }
+
+    // Update only the row owned by this run, and never rewrite a terminal row.
     if ($sync_stats_id) {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'nmkr_sync_stats';
+        $history = $wpdb->get_row($wpdb->prepare("SELECT status, end_time FROM $table_name WHERE id = %d", $sync_stats_id), ARRAY_A);
         $status_update = array(
             'status' => $success ? 'completed' : 'failed',
-            'end_time' => nmkr_get_timestamp()
+            'end_time' => $end_time
         );
+        foreach (array('items_processed', 'items_successful', 'items_failed', 'items_skipped', 'token_details_synced') as $counter) {
+            if (isset($final[$counter])) {
+                $status_update[$counter] = (int) $final[$counter];
+            }
+        }
         
         if (!$success && !empty($error_message)) {
             $status_update['error_message'] = $error_message;
         }
         
-        nmkr_update_sync_stats($sync_stats_id, $status_update);
+        if ($history && !in_array($history['status'], array('completed', 'failed', 'aborted', 'stopped'), true)) {
+            nmkr_update_sync_stats($sync_stats_id, $status_update);
+        }
     }
     
     // Remove near completion flag if it exists
@@ -118,12 +186,7 @@ function nmkr_sync_data_complete($success = true, $error_message = '') {
         // Log UI status update for successful completion
         nmkr_log_ui_status('UI: Sync completed - displaying 100% progress bar and success message', 'info');
         
-        // Set last sync time
-        $current_time = nmkr_get_timestamp();
-        update_option('nmkr_last_sync_time', $current_time);
-        
-        // Log UI status update for statistics panel refresh
-        nmkr_log_ui_status('UI: Updated last sync time to ' . $current_time, 'info');
+        nmkr_log_ui_status('UI: Updated last sync time to ' . $end_time, 'info');
     } else {
         // Failed - reset to 0% for consistent failure indication
         nmkr_update_sync_progress(0, 100, '❌ Synchronization Failed: ' . $error_message, true);
@@ -146,19 +209,31 @@ function nmkr_sync_data_complete($success = true, $error_message = '') {
     // Clean up sync heartbeat when sync ends
     nmkr_cleanup_sync_heartbeat();
     
-    // Clear scheduled cron jobs to prevent additional processing
+    // Clear scheduled cron jobs to prevent additional processing.
     wp_clear_scheduled_hook('nmkr_process_batch_hook');
+    wp_clear_scheduled_hook('nmkr_execute_sync_background');
+    wp_clear_scheduled_hook('nmkr_sync_cron_hook');
     
     // Update sync data with final status
     $status = array(
         'status' => $success ? 'completed' : 'failed',
         'completed' => true,
-        'end_time' => nmkr_get_timestamp(),
-        'error_message' => $error_message,
+        'sync_stats_id' => $sync_stats_id,
+        'end_time' => $end_time,
     );
-    
-    $sync_data = array_merge($sync_data, $status);
-    nmkr_save_sync_data($sync_data);
+    if (!$success && !empty($error_message)) {
+        $status['error_code'] = 'sync_failed';
+    }
+    nmkr_save_sync_data($status);
+
+    // Live metrics belong to the backend and are cleared only after their
+    // durable row, timestamp, history, and terminal state have been written.
+    delete_transient('nmkr_current_sync_stats_live');
+    delete_transient('nmkr_active_sync_metrics');
+    delete_transient('nmkr_sync_performance_metrics');
+    if (!empty($receipt_key)) {
+        delete_option($receipt_key);
+    }
     
     // Log final status
     if ($success) {
