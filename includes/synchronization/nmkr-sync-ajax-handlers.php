@@ -39,6 +39,12 @@ function nmkr_start_sync_handler() {
     if ( ! current_user_can( 'nmkr_manage_sync' ) ) {
         wp_send_json_error( array( 'message' => __( 'Forbidden', 'nmkr-connect' ) ), 403 );
     }
+
+    $existing_sync_data = nmkr_get_sync_data();
+    if (is_array($existing_sync_data) && ($existing_sync_data['status'] ?? '') === 'finalizing') {
+        wp_send_json_error(array('message' => __('Synchronization finalization is still pending.', 'nmkr-connect')), 409);
+        return;
+    }
     
     // Clear any past recovery note on fresh start
     delete_option('nmkr_sync_last_result');

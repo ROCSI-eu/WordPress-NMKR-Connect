@@ -1030,7 +1030,7 @@ function nmkr_sync_data() {
             'items_skipped' => $total_skipped_tokens,
             'token_details_synced' => $token_details_synced,
         ));
-        if (!$terminal) {
+        if (!is_array($terminal) || !in_array($terminal['status'] ?? '', array('completed', 'success'), true)) {
             throw new Exception('Canonical synchronization finalization failed');
         }
 

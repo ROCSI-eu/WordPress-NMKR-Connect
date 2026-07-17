@@ -60,4 +60,10 @@ The progress endpoint is a read-only observer of live metrics. A raw 100% value 
 
 Run the public-safe synthetic check with `bash scripts/nmkr-sync-terminalization-regression.sh`. It uses in-memory fixtures only and neither starts WordPress nor contacts NMKR.
 
-The fixture deterministically interleaves two complete finalizer contenders by capturing both active entry snapshots before allowing their lock-owned sections to run. It proves the application-level re-read and idempotent transition contract, but it does not substitute for integration validation of `GET_LOCK()`, InnoDB rollback, connection loss, or object-cache behavior on the target MySQL/MariaDB deployment.
+The fixture captures two active entry snapshots and then invokes the complete finalizer sequentially. It proves idempotent re-read behavior, not concurrent lock waiting or true process interleaving. Integration validation of independent-connection `GET_LOCK()` contention, InnoDB rollback, connection loss, cron timing, and object-cache behavior remains required on the target MySQL/MariaDB deployment.
+
+### Durable finalization resume
+
+Before canonical finalization enters an interruption window it stores a minimal run-owned snapshot containing only final metrics, counters, timestamp, retry count, and `sync_stats_id`, then schedules `nmkr_resume_sync_finalization` for that exact ID. The hook invokes only terminalization, never Start or business-data synchronization. Retries use approximately 3, 6, 12, 24, and 30 seconds; exhaustion retains committed evidence, marks `finalization_error`, and remains nonterminal. Successful or immutable terminal cleanup removes the snapshot, retry marker, and exact scheduled hook. Stale dashboard recovery may maintain the event but never executes finalization in the polling request.
+
+The scheduling fixture is synthetic. WordPress cron timing, independent MySQL advisory-lock contention, InnoDB connection-loss rollback, and persistent object-cache behavior still require target-environment validation.

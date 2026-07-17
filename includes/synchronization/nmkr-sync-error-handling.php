@@ -33,6 +33,9 @@ function nmkr_clear_sync_jobs($context = 'manual_cleanup', $clear_data = true, $
     // Get the current sync data to see if we have an active sync stats record
     $sync_data = nmkr_get_sync_data();
     $sync_stats_id = ($sync_data && isset($sync_data['sync_stats_id'])) ? $sync_data['sync_stats_id'] : null;
+    if ($sync_stats_id && function_exists('nmkr_clear_sync_finalization_resume')) {
+        nmkr_clear_sync_finalization_resume($sync_stats_id);
+    }
     
     // Get current sync stats directly from database if we have an ID
     if ($sync_stats_id) {

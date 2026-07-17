@@ -142,7 +142,7 @@ function nmkr16_heartbeat_worker_count() {
     return $count;
 }
 function nmkr16_cron_state() {
-    $blocked = array('nmkr_execute_sync_background', 'nmkr_process_batch_hook', 'nmkr_sync_cron_hook', 'nmkr_install_sync_cron_hook');
+    $blocked = array('nmkr_execute_sync_background', 'nmkr_process_batch_hook', 'nmkr_sync_cron_hook', 'nmkr_install_sync_cron_hook', 'nmkr_resume_sync_finalization');
     $counts = array_fill_keys($blocked, 0);
     $inspectable = true;
     $cron = get_option('cron', array());

@@ -797,10 +797,12 @@ function nmkr_process_next_batch() {
         
         // Complete the sync process
         if (function_exists('nmkr_sync_data_complete')) {
-            return nmkr_sync_data_complete(true, '', array(
+            $terminal = nmkr_sync_data_complete(true, '', array(
                 'items_processed' => isset($sync_data['total_tokens']) ? $sync_data['total_tokens'] : 0,
                 'items_successful' => isset($sync_data['completed_tokens']) ? $sync_data['completed_tokens'] : 0,
             ));
+            return is_array($terminal) && in_array($terminal['status'] ?? '', array('completed', 'success'), true)
+                ? $terminal : false;
         }
     }
     
@@ -879,4 +881,4 @@ function nmkr_process_next_batch() {
     // Removed fallback mechanism to prevent duplicate database inserts
 
     return $status;
-}  
+}

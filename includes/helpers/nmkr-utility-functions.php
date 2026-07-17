@@ -486,6 +486,16 @@ function nmkr_detect_and_recover_stale_sync() {
         return array('stale'=>false,'recovered'=>false,'grace'=>$grace,'heartbeat_age'=>$heartbeat_age,'last_update'=>$last_update);
     }
 
+    // Admin/dashboard stale detection may maintain the dedicated resume event,
+    // but it never performs finalization in this request.
+    if ($is_finalizing) {
+        $scheduled = nmkr_maintain_sync_finalization_resume($sync_data);
+        if (!$scheduled) {
+            update_option('nmkr_sync_status', 'finalization_error');
+        }
+        return array('stale'=>true,'recovered'=>false,'finalization_scheduled'=>$scheduled,'grace'=>$grace,'heartbeat_age'=>$heartbeat_age,'last_update'=>$last_update);
+    }
+
     // Clear only sync-state; keep user settings
     update_option('nmkr_sync_in_progress', false);
 
