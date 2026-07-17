@@ -51,7 +51,9 @@ function nmkr16_active_statuses() {
     return array('initializing', 'processing', 'processing_projects', 'processing_tokens', 'in_progress', 'running', 'pending', 'active', 'started');
 }
 function nmkr16_terminal_statuses() {
-    return array('completed', 'success', 'failed', 'error', 'stopped', 'cancelled', 'aborted');
+    return function_exists('nmkr_sync_terminal_statuses')
+        ? nmkr_sync_terminal_statuses()
+        : array('completed', 'success', 'failed', 'error', 'stopped', 'cancelled', 'aborted');
 }
 function nmkr16_sql_list($values) {
     return "'" . implode("','", array_map('esc_sql', $values)) . "'";

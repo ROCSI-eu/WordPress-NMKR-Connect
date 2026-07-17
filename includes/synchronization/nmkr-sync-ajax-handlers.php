@@ -500,15 +500,16 @@ function nmkr_sync_progress_handler() {
     // Enhanced AJAX response with unified progress data and live metrics
     $sync_in_progress_raw = get_transient('nmkr_sync_in_progress');
     $sync_in_progress_flag = ($sync_in_progress_raw !== false) ? (bool) $sync_in_progress_raw : false;
+    $sync_in_progress_option = (bool) get_option('nmkr_sync_in_progress', false);
     $user_requested_abort = get_transient('nmkr_sync_user_stopped');
     $user_requested_abort = ($user_requested_abort !== false) ? (bool) $user_requested_abort : false;
     
-    $canonically_finished = is_array($sync_data)
-        && isset($sync_data['status'], $sync_data['completed'])
-        && $sync_data['status'] === 'completed'
-        && $sync_data['completed'] === true
-        && !$sync_in_progress_flag
-        && !$user_requested_abort;
+    $canonically_finished = nmkr_is_sync_canonically_finished(
+        $sync_data,
+        $sync_in_progress_option,
+        $sync_in_progress_flag,
+        $user_requested_abort
+    );
     $response_data = array(
         'in_progress'  => $sync_in_progress_flag,
         'progress'     => $progress_int,
