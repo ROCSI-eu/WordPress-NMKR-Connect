@@ -27,7 +27,7 @@ add_action('wp_ajax_nmkr_check_sync_health', 'nmkr_check_sync_health_handler');
 // The API status handler is defined in ajax/nmkr-ajax-functions.php
 
 // Hook for background sync execution
-add_action('nmkr_execute_sync_background', 'nmkr_execute_sync_background_job');
+add_action('nmkr_execute_sync_background', 'nmkr_execute_sync_background_job', 10, 1);
 
 /**
  * AJAX handler for starting the synchronization process
@@ -40,17 +40,26 @@ function nmkr_start_sync_handler() {
         wp_send_json_error( array( 'message' => __( 'Forbidden', 'nmkr-connect' ) ), 403 );
     }
 
-    $existing_sync_data = nmkr_get_sync_data();
-    if (nmkr_sync_start_blocked_by_finalization($existing_sync_data)) {
-        wp_send_json_error(array('message' => __('Synchronization finalization is still pending.', 'nmkr-connect')), 409);
-        return;
-    }
-    
-    // Clear any past recovery note on fresh start
-    delete_option('nmkr_sync_last_result');
-    delete_option('nmkr_sync_last_recovery_at');
-    
     try {
+        $run_id = wp_generate_uuid4();
+        $owner = nmkr_admit_sync_owner($run_id);
+        if (is_wp_error($owner)) {
+            $conflict = in_array($owner->get_error_code(), array('sync_already_owned', 'sync_finalization_pending'), true);
+            wp_send_json_error(array(
+                'message' => $owner->get_error_message(),
+                'error_code' => $owner->get_error_code(),
+            ), $conflict ? 409 : 503);
+            return;
+        }
+
+        // Remove only obsolete pre-ownership, no-argument events. New events
+        // always carry a run ID and are never matched by these empty args.
+        wp_clear_scheduled_hook('nmkr_execute_sync_background', array());
+
+        // Clear past recovery notes only after this request owns admission.
+        delete_option('nmkr_sync_last_result');
+        delete_option('nmkr_sync_last_recovery_at');
+
         // Log UI status update for starting sync
         nmkr_log_ui_status('UI: User clicked Start Synchronization button - initializing sync process', 'info');
         
@@ -74,7 +83,25 @@ function nmkr_start_sync_handler() {
         set_transient('nmkr_sync_in_progress', true, NMKR_SYNC_TRANSIENT_TTL);
         
         // Schedule the sync to run in the background via WP-Cron
-        wp_schedule_single_event(time(), 'nmkr_execute_sync_background');
+        $event_args = array($run_id);
+        $scheduled = wp_schedule_single_event(time(), 'nmkr_execute_sync_background', $event_args);
+        if (!$scheduled && !wp_next_scheduled('nmkr_execute_sync_background', $event_args)) {
+            // Roll back only while this exact queued owner still exists.
+            $released = nmkr_release_sync_owner($run_id, 0, 'queued');
+            if ($released === true) {
+                update_option('nmkr_sync_in_progress', false);
+                delete_transient('nmkr_sync_in_progress');
+                delete_transient('nmkr_sync_progress');
+                delete_transient('nmkr_sync_current_item');
+                delete_transient('nmkr_sync_current_count');
+                delete_transient('nmkr_sync_user_stopped');
+            }
+            wp_send_json_error(array(
+                'message' => __('Failed to schedule synchronization.', 'nmkr-connect'),
+                'error_code' => 'sync_schedule_failed',
+            ), 500);
+            return;
+        }
         
         // Let the client know we queued the job successfully
         wp_send_json_success();
@@ -822,6 +849,15 @@ function nmkr_restart_sync_batch_handler() {
         wp_send_json_error( array( 'message' => __( 'Forbidden', 'nmkr-connect' ) ), 403 );
     }
     
+    $owner = nmkr_get_sync_owner();
+    if (!is_array($owner) || ($owner['mode'] ?? '') !== 'batch') {
+        wp_send_json_error(array(
+            'message' => __('Batch restart is unavailable for the current synchronization mode.', 'nmkr-connect'),
+            'error_code' => 'batch_mode_unsupported',
+        ), 409);
+        return;
+    }
+
     // Log the restart attempt
     nmkr_log_data_sync('Attempting to restart sync batch process', 'warning', array(
         'context' => 'recovery_restart',
@@ -1042,7 +1078,17 @@ function nmkr_check_sync_health_handler() {
  * Background job function to execute sync process
  * This runs the actual sync work in the background, called via wp_schedule_single_event
  */
-function nmkr_execute_sync_background_job() {
+function nmkr_execute_sync_background_job($run_id = '') {
+    $run_id = is_string($run_id) ? sanitize_text_field($run_id) : '';
+    if (!nmkr_is_valid_sync_run_id($run_id)) {
+        // Legacy no-argument events and malformed callbacks are inert.
+        return;
+    }
+    $claimed = nmkr_transition_sync_owner($run_id, 'queued', 'running');
+    if (is_wp_error($claimed) || !$claimed) {
+        return;
+    }
+
     // Log that the background job has started
     nmkr_log_data_sync('🚀 Background sync job started via wp_schedule_single_event', 'info', array(
         'timestamp' => current_time('mysql'),
@@ -1050,23 +1096,8 @@ function nmkr_execute_sync_background_job() {
         'max_execution_time' => ini_get('max_execution_time')
     ));
     
-    // ** 1. Clear any existing sync jobs **
-    try {
-        $cleanup_result = nmkr_clear_sync_jobs('sync_start', true);
-        
-        if (!$cleanup_result['success']) {
-            throw new Exception('Failed to clear existing sync jobs: ' . $cleanup_result['message']);
-        }
-    } catch (Exception $e) {
-        $error_details = NMKR_Sync_Common_Errors::cleanupFailed($e->getMessage());
-        nmkr_log_data_sync('Background Job Error: Cleanup failed - ' . $e->getMessage(), 'error');
-        update_option('nmkr_sync_error', $error_details['formatted_display']);
-        update_option('nmkr_sync_in_progress', false);
-        delete_transient('nmkr_sync_in_progress');
-        return;
-    }
-    
-    // ** 2. Set initial progress options/transient **
+    // Ownership is proven before narrowly scoped initialization. Never invoke
+    // the legacy global cleanup here: it can destroy finalization evidence.
     try {
         // Clean up any old metrics transients to ensure clean state
         delete_transient('nmkr_active_sync_metrics');
@@ -1096,9 +1127,12 @@ function nmkr_execute_sync_background_job() {
         nmkr_log_ui_status('UI: Hiding "Start Synchronization" button, showing "Stop Synchronization" button', 'info');
     } catch (Exception $e) {
         nmkr_log_data_sync('Background Job Error: Failed to reset progress options - ' . $e->getMessage(), 'error');
-        update_option('nmkr_sync_error', 'Failed to initialize sync progress tracking');
-        update_option('nmkr_sync_in_progress', false);
-        delete_transient('nmkr_sync_in_progress');
+        if (nmkr_sync_owner_matches($run_id, 'running', 0)) {
+            update_option('nmkr_sync_error', 'Failed to initialize sync progress tracking');
+            update_option('nmkr_sync_in_progress', false);
+            delete_transient('nmkr_sync_in_progress');
+            nmkr_release_sync_owner($run_id, 0, 'running');
+        }
         return;
     }
     
@@ -1107,63 +1141,12 @@ function nmkr_execute_sync_background_job() {
     
     try {
         // Execute the actual sync process
-        $response = nmkr_sync_data();
+        $response = nmkr_sync_data($run_id);
         
-        // Handle different response types and set appropriate completion/error states
-        if (is_wp_error($response)) {
-            if ($response->get_error_code() === 'sync_finalization_pending') {
-                nmkr_log_data_sync('Background sync is awaiting resumable terminal cleanup.', 'warning');
-                return;
-            }
-            // WP_Error response - set error state
-            nmkr_log_data_sync('❌ Background sync job completed with WP_Error: ' . $response->get_error_message(), 'error');
-            
-            update_option('nmkr_sync_error', $response->get_error_message());
-            nmkr_update_sync_progress(0, 100, 'Background sync failed: ' . $response->get_error_message());
-            update_option('nmkr_sync_in_progress', false);
-            delete_transient('nmkr_sync_in_progress');
-            
-        } elseif (is_array($response) && isset($response['success'])) {
-            if ($response['success']) {
-                // Successful completion - set completed state
-                nmkr_log_data_sync('✅ Background sync job completed successfully', 'info', array(
-                    'response_message' => $response['message'] ?? 'No message provided'
-                ));
-                
-                // Progress already handled by nmkr_sync_data() - no need to override
-                // The main sync function will have set the final progress correctly
-                update_option('nmkr_sync_error', '');
-                update_option('nmkr_sync_in_progress', false);
-                delete_transient('nmkr_sync_in_progress');
-                
-            } else {
-                // Failed completion - set error state
-                nmkr_log_data_sync('❌ Background sync job completed with error: ' . ($response['message'] ?? 'Unknown error'), 'error');
-                
-                update_option('nmkr_sync_error', $response['message'] ?? 'Unknown sync error');
-                nmkr_update_sync_progress(0, 100, 'Background sync failed');
-                update_option('nmkr_sync_in_progress', false);
-                delete_transient('nmkr_sync_in_progress');
-            }
-        } else {
-            // Handle legacy string responses or unexpected response types
-            if (is_string($response) && strpos($response, 'successfully') !== false) {
-                // Treat legacy successful string responses as normal completion without duplicate/legacy log labels
-                update_option('nmkr_sync_error', '');
-                update_option('nmkr_sync_in_progress', false);
-                delete_transient('nmkr_sync_in_progress');
-            } else {
-                // Unexpected response - treat as error
-                nmkr_log_data_sync('❌ Background sync job completed with unexpected response', 'warning', array(
-                    'response_type' => gettype($response),
-                    'response' => is_scalar($response) ? $response : 'Non-scalar response'
-                ));
-                
-                update_option('nmkr_sync_error', 'Sync completed with unexpected response');
-                nmkr_update_sync_progress(0, 100, 'Background sync completed with unexpected response');
-                update_option('nmkr_sync_in_progress', false);
-                delete_transient('nmkr_sync_in_progress');
-            }
+        // The run-owned core and canonical finalizer exclusively mutate
+        // terminal state. This wrapper must not race a newly admitted owner.
+        if (is_wp_error($response) && $response->get_error_code() === 'sync_finalization_pending') {
+            nmkr_log_data_sync('Background sync is awaiting resumable terminal cleanup.', 'warning');
         }
         
     } catch (Exception $e) {
@@ -1174,9 +1157,7 @@ function nmkr_execute_sync_background_job() {
             'trace' => $e->getTraceAsString()
         ));
         
-        update_option('nmkr_sync_error', 'Critical error in background sync: ' . $e->getMessage());
-        nmkr_update_sync_progress(0, 100, 'Background sync crashed');
-        update_option('nmkr_sync_in_progress', false);
-        delete_transient('nmkr_sync_in_progress');
+        // Unknown hard interruptions intentionally retain the owner. Phase
+        // 16B.2 will add ownership-safe recovery rather than guessing here.
     }
 }
