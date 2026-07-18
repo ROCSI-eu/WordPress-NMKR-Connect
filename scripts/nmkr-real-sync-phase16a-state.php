@@ -48,10 +48,12 @@ function nmkr16_progress_active($value) {
     return is_numeric($value) && (float) $value > 0 && (float) $value < 100;
 }
 function nmkr16_active_statuses() {
-    return array('initializing', 'processing', 'processing_projects', 'processing_tokens', 'in_progress', 'running', 'pending', 'active', 'started');
+    return array('initializing', 'finalizing', 'processing', 'processing_projects', 'processing_tokens', 'in_progress', 'running', 'pending', 'active', 'started');
 }
 function nmkr16_terminal_statuses() {
-    return array('completed', 'success', 'failed', 'error', 'stopped', 'cancelled', 'aborted');
+    return function_exists('nmkr_sync_terminal_statuses')
+        ? nmkr_sync_terminal_statuses()
+        : array('completed', 'success', 'failed', 'error', 'stopped', 'cancelled', 'aborted');
 }
 function nmkr16_sql_list($values) {
     return "'" . implode("','", array_map('esc_sql', $values)) . "'";
@@ -115,6 +117,14 @@ function nmkr16_option_active_count() {
     if ($durable_sync_active && nmkr16_truthy(get_option('nmkr_sync_near_completion', false))) { $count++; }
     return $count;
 }
+function nmkr16_finalization_resume_marker_count() {
+    $sync_data = get_option('nmkr_sync_data', array());
+    $sync_stats_id = is_array($sync_data) ? (int) ($sync_data['sync_stats_id'] ?? 0) : 0;
+    if ($sync_stats_id <= 0) { return 0; }
+    $count = get_option('nmkr_sync_finalization_resume_' . $sync_stats_id, false) !== false ? 1 : 0;
+    if (wp_next_scheduled('nmkr_resume_sync_finalization', array($sync_stats_id))) { $count++; }
+    return $count;
+}
 function nmkr16_transient_active_count() {
     if (!wp_using_ext_object_cache()) {
         return 0;
@@ -140,7 +150,7 @@ function nmkr16_heartbeat_worker_count() {
     return $count;
 }
 function nmkr16_cron_state() {
-    $blocked = array('nmkr_execute_sync_background', 'nmkr_process_batch_hook', 'nmkr_sync_cron_hook', 'nmkr_install_sync_cron_hook');
+    $blocked = array('nmkr_execute_sync_background', 'nmkr_process_batch_hook', 'nmkr_sync_cron_hook', 'nmkr_install_sync_cron_hook', 'nmkr_resume_sync_finalization');
     $counts = array_fill_keys($blocked, 0);
     $inspectable = true;
     $cron = get_option('cron', array());
@@ -224,6 +234,7 @@ $output = array(
     'invalid_relationship_count' => $invalid_relationship,
     'impossible_counter_count' => $impossible,
     'option_active_marker_count' => nmkr16_option_active_count(),
+    'finalization_resume_marker_count' => nmkr16_finalization_resume_marker_count(),
     'transient_active_marker_count' => nmkr16_transient_active_count(),
     'stale_recovery_marker_count' => nmkr16_stale_recovery_count(),
     'heartbeat_worker_evidence_count' => nmkr16_heartbeat_worker_count(),

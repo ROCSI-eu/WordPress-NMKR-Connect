@@ -4,7 +4,7 @@ if (!defined('ABSPATH')) {
     exit(1);
 }
 
-$active_statuses = array('initializing', 'processing', 'processing_projects', 'processing_tokens', 'in_progress', 'running', 'pending');
+$active_statuses = array('initializing', 'finalizing', 'processing', 'processing_projects', 'processing_tokens', 'in_progress', 'running', 'pending');
 
 $is_truthy = static function ($value): bool {
     if (is_bool($value)) {
@@ -15,7 +15,7 @@ $is_truthy = static function ($value): bool {
     }
     if (is_string($value)) {
         $normalized = strtolower(trim($value));
-        return in_array($normalized, array('1', 'true', 'yes', 'on', 'running', 'in_progress', 'processing', 'processing_projects', 'processing_tokens', 'initializing', 'pending'), true);
+        return in_array($normalized, array('1', 'true', 'yes', 'on', 'running', 'in_progress', 'processing', 'processing_projects', 'processing_tokens', 'initializing', 'finalizing', 'pending'), true);
     }
     return !empty($value);
 };

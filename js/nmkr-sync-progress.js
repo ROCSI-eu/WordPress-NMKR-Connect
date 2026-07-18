@@ -273,9 +273,9 @@ jQuery(document).ready(function($) {
               updateActiveMetrics(live_metrics);
             }
             
-            // Stop either when the server says finished, or when progress hits 100%
+            // Only the backend's canonical terminal state may finish polling.
             // (defensive against server-side strict-compare races)
-            if (finished === true || validProgress === 100) {
+            if (finished === true) {
               stopPolling();
               handleComplete();
               return;

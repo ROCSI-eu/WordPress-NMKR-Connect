@@ -39,6 +39,12 @@ function nmkr_start_sync_handler() {
     if ( ! current_user_can( 'nmkr_manage_sync' ) ) {
         wp_send_json_error( array( 'message' => __( 'Forbidden', 'nmkr-connect' ) ), 403 );
     }
+
+    $existing_sync_data = nmkr_get_sync_data();
+    if (nmkr_sync_start_blocked_by_finalization($existing_sync_data)) {
+        wp_send_json_error(array('message' => __('Synchronization finalization is still pending.', 'nmkr-connect')), 409);
+        return;
+    }
     
     // Clear any past recovery note on fresh start
     delete_option('nmkr_sync_last_result');
@@ -465,25 +471,6 @@ function nmkr_sync_progress_handler() {
         // Fix: Calculate remaining tokens directly from total and completed
         $remaining_tokens = max(0, $total_tokens - $completed_tokens);
         
-        // Handle case where all tokens show as processed but stage isn't completed
-        if ($progress === 100 && $remaining_tokens === 0 && $remaining_projects === 0 
-            && $total_tokens > 0 && $completed_tokens === $total_tokens) {
-            // All work appears complete, but status wasn't updated
-            nmkr_update_sync_progress(100, 100, '✅ All data synchronized');
-            $progress = 100;
-            
-            // Update sync stats
-            if (isset($sync_data['sync_stats_id'])) {
-                nmkr_update_sync_stats($sync_data['sync_stats_id'], [
-                    'status' => 'completed',
-                    'end_time' => nmkr_get_timestamp()
-                ]);
-            }
-            
-            // Clean up
-            nmkr_clear_sync_data();
-        }
-        
         // Format batch info for frontend consumption
         $batch_info = array(
             'total_projects' => $total_projects,
@@ -519,16 +506,28 @@ function nmkr_sync_progress_handler() {
     // Enhanced AJAX response with unified progress data and live metrics
     $sync_in_progress_raw = get_transient('nmkr_sync_in_progress');
     $sync_in_progress_flag = ($sync_in_progress_raw !== false) ? (bool) $sync_in_progress_raw : false;
+    $sync_in_progress_option = (bool) get_option('nmkr_sync_in_progress', false);
     $user_requested_abort = get_transient('nmkr_sync_user_stopped');
     $user_requested_abort = ($user_requested_abort !== false) ? (bool) $user_requested_abort : false;
+    $durable_user_requested_abort = (bool) get_option('nmkr_sync_user_stopped', false);
+    $resume_pending = is_array($sync_data) && !empty($sync_data['sync_stats_id'])
+        ? nmkr_sync_finalization_resume_pending((int) $sync_data['sync_stats_id']) : false;
     
+    $canonically_finished = nmkr_is_sync_canonically_finished(
+        $sync_data,
+        $sync_in_progress_option,
+        $sync_in_progress_flag,
+        $durable_user_requested_abort,
+        $user_requested_abort,
+        $resume_pending
+    );
     $response_data = array(
         'in_progress'  => $sync_in_progress_flag,
         'progress'     => $progress_int,
         'current_item' => (string) $current_item,
         'error'        => (string) $error,
         'aborted'      => $user_requested_abort,
-        'finished'     => ($progress_int === 100 && !$user_requested_abort),
+        'finished'     => $canonically_finished,
         'total_items'  => $total_items,
     );
 
@@ -550,15 +549,6 @@ function nmkr_sync_progress_handler() {
         'updated_at'            => isset($current_stats['updated_at']) ? (int) $current_stats['updated_at'] : time(),
     );
 
-    // Delete the live stats transient only when sync is finalized
-    if ($progress_int === 100) {
-        delete_transient('nmkr_current_sync_stats_live');
-        
-        // Clean up old metrics transients to ensure clean state for next sync
-        delete_transient('nmkr_active_sync_metrics');
-        delete_transient('nmkr_sync_performance_metrics');
-    }
-    
     // Clean any stray output captured during handler execution
     if (ob_get_length()) { ob_clean(); }
     if ($__nmkr_prev_display_errors !== false) { @ini_set('display_errors', $__nmkr_prev_display_errors); }
@@ -1121,6 +1111,10 @@ function nmkr_execute_sync_background_job() {
         
         // Handle different response types and set appropriate completion/error states
         if (is_wp_error($response)) {
+            if ($response->get_error_code() === 'sync_finalization_pending') {
+                nmkr_log_data_sync('Background sync is awaiting resumable terminal cleanup.', 'warning');
+                return;
+            }
             // WP_Error response - set error state
             nmkr_log_data_sync('❌ Background sync job completed with WP_Error: ' . $response->get_error_message(), 'error');
             

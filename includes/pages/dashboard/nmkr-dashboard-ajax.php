@@ -49,40 +49,26 @@ function nmkr_check_api_status() {
     $options = get_option('nmkr_connect_options');
     $api_key = isset($options['api_key']) ? $options['api_key'] : '';
     
-    // Check if a sync is currently in progress
-    $sync_in_progress = get_option('nmkr_sync_in_progress', false);
+    // Read canonical synchronization state without mutating lifecycle data.
+    $canonical_state = nmkr_get_canonical_dashboard_sync_state();
+    $sync_data = $canonical_state['sync_data'];
+    $finished = $canonical_state['finished'];
+    $finalization_pending = $canonical_state['finalization_pending'];
+    $running = $canonical_state['running'];
     $progress = get_transient('nmkr_sync_progress');
     $progress = ($progress !== false) ? (int) $progress : 0;
-    $error = get_option('nmkr_sync_error', '');
-    
-    // If there's a potential stuck state, clear it
-    if ($sync_in_progress && ($progress == 100 || !empty($error))) {
-        // Clean up inconsistent state
-        update_option('nmkr_sync_in_progress', false);
-        $sync_in_progress = false;
-        
-        // Log UI status update
-        nmkr_log_ui_status('UI: Fixed inconsistent sync state - sync was marked as in-progress but had completion/error status', 'warning');
-    }
-
-    // Freshness gating of running flag
-    $in_progress   = (bool) get_option('nmkr_sync_in_progress', false);
-    $progress_val  = (int) ( get_transient('nmkr_sync_progress') ?: 0 );
+    $progress_val  = $progress;
     $heartbeat_age = function_exists('nmkr_get_heartbeat_age') ? nmkr_get_heartbeat_age() : -1;
     $last_update   = (int) get_option('nmkr_last_progress_update_time', 0);
     $ttl           = defined('NMKR_SYNC_TRANSIENT_TTL') ? (int) NMKR_SYNC_TRANSIENT_TTL : HOUR_IN_SECONDS;
     $grace         = min($ttl, 300);
-    $fresh         = ( $in_progress && $heartbeat_age >= 0 && $heartbeat_age < $grace && $last_update > 0 && ( time() - $last_update ) < $grace );
-    $running       = $fresh;
 
-    // Compute recovery banner recency and prune if stale
+    // Compute recovery banner recency without mutating recovery state.
     $last_result      = get_option('nmkr_sync_last_result', '');
     $last_recovery_at = (int) get_option('nmkr_sync_last_recovery_at', 0);
     $recent_window    = 6 * HOUR_IN_SECONDS;
     $show_banner      = ( $last_recovery_at > 0 && ( time() - $last_recovery_at ) <= $recent_window );
     if ( ! $show_banner ) {
-        delete_option('nmkr_sync_last_result');
-        delete_option('nmkr_sync_last_recovery_at');
         $last_result = '';
         $last_recovery_at = 0;
     }
@@ -99,6 +85,8 @@ function nmkr_check_api_status() {
             'message' => '⛓️‍💥 Disconnected - No API key set. Please configure your API key in the <a href="options-general.php?page=nmkr-connect-settings">Settings page</a>.',
             'connected' => false,
             'sync_in_progress' => $running,
+            'finished' => $finished,
+            'finalization_pending' => $finalization_pending,
             'progress' => $progress_val,
             'heartbeat_age' => $heartbeat_age,
             'last_update' => $last_update,
@@ -117,6 +105,8 @@ function nmkr_check_api_status() {
             'message' => '✅ Connected', 
             'connected' => true,
             'sync_in_progress' => $running,
+            'finished' => $finished,
+            'finalization_pending' => $finalization_pending,
             'progress' => $progress_val,
             'heartbeat_age' => $heartbeat_age,
             'last_update' => $last_update,
@@ -135,6 +125,8 @@ function nmkr_check_api_status() {
             'message' => '⛓️‍💥 Disconnected - Unable to establish connection with NMKR API. Please verify your API key credentials.',
             'connected' => false,
             'sync_in_progress' => $running,
+            'finished' => $finished,
+            'finalization_pending' => $finalization_pending,
             'progress' => $progress_val,
             'heartbeat_age' => $heartbeat_age,
             'last_update' => $last_update,

@@ -791,23 +791,31 @@ function nmkr_process_next_batch() {
             '. Projects: ' . $stats['completed_projects'] . '/' . $stats['total_projects'] . 
             ', Tokens: ' . $stats['completed_tokens'] . '/' . $stats['total_tokens']);
         
-        // Update sync stats at completion
-        if ($sync_stats_id) {
-            nmkr_update_sync_stats($sync_stats_id, [
-                'status' => 'completed',
-                'end_time' => nmkr_get_timestamp(),
-                'items_processed' => $sync_data['total_tokens'],
-                'items_successful' => $sync_data['completed_tokens']
-            ]);
-        }
-        
         // Mark sync near completion - all work is done but final flags not yet set
         update_option('nmkr_sync_near_completion', true);
         nmkr_log_data_sync('Marked sync as near completion - batch processing finished, finalizing flags', 'info');
         
         // Complete the sync process
         if (function_exists('nmkr_sync_data_complete')) {
-            nmkr_sync_data_complete(true);
+            $batch_metrics = nmkr_build_final_sync_metrics(array(
+                'total_sync_duration' => $sync_stats['total_duration'],
+                'total_api_time' => $sync_stats['total_api_time'],
+                'average_response_time' => $sync_stats['average_time'],
+                'api_requests' => $sync_stats['request_count'],
+                'memory_usage' => $sync_stats['memory_used'],
+            ), $sync_data, array(
+                'total_projects' => $stats['total_projects'],
+                'total_tokens' => $stats['total_tokens'],
+            ));
+            $final = array(
+                'metrics' => $batch_metrics,
+                'items_processed' => isset($sync_data['total_tokens']) ? $sync_data['total_tokens'] : 0,
+                'items_successful' => isset($sync_data['completed_tokens']) ? $sync_data['completed_tokens'] : 0,
+            );
+            $prepared = nmkr_prepare_sync_finalization($sync_stats_id, $final, $sync_data);
+            $terminal = $prepared ? nmkr_sync_data_complete(true, '', $prepared, false, true) : false;
+            return is_array($terminal) && in_array($terminal['status'] ?? '', array('completed', 'success'), true)
+                ? $terminal : new WP_Error('sync_finalization_pending', 'Batch business data completed; terminal cleanup remains pending.');
         }
     }
     
@@ -886,4 +894,4 @@ function nmkr_process_next_batch() {
     // Removed fallback mechanism to prevent duplicate database inserts
 
     return $status;
-}  
+}

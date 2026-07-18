@@ -51,3 +51,23 @@ The regression is synthetic and public-safe: it uses fake receipts, fake WP-CLI 
 ## Rollback and deferred hardening
 
 Rollback is a normal Git revert of the Phase 16A commit or branch. Merely installing the harness should not require WordPress rollback because public paths are non-mutating. Optional lock device/inode/token identity hardening is a narrowly scoped follow-up; this correction retains atomic acquisition, owner-only post-validation, and controller-owned cleanup. Production Start idempotency, durable worker locks, scheduled-event result handling, and stricter production active-sync rejection remain deferred to Phase 16B or Phase 16C.
+
+## Canonical terminalization regression
+
+Successful direct and batch work now converges through `nmkr_sync_data_complete()`. A run-owned database advisory lock spans receipt lookup or creation, history verification, marker and cron cleanup, backend metrics cleanup, and terminal sync-data persistence. The narrower InnoDB transaction atomically persists the metrics row and a small durable run-owned receipt without encompassing transient, cron, or object-cache work. A retry can validate that receipt and its referenced metrics row, then resume history and cleanup without live metrics input. Terminal sync data is written only after cleanup. The finalizer fails closed for missing or conflicting history, invalid receipts, missing metrics rows, or nontransactional metrics/options tables.
+
+The progress endpoint is a read-only observer of live metrics. A raw 100% value remains nonterminal while sync data is active; `finished` requires the canonical completed record and inactive run marker. The dashboard follows that server predicate rather than treating 100% as success. This models the Phase 16A defect where business writes had finished while durable runtime markers remained active.
+
+Run the public-safe synthetic check with `bash scripts/nmkr-sync-terminalization-regression.sh`. It uses in-memory fixtures only and neither starts WordPress nor contacts NMKR.
+
+The fixture captures two active entry snapshots and then invokes the complete finalizer sequentially. It proves idempotent re-read behavior, not concurrent lock waiting or true process interleaving. Integration validation of independent-connection `GET_LOCK()` contention, InnoDB rollback, connection loss, cron timing, and object-cache behavior remains required on the target MySQL/MariaDB deployment.
+
+### Durable finalization resume
+
+Before canonical finalization enters an interruption window it stores a minimal run-owned snapshot containing only final metrics, counters, timestamp, retry count, and `sync_stats_id`, then schedules `nmkr_resume_sync_finalization` for that exact ID. The hook invokes only terminalization, never Start or business-data synchronization. Retries use approximately 3, 6, 12, 24, and 30 seconds; exhaustion retains committed evidence, marks `finalization_error`, and remains nonterminal. Successful or immutable terminal cleanup removes the snapshot, retry marker, and exact scheduled hook. Stale dashboard recovery may maintain the event but never executes finalization in the polling request.
+
+The scheduling fixture is synthetic. WordPress cron timing, independent MySQL advisory-lock contention, InnoDB connection-loss rollback, and persistent object-cache behavior still require target-environment validation.
+
+Terminal cleanup is two-phase: active runtime evidence is cleared and verified while the exact resume option/event remains durable; terminal sync data is then written; only afterward is resume evidence removed and verified. Polling and Phase 16A treat any leftover exact-run resume option or event as nonterminal. A post-terminal callback performs only the second cleanup phase.
+
+Direct and batch completion use `nmkr_build_final_sync_metrics()` to construct the complete sanitized metrics snapshot from caller totals, durable sync data, and performance values. The resume option is read back and its exact event verified before finalization can enter the metrics/history interruption window, so expiry of the live metrics transient does not prevent either first completion or resume.

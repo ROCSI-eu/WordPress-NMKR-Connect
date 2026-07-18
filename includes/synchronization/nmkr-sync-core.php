@@ -663,6 +663,7 @@ function nmkr_sync_data() {
     $sync_log = array();
     $completed_steps = 0;
     $total_steps = 0;
+    $business_data_complete = false;
     
     // Initialize tracking variables for final summary
     $sync_start_time = microtime(true);
@@ -998,29 +999,8 @@ function nmkr_sync_data() {
         $performance = nmkr_end_performance_tracking($tracking);
         // Note: Metrics saving is handled by the authoritative path below
         
-        // Update sync stats with completion
-        if ($sync_stats_id) {
-            nmkr_update_sync_stats($sync_stats_id, [
-                'status' => 'completed',
-                'end_time' => nmkr_get_timestamp(),
-                'items_processed' => $total_tokens,
-                'items_successful' => $total_successful_tokens,
-                'items_failed' => $total_failed_tokens,
-                'items_skipped' => $total_skipped_tokens,
-                'token_details_synced' => $token_details_synced
-            ]);
-        }
-        
-        // Update final status
-        nmkr_update_sync_progress($total_steps, $total_steps, '✅ Synchronization Completed');
-        update_option('nmkr_sync_in_progress', false);
-        delete_transient('nmkr_sync_in_progress');
-        
-        // Clear user stopped flag for successful completion
-        update_option('nmkr_sync_user_stopped', false);
-        set_transient('nmkr_sync_user_stopped', false, NMKR_SYNC_TRANSIENT_TTL);
-        
-        // Save final metrics to database (single authoritative path)
+        // Build final metrics; the canonical finalizer owns every durable
+        // completion write and all active-state cleanup.
         $live = get_transient('nmkr_current_sync_stats_live');
         if (!empty($live)) {
             // Get computed performance data
@@ -1039,22 +1019,28 @@ function nmkr_sync_data() {
             $live['total_projects'] = count($project_uids);
             $live['total_tokens'] = count($token_project_map);
             
-            // Set last sync time and save
-            $live['last_sync_time'] = nmkr_get_timestamp();
-            update_option('nmkr_last_sync_time', $live['last_sync_time']);
-            set_transient('nmkr_current_sync_stats_summary', $live, NMKR_SYNC_TRANSIENT_TTL);
-            
-            // Save metrics with validation - only saves if all validation passes
-            $metrics_saved = nmkr_save_sync_metrics($live);
-            if ($metrics_saved) {
-                nmkr_log_data_sync('✅ Final sync metrics saved successfully to database.');
-            } else {
-                nmkr_log_data_sync('⚠️ Final sync metrics validation failed, metrics not saved to database.', 'warning');
-            }
         } else {
             nmkr_log_data_sync('⚠️ No live sync statistics found for final metrics save.', 'warning');
         }
         
+        $business_data_complete = true;
+        $final = array(
+            'metrics' => nmkr_build_final_sync_metrics($live, nmkr_get_sync_data(), array(
+                'total_projects' => count($project_uids),
+                'total_tokens' => count($token_project_map),
+            )),
+            'items_processed' => $total_tokens,
+            'items_successful' => $total_successful_tokens,
+            'items_failed' => $total_failed_tokens,
+            'items_skipped' => $total_skipped_tokens,
+            'token_details_synced' => $token_details_synced,
+        );
+        $prepared = nmkr_prepare_sync_finalization($sync_stats_id, $final, nmkr_get_sync_data());
+        $terminal = $prepared ? nmkr_sync_data_complete(true, '', $prepared, false, true) : false;
+        if (!is_array($terminal) || !in_array($terminal['status'] ?? '', array('completed', 'success'), true)) {
+            throw new Exception('Canonical synchronization finalization failed');
+        }
+
         // Log comprehensive final summary
         nmkr_log_sync_summary($sync_log, $project_uids, $token_project_map, $total_successful_tokens, $total_skipped_tokens, $total_failed_tokens, $token_details_synced, $sync_start_time);
         
@@ -1084,6 +1070,28 @@ function nmkr_sync_data() {
             'line' => $e->getLine(),
             'trace' => $e->getTraceAsString()
         ));
+
+        // Durable success evidence makes this a resumable finalization, not a
+        // business-data failure. Preserve active/finalizing state so a retry
+        // can finish history verification and cleanup without relabeling it.
+        if ($sync_stats_id && ($business_data_complete || (function_exists('nmkr_sync_has_committed_success')
+            && nmkr_sync_has_committed_success($sync_stats_id)))) {
+            $resume_data = nmkr_get_sync_data();
+            if (is_array($resume_data) && ($resume_data['status'] ?? '') === 'completed'
+                && !empty($resume_data['completed']) && (int) ($resume_data['sync_stats_id'] ?? 0) === (int) $sync_stats_id) {
+                return defined('DOING_AJAX') && DOING_AJAX
+                    ? array('success' => true, 'message' => 'Sync process completed successfully.', 'log' => $sync_log, 'progress' => 100)
+                    : 'Sync process completed successfully.';
+            }
+            if (is_array($resume_data) && (int) ($resume_data['sync_stats_id'] ?? 0) === (int) $sync_stats_id) {
+                $resume_data['status'] = 'finalizing';
+                $resume_data['completed'] = false;
+                nmkr_save_sync_data($resume_data);
+            }
+            update_option('nmkr_sync_in_progress', true);
+            set_transient('nmkr_sync_in_progress', true, NMKR_SYNC_TRANSIENT_TTL);
+            return new WP_Error('sync_finalization_pending', 'Synchronization data was saved; terminal cleanup remains pending.');
+        }
         
         // Update sync stats with critical failure
         if ($sync_stats_id) {
@@ -1279,4 +1287,4 @@ function nmkr_log_sync_summary(&$sync_log, $project_uids, $token_project_map, $s
 add_action('nmkr_process_batch_hook', 'nmkr_process_next_batch');
 
 // Note: Background sync execution hook is defined in nmkr-sync-ajax-handlers.php
-// add_action('nmkr_execute_sync_background', 'nmkr_execute_sync_background_job');                                
+// add_action('nmkr_execute_sync_background', 'nmkr_execute_sync_background_job');

@@ -296,7 +296,7 @@ final_authorize() {
 import json,sys
 d=json.load(open(sys.argv[1]))
 if not all(d['required_tables_present'].values()): raise SystemExit(1)
-for k in ['active_history_count','option_active_marker_count','transient_active_marker_count','stale_recovery_marker_count','heartbeat_worker_evidence_count','blocked_sync_cron_count','duplicate_project_uid_count','duplicate_token_uid_count','duplicate_token_detail_uid_count','invalid_relationship_count','impossible_counter_count']:
+for k in ['active_history_count','option_active_marker_count','finalization_resume_marker_count','transient_active_marker_count','stale_recovery_marker_count','heartbeat_worker_evidence_count','blocked_sync_cron_count','duplicate_project_uid_count','duplicate_token_uid_count','duplicate_token_detail_uid_count','invalid_relationship_count','impossible_counter_count']:
     if d.get(k) != 0: raise SystemExit(1)
 if not d['cron_inspectable'] or not d['light_profile_guard'] or not d['api_key_present']: raise SystemExit(1)
 if d['sync_data_classification'] not in ('absent','terminal'): raise SystemExit(1)
@@ -382,7 +382,7 @@ if not post['latest_history_completed'] or not post['latest_history_end_time_val
 if post['metrics_total_count'] - pre['metrics_total_count'] != 1: raise SystemExit(1)
 if post['max_metrics_id'] <= pre['max_metrics_id']: raise SystemExit(1)
 if post['terminal_history_digest'] != pre['terminal_history_digest']: raise SystemExit(1)
-for k in ['active_history_count','option_active_marker_count','transient_active_marker_count','stale_recovery_marker_count','heartbeat_worker_evidence_count','blocked_sync_cron_count','duplicate_project_uid_count','duplicate_token_uid_count','duplicate_token_detail_uid_count','invalid_relationship_count','impossible_counter_count']:
+for k in ['active_history_count','option_active_marker_count','finalization_resume_marker_count','transient_active_marker_count','stale_recovery_marker_count','heartbeat_worker_evidence_count','blocked_sync_cron_count','duplicate_project_uid_count','duplicate_token_uid_count','duplicate_token_detail_uid_count','invalid_relationship_count','impossible_counter_count']:
     if post.get(k) != 0: raise SystemExit(1)
 if not all(post['required_tables_present'].values()): raise SystemExit(1)
 if not post['cron_inspectable'] or not post['light_profile_guard'] or not post['api_key_present']: raise SystemExit(1)

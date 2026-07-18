@@ -33,6 +33,9 @@ function nmkr_clear_sync_jobs($context = 'manual_cleanup', $clear_data = true, $
     // Get the current sync data to see if we have an active sync stats record
     $sync_data = nmkr_get_sync_data();
     $sync_stats_id = ($sync_data && isset($sync_data['sync_stats_id'])) ? $sync_data['sync_stats_id'] : null;
+    if ($sync_stats_id && function_exists('nmkr_clear_sync_finalization_resume')) {
+        nmkr_clear_sync_finalization_resume($sync_stats_id);
+    }
     
     // Get current sync stats directly from database if we have an ID
     if ($sync_stats_id) {
@@ -121,10 +124,11 @@ function nmkr_clear_sync_jobs($context = 'manual_cleanup', $clear_data = true, $
         // If force is true or the status is stuck in processing, force it to 'stopped'
         $current_status = isset($sync_stats) ? $sync_stats['status'] : null;
         $end_time = isset($sync_stats['end_time']) ? $sync_stats['end_time'] : null;
-        $terminal_statuses = array('completed', 'failed', 'cancelled', 'stopped');
         $active_statuses = array('initializing', 'processing_projects', 'processing_tokens', 'in_progress', 'running');
         $has_end_time = !empty($end_time);
-        $is_terminal = in_array($current_status, $terminal_statuses, true);
+        $is_terminal = function_exists('nmkr_is_sync_terminal_status')
+            ? nmkr_is_sync_terminal_status($current_status)
+            : in_array($current_status, array('completed', 'success', 'failed', 'error', 'stopped', 'cancelled', 'aborted'), true);
         $is_active_or_incomplete = in_array($current_status, $active_statuses, true) || (!$has_end_time && !$is_terminal);
 
         if ($is_active_or_incomplete) {
@@ -392,4 +396,4 @@ function nmkr_check_sync_health() {
             'long_running_timeout' => $long_running_timeout
         )
     );
-}  
+}
