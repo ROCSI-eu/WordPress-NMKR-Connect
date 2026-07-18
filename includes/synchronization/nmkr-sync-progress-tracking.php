@@ -267,9 +267,15 @@ function nmkr_maintain_sync_finalization_resume($sync_data) {
     }
     $sync_stats_id = (int) ($sync_data['sync_stats_id'] ?? 0);
     $resume = get_option(nmkr_sync_finalization_resume_key($sync_stats_id), false);
-    if (!empty($resume['run_id'])) {
-        return nmkr_is_valid_sync_finalization_record($resume, (string) $resume['run_id'], $sync_stats_id)
-            ? nmkr_preserve_and_schedule_sync_finalization_retry($resume, false) : false;
+    $canonical_run_id = (string) ($sync_data['run_id'] ?? '');
+    if ($canonical_run_id !== '') {
+        if (!nmkr_sync_owner_matches($canonical_run_id, 'finalizing', $sync_stats_id)
+            || !nmkr_is_valid_sync_finalization_record($resume, $canonical_run_id, $sync_stats_id)
+            || !nmkr_preserve_and_schedule_sync_finalization_retry($resume, false)) {
+            nmkr_set_sync_finalization_error();
+            return false;
+        }
+        return true;
     }
     return is_array($resume) && (int) ($resume['sync_stats_id'] ?? 0) === $sync_stats_id
         ? nmkr_schedule_sync_finalization_resume($sync_stats_id, (int) ($resume['attempt'] ?? 0)) : false;

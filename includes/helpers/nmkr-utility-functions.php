@@ -479,6 +479,17 @@ function nmkr_with_sync_owner_lock($callback) {
     }
 }
 
+/** Execute legacy recovery mutations only inside an atomically ownerless window. */
+function nmkr_with_ownerless_legacy_recovery($callback) {
+    return nmkr_with_sync_owner_lock(function () use ($callback) {
+        nmkr_refresh_sync_owner_cache();
+        if (get_option('nmkr_sync_owner', false) !== false) {
+            return array('owner_preserved' => true);
+        }
+        return call_user_func($callback);
+    });
+}
+
 /** Atomically admit a single direct run. */
 function nmkr_admit_sync_owner($run_id) {
     if (!nmkr_is_valid_sync_run_id($run_id)) {
@@ -715,6 +726,7 @@ function nmkr_detect_and_recover_stale_sync() {
         return array('stale'=>true,'recovered'=>false,'owner_preserved'=>true,'grace'=>$grace,'heartbeat_age'=>$heartbeat_age,'last_update'=>$last_update);
     }
 
+    $legacy_result = nmkr_with_ownerless_legacy_recovery(function () use ($is_finalizing, $sync_data, $grace, $heartbeat_age, $last_update) {
     // Admin/dashboard stale detection may maintain the dedicated resume event,
     // but it never performs finalization in this request.
     if ($is_finalizing) {
@@ -762,6 +774,14 @@ function nmkr_detect_and_recover_stale_sync() {
     }
 
     return array('stale'=>true,'recovered'=>true,'grace'=>$grace,'heartbeat_age'=>$heartbeat_age,'last_update'=>$last_update);
+    });
+    if (is_wp_error($legacy_result)) {
+        return array('stale'=>true,'recovered'=>false,'owner_preserved'=>true,'recovery_lock_error'=>true,'grace'=>$grace,'heartbeat_age'=>$heartbeat_age,'last_update'=>$last_update);
+    }
+    if (is_array($legacy_result) && !empty($legacy_result['owner_preserved'])) {
+        return array('stale'=>true,'recovered'=>false,'owner_preserved'=>true,'grace'=>$grace,'heartbeat_age'=>$heartbeat_age,'last_update'=>$last_update);
+    }
+    return $legacy_result;
 }
 
 // --- Safe PID helper -----------------------------------------------

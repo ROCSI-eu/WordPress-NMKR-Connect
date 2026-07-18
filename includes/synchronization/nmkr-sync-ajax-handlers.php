@@ -335,9 +335,9 @@ function nmkr_sync_progress_handler() {
     $min_progress_timeout = max(30, min(120, $batch_size * $batch_delay * 3)); // Between 30s-2 minutes
     
             // Verify if process is actually running or has stalled
-        $owner_managed_recovery = get_option('nmkr_sync_owner', false) !== false;
-        if (($is_recovery || isset($_POST['check_stalled'])) && !$owner_managed_recovery &&
+        if (($is_recovery || isset($_POST['check_stalled'])) &&
             $progress > 0 && $progress < 100 && empty($error)) {
+        nmkr_with_ownerless_legacy_recovery(function () use (&$error, &$sync_data, $progress, $has_running_jobs, $batch_size, $batch_delay, $no_jobs_timeout, $no_update_timeout) {
         
         // Check when the sync started
         $sync_start_time_raw = get_transient('nmkr_sync_start_time');
@@ -487,6 +487,8 @@ function nmkr_sync_progress_handler() {
                 nmkr_clear_sync_jobs('stalled_sync', true, true);
             }
         }
+        return true;
+        });
     }
     
     if ($sync_data) {
