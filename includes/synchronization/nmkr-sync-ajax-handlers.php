@@ -335,7 +335,8 @@ function nmkr_sync_progress_handler() {
     $min_progress_timeout = max(30, min(120, $batch_size * $batch_delay * 3)); // Between 30s-2 minutes
     
             // Verify if process is actually running or has stalled
-        if (($is_recovery || isset($_POST['check_stalled'])) && 
+        $owner_managed_recovery = get_option('nmkr_sync_owner', false) !== false;
+        if (($is_recovery || isset($_POST['check_stalled'])) && !$owner_managed_recovery &&
             $progress > 0 && $progress < 100 && empty($error)) {
         
         // Check when the sync started

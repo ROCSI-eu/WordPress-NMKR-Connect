@@ -573,7 +573,7 @@ function nmkr_cleanup_failed_direct_sync($run_id, $sync_stats_id, $error_message
 }
 
 function nmkr_cleanup_failed_queued_sync($run_id) {
-    $result = nmkr_with_sync_owner_lock(function () use ($run_id) {
+    return nmkr_with_sync_owner_lock(function () use ($run_id) {
         nmkr_refresh_sync_owner_cache();
         if (!nmkr_sync_owner_matches($run_id, 'queued', 0)) {
             return false;
@@ -583,19 +583,16 @@ function nmkr_cleanup_failed_queued_sync($run_id) {
         foreach (array('nmkr_sync_progress', 'nmkr_sync_current_item', 'nmkr_sync_current_count', 'nmkr_sync_total_items', 'nmkr_sync_user_stopped') as $key) {
             delete_transient($key);
         }
+        $markers_clean = !get_option('nmkr_sync_in_progress', false) && !get_transient('nmkr_sync_in_progress');
+        foreach (array('nmkr_sync_progress', 'nmkr_sync_current_item', 'nmkr_sync_current_count', 'nmkr_sync_total_items', 'nmkr_sync_user_stopped') as $key) {
+            $markers_clean = $markers_clean && get_transient($key) === false;
+        }
+        if (!$markers_clean) {
+            return new WP_Error('sync_queued_cleanup_failed', __('Synchronization scheduling cleanup could not be verified.', 'nmkr-connect'));
+        }
         delete_option('nmkr_sync_owner');
         return nmkr_get_sync_owner() === false;
     });
-    nmkr_refresh_sync_owner_cache();
-    if ($result !== true && nmkr_sync_owner_matches($run_id, 'queued', 0)) {
-        update_option('nmkr_sync_in_progress', false);
-        delete_transient('nmkr_sync_in_progress');
-        foreach (array('nmkr_sync_progress', 'nmkr_sync_current_item', 'nmkr_sync_current_count', 'nmkr_sync_total_items', 'nmkr_sync_user_stopped') as $key) {
-            delete_transient($key);
-        }
-        update_option('nmkr_sync_status', 'failed_cleanup_pending');
-    }
-    return $result;
 }
 
 /** Resolve a failed history binding without touching a successor owner. */
@@ -603,12 +600,14 @@ function nmkr_handle_sync_owner_binding_failure($result, $run_id, $sync_stats_id
     global $wpdb;
     $sync_stats_id = (int) $sync_stats_id;
     $history_table = $wpdb->prefix . 'nmkr_sync_stats';
+    $exact_original_owner = is_wp_error($result) && nmkr_sync_owner_matches($run_id, 'running', 0);
     $before = $wpdb->get_row($wpdb->prepare("SELECT id, status, end_time FROM $history_table WHERE id = %d", $sync_stats_id), ARRAY_A);
     if (!$before || nmkr_is_sync_terminal_status($before['status'] ?? '')) {
-        update_option('nmkr_sync_in_progress', false);
-        delete_transient('nmkr_sync_in_progress');
-        update_option('nmkr_sync_status', 'history_cleanup_error');
-        return new WP_Error('sync_history_terminalization_failed', 'Failed to terminalize synchronization history.');
+        if ($exact_original_owner) {
+            nmkr_cleanup_failed_direct_sync_markers('history_cleanup_error');
+            return new WP_Error('sync_history_terminalization_failed', 'Failed to terminalize synchronization history.');
+        }
+        return new WP_Error('sync_owner_mismatch', 'Synchronization owner changed; orphan history was not modified.');
     }
     $updated = nmkr_update_sync_stats($sync_stats_id, array(
         'status' => 'failed',
@@ -619,16 +618,26 @@ function nmkr_handle_sync_owner_binding_failure($result, $run_id, $sync_stats_id
     if (!$updated || !$history || (int) ($history['id'] ?? 0) !== $sync_stats_id
         || !in_array(strtolower((string) ($history['status'] ?? '')), array('failed', 'error'), true)
         || !nmkr_is_valid_sync_end_time($history['end_time'] ?? '')) {
-        update_option('nmkr_sync_in_progress', false);
-        delete_transient('nmkr_sync_in_progress');
-        update_option('nmkr_sync_status', 'history_cleanup_error');
-        return new WP_Error('sync_history_terminalization_failed', 'Failed to terminalize synchronization history.');
+        if ($exact_original_owner) {
+            nmkr_cleanup_failed_direct_sync_markers('history_cleanup_error');
+            return new WP_Error('sync_history_terminalization_failed', 'Failed to terminalize synchronization history.');
+        }
+        return new WP_Error('sync_owner_mismatch', 'Synchronization owner changed; orphan history cleanup failed.');
     }
-    if (is_wp_error($result) && nmkr_sync_owner_matches($run_id, 'running', 0)) {
+    if ($exact_original_owner) {
         nmkr_cleanup_failed_direct_sync($run_id, 0, 'Failed to bind synchronization history ownership.');
         return new WP_Error('sync_owner_binding_failed', 'Failed to bind synchronization history ownership.');
     }
     return new WP_Error('sync_owner_mismatch', 'Synchronization owner changed during history binding.');
+}
+
+function nmkr_cleanup_failed_direct_sync_markers($status) {
+    update_option('nmkr_sync_in_progress', false);
+    delete_transient('nmkr_sync_in_progress');
+    foreach (array('nmkr_sync_progress', 'nmkr_sync_current_item', 'nmkr_sync_current_count', 'nmkr_sync_total_items') as $key) {
+        delete_transient($key);
+    }
+    update_option('nmkr_sync_status', (string) $status);
 }
 
 /**
@@ -685,6 +694,25 @@ function nmkr_detect_and_recover_stale_sync() {
 
     if ( ! $is_stale ) {
         return array('stale'=>false,'recovered'=>false,'grace'=>$grace,'heartbeat_age'=>$heartbeat_age,'last_update'=>$last_update);
+    }
+
+    $raw_owner = get_option('nmkr_sync_owner', false);
+    if ($raw_owner !== false) {
+        $owner = is_array($raw_owner) ? $raw_owner : false;
+        $exact_finalizing = $owner && ($owner['mode'] ?? '') === 'direct'
+            && ($owner['state'] ?? '') === 'finalizing'
+            && is_array($sync_data) && ($sync_data['status'] ?? '') === 'finalizing'
+            && (string) ($owner['run_id'] ?? '') === (string) ($sync_data['run_id'] ?? '')
+            && (int) ($owner['sync_stats_id'] ?? 0) === (int) ($sync_data['sync_stats_id'] ?? 0);
+        if ($exact_finalizing) {
+            $scheduled = nmkr_maintain_sync_finalization_resume($sync_data);
+            return array('stale'=>true,'recovered'=>false,'owner_preserved'=>true,'finalization_scheduled'=>$scheduled,'grace'=>$grace,'heartbeat_age'=>$heartbeat_age,'last_update'=>$last_update);
+        }
+        if (!$owner || ($owner['mode'] ?? '') !== 'direct'
+            || !in_array(($owner['state'] ?? ''), array('queued', 'running'), true)) {
+            update_option('nmkr_sync_status', 'owner_recovery_required');
+        }
+        return array('stale'=>true,'recovered'=>false,'owner_preserved'=>true,'grace'=>$grace,'heartbeat_age'=>$heartbeat_age,'last_update'=>$last_update);
     }
 
     // Admin/dashboard stale detection may maintain the dedicated resume event,

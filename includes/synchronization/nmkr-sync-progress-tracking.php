@@ -202,16 +202,18 @@ function nmkr_resume_sync_finalization($sync_stats_id) {
     $key = nmkr_sync_finalization_resume_key($sync_stats_id);
     $record = get_option($key, false);
     $sync_data = nmkr_get_sync_data();
-    if ((!empty($record['run_id']) && !nmkr_is_valid_sync_finalization_record($record, (string) $record['run_id'], $sync_stats_id))
-        || !is_array($record) || (int) ($record['sync_stats_id'] ?? 0) !== (int) $sync_stats_id
+    $canonical_run_id = is_array($sync_data) ? (string) ($sync_data['run_id'] ?? '') : '';
+    $is_direct_run = $canonical_run_id !== '';
+    if ($is_direct_run && !nmkr_is_valid_sync_finalization_record($record, $canonical_run_id, $sync_stats_id)) {
+        nmkr_set_sync_finalization_error();
+        return false;
+    }
+    if (!is_array($record) || (int) ($record['sync_stats_id'] ?? 0) !== (int) $sync_stats_id
         || !is_array($sync_data) || (int) ($sync_data['sync_stats_id'] ?? 0) !== (int) $sync_stats_id) {
         nmkr_clear_sync_finalization_resume($sync_stats_id);
         return false;
     }
-    if (!empty($record['run_id'])) {
-        if (!isset($sync_data['run_id']) || !hash_equals((string) $record['run_id'], (string) $sync_data['run_id'])) {
-            return false;
-        }
+    if ($is_direct_run) {
         $owner = nmkr_get_sync_owner();
         if ($owner === false && nmkr_is_sync_terminal_status($sync_data['status'] ?? '')) {
             return nmkr_finish_ownerless_terminal_cleanup($sync_data, true, $record);
@@ -606,9 +608,12 @@ function nmkr_finish_ownerless_terminal_cleanup($sync_data, $success, $resume_re
     if (nmkr_cleanup_sync_resume_state($sync_stats_id) === true) {
         return true;
     }
-    nmkr_restore_sync_finalization_retry($sync_stats_id, $resume_record);
+    $restored = nmkr_restore_sync_finalization_retry($sync_stats_id, $resume_record);
     update_option('nmkr_sync_in_progress', true);
-    update_option('nmkr_sync_status', 'finalizing');
+    if ($restored === true) {
+        update_option('nmkr_sync_status', 'finalizing');
+        set_transient('nmkr_sync_status', 'finalizing', NMKR_SYNC_TRANSIENT_TTL);
+    }
     return false;
 }
 
