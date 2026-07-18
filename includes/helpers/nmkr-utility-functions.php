@@ -490,6 +490,34 @@ function nmkr_with_ownerless_legacy_recovery($callback) {
     });
 }
 
+/** Re-read and maintain one exact finalizing owner while serialization is held. */
+function nmkr_maintain_exact_finalizing_owner($expected_run_id, $expected_sync_stats_id) {
+    return nmkr_with_sync_owner_lock(function () use ($expected_run_id, $expected_sync_stats_id) {
+        nmkr_refresh_sync_owner_cache();
+        $owner = nmkr_get_sync_owner();
+        $sync_data = nmkr_get_sync_data();
+        $run_id = is_array($sync_data) ? (string) ($sync_data['run_id'] ?? '') : '';
+        $sync_stats_id = is_array($sync_data) ? (int) ($sync_data['sync_stats_id'] ?? 0) : 0;
+
+        if ($owner === false) {
+            $terminal = $run_id === (string) $expected_run_id
+                && $sync_stats_id === (int) $expected_sync_stats_id
+                && function_exists('nmkr_is_sync_terminal_status')
+                && nmkr_is_sync_terminal_status($sync_data['status'] ?? '');
+            $verified = $terminal && function_exists('nmkr_verify_sync_terminal_result')
+                && nmkr_verify_sync_terminal_result($sync_data, true);
+            return array('owner_preserved' => true, 'concurrent_terminalization' => $verified, 'terminal_observed' => $terminal);
+        }
+        if (!nmkr_sync_owner_matches($expected_run_id, 'finalizing', $expected_sync_stats_id)
+            || $run_id !== (string) $expected_run_id || $sync_stats_id !== (int) $expected_sync_stats_id
+            || ($sync_data['status'] ?? '') !== 'finalizing') {
+            return array('owner_preserved' => true, 'stale_observer' => true);
+        }
+        $scheduled = nmkr_maintain_sync_finalization_resume($sync_data, true);
+        return array('owner_preserved' => true, 'finalization_scheduled' => $scheduled);
+    });
+}
+
 /** Atomically admit a single direct run. */
 function nmkr_admit_sync_owner($run_id) {
     if (!nmkr_is_valid_sync_run_id($run_id)) {
@@ -716,8 +744,11 @@ function nmkr_detect_and_recover_stale_sync() {
             && (string) ($owner['run_id'] ?? '') === (string) ($sync_data['run_id'] ?? '')
             && (int) ($owner['sync_stats_id'] ?? 0) === (int) ($sync_data['sync_stats_id'] ?? 0);
         if ($exact_finalizing) {
-            $scheduled = nmkr_maintain_sync_finalization_resume($sync_data);
-            return array('stale'=>true,'recovered'=>false,'owner_preserved'=>true,'finalization_scheduled'=>$scheduled,'grace'=>$grace,'heartbeat_age'=>$heartbeat_age,'last_update'=>$last_update);
+            $maintenance = nmkr_maintain_exact_finalizing_owner((string) $owner['run_id'], (int) $owner['sync_stats_id']);
+            if (is_wp_error($maintenance)) {
+                return array('stale'=>true,'recovered'=>false,'owner_preserved'=>true,'maintenance_lock_error'=>true,'grace'=>$grace,'heartbeat_age'=>$heartbeat_age,'last_update'=>$last_update);
+            }
+            return array_merge(array('stale'=>true,'recovered'=>false,'owner_preserved'=>true,'grace'=>$grace,'heartbeat_age'=>$heartbeat_age,'last_update'=>$last_update), $maintenance);
         }
         if (!$owner || ($owner['mode'] ?? '') !== 'direct'
             || !in_array(($owner['state'] ?? ''), array('queued', 'running'), true)) {

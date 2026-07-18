@@ -261,7 +261,7 @@ function nmkr_resume_sync_finalization($sync_stats_id) {
     return nmkr_preserve_and_schedule_sync_finalization_retry($record, true);
 }
 
-function nmkr_maintain_sync_finalization_resume($sync_data) {
+function nmkr_maintain_sync_finalization_resume($sync_data, $exact_owner_proven = false) {
     if (!is_array($sync_data) || ($sync_data['status'] ?? '') !== 'finalizing') {
         return false;
     }
@@ -269,6 +269,9 @@ function nmkr_maintain_sync_finalization_resume($sync_data) {
     $resume = get_option(nmkr_sync_finalization_resume_key($sync_stats_id), false);
     $canonical_run_id = (string) ($sync_data['run_id'] ?? '');
     if ($canonical_run_id !== '') {
+        if (!$exact_owner_proven) {
+            return false;
+        }
         if (!nmkr_sync_owner_matches($canonical_run_id, 'finalizing', $sync_stats_id)
             || !nmkr_is_valid_sync_finalization_record($resume, $canonical_run_id, $sync_stats_id)
             || !nmkr_preserve_and_schedule_sync_finalization_retry($resume, false)) {
