@@ -563,6 +563,20 @@ function nmkr_cleanup_failed_direct_sync($run_id, $sync_stats_id, $error_message
     return $released === true;
 }
 
+/** Resolve a failed history binding without touching a successor owner. */
+function nmkr_handle_sync_owner_binding_failure($result, $run_id, $sync_stats_id) {
+    nmkr_update_sync_stats((int) $sync_stats_id, array(
+        'status' => 'failed',
+        'error_message' => 'Synchronization ownership changed during initialization.',
+        'end_time' => nmkr_get_timestamp(),
+    ));
+    if (is_wp_error($result) && nmkr_sync_owner_matches($run_id, 'running', 0)) {
+        nmkr_cleanup_failed_direct_sync($run_id, 0, 'Failed to bind synchronization history ownership.');
+        return new WP_Error('sync_owner_binding_failed', 'Failed to bind synchronization history ownership.');
+    }
+    return new WP_Error('sync_owner_mismatch', 'Synchronization owner changed during history binding.');
+}
+
 /**
  * Update sync heartbeat to indicate backend activity
  * This prevents false-positive stall detection warnings during sync

@@ -3,6 +3,7 @@
 define('ABSPATH', __DIR__);
 $GLOBALS['options'] = array();
 $GLOBALS['transients'] = array();
+$GLOBALS['history'] = array();
 function __($s) { return $s; }
 class WP_Error { private $c; private $m; function __construct($c,$m){$this->c=$c;$this->m=$m;} function get_error_code(){return $this->c;} function get_error_message(){return $this->m;} }
 function is_wp_error($v){return $v instanceof WP_Error;}
@@ -11,6 +12,7 @@ function get_option($k,$d=false){return array_key_exists($k,$GLOBALS['options'])
 function add_option($k,$v,$deprecated='',$autoload='yes'){if(array_key_exists($k,$GLOBALS['options']))return false;$GLOBALS['options'][$k]=$v;$GLOBALS['autoload'][$k]=$autoload;return true;}
 function update_option($k,$v,$autoload=null){$GLOBALS['options'][$k]=$v;if($autoload!==null)$GLOBALS['autoload'][$k]=$autoload;return true;}
 function delete_option($k){unset($GLOBALS['options'][$k]);return true;}
+function current_time(){return '2026-01-02 03:04:05';} function nmkr_update_sync_stats($id,$data){$GLOBALS['history'][$id]=array_merge($GLOBALS['history'][$id]??array(),$data);$GLOBALS['history'][$id]['writes']=($GLOBALS['history'][$id]['writes']??0)+1;return true;}
 function set_transient($k,$v,$ttl=0){$GLOBALS['transients'][$k]=$v;return true;} function get_transient($k){return $GLOBALS['transients'][$k]??false;} function delete_transient($k){unset($GLOBALS['transients'][$k]);return true;}
 function add_action(){}
 function check_ajax_referer(){}
@@ -40,6 +42,9 @@ check(nmkr_cleanup_failed_direct_sync($a,0,'missing API key')===true&&!get_optio
 $GLOBALS['options']=array();$GLOBALS['transients']=array('nmkr_sync_in_progress'=>true);nmkr_admit_sync_owner($a);nmkr_transition_sync_owner($a,'queued','running');update_option('nmkr_sync_in_progress',true);$wpdb->fail_lock=true;
 check(nmkr_cleanup_failed_direct_sync($a,0,'history initialization failed')===false&&is_array(nmkr_get_sync_owner())&&!get_option('nmkr_sync_in_progress')&&!get_transient('nmkr_sync_in_progress'),'failed exact release retains owner but clears false-active dashboard markers');$wpdb->fail_lock=false;
 $GLOBALS['options']=array('nmkr_sync_owner'=>array('run_id'=>$b,'mode'=>'direct','state'=>'queued','sync_stats_id'=>0));check(nmkr_cleanup_failed_direct_sync($a,0,'stale')===false&&nmkr_get_sync_owner()['run_id']===$b,'failed stale cleanup never removes successor owner');
+$GLOBALS['options']=array();$GLOBALS['transients']=array('nmkr_sync_in_progress'=>true);nmkr_admit_sync_owner($a);nmkr_transition_sync_owner($a,'queued','running');update_option('nmkr_sync_in_progress',true);$binding_error=new WP_Error('sync_owner_lock_unavailable','lock');nmkr_handle_sync_owner_binding_failure($binding_error,$a,77);check(($GLOBALS['history'][77]['status']??'')==='failed'&&nmkr_get_sync_owner()===false&&!get_option('nmkr_sync_in_progress')&&!get_transient('nmkr_sync_in_progress'),'binding WP_Error fails history and releases exact unbound owner');
+$GLOBALS['options']=array();$GLOBALS['transients']=array('nmkr_sync_in_progress'=>true);nmkr_admit_sync_owner($a);nmkr_transition_sync_owner($a,'queued','running');update_option('nmkr_sync_in_progress',true);$wpdb->fail_lock=true;nmkr_handle_sync_owner_binding_failure($binding_error,$a,79);$wpdb->fail_lock=false;check(($GLOBALS['history'][79]['status']??'')==='failed'&&is_array(nmkr_get_sync_owner())&&!get_option('nmkr_sync_in_progress')&&!get_transient('nmkr_sync_in_progress'),'binding release WP_Error retains ID-zero owner with inactive dashboard markers');
+$GLOBALS['options']=array('nmkr_sync_owner'=>array('run_id'=>$b,'mode'=>'direct','state'=>'running','sync_stats_id'=>9),'nmkr_sync_in_progress'=>true);$before=$GLOBALS['options'];nmkr_handle_sync_owner_binding_failure(false,$a,78);check(($GLOBALS['history'][78]['status']??'')==='failed'&&$GLOBALS['options']===$before,'binding comparison failure leaves successor state untouched');
 $GLOBALS['options']['nmkr_sync_data']=array('status'=>'finalizing');check(is_wp_error(nmkr_admit_sync_owner($b)),'ownerless legacy finalization blocks admission atomically');
 $ajax=file_get_contents(dirname(__DIR__).'/includes/synchronization/nmkr-sync-ajax-handlers.php');
 check(strpos($ajax,"function nmkr_execute_sync_background_job(\$run_id = '')")!==false&&strpos($ajax,"wp_schedule_single_event(time(), 'nmkr_execute_sync_background', \$event_args)")!==false,'direct events and callback carry run ID');

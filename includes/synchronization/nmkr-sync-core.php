@@ -738,12 +738,7 @@ function nmkr_sync_data($run_id = '') {
             }
             $bound_owner = nmkr_transition_sync_owner($run_id, 'running', 'running', $sync_stats_id);
             if (!nmkr_sync_owner_transition_succeeded($bound_owner)) {
-                nmkr_update_sync_stats($sync_stats_id, array(
-                    'status' => 'failed',
-                    'error_message' => 'Synchronization ownership changed during initialization.',
-                    'end_time' => nmkr_get_timestamp(),
-                ));
-                throw new Exception('Synchronization ownership changed during history binding');
+                return nmkr_handle_sync_owner_binding_failure($bound_owner, $run_id, $sync_stats_id);
             }
         } catch (Exception $e) {
             $error_msg = 'Failed to initialize synchronization: ' . $e->getMessage();
@@ -1048,12 +1043,17 @@ function nmkr_sync_data($run_id = '') {
             'items_skipped' => $total_skipped_tokens,
             'token_details_synced' => $token_details_synced,
         );
+        // Persist exact terminalization input before ownership handoff. A
+        // resume callback may safely claim an exact still-running owner.
+        $prepared = nmkr_prepare_sync_finalization($sync_stats_id, $final, nmkr_get_sync_data());
+        if (!is_array($prepared)) {
+            throw new Exception('Failed to persist synchronization finalization handoff');
+        }
         $finalizing_owner = nmkr_transition_sync_owner($run_id, 'running', 'finalizing', $sync_stats_id);
         if (!nmkr_sync_owner_transition_succeeded($finalizing_owner)) {
             throw new Exception('Synchronization owner changed before finalization');
         }
-        $prepared = nmkr_prepare_sync_finalization($sync_stats_id, $final, nmkr_get_sync_data());
-        $terminal = $prepared ? nmkr_sync_data_complete(true, '', $prepared, false, true) : false;
+        $terminal = nmkr_sync_data_complete(true, '', $prepared, false, true);
         if (!is_array($terminal) || !in_array($terminal['status'] ?? '', array('completed', 'success'), true)) {
             throw new Exception('Canonical synchronization finalization failed');
         }
@@ -1088,6 +1088,16 @@ function nmkr_sync_data($run_id = '') {
             'trace' => $e->getTraceAsString()
         ));
 
+        $resume_data = nmkr_get_sync_data();
+        if (is_array($resume_data) && (string) ($resume_data['run_id'] ?? '') === (string) $run_id
+            && (int) ($resume_data['sync_stats_id'] ?? 0) === (int) $sync_stats_id
+            && nmkr_is_sync_terminal_status($resume_data['status'] ?? '') && nmkr_get_sync_owner() === false
+            && nmkr_finish_ownerless_terminal_cleanup($resume_data, true, get_option(nmkr_sync_finalization_resume_key($sync_stats_id), false))) {
+            return defined('DOING_AJAX') && DOING_AJAX
+                ? array('success' => true, 'message' => 'Sync process completed successfully.', 'log' => $sync_log, 'progress' => 100)
+                : 'Sync process completed successfully.';
+        }
+
         if (!nmkr_sync_owner_matches($run_id, null, $sync_stats_id ?: 0)) {
             return new WP_Error('sync_owner_mismatch', 'Synchronization owner changed; stale worker stopped.');
         }
@@ -1095,17 +1105,9 @@ function nmkr_sync_data($run_id = '') {
         // Durable success evidence makes this a resumable finalization, not a
         // business-data failure. Preserve active/finalizing state so a retry
         // can finish history verification and cleanup without relabeling it.
-        if ($sync_stats_id && ($business_data_complete || (function_exists('nmkr_sync_has_committed_success')
+        if ($sync_stats_id && nmkr_sync_finalization_handoff_pending($run_id, $sync_stats_id)
+            && ($business_data_complete || (function_exists('nmkr_sync_has_committed_success')
             && nmkr_sync_has_committed_success($sync_stats_id)))) {
-            $resume_data = nmkr_get_sync_data();
-            if (is_array($resume_data) && ($resume_data['status'] ?? '') === 'completed'
-                && !empty($resume_data['completed']) && (int) ($resume_data['sync_stats_id'] ?? 0) === (int) $sync_stats_id
-                && (string) ($resume_data['run_id'] ?? '') === (string) $run_id
-                && nmkr_get_sync_owner() === false) {
-                return defined('DOING_AJAX') && DOING_AJAX
-                    ? array('success' => true, 'message' => 'Sync process completed successfully.', 'log' => $sync_log, 'progress' => 100)
-                    : 'Sync process completed successfully.';
-            }
             if (is_array($resume_data) && (int) ($resume_data['sync_stats_id'] ?? 0) === (int) $sync_stats_id) {
                 $resume_data['status'] = 'finalizing';
                 $resume_data['completed'] = false;
