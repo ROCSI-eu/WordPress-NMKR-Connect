@@ -261,12 +261,13 @@ function nmkr_resume_sync_finalization($sync_stats_id) {
     return nmkr_preserve_and_schedule_sync_finalization_retry($record, true);
 }
 
-function nmkr_maintain_sync_finalization_resume($sync_data, $exact_owner_proven = false) {
+function nmkr_maintain_sync_finalization_resume($sync_data, $exact_owner_proven = false, $authoritative_resume = null) {
     if (!is_array($sync_data) || ($sync_data['status'] ?? '') !== 'finalizing') {
         return false;
     }
     $sync_stats_id = (int) ($sync_data['sync_stats_id'] ?? 0);
-    $resume = get_option(nmkr_sync_finalization_resume_key($sync_stats_id), false);
+    $resume = $authoritative_resume !== null
+        ? $authoritative_resume : get_option(nmkr_sync_finalization_resume_key($sync_stats_id), false);
     $canonical_run_id = (string) ($sync_data['run_id'] ?? '');
     if ($canonical_run_id !== '') {
         if (!$exact_owner_proven) {
