@@ -88,19 +88,21 @@ function nmkr_start_sync_handler() {
         $scheduled = wp_schedule_single_event(time(), 'nmkr_execute_sync_background', $event_args);
         if (!$scheduled && !wp_next_scheduled('nmkr_execute_sync_background', $event_args)) {
             // Roll back only while this exact queued owner still exists.
-            $released = nmkr_release_sync_owner($run_id, 0, 'queued');
+            $released = nmkr_cleanup_failed_queued_sync($run_id);
             if ($released === true) {
-                update_option('nmkr_sync_in_progress', false);
-                delete_transient('nmkr_sync_in_progress');
-                delete_transient('nmkr_sync_progress');
-                delete_transient('nmkr_sync_current_item');
-                delete_transient('nmkr_sync_current_count');
-                delete_transient('nmkr_sync_user_stopped');
+                $error_code = 'sync_schedule_failed';
+                $status_code = 500;
+            } elseif (nmkr_sync_owner_matches($run_id, 'queued', 0)) {
+                $error_code = 'sync_schedule_cleanup_pending';
+                $status_code = 500;
+            } else {
+                $error_code = 'sync_schedule_owner_changed';
+                $status_code = 409;
             }
             wp_send_json_error(array(
                 'message' => __('Failed to schedule synchronization.', 'nmkr-connect'),
-                'error_code' => 'sync_schedule_failed',
-            ), 500);
+                'error_code' => $error_code,
+            ), $status_code);
             return;
         }
         

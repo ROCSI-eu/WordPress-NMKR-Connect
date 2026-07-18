@@ -1117,6 +1117,16 @@ function nmkr_sync_data($run_id = '') {
             set_transient('nmkr_sync_in_progress', true, NMKR_SYNC_TRANSIENT_TTL);
             return new WP_Error('sync_finalization_pending', 'Synchronization data was saved; terminal cleanup remains pending.');
         }
+        $handoff_record = $sync_stats_id > 0 ? get_option(nmkr_sync_finalization_resume_key($sync_stats_id), false) : false;
+        if ($business_data_complete && nmkr_is_valid_sync_finalization_record($handoff_record, $run_id, $sync_stats_id)) {
+            if (is_array($resume_data) && (int) ($resume_data['sync_stats_id'] ?? 0) === (int) $sync_stats_id) {
+                $resume_data['status'] = 'finalizing';
+                $resume_data['completed'] = false;
+                nmkr_save_sync_data($resume_data);
+            }
+            nmkr_set_sync_finalization_error();
+            return new WP_Error('sync_finalization_unavailable', 'Synchronization data was saved, but no executable finalization retry is scheduled.');
+        }
         
         // Update sync stats with critical failure
         if ($sync_stats_id) {

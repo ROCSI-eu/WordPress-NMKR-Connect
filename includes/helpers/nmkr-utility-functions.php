@@ -453,10 +453,19 @@ function nmkr_is_valid_sync_run_id($run_id) {
     return is_string($run_id) && (bool) preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i', $run_id);
 }
 
+function nmkr_sync_owner_lock_name($options_identity = null, $blog_id = null, $database_identity = null) {
+    global $wpdb;
+    $database = $database_identity !== null ? (string) $database_identity : (defined('DB_NAME') ? (string) DB_NAME : '');
+    $options = $options_identity !== null ? (string) $options_identity : (string) $wpdb->options;
+    $site_id = $blog_id !== null ? (int) $blog_id : (int) get_current_blog_id();
+    $identity = $database . '|' . $options . '|' . $site_id;
+    return 'nmkr_owner_' . substr(hash('sha256', $identity), 0, 40);
+}
+
 /** Execute an owner mutation while holding the per-site MySQL advisory lock. */
 function nmkr_with_sync_owner_lock($callback) {
     global $wpdb;
-    $lock_name = 'nmkr_sync_owner_' . (int) get_current_blog_id();
+    $lock_name = nmkr_sync_owner_lock_name();
     $acquired = (int) $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, %d)', $lock_name, 5));
     if ($acquired !== 1) {
         return new WP_Error('sync_owner_lock_unavailable', __('Synchronization ownership is temporarily unavailable.', 'nmkr-connect'));
@@ -563,13 +572,58 @@ function nmkr_cleanup_failed_direct_sync($run_id, $sync_stats_id, $error_message
     return $released === true;
 }
 
+function nmkr_cleanup_failed_queued_sync($run_id) {
+    $result = nmkr_with_sync_owner_lock(function () use ($run_id) {
+        nmkr_refresh_sync_owner_cache();
+        if (!nmkr_sync_owner_matches($run_id, 'queued', 0)) {
+            return false;
+        }
+        update_option('nmkr_sync_in_progress', false);
+        delete_transient('nmkr_sync_in_progress');
+        foreach (array('nmkr_sync_progress', 'nmkr_sync_current_item', 'nmkr_sync_current_count', 'nmkr_sync_total_items', 'nmkr_sync_user_stopped') as $key) {
+            delete_transient($key);
+        }
+        delete_option('nmkr_sync_owner');
+        return nmkr_get_sync_owner() === false;
+    });
+    nmkr_refresh_sync_owner_cache();
+    if ($result !== true && nmkr_sync_owner_matches($run_id, 'queued', 0)) {
+        update_option('nmkr_sync_in_progress', false);
+        delete_transient('nmkr_sync_in_progress');
+        foreach (array('nmkr_sync_progress', 'nmkr_sync_current_item', 'nmkr_sync_current_count', 'nmkr_sync_total_items', 'nmkr_sync_user_stopped') as $key) {
+            delete_transient($key);
+        }
+        update_option('nmkr_sync_status', 'failed_cleanup_pending');
+    }
+    return $result;
+}
+
 /** Resolve a failed history binding without touching a successor owner. */
 function nmkr_handle_sync_owner_binding_failure($result, $run_id, $sync_stats_id) {
-    nmkr_update_sync_stats((int) $sync_stats_id, array(
+    global $wpdb;
+    $sync_stats_id = (int) $sync_stats_id;
+    $history_table = $wpdb->prefix . 'nmkr_sync_stats';
+    $before = $wpdb->get_row($wpdb->prepare("SELECT id, status, end_time FROM $history_table WHERE id = %d", $sync_stats_id), ARRAY_A);
+    if (!$before || nmkr_is_sync_terminal_status($before['status'] ?? '')) {
+        update_option('nmkr_sync_in_progress', false);
+        delete_transient('nmkr_sync_in_progress');
+        update_option('nmkr_sync_status', 'history_cleanup_error');
+        return new WP_Error('sync_history_terminalization_failed', 'Failed to terminalize synchronization history.');
+    }
+    $updated = nmkr_update_sync_stats($sync_stats_id, array(
         'status' => 'failed',
         'error_message' => 'Synchronization ownership changed during initialization.',
         'end_time' => nmkr_get_timestamp(),
     ));
+    $history = $wpdb->get_row($wpdb->prepare("SELECT id, status, end_time FROM $history_table WHERE id = %d", $sync_stats_id), ARRAY_A);
+    if (!$updated || !$history || (int) ($history['id'] ?? 0) !== $sync_stats_id
+        || !in_array(strtolower((string) ($history['status'] ?? '')), array('failed', 'error'), true)
+        || !nmkr_is_valid_sync_end_time($history['end_time'] ?? '')) {
+        update_option('nmkr_sync_in_progress', false);
+        delete_transient('nmkr_sync_in_progress');
+        update_option('nmkr_sync_status', 'history_cleanup_error');
+        return new WP_Error('sync_history_terminalization_failed', 'Failed to terminalize synchronization history.');
+    }
     if (is_wp_error($result) && nmkr_sync_owner_matches($run_id, 'running', 0)) {
         nmkr_cleanup_failed_direct_sync($run_id, 0, 'Failed to bind synchronization history ownership.');
         return new WP_Error('sync_owner_binding_failed', 'Failed to bind synchronization history ownership.');
