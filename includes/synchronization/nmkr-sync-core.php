@@ -687,9 +687,7 @@ function nmkr_sync_data($run_id = '') {
                 nmkr_log_data_sync('Sync failed: ' . $error_details['message'], 'error');
                 
                 // Update sync status for frontend
-                update_option('nmkr_sync_error', $error_details['formatted_display']);
-                update_option('nmkr_sync_in_progress', false);
-                nmkr_release_sync_owner($run_id, 0, 'running');
+                nmkr_cleanup_failed_direct_sync($run_id, 0, $error_details['formatted_display']);
                 
                 if (defined('DOING_AJAX') && DOING_AJAX) {
                     return array(
@@ -707,9 +705,7 @@ function nmkr_sync_data($run_id = '') {
             $sync_log[] = 'ERROR: ' . $error_msg;
             nmkr_log_data_sync('Critical error during API configuration check: ' . $e->getMessage(), 'error');
             
-            update_option('nmkr_sync_error', $error_msg);
-            update_option('nmkr_sync_in_progress', false);
-            nmkr_release_sync_owner($run_id, 0, 'running');
+            nmkr_cleanup_failed_direct_sync($run_id, 0, $error_msg);
             
             if (defined('DOING_AJAX') && DOING_AJAX) {
                 return array(
@@ -740,7 +736,8 @@ function nmkr_sync_data($run_id = '') {
             if (!$sync_stats_id) {
                 throw new Exception('Failed to create sync statistics record');
             }
-            if (!nmkr_transition_sync_owner($run_id, 'running', 'running', $sync_stats_id)) {
+            $bound_owner = nmkr_transition_sync_owner($run_id, 'running', 'running', $sync_stats_id);
+            if (!nmkr_sync_owner_transition_succeeded($bound_owner)) {
                 nmkr_update_sync_stats($sync_stats_id, array(
                     'status' => 'failed',
                     'error_message' => 'Synchronization ownership changed during initialization.',
@@ -754,9 +751,7 @@ function nmkr_sync_data($run_id = '') {
             nmkr_log_data_sync('Critical error during sync initialization: ' . $e->getMessage(), 'error');
             
             if (nmkr_sync_owner_matches($run_id, 'running', $sync_stats_id ?: 0)) {
-                update_option('nmkr_sync_error', $error_msg);
-                update_option('nmkr_sync_in_progress', false);
-                nmkr_release_sync_owner($run_id, $sync_stats_id ?: 0, 'running');
+                nmkr_cleanup_failed_direct_sync($run_id, $sync_stats_id ?: 0, $error_msg);
             }
             
             if (defined('DOING_AJAX') && DOING_AJAX) {
@@ -1053,7 +1048,8 @@ function nmkr_sync_data($run_id = '') {
             'items_skipped' => $total_skipped_tokens,
             'token_details_synced' => $token_details_synced,
         );
-        if (!nmkr_transition_sync_owner($run_id, 'running', 'finalizing', $sync_stats_id)) {
+        $finalizing_owner = nmkr_transition_sync_owner($run_id, 'running', 'finalizing', $sync_stats_id);
+        if (!nmkr_sync_owner_transition_succeeded($finalizing_owner)) {
             throw new Exception('Synchronization owner changed before finalization');
         }
         $prepared = nmkr_prepare_sync_finalization($sync_stats_id, $final, nmkr_get_sync_data());
@@ -1103,7 +1099,9 @@ function nmkr_sync_data($run_id = '') {
             && nmkr_sync_has_committed_success($sync_stats_id)))) {
             $resume_data = nmkr_get_sync_data();
             if (is_array($resume_data) && ($resume_data['status'] ?? '') === 'completed'
-                && !empty($resume_data['completed']) && (int) ($resume_data['sync_stats_id'] ?? 0) === (int) $sync_stats_id) {
+                && !empty($resume_data['completed']) && (int) ($resume_data['sync_stats_id'] ?? 0) === (int) $sync_stats_id
+                && (string) ($resume_data['run_id'] ?? '') === (string) $run_id
+                && nmkr_get_sync_owner() === false) {
                 return defined('DOING_AJAX') && DOING_AJAX
                     ? array('success' => true, 'message' => 'Sync process completed successfully.', 'log' => $sync_log, 'progress' => 100)
                     : 'Sync process completed successfully.';
@@ -1154,7 +1152,10 @@ function nmkr_sync_data($run_id = '') {
         try {
             if (nmkr_sync_owner_matches($run_id, null, $sync_stats_id ?: 0)) {
                 nmkr_clear_sync_data();
-                nmkr_release_sync_owner($run_id, $sync_stats_id ?: 0, 'running');
+                $released = nmkr_release_sync_owner($run_id, $sync_stats_id ?: 0, 'running');
+                if ($released !== true) {
+                    update_option('nmkr_sync_status', 'failed_cleanup_pending');
+                }
             }
         } catch (Exception $clear_error) {
             nmkr_log_data_sync('Failed to clear sync data during error cleanup: ' . $clear_error->getMessage(), 'error');

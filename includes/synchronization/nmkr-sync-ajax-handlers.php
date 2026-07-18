@@ -43,11 +43,12 @@ function nmkr_start_sync_handler() {
     try {
         $run_id = wp_generate_uuid4();
         $owner = nmkr_admit_sync_owner($run_id);
-        if (is_wp_error($owner)) {
-            $conflict = in_array($owner->get_error_code(), array('sync_already_owned', 'sync_finalization_pending'), true);
+        if (!is_array($owner)) {
+            $owner_error = is_wp_error($owner) ? $owner : new WP_Error('sync_admission_failed', __('Synchronization admission failed.', 'nmkr-connect'));
+            $conflict = in_array($owner_error->get_error_code(), array('sync_already_owned', 'sync_finalization_pending'), true);
             wp_send_json_error(array(
-                'message' => $owner->get_error_message(),
-                'error_code' => $owner->get_error_code(),
+                'message' => $owner_error->get_error_message(),
+                'error_code' => $owner_error->get_error_code(),
             ), $conflict ? 409 : 503);
             return;
         }
@@ -849,14 +850,13 @@ function nmkr_restart_sync_batch_handler() {
         wp_send_json_error( array( 'message' => __( 'Forbidden', 'nmkr-connect' ) ), 403 );
     }
     
-    $owner = nmkr_get_sync_owner();
-    if (!is_array($owner) || ($owner['mode'] ?? '') !== 'batch') {
-        wp_send_json_error(array(
-            'message' => __('Batch restart is unavailable for the current synchronization mode.', 'nmkr-connect'),
-            'error_code' => 'batch_mode_unsupported',
-        ), 409);
-        return;
-    }
+    // No supported batch admission lifecycle exists. Keep the endpoint for
+    // compatibility, but never let option-shaped data activate this engine.
+    wp_send_json_error(array(
+        'message' => __('Batch restart is unavailable.', 'nmkr-connect'),
+        'error_code' => 'batch_mode_unsupported',
+    ), 409);
+    return;
 
     // Log the restart attempt
     nmkr_log_data_sync('Attempting to restart sync batch process', 'warning', array(
@@ -1085,7 +1085,7 @@ function nmkr_execute_sync_background_job($run_id = '') {
         return;
     }
     $claimed = nmkr_transition_sync_owner($run_id, 'queued', 'running');
-    if (is_wp_error($claimed) || !$claimed) {
+    if (!nmkr_sync_owner_transition_succeeded($claimed)) {
         return;
     }
 
@@ -1128,10 +1128,7 @@ function nmkr_execute_sync_background_job($run_id = '') {
     } catch (Exception $e) {
         nmkr_log_data_sync('Background Job Error: Failed to reset progress options - ' . $e->getMessage(), 'error');
         if (nmkr_sync_owner_matches($run_id, 'running', 0)) {
-            update_option('nmkr_sync_error', 'Failed to initialize sync progress tracking');
-            update_option('nmkr_sync_in_progress', false);
-            delete_transient('nmkr_sync_in_progress');
-            nmkr_release_sync_owner($run_id, 0, 'running');
+            nmkr_cleanup_failed_direct_sync($run_id, 0, 'Failed to initialize sync progress tracking');
         }
         return;
     }

@@ -142,16 +142,43 @@ function nmkr_resume_sync_finalization($sync_stats_id) {
     $record = get_option($key, false);
     $sync_data = nmkr_get_sync_data();
     if (!is_array($record) || (int) ($record['sync_stats_id'] ?? 0) !== (int) $sync_stats_id
-        || !is_array($sync_data) || (int) ($sync_data['sync_stats_id'] ?? 0) !== (int) $sync_stats_id
-        || (!empty($record['run_id']) && (!isset($sync_data['run_id'])
-            || !hash_equals((string) $record['run_id'], (string) $sync_data['run_id'])
-            || !nmkr_sync_owner_matches((string) $record['run_id'], 'finalizing', $sync_stats_id)))) {
+        || !is_array($sync_data) || (int) ($sync_data['sync_stats_id'] ?? 0) !== (int) $sync_stats_id) {
         nmkr_clear_sync_finalization_resume($sync_stats_id);
         return false;
+    }
+    if (!empty($record['run_id'])) {
+        if (!isset($sync_data['run_id']) || !hash_equals((string) $record['run_id'], (string) $sync_data['run_id'])) {
+            return false;
+        }
+        $owner = nmkr_get_sync_owner();
+        if ($owner === false && nmkr_is_sync_terminal_status($sync_data['status'] ?? '')
+            && nmkr_verify_sync_terminal_result($sync_data, true)) {
+            nmkr_cleanup_sync_resume_state($sync_stats_id);
+            return true;
+        }
+        if (!nmkr_sync_owner_matches((string) $record['run_id'], 'finalizing', $sync_stats_id)) {
+            return false;
+        }
     }
     $result = nmkr_sync_data_complete(true, '', $record, true);
     if (is_array($result) && in_array($result['status'] ?? '', array('completed', 'success'), true)) {
         return true;
+    }
+    // A waiter may have passed validation before another finalizer completed
+    // and released the owner. Re-read before resurrecting retry evidence.
+    $current_sync_data = nmkr_get_sync_data();
+    $current_owner = nmkr_get_sync_owner();
+    if (is_array($current_sync_data)
+        && (int) ($current_sync_data['sync_stats_id'] ?? 0) === (int) $sync_stats_id
+        && (string) ($current_sync_data['run_id'] ?? '') === (string) ($record['run_id'] ?? '')
+        && nmkr_is_sync_terminal_status($current_sync_data['status'] ?? '')
+        && $current_owner === false
+        && nmkr_verify_sync_terminal_result($current_sync_data, true)) {
+        nmkr_cleanup_sync_resume_state($sync_stats_id);
+        return true;
+    }
+    if (!empty($record['run_id']) && !nmkr_sync_owner_matches((string) $record['run_id'], 'finalizing', $sync_stats_id)) {
+        return false;
     }
     $record['attempt'] = (int) ($record['attempt'] ?? 0) + 1;
     update_option($key, $record, false);
@@ -469,6 +496,37 @@ function nmkr_cleanup_sync_resume_state($sync_stats_id) {
         && !wp_next_scheduled('nmkr_resume_sync_finalization', array((int) $sync_stats_id));
 }
 
+/** Verify terminal history (and success receipt) before accepting owner absence. */
+function nmkr_verify_sync_terminal_result($sync_data, $success) {
+    global $wpdb;
+    if (!is_array($sync_data) || !nmkr_is_sync_terminal_status($sync_data['status'] ?? '')) {
+        return false;
+    }
+    $sync_stats_id = (int) ($sync_data['sync_stats_id'] ?? 0);
+    $history = $wpdb->get_row($wpdb->prepare("SELECT id, status, end_time FROM {$wpdb->prefix}nmkr_sync_stats WHERE id = %d", $sync_stats_id), ARRAY_A);
+    $allowed = $success ? array('completed', 'success') : array('failed', 'error');
+    if (!$history || (int) ($history['id'] ?? 0) !== $sync_stats_id
+        || !in_array(strtolower((string) ($history['status'] ?? '')), $allowed, true)
+        || (string) ($history['end_time'] ?? '') !== (string) ($sync_data['end_time'] ?? '')) {
+        return false;
+    }
+    if ($success) {
+        $receipt = nmkr_get_sync_metrics_receipt($sync_stats_id);
+        return is_array($receipt) && (string) ($receipt['end_time'] ?? '') === (string) $history['end_time'];
+    }
+    return true;
+}
+
+/** Restore exact retry evidence after terminal data was written but release failed. */
+function nmkr_restore_sync_finalization_retry($sync_stats_id, $resume_record) {
+    if (!is_array($resume_record)) {
+        return false;
+    }
+    update_option(nmkr_sync_finalization_resume_key($sync_stats_id), $resume_record, false);
+    return nmkr_schedule_sync_finalization_resume($sync_stats_id, (int) ($resume_record['attempt'] ?? 0))
+        && nmkr_sync_finalization_resume_pending($sync_stats_id);
+}
+
 if (!function_exists('nmkr_sync_finalization_checkpoint')) {
     /** Synthetic-test checkpoint; production intentionally performs no work. */
     function nmkr_sync_finalization_checkpoint($point, $sync_stats_id) {
@@ -488,8 +546,11 @@ function nmkr_sync_data_complete($success = true, $error_message = '', $final = 
     $initial_sync_data = nmkr_get_sync_data();
     $sync_stats_id = isset($initial_sync_data['sync_stats_id']) ? (int) $initial_sync_data['sync_stats_id'] : 0;
     $run_id = is_array($initial_sync_data) ? (string) ($initial_sync_data['run_id'] ?? '') : '';
-    if ($run_id !== '' && !nmkr_sync_owner_matches($run_id, 'finalizing', $sync_stats_id)) {
-        return false;
+    if ($run_id !== '') {
+        $initial_owner = nmkr_get_sync_owner();
+        if ($initial_owner !== false && !nmkr_sync_owner_matches($run_id, 'finalizing', $sync_stats_id)) {
+            return false;
+        }
     }
     if ($success && $sync_stats_id > 0 && !$is_resume) {
         if (!$prepared) {
@@ -518,6 +579,7 @@ function nmkr_sync_data_complete($success = true, $error_message = '', $final = 
         if (!is_array($sync_data) || (int) ($sync_data['sync_stats_id'] ?? 0) !== $sync_stats_id) {
             return false;
         }
+        nmkr_sync_finalization_checkpoint('after_finalization_lock', $sync_stats_id);
 
         if (nmkr_is_sync_terminal_status($sync_data['status'] ?? '')) {
             // Terminal retries finish idempotent cleanup rather than returning
@@ -529,10 +591,23 @@ function nmkr_sync_data_complete($success = true, $error_message = '', $final = 
                 nmkr_clear_sync_finalization_resume($sync_stats_id);
                 return false;
             }
+            if ((string) ($sync_data['run_id'] ?? '') !== $run_id || !nmkr_verify_sync_terminal_result($sync_data, $success)) {
+                return false;
+            }
+            $owner = nmkr_get_sync_owner();
+            if ($owner === false) {
+                nmkr_cleanup_sync_resume_state($sync_stats_id);
+                return $sync_data;
+            }
+            if (!nmkr_sync_owner_matches($run_id, 'finalizing', $sync_stats_id)) {
+                return false;
+            }
             if (!nmkr_cleanup_sync_resume_state($sync_stats_id)) {
                 return false;
             }
-            if ($run_id !== '' && !nmkr_release_sync_owner($run_id, $sync_stats_id, 'finalizing')) {
+            $released = nmkr_release_sync_owner($run_id, $sync_stats_id, 'finalizing');
+            if ($released !== true) {
+                nmkr_restore_sync_finalization_retry($sync_stats_id, $final);
                 return false;
             }
             return $sync_data;
@@ -678,8 +753,12 @@ function nmkr_sync_data_complete($success = true, $error_message = '', $final = 
             nmkr_schedule_sync_finalization_resume($sync_stats_id, (int) ($resume_record['attempt'] ?? 0));
             return false;
         }
-        if ($run_id !== '' && !nmkr_release_sync_owner($run_id, $sync_stats_id, 'finalizing')) {
-            return false;
+        if ($run_id !== '') {
+            $released = nmkr_release_sync_owner($run_id, $sync_stats_id, 'finalizing');
+            if ($released !== true) {
+                nmkr_restore_sync_finalization_retry($sync_stats_id, $resume_record);
+                return false;
+            }
         }
         return $terminal;
     } catch (Throwable $error) {

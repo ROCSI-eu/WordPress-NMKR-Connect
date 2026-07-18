@@ -236,6 +236,7 @@ function nmkr_connect_uninstall() {
         'nmkr_sync_near_completion',
         'nmkr_sync_stop_requested',
         'nmkr_sync_data',
+        'nmkr_sync_owner',
         'nmkr_sync_last_result',
         'nmkr_sync_last_recovery_at'
     ];

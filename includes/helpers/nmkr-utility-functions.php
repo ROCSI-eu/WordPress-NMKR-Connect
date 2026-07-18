@@ -537,6 +537,32 @@ function nmkr_release_sync_owner($run_id, $sync_stats_id = null, $state = null) 
     });
 }
 
+/** Owner transitions are successful only when the updated record is returned. */
+function nmkr_sync_owner_transition_succeeded($result) {
+    return is_array($result) && !empty($result['run_id']) && !empty($result['mode']) && !empty($result['state']);
+}
+
+/**
+ * Clear provisional direct-run state and release only the exact owner.
+ * A lock/release failure intentionally leaves the owner blocking admission,
+ * while dashboard active markers are still made explicitly false.
+ */
+function nmkr_cleanup_failed_direct_sync($run_id, $sync_stats_id, $error_message) {
+    $sync_stats_id = (int) $sync_stats_id;
+    if (!nmkr_sync_owner_matches($run_id, 'running', $sync_stats_id)) {
+        return false;
+    }
+    update_option('nmkr_sync_error', (string) $error_message);
+    update_option('nmkr_sync_status', 'failed');
+    update_option('nmkr_sync_in_progress', false);
+    delete_transient('nmkr_sync_in_progress');
+    foreach (array('nmkr_sync_progress', 'nmkr_sync_current_item', 'nmkr_sync_current_count', 'nmkr_sync_total_items') as $key) {
+        delete_transient($key);
+    }
+    $released = nmkr_release_sync_owner($run_id, $sync_stats_id, 'running');
+    return $released === true;
+}
+
 /**
  * Update sync heartbeat to indicate backend activity
  * This prevents false-positive stall detection warnings during sync
