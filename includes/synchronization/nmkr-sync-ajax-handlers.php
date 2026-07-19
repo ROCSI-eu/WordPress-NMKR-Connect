@@ -457,7 +457,7 @@ function nmkr_sync_progress_handler() {
                 delete_transient('nmkr_sync_in_progress');
                 
                 // Force cleanup of any remaining jobs
-                nmkr_clear_sync_jobs('stalled_sync', true, true);
+                nmkr_clear_sync_jobs_ownerless('stalled_sync', true, true);
             }
         }
         // Update progress tracking if progress has changed
@@ -499,7 +499,7 @@ function nmkr_sync_progress_handler() {
                 delete_transient('nmkr_sync_in_progress');
                 
                 // Force cleanup of any remaining jobs
-                nmkr_clear_sync_jobs('stalled_sync', true, true);
+                nmkr_clear_sync_jobs_ownerless('stalled_sync', true, true);
             }
         }
         return true;

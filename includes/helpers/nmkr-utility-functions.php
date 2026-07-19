@@ -688,6 +688,17 @@ function nmkr_coordinate_sync_cleanup($intent, $ownerless_callback) {
     return nmkr_with_sync_owner_lock(function () use ($intent, $ownerless_callback) {
         $owner = nmkr_get_uncached_option_value('nmkr_sync_owner', false);
         if ($owner === false) {
+            // An owner may be released only after a direct run hands off to
+            // durable finalization. Never let an administrative ownerless
+            // cleanup erase that handoff or its retry evidence.
+            $sync_data = nmkr_get_uncached_option_value('nmkr_sync_data', array());
+            $finalization_pending = is_array($sync_data) && (
+                ($sync_data['status'] ?? '') === 'finalizing'
+                || (function_exists('nmkr_sync_start_blocked_by_finalization') && nmkr_sync_start_blocked_by_finalization($sync_data))
+            );
+            if ($finalization_pending) {
+                return new WP_Error('sync_finalization_pending', __('Synchronization finalization is still pending.', 'nmkr-connect'));
+            }
             return call_user_func($ownerless_callback);
         }
         if (!is_array($owner) || !nmkr_is_valid_sync_run_id((string) ($owner['run_id'] ?? ''))
