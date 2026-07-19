@@ -737,7 +737,7 @@ function nmkr_sync_data($run_id = '') {
             if (!$sync_stats_id) {
                 throw new Exception('Failed to create sync statistics record');
             }
-            $bound_owner = nmkr_transition_sync_owner($run_id, 'running', 'running', $sync_stats_id);
+            $bound_owner = nmkr_bind_exact_sync_history_owner($run_id, $sync_stats_id);
             if (!nmkr_sync_owner_transition_succeeded($bound_owner)) {
                 return nmkr_handle_sync_owner_binding_failure($bound_owner, $run_id, $sync_stats_id);
             }

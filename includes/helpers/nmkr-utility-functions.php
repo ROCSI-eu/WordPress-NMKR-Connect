@@ -601,18 +601,43 @@ function nmkr_request_exact_sync_stop($run_id, $reason = 'user_requested') {
 
 /** Authoritative worker fence. Call only at safe boundaries. */
 function nmkr_sync_run_checkpoint($run_id, $sync_stats_id = null, $phase = '') {
-    $owner = nmkr_get_sync_owner();
-    if (!is_array($owner) || !hash_equals((string) ($owner['run_id'] ?? ''), (string) $run_id) || ($owner['mode'] ?? '') !== 'direct') return 'owner_mismatch';
-    if ($sync_stats_id !== null && (int) ($owner['sync_stats_id'] ?? 0) !== (int) $sync_stats_id) return 'owner_mismatch';
-    if (($owner['state'] ?? '') === 'stop_requested') return 'stop_requested';
-    if (($owner['state'] ?? '') === 'finalizing') return 'finalizing';
-    if (($owner['state'] ?? '') !== 'running') return 'owner_mismatch';
-    // Liveness is run scoped; this best-effort update never changes ownership.
-    $owner['heartbeat_at'] = gmdate('c'); $owner['updated_at'] = $owner['heartbeat_at'];
-    $owner['checkpoint_seq'] = (int) ($owner['checkpoint_seq'] ?? 0) + 1;
-    if ($phase !== '') $owner['safe_phase'] = sanitize_key($phase);
-    update_option('nmkr_sync_owner', $owner, false);
-    return 'continue';
+    $result = nmkr_with_sync_owner_lock(function () use ($run_id, $sync_stats_id, $phase) {
+        $owner = nmkr_get_uncached_option_value('nmkr_sync_owner', false);
+        if (!is_array($owner) || !hash_equals((string) ($owner['run_id'] ?? ''), (string) $run_id)
+            || ($owner['mode'] ?? '') !== 'direct'
+            || ($sync_stats_id !== null && (int) ($owner['sync_stats_id'] ?? 0) !== (int) $sync_stats_id)) return 'owner_mismatch';
+        if (($owner['state'] ?? '') === 'stop_requested') return 'stop_requested';
+        if (($owner['state'] ?? '') === 'finalizing') return 'finalizing';
+        if (($owner['state'] ?? '') !== 'running') return 'owner_mismatch';
+        $now = gmdate('c');
+        $owner['heartbeat_at'] = $now;
+        $owner['updated_at'] = $now;
+        $owner['checkpoint_seq'] = (int) ($owner['checkpoint_seq'] ?? 0) + 1;
+        if ($phase !== '') $owner['safe_phase'] = sanitize_key($phase);
+        update_option('nmkr_sync_owner', $owner, false);
+        $verified = nmkr_get_uncached_option_value('nmkr_sync_owner', false);
+        return $verified === $owner ? 'continue' : 'owner_mismatch';
+    });
+    return is_wp_error($result) ? 'owner_mismatch' : $result;
+}
+
+/** Bind an inserted direct-run history row without losing a racing Stop request. */
+function nmkr_bind_exact_sync_history_owner($run_id, $sync_stats_id) {
+    global $wpdb;
+    $sync_stats_id = (int) $sync_stats_id;
+    if (!nmkr_is_valid_sync_run_id($run_id) || $sync_stats_id <= 0) return false;
+    return nmkr_with_sync_owner_lock(function () use ($run_id, $sync_stats_id, $wpdb) {
+        $owner = nmkr_get_uncached_option_value('nmkr_sync_owner', false);
+        if (!is_array($owner) || !hash_equals((string) ($owner['run_id'] ?? ''), $run_id)
+            || ($owner['mode'] ?? '') !== 'direct' || (int) ($owner['sync_stats_id'] ?? -1) !== 0
+            || !in_array(($owner['state'] ?? ''), array('running', 'stop_requested'), true)) return false;
+        $history = $wpdb->get_row($wpdb->prepare("SELECT id, run_id FROM {$wpdb->prefix}nmkr_sync_stats WHERE id = %d AND run_id = %s", $sync_stats_id, $run_id), ARRAY_A);
+        if (!is_array($history) || (int) ($history['id'] ?? 0) !== $sync_stats_id || !hash_equals((string) ($history['run_id'] ?? ''), $run_id)) return false;
+        $owner['sync_stats_id'] = $sync_stats_id;
+        $owner['updated_at'] = gmdate('c');
+        update_option('nmkr_sync_owner', $owner, false);
+        return nmkr_get_uncached_option_value('nmkr_sync_owner', false) === $owner ? $owner : false;
+    });
 }
 
 function nmkr_sync_owner_matches($run_id, $state = null, $sync_stats_id = null) {

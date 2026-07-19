@@ -204,6 +204,13 @@ jQuery(document).ready(function($) {
             _: Date.now()
         })
         .done(function(response) {
+            if (response.success && response.data && response.data.completed === true && response.data.terminal_outcome === 'cancelled') {
+                activeRunId = null;
+                stopPending = false;
+                teardownSyncUI();
+                $('#status-message').text('⏹️ Queued synchronization cancelled');
+                return;
+            }
             if (response.success && response.data && response.data.stop_pending) {
                 stopPending = true;
                 $('#status-message').text('⏹️ Stopping Synchronization…');
@@ -261,6 +268,12 @@ jQuery(document).ready(function($) {
         try {
           if (response.success && response.data) {
             const { progress, current_item, in_progress, error, live_metrics, finished, aborted, terminal_outcome } = response.data;
+            if (response.data.run_id) {
+              if (activeRunId && activeRunId !== response.data.run_id && terminal_outcome === '') {
+                window.nmkrShowWarning('Synchronization run changed; retaining the server-authoritative run.');
+              }
+              activeRunId = response.data.run_id;
+            }
             
             // Accept numbers and numeric strings; fall back to 0 only if not finite
             let validProgress = Number(progress);

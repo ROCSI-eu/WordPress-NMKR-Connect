@@ -6,7 +6,7 @@ $GLOBALS['options'] = array();
 $GLOBALS['transients'] = array();
 $GLOBALS['history'] = array();
 $GLOBALS['scheduled_events'] = array();
-function __($s) { return $s; }
+function __($s) { return $s; } function sanitize_text_field($s){return (string)$s;} function sanitize_key($s){return preg_replace('/[^a-z0-9_]/','',strtolower((string)$s));}
 class WP_Error { private $c; private $m; function __construct($c,$m){$this->c=$c;$this->m=$m;} function get_error_code(){return $this->c;} function get_error_message(){return $this->m;} }
 function maybe_unserialize($v){return is_string($v)?unserialize($v):$v;} function is_wp_error($v){return $v instanceof WP_Error;}
 function get_current_blog_id(){return 1;}
@@ -24,7 +24,7 @@ function wp_send_json_error($data,$status=null){throw new Exception(json_encode(
 function nmkr_sync_finalization_resume_key($id){return 'nmkr_sync_finalization_resume_'.(int)$id;}
 function nmkr_maintain_sync_finalization_resume($d){$GLOBALS['maintained']=true;return true;}
 function nmkr_sync_start_blocked_by_finalization($d){return ($d['status']??'')==='finalizing';}
-class FakeWpdb {public $locks=0,$fail_lock=false,$on_acquire=false,$db_options=null,$prefix='wp_',$options='wp_options';function prepare($q,...$a){foreach($a as $v)$q=preg_replace('/%[sd]/',(string)$v,$q,1);return $q;}function get_var($q){if(strpos($q,'GET_LOCK')!==false){$this->locks++;if($this->on_acquire){$action=$this->on_acquire;$this->on_acquire=false;if(is_callable($action))$action();else $GLOBALS['options']['nmkr_sync_owner']=$action;}return $this->fail_lock?0:1;}if(strpos($q,'option_value')!==false&&preg_match("/option_name = ([^ ]+)/",$q,$m)){ $key=trim($m[1],"'");$store=is_array($this->db_options)?$this->db_options:$GLOBALS['options'];return array_key_exists($key,$store)?serialize($store[$key]):null;}return 1;}function get_row($q){$id=(int)preg_replace('/^.*id = (\d+).*$/','$1',$q);return isset($GLOBALS['history'][$id])?array_merge(array('id'=>$id,'end_time'=>'2026-01-02 03:04:05'),$GLOBALS['history'][$id]):null;}}
+class FakeWpdb {public $locks=0,$fail_lock=false,$on_acquire=false,$db_options=null,$prefix='wp_',$options='wp_options';function prepare($q,...$a){foreach($a as $v)$q=preg_replace('/%[sd]/',(string)$v,$q,1);return $q;}function get_var($q){if(strpos($q,'GET_LOCK')!==false){$this->locks++;if($this->on_acquire){$action=$this->on_acquire;$this->on_acquire=false;if(is_callable($action))$action();else $GLOBALS['options']['nmkr_sync_owner']=$action;}return $this->fail_lock?0:1;}if(strpos($q,'option_value')!==false&&preg_match("/option_name = ([^ ]+)/",$q,$m)){ $key=trim($m[1],"'");$store=is_array($this->db_options)?$this->db_options:$GLOBALS['options'];return array_key_exists($key,$store)?serialize($store[$key]):null;}return 1;}function get_row($q){$id=preg_match('/id = (\d+)/',$q,$m)?(int)$m[1]:0;return isset($GLOBALS['history'][$id])?array_merge(array('id'=>$id,'end_time'=>'2026-01-02 03:04:05'),$GLOBALS['history'][$id]):null;}}
 $wpdb=new FakeWpdb();
 require dirname(__DIR__).'/includes/helpers/nmkr-utility-functions.php';
 function check($ok,$m){if(!$ok){fwrite(STDERR,"FAIL: $m\n");exit(1);}echo "PASS: $m\n";}
@@ -99,3 +99,12 @@ foreach (array(false,array('mode'=>'direct'),array('mode'=>'broken'),array('mode
 }
 $uninstall=file_get_contents(dirname(__DIR__).'/nmkr-connect.php');check(strpos($uninstall,"'nmkr_sync_owner',")!==false,'full uninstall includes owner cleanup');
 echo "All synchronization ownership regression checks passed.\n";
+
+// Phase 16B.2 exact Stop/binding/checkpoint races use only synthetic state.
+$GLOBALS['options']=array('nmkr_sync_owner'=>array('run_id'=>$a,'mode'=>'direct','state'=>'running','sync_stats_id'=>0,'checkpoint_seq'=>0));$GLOBALS['history'][201]=array('id'=>201,'run_id'=>$a,'status'=>'initializing');
+$stopped=nmkr_request_exact_sync_stop($a,'user_requested');check(is_array($stopped)&&$stopped['state']==='stop_requested','running Stop is recorded idempotently');
+$bound=nmkr_bind_exact_sync_history_owner($a,201);check(is_array($bound)&&$bound['state']==='stop_requested'&&$bound['sync_stats_id']===201,'Stop versus history binding preserves stop_requested');
+check(nmkr_sync_run_checkpoint($a,201,'test')==='stop_requested','checkpoint fences a stopped worker before next API/write');
+$before=$GLOBALS['options'];check(nmkr_request_exact_sync_stop($b,'user_requested')===false&&$GLOBALS['options']===$before,'stale Stop cannot affect successor owner');
+$GLOBALS['options']['nmkr_sync_owner']['state']='finalizing';$before=$GLOBALS['options'];$final_stop=nmkr_request_exact_sync_stop($a);check(is_wp_error($final_stop)&&$GLOBALS['options']===$before,'Stop cannot mutate finalizing owner');
+$GLOBALS['options']['nmkr_sync_owner']['state']='running';$wpdb->fail_lock=true;$before=$GLOBALS['options'];check(nmkr_sync_run_checkpoint($a,201,'lock_failure')==='owner_mismatch'&&$GLOBALS['options']===$before,'checkpoint lock failure is fail-closed and read-only');$wpdb->fail_lock=false;
