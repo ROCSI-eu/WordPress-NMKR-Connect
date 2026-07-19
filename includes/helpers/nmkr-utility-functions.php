@@ -545,7 +545,7 @@ function nmkr_admit_sync_owner($run_id) {
             return new WP_Error('sync_already_owned', __('A synchronization is already queued or running.', 'nmkr-connect'));
         }
         $now = gmdate('c');
-        $owner = array('run_id' => $run_id, 'mode' => 'direct', 'state' => 'queued', 'sync_stats_id' => 0, 'created_at' => $now, 'updated_at' => $now);
+        $owner = array('run_id' => $run_id, 'mode' => 'direct', 'state' => 'queued', 'sync_stats_id' => 0, 'created_at' => $now, 'updated_at' => $now, 'heartbeat_at' => $now, 'checkpoint_seq' => 0, 'safe_phase' => 'queued');
         if (!add_option('nmkr_sync_owner', $owner, '', 'no')) {
             return new WP_Error('sync_already_owned', __('A synchronization is already queued or running.', 'nmkr-connect'));
         }
@@ -569,11 +569,50 @@ function nmkr_transition_sync_owner($run_id, $from_state, $to_state, $sync_stats
             }
             $owner['sync_stats_id'] = (int) $sync_stats_id;
         }
+        // A Stop that wins the binding race must never be overwritten back to running.
+        if (($owner['state'] ?? '') === 'stop_requested' && $from_state === 'running' && $to_state === 'running') {
+            $to_state = 'stop_requested';
+        }
         $owner['state'] = $to_state;
         $owner['updated_at'] = gmdate('c');
+        $owner['heartbeat_at'] = $owner['updated_at'];
         update_option('nmkr_sync_owner', $owner, false);
         return nmkr_get_sync_owner() === $owner ? $owner : false;
     });
+}
+
+/** Request cooperative termination of one exact direct run. */
+function nmkr_request_exact_sync_stop($run_id, $reason = 'user_requested') {
+    if (!nmkr_is_valid_sync_run_id($run_id)) return new WP_Error('invalid_run_id', __('Invalid synchronization run identifier.', 'nmkr-connect'));
+    return nmkr_with_sync_owner_lock(function () use ($run_id, $reason) {
+        $owner = nmkr_get_uncached_option_value('nmkr_sync_owner', false);
+        if (!is_array($owner) || !hash_equals((string) ($owner['run_id'] ?? ''), $run_id) || ($owner['mode'] ?? '') !== 'direct') return false;
+        if (($owner['state'] ?? '') === 'finalizing') return new WP_Error('sync_finalization_pending', __('Synchronization finalization is still pending.', 'nmkr-connect'));
+        if (($owner['state'] ?? '') === 'queued' && (int) ($owner['sync_stats_id'] ?? -1) === 0) return nmkr_cancel_exact_queued_sync_owner_locked($run_id, 'cancelled');
+        if (!in_array(($owner['state'] ?? ''), array('running', 'stop_requested'), true)) return false;
+        $owner['state'] = 'stop_requested';
+        $owner['stop_requested_at'] = $owner['stop_requested_at'] ?? gmdate('c');
+        $owner['stop_reason'] = sanitize_text_field($reason);
+        $owner['updated_at'] = gmdate('c');
+        update_option('nmkr_sync_owner', $owner, false);
+        return $owner;
+    });
+}
+
+/** Authoritative worker fence. Call only at safe boundaries. */
+function nmkr_sync_run_checkpoint($run_id, $sync_stats_id = null, $phase = '') {
+    $owner = nmkr_get_sync_owner();
+    if (!is_array($owner) || !hash_equals((string) ($owner['run_id'] ?? ''), (string) $run_id) || ($owner['mode'] ?? '') !== 'direct') return 'owner_mismatch';
+    if ($sync_stats_id !== null && (int) ($owner['sync_stats_id'] ?? 0) !== (int) $sync_stats_id) return 'owner_mismatch';
+    if (($owner['state'] ?? '') === 'stop_requested') return 'stop_requested';
+    if (($owner['state'] ?? '') === 'finalizing') return 'finalizing';
+    if (($owner['state'] ?? '') !== 'running') return 'owner_mismatch';
+    // Liveness is run scoped; this best-effort update never changes ownership.
+    $owner['heartbeat_at'] = gmdate('c'); $owner['updated_at'] = $owner['heartbeat_at'];
+    $owner['checkpoint_seq'] = (int) ($owner['checkpoint_seq'] ?? 0) + 1;
+    if ($phase !== '') $owner['safe_phase'] = sanitize_key($phase);
+    update_option('nmkr_sync_owner', $owner, false);
+    return 'continue';
 }
 
 function nmkr_sync_owner_matches($run_id, $state = null, $sync_stats_id = null) {

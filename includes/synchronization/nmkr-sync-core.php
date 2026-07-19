@@ -725,6 +725,7 @@ function nmkr_sync_data($run_id = '') {
             
             // Record sync initialization in the sync_stats table
             $sync_stats_id = nmkr_save_sync_stats([
+                'run_id' => $run_id,
                 'sync_type' => 'full_sync',
                 'start_time' => nmkr_get_timestamp(),
                 'status' => 'initializing',
@@ -813,7 +814,19 @@ function nmkr_sync_data($run_id = '') {
         
         try {
             // First, we need to fetch projects to count total steps
+            $checkpoint = nmkr_sync_run_checkpoint($run_id, $sync_stats_id, 'before_projects_request');
+            if ($checkpoint !== 'continue') {
+                $finalizing = nmkr_transition_sync_owner($run_id, 'stop_requested', 'finalizing', $sync_stats_id);
+                if (nmkr_sync_owner_transition_succeeded($finalizing)) return nmkr_sync_data_complete(false, __('Synchronization stopped by user.', 'nmkr-connect'), array('outcome' => 'stopped'));
+                return new WP_Error('sync_owner_mismatch', 'Synchronization ownership no longer matches this worker.');
+            }
             $projects = nmkr_connect_fetch_projects();
+            $checkpoint = nmkr_sync_run_checkpoint($run_id, $sync_stats_id, 'after_projects_request');
+            if ($checkpoint !== 'continue') {
+                $finalizing = nmkr_transition_sync_owner($run_id, 'stop_requested', 'finalizing', $sync_stats_id);
+                if (nmkr_sync_owner_transition_succeeded($finalizing)) return nmkr_sync_data_complete(false, __('Synchronization stopped by user.', 'nmkr-connect'), array('outcome' => 'stopped'));
+                return new WP_Error('sync_owner_mismatch', 'Synchronization ownership no longer matches this worker.');
+            }
             
             if (is_wp_error($projects)) {
                 throw new Exception('Failed to fetch projects for step calculation: ' . $projects->get_error_message());

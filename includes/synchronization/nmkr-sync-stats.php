@@ -91,6 +91,7 @@ function nmkr_save_sync_metrics($metrics, $trusted_finalizer = false) {
 
     // Prepare data for insertion
     $data = array(
+        'run_id' => !empty($stats['run_id']) && nmkr_is_valid_sync_run_id($stats['run_id']) ? $stats['run_id'] : null,
         'last_sync_time' => $metrics['last_sync_time'],
         'total_projects' => isset($metrics['total_projects']) ? intval($metrics['total_projects']) : 0,
         'total_tokens' => isset($metrics['total_tokens']) ? intval($metrics['total_tokens']) : 0,
