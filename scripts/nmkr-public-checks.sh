@@ -27,5 +27,8 @@ bash scripts/nmkr-real-sync-phase16a-regression.sh
 printf '\n== Canonical synchronization terminalization regression ==\n'
 bash scripts/nmkr-sync-terminalization-regression.sh
 
+printf '\n== Atomic synchronization ownership regression ==\n'
+bash scripts/nmkr-sync-owner-regression.sh
+
 printf '\n== Public-safe PHP 7.4 compatibility guard ==\n'
 npm run test:php74

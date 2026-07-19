@@ -22,7 +22,11 @@ if (!defined('ABSPATH')) {
  * @param bool $force Whether to forcibly clear all data regardless of state (default: false)
  * @return array Result of the cleanup operation
  */
-function nmkr_clear_sync_jobs($context = 'manual_cleanup', $clear_data = true, $force = false) {
+/**
+ * Broad legacy cleanup implementation. Call only from the ownerless
+ * coordinator while the owner advisory lock is held.
+ */
+function nmkr_clear_sync_jobs_ownerless($context = 'manual_cleanup', $clear_data = true, $force = false) {
     $result = array(
         'success' => true,
         'message' => '',
@@ -188,13 +192,91 @@ function nmkr_clear_sync_jobs($context = 'manual_cleanup', $clear_data = true, $
 }
 
 /**
+ * Public compatibility wrapper. A direct owner makes broad cleanup unsafe;
+ * ownerless legacy cleanup is serialized with Start admission.
+ */
+function nmkr_clear_sync_jobs($context = 'manual_cleanup', $clear_data = true, $force = false) {
+    $result = nmkr_coordinate_sync_cleanup('generic', function () use ($context, $clear_data, $force) {
+        return nmkr_clear_sync_jobs_ownerless($context, $clear_data, $force);
+    });
+    if (is_wp_error($result)) {
+        return array(
+            'success' => false,
+            'message' => $result->get_error_message(),
+            'error_code' => $result->get_error_code(),
+            'cleared_jobs' => array(),
+            'cleared_data' => array(),
+        );
+    }
+    return is_array($result) ? $result : array(
+        'success' => false,
+        'message' => __('Synchronization cleanup could not be verified.', 'nmkr-connect'),
+        'error_code' => 'sync_cleanup_owner_changed',
+        'cleared_jobs' => array(),
+        'cleared_data' => array(),
+    );
+}
+
+/** Complete legacy Stop path; caller must hold the proven-ownerless lock. */
+function nmkr_stop_ownerless_sync($force = false) {
+    global $wpdb;
+    $sync_data = nmkr_get_sync_data();
+    $sync_stats_id = is_array($sync_data) ? (int) ($sync_data['sync_stats_id'] ?? 0) : 0;
+    $table_name = $wpdb->prefix . 'nmkr_sync_stats';
+    $history = false;
+    if ($sync_stats_id > 0) {
+        $history = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table_name WHERE id = %d", $sync_stats_id), ARRAY_A);
+    } else {
+        $active_statuses = array('initializing', 'processing_projects', 'processing_tokens', 'in_progress', 'running');
+        $placeholders = implode(', ', array_fill(0, count($active_statuses), '%s'));
+        $history = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table_name WHERE status IN ($placeholders) ORDER BY id DESC LIMIT 1", $active_statuses), ARRAY_A);
+        $sync_stats_id = is_array($history) ? (int) ($history['id'] ?? 0) : 0;
+    }
+    if (is_array($history)) {
+        $status = (string) ($history['status'] ?? '');
+        $terminal = function_exists('nmkr_is_sync_terminal_status') && nmkr_is_sync_terminal_status($status);
+        if (!$terminal) {
+            $target = $force ? 'stopped' : 'cancelled';
+            if (!nmkr_update_sync_stats($sync_stats_id, array(
+                'status' => $target,
+                'end_time' => nmkr_get_timestamp(),
+                'error_message' => $force ? 'Synchronization stopped forcibly by administrator.' : 'Synchronization cancelled by administrator.',
+            ))) {
+                return new WP_Error('sync_stop_history_cleanup_failed', __('Synchronization history could not be stopped safely.', 'nmkr-connect'));
+            }
+            $verified = $wpdb->get_row($wpdb->prepare("SELECT status, end_time FROM $table_name WHERE id = %d", $sync_stats_id), ARRAY_A);
+            if (!is_array($verified) || ($verified['status'] ?? '') !== $target || empty($verified['end_time'])) {
+                return new WP_Error('sync_stop_history_cleanup_failed', __('Synchronization history cleanup could not be verified.', 'nmkr-connect'));
+            }
+        }
+    }
+    $cleanup = nmkr_clear_sync_jobs_ownerless('manual_stop', true, $force);
+    if (empty($cleanup['success'])) {
+        return new WP_Error('sync_stop_cleanup_failed', __('Synchronization cleanup failed.', 'nmkr-connect'));
+    }
+    update_option('nmkr_sync_user_stopped', true);
+    set_transient('nmkr_sync_user_stopped', true, NMKR_SYNC_TRANSIENT_TTL);
+    update_option('nmkr_sync_stop_requested', time());
+    update_option('nmkr_sync_in_progress', false);
+    delete_transient('nmkr_sync_in_progress');
+    nmkr_update_sync_progress(0, 100, '⛔ Synchronization Stopped', true);
+    update_option('nmkr_sync_current_item', '');
+    if (function_exists('nmkr_cleanup_sync_heartbeat')) { nmkr_cleanup_sync_heartbeat(); }
+    foreach (array('nmkr_current_sync_stats_live', 'nmkr_active_sync_metrics', 'nmkr_sync_performance_metrics', 'nmkr_api_connection_status') as $key) { delete_transient($key); }
+    $cleanup['sync_stats_id'] = $sync_stats_id;
+    $cleanup['force_applied'] = (bool) $force;
+    return $cleanup;
+}
+
+/**
  * Enhanced function to forcibly stop a running synchronization process
  * This is used when a regular stop fails or when a sync process appears to be stuck
  *
  * @param string $context The context for the stop (e.g., 'manual_stop', 'force_stop', 'stuck_detected')
  * @return array Result of the stop operation
  */
-function nmkr_force_stop_sync($context = 'force_stop') {
+/** Legacy force cleanup; requires the ownerless advisory-lock boundary. */
+function nmkr_force_stop_sync_ownerless($context = 'force_stop') {
     global $wpdb;
     
     // Log UI status update for force stop
@@ -236,7 +318,7 @@ function nmkr_force_stop_sync($context = 'force_stop') {
     }
     
     // Run a cleanup with force parameter
-    $cleanup_result = nmkr_clear_sync_jobs('force_stop', true, true);
+    $cleanup_result = nmkr_clear_sync_jobs_ownerless('force_stop', true, true);
     
     // Kill any WP-Cron lock
     delete_transient('doing_cron');
@@ -300,6 +382,23 @@ function nmkr_force_stop_sync($context = 'force_stop') {
         'cleared_data' => $cleanup_result['cleared_data'],
         'active_syncs_terminated' => count($active_syncs)
     );
+}
+
+/**
+ * Force stop is intentionally no more permissive than normal Stop for direct
+ * runs: an executing worker remains owned until cooperative stop exists.
+ */
+function nmkr_force_stop_sync($context = 'force_stop') {
+    $result = nmkr_coordinate_sync_cleanup('cancel', function () use ($context) {
+        return nmkr_force_stop_sync_ownerless($context);
+    });
+    if ($result === true) {
+        return array('success' => true, 'message' => __('Queued synchronization cancelled.', 'nmkr-connect'), 'cleared_jobs' => array(), 'cleared_data' => array());
+    }
+    if (is_wp_error($result)) {
+        return array('success' => false, 'message' => $result->get_error_message(), 'error_code' => $result->get_error_code());
+    }
+    return is_array($result) ? $result : array('success' => false, 'message' => __('Synchronization ownership changed before cleanup.', 'nmkr-connect'), 'error_code' => 'sync_cleanup_owner_changed');
 }
 
 /**

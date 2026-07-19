@@ -45,6 +45,9 @@ function nmkr_save_sync_finalization_resume($sync_stats_id, $final) {
     $key = nmkr_sync_finalization_resume_key($sync_stats_id);
     $existing = get_option($key, false);
     $record = array('sync_stats_id' => (int) $sync_stats_id, 'attempt' => is_array($existing) ? (int) ($existing['attempt'] ?? 0) : 0);
+    if (!empty($final['run_id'])) {
+        $record['run_id'] = (string) $final['run_id'];
+    }
     if (!empty($final['end_time'])) {
         $record['end_time'] = (string) $final['end_time'];
     }
@@ -89,6 +92,54 @@ function nmkr_sync_finalization_resume_pending($sync_stats_id) {
         || (bool) wp_next_scheduled('nmkr_resume_sync_finalization', array($sync_stats_id));
 }
 
+function nmkr_sync_finalization_resume_event_scheduled($sync_stats_id) {
+    return (bool) wp_next_scheduled('nmkr_resume_sync_finalization', array((int) $sync_stats_id));
+}
+
+function nmkr_is_valid_sync_finalization_record($record, $run_id = '', $sync_stats_id = 0) {
+    $metric_keys = array('total_projects', 'total_tokens', 'total_sync_duration', 'total_api_time', 'average_response_time', 'api_requests', 'memory_usage');
+    $counter_keys = array('items_processed', 'items_successful', 'items_failed', 'items_skipped', 'token_details_synced');
+    if (!is_array($record) || !nmkr_is_valid_sync_run_id((string) ($record['run_id'] ?? ''))
+        || (int) ($record['sync_stats_id'] ?? 0) <= 0 || !isset($record['attempt'])
+        || !is_int($record['attempt']) || $record['attempt'] < 0 || $record['attempt'] > 5
+        || !is_array($record['metrics'] ?? null)) {
+        return false;
+    }
+    if ($run_id !== '' && !hash_equals((string) $record['run_id'], (string) $run_id)) return false;
+    if ($sync_stats_id > 0 && (int) $record['sync_stats_id'] !== (int) $sync_stats_id) return false;
+    foreach (array_merge($metric_keys, $counter_keys) as $key) {
+        $source = in_array($key, $metric_keys, true) ? $record['metrics'] : $record;
+        if (!array_key_exists($key, $source) || !is_numeric($source[$key])) return false;
+    }
+    return true;
+}
+
+function nmkr_set_sync_finalization_error() {
+    update_option('nmkr_sync_status', 'finalization_error');
+    set_transient('nmkr_sync_status', 'finalization_error', NMKR_SYNC_TRANSIENT_TTL);
+    update_option('nmkr_sync_in_progress', true);
+}
+
+function nmkr_preserve_and_schedule_sync_finalization_retry($record, $increment_attempt = false) {
+    if (!nmkr_is_valid_sync_finalization_record($record)) {
+        nmkr_set_sync_finalization_error();
+        return false;
+    }
+    if ($increment_attempt) $record['attempt']++;
+    $key = nmkr_sync_finalization_resume_key($record['sync_stats_id']);
+    update_option($key, $record, false);
+    if (get_option($key, false) !== $record || $record['attempt'] >= 5) {
+        nmkr_set_sync_finalization_error();
+        return false;
+    }
+    if (!nmkr_schedule_sync_finalization_resume($record['sync_stats_id'], $record['attempt'])
+        || !nmkr_sync_finalization_resume_event_scheduled($record['sync_stats_id'])) {
+        nmkr_set_sync_finalization_error();
+        return false;
+    }
+    return get_option($key, false) === $record;
+}
+
 function nmkr_sync_start_blocked_by_finalization($sync_data) {
     $sync_stats_id = is_array($sync_data) && isset($sync_data['sync_stats_id'])
         && is_numeric($sync_data['sync_stats_id']) && (int) $sync_data['sync_stats_id'] > 0
@@ -118,48 +169,120 @@ function nmkr_get_canonical_dashboard_sync_state() {
 }
 
 function nmkr_prepare_sync_finalization($sync_stats_id, $final, $sync_data) {
+    if (!empty($sync_data['run_id'])) {
+        $run_id = (string) $sync_data['run_id'];
+        if (!nmkr_sync_owner_matches($run_id, 'finalizing', $sync_stats_id)
+            && !nmkr_sync_owner_matches($run_id, 'running', $sync_stats_id)) {
+            return false;
+        }
+        $final['run_id'] = $run_id;
+    }
     $final['metrics'] = nmkr_build_final_sync_metrics($final['metrics'] ?? array(), $sync_data);
     $saved = nmkr_save_sync_finalization_resume($sync_stats_id, $final);
-    if (!is_array($saved) || !nmkr_schedule_sync_finalization_resume($sync_stats_id, (int) ($saved['attempt'] ?? 0))
-        || !nmkr_sync_finalization_resume_pending($sync_stats_id)) {
+    $scheduled = !empty($saved['run_id'])
+        ? nmkr_preserve_and_schedule_sync_finalization_retry($saved, false)
+        : (is_array($saved) && nmkr_schedule_sync_finalization_resume($sync_stats_id, (int) ($saved['attempt'] ?? 0))
+            && nmkr_sync_finalization_resume_event_scheduled($sync_stats_id));
+    if (!is_array($saved) || !$scheduled) {
+        nmkr_set_sync_finalization_error();
         return false;
     }
     return $saved;
+}
+
+function nmkr_sync_finalization_handoff_pending($run_id, $sync_stats_id) {
+    $record = get_option(nmkr_sync_finalization_resume_key($sync_stats_id), false);
+    return nmkr_is_valid_sync_finalization_record($record, $run_id, $sync_stats_id)
+        && nmkr_sync_finalization_resume_event_scheduled($sync_stats_id)
+        && (nmkr_sync_owner_matches($run_id, 'running', $sync_stats_id)
+            || nmkr_sync_owner_matches($run_id, 'finalizing', $sync_stats_id));
 }
 
 function nmkr_resume_sync_finalization($sync_stats_id) {
     $key = nmkr_sync_finalization_resume_key($sync_stats_id);
     $record = get_option($key, false);
     $sync_data = nmkr_get_sync_data();
+    $canonical_run_id = is_array($sync_data) ? (string) ($sync_data['run_id'] ?? '') : '';
+    $is_direct_run = $canonical_run_id !== '';
+    if ($is_direct_run && !nmkr_is_valid_sync_finalization_record($record, $canonical_run_id, $sync_stats_id)) {
+        nmkr_set_sync_finalization_error();
+        return false;
+    }
     if (!is_array($record) || (int) ($record['sync_stats_id'] ?? 0) !== (int) $sync_stats_id
         || !is_array($sync_data) || (int) ($sync_data['sync_stats_id'] ?? 0) !== (int) $sync_stats_id) {
         nmkr_clear_sync_finalization_resume($sync_stats_id);
         return false;
     }
+    if ($is_direct_run) {
+        $owner = nmkr_get_sync_owner();
+        if ($owner === false && nmkr_is_sync_terminal_status($sync_data['status'] ?? '')) {
+            return nmkr_finish_ownerless_terminal_cleanup($sync_data, true, $record);
+        }
+        if (nmkr_sync_owner_matches((string) $record['run_id'], 'running', $sync_stats_id)) {
+            $transitioned = nmkr_transition_sync_owner((string) $record['run_id'], 'running', 'finalizing', $sync_stats_id);
+            if (is_wp_error($transitioned)) {
+                nmkr_preserve_and_schedule_sync_finalization_retry($record, true);
+                return false;
+            }
+            if ($transitioned === false
+                && !nmkr_sync_owner_matches((string) $record['run_id'], 'finalizing', $sync_stats_id)) {
+                $after_transition_data = nmkr_get_sync_data();
+                if (nmkr_get_sync_owner() === false && is_array($after_transition_data)
+                    && (string) ($after_transition_data['run_id'] ?? '') === (string) $record['run_id']
+                    && (int) ($after_transition_data['sync_stats_id'] ?? 0) === (int) $sync_stats_id
+                    && nmkr_is_sync_terminal_status($after_transition_data['status'] ?? '')) {
+                    return nmkr_finish_ownerless_terminal_cleanup($after_transition_data, true, $record);
+                }
+                return false;
+            }
+        }
+        if (!nmkr_sync_owner_matches((string) $record['run_id'], 'finalizing', $sync_stats_id)) {
+            return false;
+        }
+    }
     $result = nmkr_sync_data_complete(true, '', $record, true);
     if (is_array($result) && in_array($result['status'] ?? '', array('completed', 'success'), true)) {
         return true;
     }
-    $record['attempt'] = (int) ($record['attempt'] ?? 0) + 1;
-    update_option($key, $record, false);
-    if ($record['attempt'] >= 5) {
-        update_option('nmkr_sync_status', 'finalization_error');
-        set_transient('nmkr_sync_status', 'finalization_error', NMKR_SYNC_TRANSIENT_TTL);
-        update_option('nmkr_sync_in_progress', true);
+    // A waiter may have passed validation before another finalizer completed
+    // and released the owner. Re-read before resurrecting retry evidence.
+    $current_sync_data = nmkr_get_sync_data();
+    $current_owner = nmkr_get_sync_owner();
+    if (is_array($current_sync_data)
+        && (int) ($current_sync_data['sync_stats_id'] ?? 0) === (int) $sync_stats_id
+        && (string) ($current_sync_data['run_id'] ?? '') === (string) ($record['run_id'] ?? '')
+        && nmkr_is_sync_terminal_status($current_sync_data['status'] ?? '')
+        && $current_owner === false) {
+        return nmkr_finish_ownerless_terminal_cleanup($current_sync_data, true, $record);
+    }
+    if (!empty($record['run_id']) && !nmkr_sync_owner_matches((string) $record['run_id'], 'finalizing', $sync_stats_id)) {
         return false;
     }
-    return nmkr_schedule_sync_finalization_resume($sync_stats_id, $record['attempt']);
+    return nmkr_preserve_and_schedule_sync_finalization_retry($record, true);
 }
 
-function nmkr_maintain_sync_finalization_resume($sync_data) {
+function nmkr_maintain_sync_finalization_resume($sync_data, $exact_owner_proven = false, $authoritative_resume = null) {
     if (!is_array($sync_data) || ($sync_data['status'] ?? '') !== 'finalizing') {
         return false;
     }
     $sync_stats_id = (int) ($sync_data['sync_stats_id'] ?? 0);
-    $resume = get_option(nmkr_sync_finalization_resume_key($sync_stats_id), false);
+    $resume = $authoritative_resume !== null
+        ? $authoritative_resume : get_option(nmkr_sync_finalization_resume_key($sync_stats_id), false);
+    $canonical_run_id = (string) ($sync_data['run_id'] ?? '');
+    if ($canonical_run_id !== '') {
+        if (!$exact_owner_proven) {
+            return false;
+        }
+        if (!nmkr_sync_owner_matches($canonical_run_id, 'finalizing', $sync_stats_id)
+            || !nmkr_is_valid_sync_finalization_record($resume, $canonical_run_id, $sync_stats_id)
+            || !nmkr_preserve_and_schedule_sync_finalization_retry($resume, false)) {
+            nmkr_set_sync_finalization_error();
+            return false;
+        }
+        return true;
+    }
     return is_array($resume) && (int) ($resume['sync_stats_id'] ?? 0) === $sync_stats_id
-        ? nmkr_schedule_sync_finalization_resume($sync_stats_id, (int) ($resume['attempt'] ?? 0))
-        : false;
+        ? nmkr_schedule_sync_finalization_resume($sync_stats_id, (int) ($resume['attempt'] ?? 0)) : false;
 }
 
 /**
@@ -408,13 +531,18 @@ function nmkr_sync_metrics_receipt_record_exists($sync_stats_id) {
 }
 
 /** Remove only terminalization-owned active evidence. */
-function nmkr_cleanup_sync_active_markers($success) {
+function nmkr_cleanup_sync_active_markers($success, $sync_data = array()) {
     update_option('nmkr_sync_in_progress', false);
     delete_transient('nmkr_sync_in_progress');
     delete_option('nmkr_sync_near_completion');
     nmkr_cleanup_sync_heartbeat();
-    foreach (array('nmkr_process_batch_hook', 'nmkr_execute_sync_background', 'nmkr_sync_cron_hook', 'nmkr_install_sync_cron_hook') as $hook) {
-        wp_clear_scheduled_hook($hook);
+    $run_id = is_array($sync_data) ? (string) ($sync_data['run_id'] ?? '') : '';
+    if ($run_id !== '') {
+        wp_clear_scheduled_hook('nmkr_execute_sync_background', array($run_id));
+    } else {
+        foreach (array('nmkr_process_batch_hook', 'nmkr_execute_sync_background', 'nmkr_sync_cron_hook', 'nmkr_install_sync_cron_hook') as $hook) {
+            wp_clear_scheduled_hook($hook);
+        }
     }
     if ($success) {
         update_option('nmkr_sync_user_stopped', false);
@@ -435,8 +563,12 @@ function nmkr_cleanup_sync_active_markers($success) {
     if ($success) {
         $clean = $clean && !get_option('nmkr_sync_user_stopped', false) && !get_transient('nmkr_sync_user_stopped');
     }
-    foreach (array('nmkr_process_batch_hook', 'nmkr_execute_sync_background', 'nmkr_sync_cron_hook', 'nmkr_install_sync_cron_hook') as $hook) {
-        $clean = $clean && !wp_next_scheduled($hook);
+    if ($run_id !== '') {
+        $clean = $clean && !wp_next_scheduled('nmkr_execute_sync_background', array($run_id));
+    } else {
+        foreach (array('nmkr_process_batch_hook', 'nmkr_execute_sync_background', 'nmkr_sync_cron_hook', 'nmkr_install_sync_cron_hook') as $hook) {
+            $clean = $clean && !wp_next_scheduled($hook);
+        }
     }
     return $clean;
 }
@@ -445,6 +577,54 @@ function nmkr_cleanup_sync_resume_state($sync_stats_id) {
     nmkr_clear_sync_finalization_resume($sync_stats_id);
     return get_option(nmkr_sync_finalization_resume_key($sync_stats_id), false) === false
         && !wp_next_scheduled('nmkr_resume_sync_finalization', array((int) $sync_stats_id));
+}
+
+/** Verify terminal history (and success receipt) before accepting owner absence. */
+function nmkr_verify_sync_terminal_result($sync_data, $success) {
+    global $wpdb;
+    if (!is_array($sync_data) || !nmkr_is_sync_terminal_status($sync_data['status'] ?? '')) {
+        return false;
+    }
+    $sync_stats_id = (int) ($sync_data['sync_stats_id'] ?? 0);
+    $history = $wpdb->get_row($wpdb->prepare("SELECT id, status, end_time FROM {$wpdb->prefix}nmkr_sync_stats WHERE id = %d", $sync_stats_id), ARRAY_A);
+    $allowed = $success ? array('completed', 'success') : array('failed', 'error');
+    if (!$history || (int) ($history['id'] ?? 0) !== $sync_stats_id
+        || !in_array(strtolower((string) ($history['status'] ?? '')), $allowed, true)
+        || (string) ($history['end_time'] ?? '') !== (string) ($sync_data['end_time'] ?? '')) {
+        return false;
+    }
+    if ($success) {
+        $receipt = nmkr_get_sync_metrics_receipt($sync_stats_id);
+        return is_array($receipt) && (string) ($receipt['end_time'] ?? '') === (string) $history['end_time'];
+    }
+    return true;
+}
+
+/** Restore exact retry evidence after terminal data was written but release failed. */
+function nmkr_restore_sync_finalization_retry($sync_stats_id, $resume_record) {
+    if (!nmkr_is_valid_sync_finalization_record($resume_record, (string) ($resume_record['run_id'] ?? ''), $sync_stats_id)) {
+        nmkr_set_sync_finalization_error();
+        return false;
+    }
+    return nmkr_preserve_and_schedule_sync_finalization_retry($resume_record, false);
+}
+
+/** Owner absence is complete only after exact terminal verification and resume cleanup. */
+function nmkr_finish_ownerless_terminal_cleanup($sync_data, $success, $resume_record) {
+    $sync_stats_id = (int) ($sync_data['sync_stats_id'] ?? 0);
+    if (nmkr_get_sync_owner() !== false || !nmkr_verify_sync_terminal_result($sync_data, $success)) {
+        return false;
+    }
+    if (nmkr_cleanup_sync_resume_state($sync_stats_id) === true) {
+        return true;
+    }
+    $restored = nmkr_restore_sync_finalization_retry($sync_stats_id, $resume_record);
+    update_option('nmkr_sync_in_progress', true);
+    if ($restored === true) {
+        update_option('nmkr_sync_status', 'finalizing');
+        set_transient('nmkr_sync_status', 'finalizing', NMKR_SYNC_TRANSIENT_TTL);
+    }
+    return false;
 }
 
 if (!function_exists('nmkr_sync_finalization_checkpoint')) {
@@ -465,6 +645,17 @@ if (!function_exists('nmkr_sync_finalization_checkpoint')) {
 function nmkr_sync_data_complete($success = true, $error_message = '', $final = array(), $is_resume = false, $prepared = false) {
     $initial_sync_data = nmkr_get_sync_data();
     $sync_stats_id = isset($initial_sync_data['sync_stats_id']) ? (int) $initial_sync_data['sync_stats_id'] : 0;
+    $run_id = is_array($initial_sync_data) ? (string) ($initial_sync_data['run_id'] ?? '') : '';
+    if ($run_id !== '') {
+        $initial_terminal = nmkr_is_sync_terminal_status($initial_sync_data['status'] ?? '');
+        if (!$initial_terminal && !nmkr_sync_owner_matches($run_id, 'finalizing', $sync_stats_id)) {
+            return false;
+        }
+        if ($initial_terminal && nmkr_get_sync_owner() !== false
+            && !nmkr_sync_owner_matches($run_id, 'finalizing', $sync_stats_id)) {
+            return false;
+        }
+    }
     if ($success && $sync_stats_id > 0 && !$is_resume) {
         if (!$prepared) {
             $final = nmkr_prepare_sync_finalization($sync_stats_id, $final, $initial_sync_data);
@@ -492,6 +683,12 @@ function nmkr_sync_data_complete($success = true, $error_message = '', $final = 
         if (!is_array($sync_data) || (int) ($sync_data['sync_stats_id'] ?? 0) !== $sync_stats_id) {
             return false;
         }
+        nmkr_sync_finalization_checkpoint('after_finalization_lock', $sync_stats_id);
+
+        if (!nmkr_is_sync_terminal_status($sync_data['status'] ?? '') && $run_id !== ''
+            && !nmkr_sync_owner_matches($run_id, 'finalizing', $sync_stats_id)) {
+            return false;
+        }
 
         if (nmkr_is_sync_terminal_status($sync_data['status'] ?? '')) {
             // Terminal retries finish idempotent cleanup rather than returning
@@ -503,7 +700,25 @@ function nmkr_sync_data_complete($success = true, $error_message = '', $final = 
                 nmkr_clear_sync_finalization_resume($sync_stats_id);
                 return false;
             }
-            return nmkr_cleanup_sync_resume_state($sync_stats_id) ? $sync_data : false;
+            if ((string) ($sync_data['run_id'] ?? '') !== $run_id || !nmkr_verify_sync_terminal_result($sync_data, $success)) {
+                return false;
+            }
+            $owner = nmkr_get_sync_owner();
+            if ($owner === false) {
+                return nmkr_finish_ownerless_terminal_cleanup($sync_data, $success, $final) ? $sync_data : false;
+            }
+            if (!nmkr_sync_owner_matches($run_id, 'finalizing', $sync_stats_id)) {
+                return false;
+            }
+            if (!nmkr_cleanup_sync_resume_state($sync_stats_id)) {
+                return false;
+            }
+            $released = nmkr_release_sync_owner($run_id, $sync_stats_id, 'finalizing');
+            if ($released !== true) {
+                nmkr_restore_sync_finalization_retry($sync_stats_id, $final);
+                return false;
+            }
+            return $sync_data;
         }
 
         $end_time = !empty($final['end_time']) ? $final['end_time'] : nmkr_get_timestamp();
@@ -612,7 +827,7 @@ function nmkr_sync_data_complete($success = true, $error_message = '', $final = 
         // Phase 1 removes active runtime evidence while preserving the exact
         // durable resume record and event until terminal sync data is durable.
         $resume_record = get_option(nmkr_sync_finalization_resume_key($sync_stats_id), false);
-        if (!nmkr_cleanup_sync_active_markers($success)) {
+        if (!nmkr_cleanup_sync_active_markers($success, $sync_data)) {
             return false;
         }
         nmkr_sync_finalization_checkpoint('before_terminal_record', $sync_stats_id);
@@ -622,6 +837,9 @@ function nmkr_sync_data_complete($success = true, $error_message = '', $final = 
             'sync_stats_id' => $sync_stats_id,
             'end_time' => $end_time,
         );
+        if ($run_id !== '') {
+            $terminal['run_id'] = $run_id;
+        }
         if (!$success && !empty($error_message)) {
             $terminal['error_code'] = 'sync_failed';
         }
@@ -642,6 +860,13 @@ function nmkr_sync_data_complete($success = true, $error_message = '', $final = 
             }
             nmkr_schedule_sync_finalization_resume($sync_stats_id, (int) ($resume_record['attempt'] ?? 0));
             return false;
+        }
+        if ($run_id !== '') {
+            $released = nmkr_release_sync_owner($run_id, $sync_stats_id, 'finalizing');
+            if ($released !== true) {
+                nmkr_restore_sync_finalization_retry($sync_stats_id, $resume_record);
+                return false;
+            }
         }
         return $terminal;
     } catch (Throwable $error) {

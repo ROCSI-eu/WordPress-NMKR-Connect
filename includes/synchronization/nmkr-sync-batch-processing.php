@@ -316,6 +316,10 @@ function nmkr_get_sync_batch_delay() {
  * This function is called by the scheduled WordPress cron job
  */
 function nmkr_process_next_batch() {
+    // Compatibility hook only. There is currently no supported batch-owner
+    // admission lifecycle, so every legacy or stale callback is inert.
+    return;
+
     // Get the current sync data
     $sync_data = nmkr_get_sync_data();
     

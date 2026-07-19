@@ -431,6 +431,339 @@ function nmkr_clear_sync_data() {
 }
 
 /**
+ * Return the site-scoped synchronization owner.
+ *
+ * The owner deliberately has no expiry. An interrupted worker therefore fails
+ * closed until an ownership-aware recovery flow is implemented.
+ */
+function nmkr_get_sync_owner() {
+    $owner = get_option('nmkr_sync_owner', false);
+    return is_array($owner) ? $owner : false;
+}
+
+/** Bypass a request-local stale option/notoptions entry inside the DB lock. */
+function nmkr_refresh_sync_owner_cache() {
+    if (function_exists('wp_cache_delete')) {
+        wp_cache_delete('nmkr_sync_owner', 'options');
+        wp_cache_delete('notoptions', 'options');
+    }
+}
+
+/** Read one site option directly from authoritative storage. */
+function nmkr_get_uncached_option_value($option_name, $default = false) {
+    global $wpdb;
+    $serialized = $wpdb->get_var($wpdb->prepare(
+        "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s",
+        (string) $option_name
+    ));
+    return $serialized === null ? $default : maybe_unserialize($serialized);
+}
+
+function nmkr_is_valid_sync_run_id($run_id) {
+    return is_string($run_id) && (bool) preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i', $run_id);
+}
+
+function nmkr_sync_owner_lock_name($options_identity = null, $blog_id = null, $database_identity = null) {
+    global $wpdb;
+    $database = $database_identity !== null ? (string) $database_identity : (defined('DB_NAME') ? (string) DB_NAME : '');
+    $options = $options_identity !== null ? (string) $options_identity : (string) $wpdb->options;
+    $site_id = $blog_id !== null ? (int) $blog_id : (int) get_current_blog_id();
+    $identity = $database . '|' . $options . '|' . $site_id;
+    return 'nmkr_owner_' . substr(hash('sha256', $identity), 0, 40);
+}
+
+/** Execute an owner mutation while holding the per-site MySQL advisory lock. */
+function nmkr_with_sync_owner_lock($callback) {
+    global $wpdb;
+    $lock_name = nmkr_sync_owner_lock_name();
+    $acquired = (int) $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, %d)', $lock_name, 5));
+    if ($acquired !== 1) {
+        return new WP_Error('sync_owner_lock_unavailable', __('Synchronization ownership is temporarily unavailable.', 'nmkr-connect'));
+    }
+    try {
+        // All admission inspection and mutation happens on this DB connection
+        // inside this lock; option caching is invalidated by the WP option API.
+        return call_user_func($callback);
+    } finally {
+        $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lock_name));
+    }
+}
+
+/** Execute legacy recovery mutations only inside an atomically ownerless window. */
+function nmkr_with_ownerless_legacy_recovery($callback) {
+    return nmkr_with_sync_owner_lock(function () use ($callback) {
+        nmkr_refresh_sync_owner_cache();
+        if (get_option('nmkr_sync_owner', false) !== false) {
+            return array('owner_preserved' => true);
+        }
+        return call_user_func($callback);
+    });
+}
+
+/** Re-read and maintain one exact finalizing owner while serialization is held. */
+function nmkr_maintain_exact_finalizing_owner($expected_run_id, $expected_sync_stats_id) {
+    return nmkr_with_sync_owner_lock(function () use ($expected_run_id, $expected_sync_stats_id) {
+        $owner = nmkr_get_uncached_option_value('nmkr_sync_owner', false);
+        $sync_data = nmkr_get_uncached_option_value('nmkr_sync_data', array());
+        $run_id = is_array($sync_data) ? (string) ($sync_data['run_id'] ?? '') : '';
+        $sync_stats_id = is_array($sync_data) ? (int) ($sync_data['sync_stats_id'] ?? 0) : 0;
+
+        if ($owner === false) {
+            $terminal = $run_id === (string) $expected_run_id
+                && $sync_stats_id === (int) $expected_sync_stats_id
+                && function_exists('nmkr_is_sync_terminal_status')
+                && nmkr_is_sync_terminal_status($sync_data['status'] ?? '');
+            $verified = $terminal && function_exists('nmkr_verify_sync_terminal_result')
+                && nmkr_verify_sync_terminal_result($sync_data, true);
+            return array('owner_preserved' => true, 'concurrent_terminalization' => $verified, 'terminal_observed' => $terminal);
+        }
+        if (!is_array($owner) || ($owner['mode'] ?? '') !== 'direct' || ($owner['state'] ?? '') !== 'finalizing'
+            || (string) ($owner['run_id'] ?? '') !== (string) $expected_run_id
+            || (int) ($owner['sync_stats_id'] ?? 0) !== (int) $expected_sync_stats_id
+            || $run_id !== (string) $expected_run_id || $sync_stats_id !== (int) $expected_sync_stats_id
+            || ($sync_data['status'] ?? '') !== 'finalizing') {
+            return array('owner_preserved' => true, 'stale_observer' => true);
+        }
+        $resume = nmkr_get_uncached_option_value(nmkr_sync_finalization_resume_key($sync_stats_id), false);
+        $scheduled = nmkr_maintain_sync_finalization_resume($sync_data, true, $resume);
+        return array('owner_preserved' => true, 'finalization_scheduled' => $scheduled);
+    });
+}
+
+/** Atomically admit a single direct run. */
+function nmkr_admit_sync_owner($run_id) {
+    if (!nmkr_is_valid_sync_run_id($run_id)) {
+        return new WP_Error('invalid_run_id', __('Invalid synchronization run identifier.', 'nmkr-connect'));
+    }
+    return nmkr_with_sync_owner_lock(function () use ($run_id) {
+        nmkr_refresh_sync_owner_cache();
+        if (function_exists('nmkr_sync_start_blocked_by_finalization')
+            && nmkr_sync_start_blocked_by_finalization(nmkr_get_sync_data())) {
+            return new WP_Error('sync_finalization_pending', __('Synchronization finalization is still pending.', 'nmkr-connect'));
+        }
+        if (nmkr_get_sync_owner() !== false) {
+            return new WP_Error('sync_already_owned', __('A synchronization is already queued or running.', 'nmkr-connect'));
+        }
+        $now = gmdate('c');
+        $owner = array('run_id' => $run_id, 'mode' => 'direct', 'state' => 'queued', 'sync_stats_id' => 0, 'created_at' => $now, 'updated_at' => $now);
+        if (!add_option('nmkr_sync_owner', $owner, '', 'no')) {
+            return new WP_Error('sync_already_owned', __('A synchronization is already queued or running.', 'nmkr-connect'));
+        }
+        return $owner;
+    });
+}
+
+/** Atomically compare and transition the exact owner. */
+function nmkr_transition_sync_owner($run_id, $from_state, $to_state, $sync_stats_id = null) {
+    return nmkr_with_sync_owner_lock(function () use ($run_id, $from_state, $to_state, $sync_stats_id) {
+        nmkr_refresh_sync_owner_cache();
+        $owner = nmkr_get_sync_owner();
+        if (!$owner || !hash_equals((string) ($owner['run_id'] ?? ''), (string) $run_id)
+            || ($owner['mode'] ?? '') !== 'direct' || ($owner['state'] ?? '') !== $from_state) {
+            return false;
+        }
+        if ($sync_stats_id !== null) {
+            $existing_id = (int) ($owner['sync_stats_id'] ?? 0);
+            if ($existing_id && $existing_id !== (int) $sync_stats_id) {
+                return false;
+            }
+            $owner['sync_stats_id'] = (int) $sync_stats_id;
+        }
+        $owner['state'] = $to_state;
+        $owner['updated_at'] = gmdate('c');
+        update_option('nmkr_sync_owner', $owner, false);
+        return nmkr_get_sync_owner() === $owner ? $owner : false;
+    });
+}
+
+function nmkr_sync_owner_matches($run_id, $state = null, $sync_stats_id = null) {
+    $owner = nmkr_get_sync_owner();
+    return is_array($owner) && nmkr_is_valid_sync_run_id($run_id)
+        && hash_equals((string) ($owner['run_id'] ?? ''), (string) $run_id)
+        && ($owner['mode'] ?? '') === 'direct'
+        && ($state === null || ($owner['state'] ?? '') === $state)
+        && ($sync_stats_id === null || (int) ($owner['sync_stats_id'] ?? 0) === (int) $sync_stats_id);
+}
+
+/** Release only the exact owner; old callbacks can never remove a successor. */
+function nmkr_release_sync_owner($run_id, $sync_stats_id = null, $state = null) {
+    return nmkr_with_sync_owner_lock(function () use ($run_id, $sync_stats_id, $state) {
+        nmkr_refresh_sync_owner_cache();
+        if (!nmkr_sync_owner_matches($run_id, $state, $sync_stats_id)) {
+            return false;
+        }
+        delete_option('nmkr_sync_owner');
+        return nmkr_get_sync_owner() === false;
+    });
+}
+
+/** Owner transitions are successful only when the updated record is returned. */
+function nmkr_sync_owner_transition_succeeded($result) {
+    return is_array($result) && !empty($result['run_id']) && !empty($result['mode']) && !empty($result['state']);
+}
+
+/**
+ * Clear provisional direct-run state and release only the exact owner.
+ * A lock/release failure intentionally leaves the owner blocking admission,
+ * while dashboard active markers are still made explicitly false.
+ */
+function nmkr_cleanup_failed_direct_sync($run_id, $sync_stats_id, $error_message) {
+    $sync_stats_id = (int) $sync_stats_id;
+    if (!nmkr_sync_owner_matches($run_id, 'running', $sync_stats_id)) {
+        return false;
+    }
+    update_option('nmkr_sync_error', (string) $error_message);
+    update_option('nmkr_sync_status', 'failed');
+    update_option('nmkr_sync_in_progress', false);
+    delete_transient('nmkr_sync_in_progress');
+    foreach (array('nmkr_sync_progress', 'nmkr_sync_current_item', 'nmkr_sync_current_count', 'nmkr_sync_total_items') as $key) {
+        delete_transient($key);
+    }
+    $released = nmkr_release_sync_owner($run_id, $sync_stats_id, 'running');
+    return $released === true;
+}
+
+function nmkr_cleanup_failed_queued_sync($run_id) {
+    return nmkr_cancel_exact_queued_sync_owner($run_id);
+}
+
+/**
+ * Cancel one admitted, but not yet claimed, direct run.
+ *
+ * The owner advisory lock is the atomic boundary: a worker may change queued
+ * to running only before this callback enters the lock or after it returns.
+ * This function deliberately never releases a running or finalizing owner.
+ */
+function nmkr_cancel_exact_queued_sync_owner($run_id, $status = '') {
+    if (!nmkr_is_valid_sync_run_id($run_id)) {
+        return new WP_Error('invalid_run_id', __('Invalid synchronization run identifier.', 'nmkr-connect'));
+    }
+    return nmkr_with_sync_owner_lock(function () use ($run_id, $status) {
+        return nmkr_cancel_exact_queued_sync_owner_locked($run_id, $status);
+    });
+}
+
+/** Internal locked implementation; callers must already hold the owner lock. */
+function nmkr_cancel_exact_queued_sync_owner_locked($run_id, $status = '') {
+    $owner = nmkr_get_uncached_option_value('nmkr_sync_owner', false);
+    if (!is_array($owner) || !hash_equals((string) ($owner['run_id'] ?? ''), (string) $run_id)
+        || ($owner['mode'] ?? '') !== 'direct' || ($owner['state'] ?? '') !== 'queued'
+        || (int) ($owner['sync_stats_id'] ?? -1) !== 0) {
+        return false;
+    }
+
+    wp_clear_scheduled_hook('nmkr_execute_sync_background', array($run_id));
+    if (wp_next_scheduled('nmkr_execute_sync_background', array($run_id)) !== false) {
+        return new WP_Error('sync_queued_event_cleanup_failed', __('Synchronization event cleanup could not be verified.', 'nmkr-connect'));
+    }
+
+    update_option('nmkr_sync_in_progress', false);
+    delete_transient('nmkr_sync_in_progress');
+    foreach (array('nmkr_sync_progress', 'nmkr_sync_current_item', 'nmkr_sync_current_count', 'nmkr_sync_total_items', 'nmkr_sync_user_stopped') as $key) {
+        delete_transient($key);
+    }
+    $markers_clean = !get_option('nmkr_sync_in_progress', false) && !get_transient('nmkr_sync_in_progress');
+    foreach (array('nmkr_sync_progress', 'nmkr_sync_current_item', 'nmkr_sync_current_count', 'nmkr_sync_total_items', 'nmkr_sync_user_stopped') as $key) {
+        $markers_clean = $markers_clean && get_transient($key) === false;
+    }
+    if (!$markers_clean) {
+        return new WP_Error('sync_queued_cleanup_failed', __('Synchronization scheduling cleanup could not be verified.', 'nmkr-connect'));
+    }
+    if ($status !== '') {
+        update_option('nmkr_sync_status', (string) $status);
+    }
+
+    delete_option('nmkr_sync_owner');
+    if (nmkr_get_uncached_option_value('nmkr_sync_owner', false) !== false) {
+        return new WP_Error('sync_queued_owner_cleanup_failed', __('Synchronization ownership cleanup could not be verified.', 'nmkr-connect'));
+    }
+    return true;
+}
+
+/**
+ * Serialize a privileged cleanup decision with Start admission.
+ * The ownerless callback is invoked while the advisory lock is still held.
+ */
+function nmkr_coordinate_sync_cleanup($intent, $ownerless_callback) {
+    return nmkr_with_sync_owner_lock(function () use ($intent, $ownerless_callback) {
+        $owner = nmkr_get_uncached_option_value('nmkr_sync_owner', false);
+        if ($owner === false) {
+            // An owner may be released only after a direct run hands off to
+            // durable finalization. Never let an administrative ownerless
+            // cleanup erase that handoff or its retry evidence.
+            $sync_data = nmkr_get_uncached_option_value('nmkr_sync_data', array());
+            $finalization_pending = is_array($sync_data) && (
+                ($sync_data['status'] ?? '') === 'finalizing'
+                || (function_exists('nmkr_sync_start_blocked_by_finalization') && nmkr_sync_start_blocked_by_finalization($sync_data))
+            );
+            if ($finalization_pending) {
+                return new WP_Error('sync_finalization_pending', __('Synchronization finalization is still pending.', 'nmkr-connect'));
+            }
+            return call_user_func($ownerless_callback);
+        }
+        if (!is_array($owner) || !nmkr_is_valid_sync_run_id((string) ($owner['run_id'] ?? ''))
+            || ($owner['mode'] ?? '') !== 'direct') {
+            return new WP_Error('sync_owner_recovery_required', __('Synchronization ownership requires recovery before cleanup.', 'nmkr-connect'));
+        }
+        if (($owner['state'] ?? '') === 'queued' && (int) ($owner['sync_stats_id'] ?? -1) === 0 && $intent === 'cancel') {
+            return nmkr_cancel_exact_queued_sync_owner_locked((string) $owner['run_id'], 'cancelled');
+        }
+        if (($owner['state'] ?? '') === 'running') {
+            return new WP_Error('direct_stop_requires_cooperative_worker', __('The direct synchronization worker is already running and cannot be stopped safely yet.', 'nmkr-connect'));
+        }
+        if (($owner['state'] ?? '') === 'finalizing') {
+            return new WP_Error('sync_finalization_pending', __('Synchronization finalization is still pending.', 'nmkr-connect'));
+        }
+        return new WP_Error('sync_owner_recovery_required', __('Synchronization ownership requires recovery before cleanup.', 'nmkr-connect'));
+    });
+}
+
+/** Resolve a failed history binding without touching a successor owner. */
+function nmkr_handle_sync_owner_binding_failure($result, $run_id, $sync_stats_id) {
+    global $wpdb;
+    $sync_stats_id = (int) $sync_stats_id;
+    $history_table = $wpdb->prefix . 'nmkr_sync_stats';
+    $exact_original_owner = is_wp_error($result) && nmkr_sync_owner_matches($run_id, 'running', 0);
+    $before = $wpdb->get_row($wpdb->prepare("SELECT id, status, end_time FROM $history_table WHERE id = %d", $sync_stats_id), ARRAY_A);
+    if (!$before || nmkr_is_sync_terminal_status($before['status'] ?? '')) {
+        if ($exact_original_owner) {
+            nmkr_cleanup_failed_direct_sync_markers('history_cleanup_error');
+            return new WP_Error('sync_history_terminalization_failed', 'Failed to terminalize synchronization history.');
+        }
+        return new WP_Error('sync_owner_mismatch', 'Synchronization owner changed; orphan history was not modified.');
+    }
+    $updated = nmkr_update_sync_stats($sync_stats_id, array(
+        'status' => 'failed',
+        'error_message' => 'Synchronization ownership changed during initialization.',
+        'end_time' => nmkr_get_timestamp(),
+    ));
+    $history = $wpdb->get_row($wpdb->prepare("SELECT id, status, end_time FROM $history_table WHERE id = %d", $sync_stats_id), ARRAY_A);
+    if (!$updated || !$history || (int) ($history['id'] ?? 0) !== $sync_stats_id
+        || !in_array(strtolower((string) ($history['status'] ?? '')), array('failed', 'error'), true)
+        || !nmkr_is_valid_sync_end_time($history['end_time'] ?? '')) {
+        if ($exact_original_owner) {
+            nmkr_cleanup_failed_direct_sync_markers('history_cleanup_error');
+            return new WP_Error('sync_history_terminalization_failed', 'Failed to terminalize synchronization history.');
+        }
+        return new WP_Error('sync_owner_mismatch', 'Synchronization owner changed; orphan history cleanup failed.');
+    }
+    if ($exact_original_owner) {
+        nmkr_cleanup_failed_direct_sync($run_id, 0, 'Failed to bind synchronization history ownership.');
+        return new WP_Error('sync_owner_binding_failed', 'Failed to bind synchronization history ownership.');
+    }
+    return new WP_Error('sync_owner_mismatch', 'Synchronization owner changed during history binding.');
+}
+
+function nmkr_cleanup_failed_direct_sync_markers($status) {
+    update_option('nmkr_sync_in_progress', false);
+    delete_transient('nmkr_sync_in_progress');
+    foreach (array('nmkr_sync_progress', 'nmkr_sync_current_item', 'nmkr_sync_current_count', 'nmkr_sync_total_items') as $key) {
+        delete_transient($key);
+    }
+    update_option('nmkr_sync_status', (string) $status);
+}
+
+/**
  * Update sync heartbeat to indicate backend activity
  * This prevents false-positive stall detection warnings during sync
  */
@@ -486,6 +819,29 @@ function nmkr_detect_and_recover_stale_sync() {
         return array('stale'=>false,'recovered'=>false,'grace'=>$grace,'heartbeat_age'=>$heartbeat_age,'last_update'=>$last_update);
     }
 
+    $raw_owner = get_option('nmkr_sync_owner', false);
+    if ($raw_owner !== false) {
+        $owner = is_array($raw_owner) ? $raw_owner : false;
+        $exact_finalizing = $owner && ($owner['mode'] ?? '') === 'direct'
+            && ($owner['state'] ?? '') === 'finalizing'
+            && is_array($sync_data) && ($sync_data['status'] ?? '') === 'finalizing'
+            && (string) ($owner['run_id'] ?? '') === (string) ($sync_data['run_id'] ?? '')
+            && (int) ($owner['sync_stats_id'] ?? 0) === (int) ($sync_data['sync_stats_id'] ?? 0);
+        if ($exact_finalizing) {
+            $maintenance = nmkr_maintain_exact_finalizing_owner((string) $owner['run_id'], (int) $owner['sync_stats_id']);
+            if (is_wp_error($maintenance)) {
+                return array('stale'=>true,'recovered'=>false,'owner_preserved'=>true,'maintenance_lock_error'=>true,'grace'=>$grace,'heartbeat_age'=>$heartbeat_age,'last_update'=>$last_update);
+            }
+            return array_merge(array('stale'=>true,'recovered'=>false,'owner_preserved'=>true,'grace'=>$grace,'heartbeat_age'=>$heartbeat_age,'last_update'=>$last_update), $maintenance);
+        }
+        if (!$owner || ($owner['mode'] ?? '') !== 'direct'
+            || !in_array(($owner['state'] ?? ''), array('queued', 'running'), true)) {
+            update_option('nmkr_sync_status', 'owner_recovery_required');
+        }
+        return array('stale'=>true,'recovered'=>false,'owner_preserved'=>true,'grace'=>$grace,'heartbeat_age'=>$heartbeat_age,'last_update'=>$last_update);
+    }
+
+    $legacy_result = nmkr_with_ownerless_legacy_recovery(function () use ($is_finalizing, $sync_data, $grace, $heartbeat_age, $last_update) {
     // Admin/dashboard stale detection may maintain the dedicated resume event,
     // but it never performs finalization in this request.
     if ($is_finalizing) {
@@ -533,6 +889,14 @@ function nmkr_detect_and_recover_stale_sync() {
     }
 
     return array('stale'=>true,'recovered'=>true,'grace'=>$grace,'heartbeat_age'=>$heartbeat_age,'last_update'=>$last_update);
+    });
+    if (is_wp_error($legacy_result)) {
+        return array('stale'=>true,'recovered'=>false,'owner_preserved'=>true,'recovery_lock_error'=>true,'grace'=>$grace,'heartbeat_age'=>$heartbeat_age,'last_update'=>$last_update);
+    }
+    if (is_array($legacy_result) && !empty($legacy_result['owner_preserved'])) {
+        return array('stale'=>true,'recovered'=>false,'owner_preserved'=>true,'grace'=>$grace,'heartbeat_age'=>$heartbeat_age,'last_update'=>$last_update);
+    }
+    return $legacy_result;
 }
 
 // --- Safe PID helper -----------------------------------------------

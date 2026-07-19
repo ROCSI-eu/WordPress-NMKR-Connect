@@ -658,12 +658,16 @@ function nmkr_sync_token_details($token_uid, $project_uid, &$sync_log, &$complet
  * 
  * @return array|string|WP_Error Result of the sync operation
  */
-function nmkr_sync_data() {
+function nmkr_sync_data($run_id = '') {
     $sync_stats_id = null;
     $sync_log = array();
     $completed_steps = 0;
     $total_steps = 0;
     $business_data_complete = false;
+
+    if (!nmkr_is_valid_sync_run_id($run_id) || !nmkr_sync_owner_matches($run_id, 'running', 0)) {
+        return new WP_Error('sync_owner_mismatch', 'Synchronization owner no longer matches this worker.');
+    }
     
     // Initialize tracking variables for final summary
     $sync_start_time = microtime(true);
@@ -683,8 +687,7 @@ function nmkr_sync_data() {
                 nmkr_log_data_sync('Sync failed: ' . $error_details['message'], 'error');
                 
                 // Update sync status for frontend
-                update_option('nmkr_sync_error', $error_details['formatted_display']);
-                update_option('nmkr_sync_in_progress', false);
+                nmkr_cleanup_failed_direct_sync($run_id, 0, $error_details['formatted_display']);
                 
                 if (defined('DOING_AJAX') && DOING_AJAX) {
                     return array(
@@ -702,8 +705,7 @@ function nmkr_sync_data() {
             $sync_log[] = 'ERROR: ' . $error_msg;
             nmkr_log_data_sync('Critical error during API configuration check: ' . $e->getMessage(), 'error');
             
-            update_option('nmkr_sync_error', $error_msg);
-            update_option('nmkr_sync_in_progress', false);
+            nmkr_cleanup_failed_direct_sync($run_id, 0, $error_msg);
             
             if (defined('DOING_AJAX') && DOING_AJAX) {
                 return array(
@@ -718,9 +720,6 @@ function nmkr_sync_data() {
         
         // ** ENHANCED ERROR HANDLING: Sync Data Initialization **
         try {
-            // Clear any previous sync data
-            nmkr_clear_sync_data();
-            
             // Generate correlation ID for this sync
             $correlation_id = nmkr_generate_correlation_id();
             
@@ -737,13 +736,18 @@ function nmkr_sync_data() {
             if (!$sync_stats_id) {
                 throw new Exception('Failed to create sync statistics record');
             }
+            $bound_owner = nmkr_transition_sync_owner($run_id, 'running', 'running', $sync_stats_id);
+            if (!nmkr_sync_owner_transition_succeeded($bound_owner)) {
+                return nmkr_handle_sync_owner_binding_failure($bound_owner, $run_id, $sync_stats_id);
+            }
         } catch (Exception $e) {
             $error_msg = 'Failed to initialize synchronization: ' . $e->getMessage();
             $sync_log[] = 'ERROR: ' . $error_msg;
             nmkr_log_data_sync('Critical error during sync initialization: ' . $e->getMessage(), 'error');
             
-            update_option('nmkr_sync_error', $error_msg);
-            update_option('nmkr_sync_in_progress', false);
+            if (nmkr_sync_owner_matches($run_id, 'running', $sync_stats_id ?: 0)) {
+                nmkr_cleanup_failed_direct_sync($run_id, $sync_stats_id ?: 0, $error_msg);
+            }
             
             if (defined('DOING_AJAX') && DOING_AJAX) {
                 return array(
@@ -775,6 +779,7 @@ function nmkr_sync_data() {
         
         // Store sync data with correlation ID
         $sync_data = array(
+            'run_id' => $run_id,
             'correlation_id' => $correlation_id,
             'start_time' => nmkr_get_timestamp(),
             'status' => 'initializing',
@@ -784,7 +789,9 @@ function nmkr_sync_data() {
             'all_tokens' => array(),
             'tracking' => null
         );
-        nmkr_save_sync_data($sync_data);
+        if (!nmkr_sync_owner_matches($run_id, 'running', $sync_stats_id) || !nmkr_save_sync_data($sync_data)) {
+            throw new Exception('Failed to persist run-owned synchronization state');
+        }
         
         // Start performance tracking
         $tracking = nmkr_start_performance_tracking('sync_data');
@@ -1025,6 +1032,7 @@ function nmkr_sync_data() {
         
         $business_data_complete = true;
         $final = array(
+            'run_id' => $run_id,
             'metrics' => nmkr_build_final_sync_metrics($live, nmkr_get_sync_data(), array(
                 'total_projects' => count($project_uids),
                 'total_tokens' => count($token_project_map),
@@ -1035,8 +1043,17 @@ function nmkr_sync_data() {
             'items_skipped' => $total_skipped_tokens,
             'token_details_synced' => $token_details_synced,
         );
+        // Persist exact terminalization input before ownership handoff. A
+        // resume callback may safely claim an exact still-running owner.
         $prepared = nmkr_prepare_sync_finalization($sync_stats_id, $final, nmkr_get_sync_data());
-        $terminal = $prepared ? nmkr_sync_data_complete(true, '', $prepared, false, true) : false;
+        if (!is_array($prepared)) {
+            throw new Exception('Failed to persist synchronization finalization handoff');
+        }
+        $finalizing_owner = nmkr_transition_sync_owner($run_id, 'running', 'finalizing', $sync_stats_id);
+        if (!nmkr_sync_owner_transition_succeeded($finalizing_owner)) {
+            throw new Exception('Synchronization owner changed before finalization');
+        }
+        $terminal = nmkr_sync_data_complete(true, '', $prepared, false, true);
         if (!is_array($terminal) || !in_array($terminal['status'] ?? '', array('completed', 'success'), true)) {
             throw new Exception('Canonical synchronization finalization failed');
         }
@@ -1071,18 +1088,26 @@ function nmkr_sync_data() {
             'trace' => $e->getTraceAsString()
         ));
 
+        $resume_data = nmkr_get_sync_data();
+        if (is_array($resume_data) && (string) ($resume_data['run_id'] ?? '') === (string) $run_id
+            && (int) ($resume_data['sync_stats_id'] ?? 0) === (int) $sync_stats_id
+            && nmkr_is_sync_terminal_status($resume_data['status'] ?? '') && nmkr_get_sync_owner() === false
+            && nmkr_finish_ownerless_terminal_cleanup($resume_data, true, get_option(nmkr_sync_finalization_resume_key($sync_stats_id), false))) {
+            return defined('DOING_AJAX') && DOING_AJAX
+                ? array('success' => true, 'message' => 'Sync process completed successfully.', 'log' => $sync_log, 'progress' => 100)
+                : 'Sync process completed successfully.';
+        }
+
+        if (!nmkr_sync_owner_matches($run_id, null, $sync_stats_id ?: 0)) {
+            return new WP_Error('sync_owner_mismatch', 'Synchronization owner changed; stale worker stopped.');
+        }
+
         // Durable success evidence makes this a resumable finalization, not a
         // business-data failure. Preserve active/finalizing state so a retry
         // can finish history verification and cleanup without relabeling it.
-        if ($sync_stats_id && ($business_data_complete || (function_exists('nmkr_sync_has_committed_success')
+        if ($sync_stats_id && nmkr_sync_finalization_handoff_pending($run_id, $sync_stats_id)
+            && ($business_data_complete || (function_exists('nmkr_sync_has_committed_success')
             && nmkr_sync_has_committed_success($sync_stats_id)))) {
-            $resume_data = nmkr_get_sync_data();
-            if (is_array($resume_data) && ($resume_data['status'] ?? '') === 'completed'
-                && !empty($resume_data['completed']) && (int) ($resume_data['sync_stats_id'] ?? 0) === (int) $sync_stats_id) {
-                return defined('DOING_AJAX') && DOING_AJAX
-                    ? array('success' => true, 'message' => 'Sync process completed successfully.', 'log' => $sync_log, 'progress' => 100)
-                    : 'Sync process completed successfully.';
-            }
             if (is_array($resume_data) && (int) ($resume_data['sync_stats_id'] ?? 0) === (int) $sync_stats_id) {
                 $resume_data['status'] = 'finalizing';
                 $resume_data['completed'] = false;
@@ -1091,6 +1116,16 @@ function nmkr_sync_data() {
             update_option('nmkr_sync_in_progress', true);
             set_transient('nmkr_sync_in_progress', true, NMKR_SYNC_TRANSIENT_TTL);
             return new WP_Error('sync_finalization_pending', 'Synchronization data was saved; terminal cleanup remains pending.');
+        }
+        $handoff_record = $sync_stats_id > 0 ? get_option(nmkr_sync_finalization_resume_key($sync_stats_id), false) : false;
+        if ($business_data_complete && nmkr_is_valid_sync_finalization_record($handoff_record, $run_id, $sync_stats_id)) {
+            if (is_array($resume_data) && (int) ($resume_data['sync_stats_id'] ?? 0) === (int) $sync_stats_id) {
+                $resume_data['status'] = 'finalizing';
+                $resume_data['completed'] = false;
+                nmkr_save_sync_data($resume_data);
+            }
+            nmkr_set_sync_finalization_error();
+            return new WP_Error('sync_finalization_unavailable', 'Synchronization data was saved, but no executable finalization retry is scheduled.');
         }
         
         // Update sync stats with critical failure
@@ -1127,7 +1162,13 @@ function nmkr_sync_data() {
         
         // Clear sync data to prevent stuck state
         try {
-            nmkr_clear_sync_data();
+            if (nmkr_sync_owner_matches($run_id, null, $sync_stats_id ?: 0)) {
+                nmkr_clear_sync_data();
+                $released = nmkr_release_sync_owner($run_id, $sync_stats_id ?: 0, 'running');
+                if ($released !== true) {
+                    update_option('nmkr_sync_status', 'failed_cleanup_pending');
+                }
+            }
         } catch (Exception $clear_error) {
             nmkr_log_data_sync('Failed to clear sync data during error cleanup: ' . $clear_error->getMessage(), 'error');
         }
@@ -1180,54 +1221,9 @@ function nmkr_convert_to_bytes($memory_limit) {
  * @return array Result of the sync operation
  */
 function nmkr_start_sync() {
-    // Clear any previous sync state
-    nmkr_clear_sync_jobs('manual_start', true);
-    
-    // Set sync flags
-    update_option('nmkr_sync_in_progress', true);
-    set_transient('nmkr_sync_in_progress', true, NMKR_SYNC_TRANSIENT_TTL);
-    update_option('nmkr_sync_stop_requested', false);
-    
-    update_option('nmkr_sync_user_stopped', false);
-    set_transient('nmkr_sync_user_stopped', false, NMKR_SYNC_TRANSIENT_TTL);
-    
-    // Initialize the sync process in background
-    // Schedule sync to run in background instead of direct synchronous call
-    try {
-        $scheduled = wp_schedule_single_event(time() + 1, 'nmkr_execute_sync_background');
-        
-        if ($scheduled === false) {
-            throw new Exception('Failed to schedule background sync job');
-        }
-        
-        // Log successful scheduling
-        nmkr_log_data_sync('📅 Background sync job scheduled successfully from nmkr_start_sync()', 'info', array(
-            'scheduled_time' => time() + 1,
-            'current_time' => time(),
-            'next_scheduled' => wp_next_scheduled('nmkr_execute_sync_background')
-        ));
-        
-        return array(
-            'success' => true,
-            'message' => 'Sync process started successfully in background',
-            'background_job' => true,
-            'scheduled_at' => time() + 1
-        );
-        
-    } catch (Exception $e) {
-        nmkr_log_data_sync('Failed to schedule background sync job from nmkr_start_sync(): ' . $e->getMessage(), 'error');
-        
-        // Reset flags if scheduling failed
-        update_option('nmkr_sync_in_progress', false);
-        delete_transient('nmkr_sync_in_progress');
-        update_option('nmkr_sync_error', 'Failed to start background sync: ' . $e->getMessage());
-        
-        return array(
-            'success' => false,
-            'message' => 'Failed to start background sync: ' . $e->getMessage(),
-            'error_code' => 'background_scheduling_failed'
-        );
-    }
+    // Retained only for compatibility. Direct synchronization must begin at
+    // the authorized AJAX admission boundary so it has an exact run owner.
+    return new WP_Error('legacy_sync_start_unavailable', __('Legacy synchronization start is unavailable. Use the authorized synchronization start action.', 'nmkr-connect'));
 }
 
 /**
