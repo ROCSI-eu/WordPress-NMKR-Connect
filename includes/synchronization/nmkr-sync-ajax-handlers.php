@@ -40,6 +40,8 @@ function nmkr_start_sync_handler() {
         wp_send_json_error( array( 'message' => __( 'Forbidden', 'nmkr-connect' ) ), 403 );
     }
 
+    $admitted_run_id = '';
+    $scheduled = false;
     try {
         $run_id = wp_generate_uuid4();
         $owner = nmkr_admit_sync_owner($run_id);
@@ -52,6 +54,7 @@ function nmkr_start_sync_handler() {
             ), $conflict ? 409 : 503);
             return;
         }
+        $admitted_run_id = $run_id;
 
         // Remove only obsolete pre-ownership, no-argument events. New events
         // always carry a run ID and are never matched by these empty args.
@@ -88,7 +91,7 @@ function nmkr_start_sync_handler() {
         $scheduled = wp_schedule_single_event(time(), 'nmkr_execute_sync_background', $event_args);
         if (!$scheduled && !wp_next_scheduled('nmkr_execute_sync_background', $event_args)) {
             // Roll back only while this exact queued owner still exists.
-            $released = nmkr_cleanup_failed_queued_sync($run_id);
+            $released = nmkr_cancel_exact_queued_sync_owner($run_id, 'failed');
             if ($released === true) {
                 $error_code = 'sync_schedule_failed';
                 $status_code = 500;
@@ -110,22 +113,26 @@ function nmkr_start_sync_handler() {
         wp_send_json_success();
         return;
         
-    } catch (Exception $e) {
-        // Handle any unexpected errors in AJAX handler itself
-        $error_msg = 'Critical error in sync AJAX handler: ' . $e->getMessage();
-        nmkr_log_data_sync($error_msg, 'error', array(
-            'exception' => $e->getMessage(),
-            'file' => $e->getFile(),
-            'line' => $e->getLine()
-        ));
-        
-        nmkr_log_ui_status('UI: Critical AJAX handler error - displaying generic error message', 'error');
-        
+    } catch (Throwable $e) {
+        $rollback = $admitted_run_id !== '' ? nmkr_cancel_exact_queued_sync_owner($admitted_run_id, 'failed') : false;
+        $error_code = 'ajax_handler_failure';
+        $status_code = 500;
+        if ($rollback === true) {
+            $error_code = 'sync_start_rollback_completed';
+        } elseif (is_wp_error($rollback)) {
+            $error_code = $rollback->get_error_code() === 'sync_owner_lock_unavailable'
+                ? 'sync_start_rollback_lock_unavailable'
+                : 'sync_start_rollback_retained';
+        } elseif ($admitted_run_id !== '') {
+            $error_code = 'sync_start_rollback_owner_changed';
+            $status_code = 409;
+        }
+        nmkr_log_data_sync('Synchronization start initialization failed.', 'error', array('error_code' => $error_code));
+        nmkr_log_ui_status('UI: Synchronization start initialization failed', 'error');
         wp_send_json_error(array(
-            'message' => 'A critical error occurred while starting synchronization',
-            'error_code' => 'ajax_handler_failure',
-            'technical_details' => $e->getMessage()
-        ));
+            'message' => __('Synchronization could not be initialized safely.', 'nmkr-connect'),
+            'error_code' => $error_code,
+        ), $status_code);
     }
 }
 
@@ -142,7 +149,15 @@ function nmkr_cleanup_sync_jobs_handler() {
     $context = isset($_POST['context']) ? sanitize_text_field($_POST['context']) : 'manual_cleanup';
     $clear_data = isset($_POST['clear_data']) ? (bool) $_POST['clear_data'] : true;
     
-    $result = nmkr_clear_sync_jobs($context, $clear_data);
+    $result = nmkr_coordinate_sync_cleanup('generic', function () use ($context, $clear_data) {
+        return nmkr_clear_sync_jobs_ownerless($context, $clear_data);
+    });
+    if (is_wp_error($result)) {
+        wp_send_json_error(array(
+            'message' => $result->get_error_message(),
+            'error_code' => $result->get_error_code(),
+        ), in_array($result->get_error_code(), array('direct_stop_requires_cooperative_worker', 'sync_finalization_pending'), true) ? 409 : 503);
+    }
     
     if ($result['success']) {
         wp_send_json_success(array(
@@ -619,6 +634,30 @@ function nmkr_stop_sync_handler() {
     
     // Force parameter for handling stuck syncs
     $force = isset($_POST['force']) && $_POST['force'] ? true : false;
+
+    // Direct runs are stateful. Classify and, for ownerless legacy state,
+    // execute the whole destructive cleanup while Start admission is blocked.
+    $owned_cleanup = nmkr_coordinate_sync_cleanup('cancel', function () use ($force) {
+        return nmkr_clear_sync_jobs_ownerless('manual_stop', true, $force);
+    });
+    if (is_wp_error($owned_cleanup)) {
+        wp_send_json_error(array(
+            'message' => $owned_cleanup->get_error_message(),
+            'error_code' => $owned_cleanup->get_error_code(),
+        ), in_array($owned_cleanup->get_error_code(), array('direct_stop_requires_cooperative_worker', 'sync_finalization_pending'), true) ? 409 : 503);
+    }
+    if ($owned_cleanup === true) {
+        wp_send_json_success(array('message' => __('Queued synchronization cancelled.', 'nmkr-connect')));
+    }
+    if (is_array($owned_cleanup)) {
+        wp_send_json_success(array(
+            'message' => __('Synchronization process stopped successfully', 'nmkr-connect'),
+            'cleared_jobs' => $owned_cleanup['cleared_jobs'],
+            'cleared_data' => $owned_cleanup['cleared_data'],
+            'force_applied' => $force,
+        ));
+    }
+    wp_send_json_error(array('message' => __('Synchronization ownership changed before cleanup.', 'nmkr-connect'), 'error_code' => 'sync_cleanup_owner_changed'), 409);
     
     // Get the current sync data to see if we have an active sync stats record
     $sync_data = nmkr_get_sync_data();
@@ -1025,10 +1064,9 @@ function nmkr_force_stop_sync_handler() {
             
             wp_send_json_error(array(
                 'message' => 'Failed to force stop synchronization: ' . $error_message,
-                'error_code' => 'force_stop_failed',
-                'technical_details' => $error_message,
+                'error_code' => isset($result['error_code']) ? $result['error_code'] : 'force_stop_failed',
                 'context' => $context
-            ));
+            ), in_array(isset($result['error_code']) ? $result['error_code'] : '', array('direct_stop_requires_cooperative_worker', 'sync_finalization_pending'), true) ? 409 : 500);
         }
         
     } catch (Exception $e) {

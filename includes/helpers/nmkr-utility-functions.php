@@ -624,25 +624,86 @@ function nmkr_cleanup_failed_direct_sync($run_id, $sync_stats_id, $error_message
 }
 
 function nmkr_cleanup_failed_queued_sync($run_id) {
-    return nmkr_with_sync_owner_lock(function () use ($run_id) {
-        nmkr_refresh_sync_owner_cache();
-        if (!nmkr_sync_owner_matches($run_id, 'queued', 0)) {
-            return false;
+    return nmkr_cancel_exact_queued_sync_owner($run_id);
+}
+
+/**
+ * Cancel one admitted, but not yet claimed, direct run.
+ *
+ * The owner advisory lock is the atomic boundary: a worker may change queued
+ * to running only before this callback enters the lock or after it returns.
+ * This function deliberately never releases a running or finalizing owner.
+ */
+function nmkr_cancel_exact_queued_sync_owner($run_id, $status = '') {
+    if (!nmkr_is_valid_sync_run_id($run_id)) {
+        return new WP_Error('invalid_run_id', __('Invalid synchronization run identifier.', 'nmkr-connect'));
+    }
+    return nmkr_with_sync_owner_lock(function () use ($run_id, $status) {
+        return nmkr_cancel_exact_queued_sync_owner_locked($run_id, $status);
+    });
+}
+
+/** Internal locked implementation; callers must already hold the owner lock. */
+function nmkr_cancel_exact_queued_sync_owner_locked($run_id, $status = '') {
+    $owner = nmkr_get_uncached_option_value('nmkr_sync_owner', false);
+    if (!is_array($owner) || !hash_equals((string) ($owner['run_id'] ?? ''), (string) $run_id)
+        || ($owner['mode'] ?? '') !== 'direct' || ($owner['state'] ?? '') !== 'queued'
+        || (int) ($owner['sync_stats_id'] ?? -1) !== 0) {
+        return false;
+    }
+
+    wp_clear_scheduled_hook('nmkr_execute_sync_background', array($run_id));
+    if (wp_next_scheduled('nmkr_execute_sync_background', array($run_id)) !== false) {
+        return new WP_Error('sync_queued_event_cleanup_failed', __('Synchronization event cleanup could not be verified.', 'nmkr-connect'));
+    }
+
+    update_option('nmkr_sync_in_progress', false);
+    delete_transient('nmkr_sync_in_progress');
+    foreach (array('nmkr_sync_progress', 'nmkr_sync_current_item', 'nmkr_sync_current_count', 'nmkr_sync_total_items', 'nmkr_sync_user_stopped') as $key) {
+        delete_transient($key);
+    }
+    $markers_clean = !get_option('nmkr_sync_in_progress', false) && !get_transient('nmkr_sync_in_progress');
+    foreach (array('nmkr_sync_progress', 'nmkr_sync_current_item', 'nmkr_sync_current_count', 'nmkr_sync_total_items', 'nmkr_sync_user_stopped') as $key) {
+        $markers_clean = $markers_clean && get_transient($key) === false;
+    }
+    if (!$markers_clean) {
+        return new WP_Error('sync_queued_cleanup_failed', __('Synchronization scheduling cleanup could not be verified.', 'nmkr-connect'));
+    }
+    if ($status !== '') {
+        update_option('nmkr_sync_status', (string) $status);
+    }
+
+    delete_option('nmkr_sync_owner');
+    if (nmkr_get_uncached_option_value('nmkr_sync_owner', false) !== false) {
+        return new WP_Error('sync_queued_owner_cleanup_failed', __('Synchronization ownership cleanup could not be verified.', 'nmkr-connect'));
+    }
+    return true;
+}
+
+/**
+ * Serialize a privileged cleanup decision with Start admission.
+ * The ownerless callback is invoked while the advisory lock is still held.
+ */
+function nmkr_coordinate_sync_cleanup($intent, $ownerless_callback) {
+    return nmkr_with_sync_owner_lock(function () use ($intent, $ownerless_callback) {
+        $owner = nmkr_get_uncached_option_value('nmkr_sync_owner', false);
+        if ($owner === false) {
+            return call_user_func($ownerless_callback);
         }
-        update_option('nmkr_sync_in_progress', false);
-        delete_transient('nmkr_sync_in_progress');
-        foreach (array('nmkr_sync_progress', 'nmkr_sync_current_item', 'nmkr_sync_current_count', 'nmkr_sync_total_items', 'nmkr_sync_user_stopped') as $key) {
-            delete_transient($key);
+        if (!is_array($owner) || !nmkr_is_valid_sync_run_id((string) ($owner['run_id'] ?? ''))
+            || ($owner['mode'] ?? '') !== 'direct') {
+            return new WP_Error('sync_owner_recovery_required', __('Synchronization ownership requires recovery before cleanup.', 'nmkr-connect'));
         }
-        $markers_clean = !get_option('nmkr_sync_in_progress', false) && !get_transient('nmkr_sync_in_progress');
-        foreach (array('nmkr_sync_progress', 'nmkr_sync_current_item', 'nmkr_sync_current_count', 'nmkr_sync_total_items', 'nmkr_sync_user_stopped') as $key) {
-            $markers_clean = $markers_clean && get_transient($key) === false;
+        if (($owner['state'] ?? '') === 'queued' && (int) ($owner['sync_stats_id'] ?? -1) === 0 && $intent === 'cancel') {
+            return nmkr_cancel_exact_queued_sync_owner_locked((string) $owner['run_id'], 'cancelled');
         }
-        if (!$markers_clean) {
-            return new WP_Error('sync_queued_cleanup_failed', __('Synchronization scheduling cleanup could not be verified.', 'nmkr-connect'));
+        if (($owner['state'] ?? '') === 'running') {
+            return new WP_Error('direct_stop_requires_cooperative_worker', __('The direct synchronization worker is already running and cannot be stopped safely yet.', 'nmkr-connect'));
         }
-        delete_option('nmkr_sync_owner');
-        return nmkr_get_sync_owner() === false;
+        if (($owner['state'] ?? '') === 'finalizing') {
+            return new WP_Error('sync_finalization_pending', __('Synchronization finalization is still pending.', 'nmkr-connect'));
+        }
+        return new WP_Error('sync_owner_recovery_required', __('Synchronization ownership requires recovery before cleanup.', 'nmkr-connect'));
     });
 }
 
