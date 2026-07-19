@@ -1221,54 +1221,9 @@ function nmkr_convert_to_bytes($memory_limit) {
  * @return array Result of the sync operation
  */
 function nmkr_start_sync() {
-    // Clear any previous sync state
-    nmkr_clear_sync_jobs('manual_start', true);
-    
-    // Set sync flags
-    update_option('nmkr_sync_in_progress', true);
-    set_transient('nmkr_sync_in_progress', true, NMKR_SYNC_TRANSIENT_TTL);
-    update_option('nmkr_sync_stop_requested', false);
-    
-    update_option('nmkr_sync_user_stopped', false);
-    set_transient('nmkr_sync_user_stopped', false, NMKR_SYNC_TRANSIENT_TTL);
-    
-    // Initialize the sync process in background
-    // Schedule sync to run in background instead of direct synchronous call
-    try {
-        $scheduled = wp_schedule_single_event(time() + 1, 'nmkr_execute_sync_background');
-        
-        if ($scheduled === false) {
-            throw new Exception('Failed to schedule background sync job');
-        }
-        
-        // Log successful scheduling
-        nmkr_log_data_sync('📅 Background sync job scheduled successfully from nmkr_start_sync()', 'info', array(
-            'scheduled_time' => time() + 1,
-            'current_time' => time(),
-            'next_scheduled' => wp_next_scheduled('nmkr_execute_sync_background')
-        ));
-        
-        return array(
-            'success' => true,
-            'message' => 'Sync process started successfully in background',
-            'background_job' => true,
-            'scheduled_at' => time() + 1
-        );
-        
-    } catch (Exception $e) {
-        nmkr_log_data_sync('Failed to schedule background sync job from nmkr_start_sync(): ' . $e->getMessage(), 'error');
-        
-        // Reset flags if scheduling failed
-        update_option('nmkr_sync_in_progress', false);
-        delete_transient('nmkr_sync_in_progress');
-        update_option('nmkr_sync_error', 'Failed to start background sync: ' . $e->getMessage());
-        
-        return array(
-            'success' => false,
-            'message' => 'Failed to start background sync: ' . $e->getMessage(),
-            'error_code' => 'background_scheduling_failed'
-        );
-    }
+    // Retained only for compatibility. Direct synchronization must begin at
+    // the authorized AJAX admission boundary so it has an exact run owner.
+    return new WP_Error('legacy_sync_start_unavailable', __('Legacy synchronization start is unavailable. Use the authorized synchronization start action.', 'nmkr-connect'));
 }
 
 /**

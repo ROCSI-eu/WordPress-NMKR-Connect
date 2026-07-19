@@ -627,261 +627,29 @@ function nmkr_sync_progress_handler() {
  */
 function nmkr_stop_sync_handler() {
     check_ajax_referer('nmkr_sync_nonce', 'nonce');
-    
-    if ( ! current_user_can( 'nmkr_manage_sync' ) ) {
-        wp_send_json_error( array( 'message' => __( 'Forbidden', 'nmkr-connect' ) ), 403 );
+    if (!current_user_can('nmkr_manage_sync')) {
+        wp_send_json_error(array('message' => __('Forbidden', 'nmkr-connect')), 403);
     }
-    
-    // Force parameter for handling stuck syncs
-    $force = isset($_POST['force']) && $_POST['force'] ? true : false;
-
-    // Direct runs are stateful. Classify and, for ownerless legacy state,
-    // execute the whole destructive cleanup while Start admission is blocked.
-    $owned_cleanup = nmkr_coordinate_sync_cleanup('cancel', function () use ($force) {
-        return nmkr_clear_sync_jobs_ownerless('manual_stop', true, $force);
+    $force = !empty($_POST['force']);
+    $result = nmkr_coordinate_sync_cleanup('cancel', function () use ($force) {
+        return nmkr_stop_ownerless_sync($force);
     });
-    if (is_wp_error($owned_cleanup)) {
-        wp_send_json_error(array(
-            'message' => $owned_cleanup->get_error_message(),
-            'error_code' => $owned_cleanup->get_error_code(),
-        ), in_array($owned_cleanup->get_error_code(), array('direct_stop_requires_cooperative_worker', 'sync_finalization_pending'), true) ? 409 : 503);
+    if (is_wp_error($result)) {
+        $code = $result->get_error_code();
+        wp_send_json_error(array('message' => $result->get_error_message(), 'error_code' => $code), in_array($code, array('direct_stop_requires_cooperative_worker', 'sync_finalization_pending'), true) ? 409 : 503);
     }
-    if ($owned_cleanup === true) {
+    if ($result === true) {
         wp_send_json_success(array('message' => __('Queued synchronization cancelled.', 'nmkr-connect')));
     }
-    if (is_array($owned_cleanup)) {
+    if (is_array($result) && !empty($result['success'])) {
         wp_send_json_success(array(
             'message' => __('Synchronization process stopped successfully', 'nmkr-connect'),
-            'cleared_jobs' => $owned_cleanup['cleared_jobs'],
-            'cleared_data' => $owned_cleanup['cleared_data'],
-            'force_applied' => $force,
+            'cleared_jobs' => $result['cleared_jobs'],
+            'cleared_data' => $result['cleared_data'],
+            'force_applied' => $result['force_applied'],
         ));
     }
-    wp_send_json_error(array('message' => __('Synchronization ownership changed before cleanup.', 'nmkr-connect'), 'error_code' => 'sync_cleanup_owner_changed'), 409);
-    
-    // Get the current sync data to see if we have an active sync stats record
-    $sync_data = nmkr_get_sync_data();
-    
-    // Get current sync stage and status
-    $current_item = get_transient('nmkr_sync_current_item');
-    $current_item = ($current_item !== false) ? $current_item : '';
-    $current_progress_raw = get_transient('nmkr_sync_progress');
-    $current_progress = ($current_progress_raw !== false) ? (int) $current_progress_raw : 0;
-    $active_sync = null;
-    
-    // Check database for active syncs if no sync data found
-    if (!$sync_data) {
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'nmkr_sync_stats';
-        $active_statuses = array('initializing', 'processing_projects', 'processing_tokens');
-        $status_placeholders = implode(', ', array_fill(0, count($active_statuses), '%s'));
-        $active_sync = $wpdb->get_row(
-            $wpdb->prepare(
-                "SELECT * FROM $table_name WHERE status IN ($status_placeholders) ORDER BY id DESC LIMIT 1",
-                $active_statuses
-            ),
-            ARRAY_A
-        );
-        
-        if ($active_sync) {
-            // Found active sync in database that needs to be handled
-            $force = true;
-            nmkr_log_data_sync(
-                'Manual stop found active sync in database without active sync_data',
-                'warning',
-                array(
-                    'active_sync_id' => $active_sync['id'],
-                    'status' => $active_sync['status']
-                )
-            );
-        }
-    }
-    
-    // Log that we're stopping the sync process
-    nmkr_log_data_sync(
-        'Manual stop requested by user',
-        'info',
-        array(
-            'sync_data' => $sync_data ? 'exists' : 'not found',
-            'current_item' => $current_item,
-            'current_progress' => $current_progress,
-            'force' => $force
-        )
-    );
-    
-    // Log UI status update for stop request
-    nmkr_log_ui_status('UI: User clicked Stop Synchronization button - stopping process', 'info');
-    
-    // Update sync status to indicate stopping is in progress (consistent 0→100 reset)
-    nmkr_update_sync_progress(0, 100, '⏹️ Cleaning Up Resources', true);
-    
-    // Log UI status update for the stage change
-    nmkr_log_ui_status('UI: Changed status message to "⏹️ Stopping Synchronization - Cleaning Up Resources"', 'info');
-    
-    // Always mark sync as not in progress to avoid stuck state
-    update_option('nmkr_sync_in_progress', false);
-    delete_transient('nmkr_sync_in_progress');
-    
-    update_option('nmkr_sync_user_stopped', true);
-    set_transient('nmkr_sync_user_stopped', true, NMKR_SYNC_TRANSIENT_TTL);
-    
-    // IMPORTANT: Manually unschedule all cron events first (before calling nmkr_clear_sync_jobs)
-    // This provides an additional layer of assurance that cron jobs will be stopped
-    wp_clear_scheduled_hook('nmkr_process_batch_hook');
-    wp_clear_scheduled_hook('nmkr_sync_cron_hook');
-    wp_clear_scheduled_hook('nmkr_install_sync_cron_hook');
-    
-    // Add a small delay to let any running processes complete their current operation
-    usleep(500000); // 500ms delay
-    
-    // Clean up all sync jobs and data with force parameter
-    $cleanup_result = nmkr_clear_sync_jobs('manual_stop', true, $force);
-    
-    // Double-check that we've removed all scheduled events after cleanup
-    if ($force) {
-        // Forcefully clear all cron events again
-        wp_clear_scheduled_hook('nmkr_process_batch_hook');
-        wp_clear_scheduled_hook('nmkr_sync_cron_hook');
-        wp_clear_scheduled_hook('nmkr_install_sync_cron_hook');
-    }
-    
-    // If we have no sync_data but a successful cleanup, log a warning
-    if (!$sync_data && $cleanup_result['success']) {
-        nmkr_log_data_sync(
-            'Sync stopped but no active sync stats found in sync_data',
-            'warning',
-            array(
-                'cleanup_result' => $cleanup_result
-            )
-        );
-    }
-    
-    // Get the last sync time to return to the frontend
-    $last_sync_metrics = nmkr_get_last_sync_metrics();
-    $last_sync_time = isset($last_sync_metrics['last_sync_time']) ? $last_sync_metrics['last_sync_time'] : null;
-    
-    // Mark the sync as manually stopped in history
-    if ($cleanup_result['success']) {
-        $sync_stats_id = null;
-        if ($sync_data && isset($sync_data['sync_stats_id'])) {
-            $sync_stats_id = intval($sync_data['sync_stats_id']);
-        } elseif ($active_sync && isset($active_sync['id'])) {
-            $sync_stats_id = intval($active_sync['id']);
-        }
-
-        if ($sync_stats_id) {
-            global $wpdb;
-            $table_name = $wpdb->prefix . 'nmkr_sync_stats';
-            $sync_stats = $wpdb->get_row(
-                $wpdb->prepare("SELECT * FROM $table_name WHERE id = %d", $sync_stats_id),
-                ARRAY_A
-            );
-            $current_status = isset($sync_stats['status']) ? $sync_stats['status'] : null;
-            $end_time = isset($sync_stats['end_time']) ? $sync_stats['end_time'] : null;
-            $terminal_statuses = array('completed', 'failed', 'cancelled', 'stopped');
-            $active_statuses = array('initializing', 'processing_projects', 'processing_tokens', 'in_progress', 'running');
-            $has_end_time = !empty($end_time);
-            $is_terminal = in_array($current_status, $terminal_statuses, true);
-            $is_active_or_incomplete = in_array($current_status, $active_statuses, true) || (!$has_end_time && !$is_terminal);
-
-            if ($is_active_or_incomplete) {
-                nmkr_update_sync_stats($sync_stats_id, [
-                    'status' => 'stopped',
-                    'end_time' => nmkr_get_timestamp(),
-                    'error_message' => 'Manual stop requested by user'
-                ]);
-            } else {
-                nmkr_log_data_sync(
-                    'Manual stop preserved immutable historical sync stats row',
-                    'info',
-                    array(
-                        'sync_stats_id' => $sync_stats_id,
-                        'status' => $current_status,
-                        'end_time' => $end_time
-                    )
-                );
-            }
-        }
-
-        // Log the stop in the cron job
-        nmkr_log_data_sync(
-            'Cron cleanup performed',
-            'info',
-            array(
-                'operation' => 'sync',
-                'progress' => array(
-                    'current' => 0,
-                    'total' => 100,
-                    'estimated_time_remaining' => 'N/A'
-                ),
-                'context' => 'manual_stop',
-                'force' => $force,
-                'cleared_jobs' => $cleanup_result['cleared_jobs'],
-                'cleared_data' => $cleanup_result['cleared_data'],
-                'sync_stats_id' => $sync_stats_id
-            )
-        );
-        
-        // Mark sync as manually stopped
-        update_option('nmkr_sync_in_progress', false);
-        // Reset progress to 0% using consistent denominator (100 for UI reset)
-        nmkr_update_sync_progress(0, 100, '⛔ Synchronization Stopped', true);
-        // Clear stale item label on manual stop for clean UI state
-        update_option('nmkr_sync_current_item', '');
-        
-        // Clear sync data to prevent stuck state
-        nmkr_clear_sync_data();
-        
-        // Clean up old metrics transients to ensure clean state for next sync
-        delete_transient('nmkr_active_sync_metrics');
-        delete_transient('nmkr_sync_performance_metrics');
-        
-        // Log UI status update for manual stop completion
-        nmkr_log_ui_status('UI: Changed status to "⛔ Synchronization Stopped", reset progress bar to 0%', 'info');
-        nmkr_log_ui_status('UI: Restoring "Start Synchronization" button, hiding "Stop Synchronization" button', 'info');
-        
-        // Ensure API connection status is fresh on next check
-        delete_transient('nmkr_api_connection_status');
-        
-        // IMPORTANT: Block any future sync stage updates by setting a block flag
-        // This prevents any lingering batch processes from changing the stage back
-        update_option('nmkr_sync_stop_requested', time());
-        
-        // Ensure live metrics and in-progress flags are cleared on manual stop
-        delete_transient('nmkr_current_sync_stats_live');
-        // these are already cleaned in several start paths, but clear here too to avoid carry-over
-        delete_transient('nmkr_active_sync_metrics');
-        delete_transient('nmkr_sync_performance_metrics');
-        // Make sure the “in progress” flags are down
-        update_option('nmkr_sync_in_progress', false);
-        delete_transient('nmkr_sync_in_progress');
-        
-        wp_send_json_success(array(
-            'message' => 'Synchronization process stopped successfully',
-            'cleared_jobs' => $cleanup_result['cleared_jobs'],
-            'cleared_data' => $cleanup_result['cleared_data'],
-            'last_sync_time' => $last_sync_time,
-            'force_applied' => $force
-        ));
-    } else {
-        // Log the failure
-        nmkr_log_data_sync(
-            'Failed to stop sync process',
-            'error',
-            array(
-                'error' => $cleanup_result['message'],
-                'cleanup_result' => $cleanup_result
-            )
-        );
-        
-        // Log UI status update for failure
-        nmkr_log_ui_status('UI: Failed to stop synchronization, showing error message to user', 'error');
-        
-        wp_send_json_error(array(
-            'message' => 'Failed to stop synchronization process: ' . $cleanup_result['message'],
-            'cleanup_result' => $cleanup_result
-        ));
-    }
+    wp_send_json_error(array('message' => __('Synchronization cleanup could not be verified.', 'nmkr-connect'), 'error_code' => 'sync_stop_cleanup_failed'), 503);
 }
 
 /**

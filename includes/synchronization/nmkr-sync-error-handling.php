@@ -217,6 +217,57 @@ function nmkr_clear_sync_jobs($context = 'manual_cleanup', $clear_data = true, $
     );
 }
 
+/** Complete legacy Stop path; caller must hold the proven-ownerless lock. */
+function nmkr_stop_ownerless_sync($force = false) {
+    global $wpdb;
+    $sync_data = nmkr_get_sync_data();
+    $sync_stats_id = is_array($sync_data) ? (int) ($sync_data['sync_stats_id'] ?? 0) : 0;
+    $table_name = $wpdb->prefix . 'nmkr_sync_stats';
+    $history = false;
+    if ($sync_stats_id > 0) {
+        $history = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table_name WHERE id = %d", $sync_stats_id), ARRAY_A);
+    } else {
+        $active_statuses = array('initializing', 'processing_projects', 'processing_tokens', 'in_progress', 'running');
+        $placeholders = implode(', ', array_fill(0, count($active_statuses), '%s'));
+        $history = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table_name WHERE status IN ($placeholders) ORDER BY id DESC LIMIT 1", $active_statuses), ARRAY_A);
+        $sync_stats_id = is_array($history) ? (int) ($history['id'] ?? 0) : 0;
+    }
+    if (is_array($history)) {
+        $status = (string) ($history['status'] ?? '');
+        $terminal = function_exists('nmkr_is_sync_terminal_status') && nmkr_is_sync_terminal_status($status);
+        if (!$terminal) {
+            $target = $force ? 'stopped' : 'cancelled';
+            if (!nmkr_update_sync_stats($sync_stats_id, array(
+                'status' => $target,
+                'end_time' => nmkr_get_timestamp(),
+                'error_message' => $force ? 'Synchronization stopped forcibly by administrator.' : 'Synchronization cancelled by administrator.',
+            ))) {
+                return new WP_Error('sync_stop_history_cleanup_failed', __('Synchronization history could not be stopped safely.', 'nmkr-connect'));
+            }
+            $verified = $wpdb->get_row($wpdb->prepare("SELECT status, end_time FROM $table_name WHERE id = %d", $sync_stats_id), ARRAY_A);
+            if (!is_array($verified) || ($verified['status'] ?? '') !== $target || empty($verified['end_time'])) {
+                return new WP_Error('sync_stop_history_cleanup_failed', __('Synchronization history cleanup could not be verified.', 'nmkr-connect'));
+            }
+        }
+    }
+    $cleanup = nmkr_clear_sync_jobs_ownerless('manual_stop', true, $force);
+    if (empty($cleanup['success'])) {
+        return new WP_Error('sync_stop_cleanup_failed', __('Synchronization cleanup failed.', 'nmkr-connect'));
+    }
+    update_option('nmkr_sync_user_stopped', true);
+    set_transient('nmkr_sync_user_stopped', true, NMKR_SYNC_TRANSIENT_TTL);
+    update_option('nmkr_sync_stop_requested', time());
+    update_option('nmkr_sync_in_progress', false);
+    delete_transient('nmkr_sync_in_progress');
+    nmkr_update_sync_progress(0, 100, '⛔ Synchronization Stopped', true);
+    update_option('nmkr_sync_current_item', '');
+    if (function_exists('nmkr_cleanup_sync_heartbeat')) { nmkr_cleanup_sync_heartbeat(); }
+    foreach (array('nmkr_current_sync_stats_live', 'nmkr_active_sync_metrics', 'nmkr_sync_performance_metrics', 'nmkr_api_connection_status') as $key) { delete_transient($key); }
+    $cleanup['sync_stats_id'] = $sync_stats_id;
+    $cleanup['force_applied'] = (bool) $force;
+    return $cleanup;
+}
+
 /**
  * Enhanced function to forcibly stop a running synchronization process
  * This is used when a regular stop fails or when a sync process appears to be stuck

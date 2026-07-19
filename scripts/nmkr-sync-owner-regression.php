@@ -72,6 +72,13 @@ $GLOBALS['options']['nmkr_sync_data']=array('status'=>'finalizing');check(is_wp_
 $ajax=file_get_contents(dirname(__DIR__).'/includes/synchronization/nmkr-sync-ajax-handlers.php');
 check(strpos($ajax,"function nmkr_execute_sync_background_job(\$run_id = '')")!==false&&strpos($ajax,"wp_schedule_single_event(time(), 'nmkr_execute_sync_background', \$event_args)")!==false,'direct events and callback carry run ID');
 check(strpos($ajax,"nmkr_clear_sync_jobs('sync_start', true)")===false,'direct startup has no destructive global cleanup');
+// The retired compatibility Start must not schedule an inert no-argument worker
+// or mutate lifecycle state when invoked by an obsolete integration.
+$core_source=file_get_contents(dirname(__DIR__).'/includes/synchronization/nmkr-sync-core.php');
+$legacy_start=strpos($core_source,'function nmkr_start_sync()');$legacy_brace=strpos($core_source,'{',$legacy_start);$depth=0;$legacy_end=$legacy_brace;
+for($i=$legacy_brace,$n=strlen($core_source);$i<$n;$i++){if($core_source[$i]==='{')$depth++;if($core_source[$i]==='}'&&--$depth===0){$legacy_end=$i+1;break;}}
+eval(substr($core_source,$legacy_start,$legacy_end-$legacy_start));
+$GLOBALS['options']=array('sentinel'=>'unchanged');$GLOBALS['transients']=array('sentinel'=>'unchanged');$legacy_result=nmkr_start_sync();check(is_wp_error($legacy_result)&&$legacy_result->get_error_code()==='legacy_sync_start_unavailable'&&$GLOBALS['options']===array('sentinel'=>'unchanged')&&$GLOBALS['transients']===array('sentinel'=>'unchanged'),'legacy Start fails closed without state mutation or no-argument event');
 check(strpos($ajax,"'batch_mode_unsupported'")!==false,'direct owner cannot inject legacy batch worker');check(strpos($ajax,'nmkr_with_ownerless_legacy_recovery(function')!==false,'explicit progress recovery uses atomic ownerless boundary');
 $progress=file_get_contents(dirname(__DIR__).'/includes/synchronization/nmkr-sync-progress-tracking.php');check(strpos($progress,"wp_clear_scheduled_hook('nmkr_execute_sync_background', array(\$run_id))")!==false,'finalizer clears only exact direct event');
 $batch_source=file_get_contents(dirname(__DIR__).'/includes/synchronization/nmkr-sync-batch-processing.php');
