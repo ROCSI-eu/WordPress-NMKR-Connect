@@ -223,10 +223,20 @@ jQuery(document).ready(function($) {
             if (status === 'abort') return;
             const msg = nmkrHttpErrorString(xhr);
             console.warn('Stop sync request failed:', msg);
-            // A transport failure is not terminal. Retain this exact trusted
-            // attachment and resume the normal authoritative polling loop.
+            const ownerConflict = xhr && xhr.status === 409;
+            const fatalStopFailure = xhr && (xhr.status === 401 || xhr.status === 403);
             stopPending = false;
+            if (ownerConflict || fatalStopFailure) {
+                activeRunId = null;
+                activeRunTrusted = false;
+            }
+            if (fatalStopFailure) {
+                handleError(msg);
+                return;
+            }
             updateButtonState();
+            // A transient transport failure retains the exact trusted run;
+            // ownership conflicts instead wait for the next authority poll.
             fetchProgress();
         })
         .always(() => {
