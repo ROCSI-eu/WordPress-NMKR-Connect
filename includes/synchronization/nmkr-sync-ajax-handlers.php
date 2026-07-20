@@ -589,7 +589,13 @@ function nmkr_sync_progress_handler() {
     $response_data['owner_mismatch'] = $active_direct_owner && is_array($sync_data) && !empty($sync_data['run_id'])
         && !hash_equals((string) $owner['run_id'], (string) $sync_data['run_id']);
     $response_data['stop_pending'] = $response_data['owner_state'] === 'stop_requested';
-    $response_data['terminal_outcome'] = is_array($sync_data) && nmkr_is_sync_terminal_status($sync_data['status'] ?? '') ? (string) $sync_data['status'] : '';
+    $same_active_run_terminal = $active_direct_owner && !$response_data['owner_mismatch'] && $terminal_sync_data
+        && hash_equals((string) $owner['run_id'], (string) $sync_data['run_id']);
+    $response_data['terminal_outcome'] = (!$active_direct_owner && $terminal_sync_data) || $same_active_run_terminal ? (string) $sync_data['status'] : '';
+    if ($active_direct_owner && (!$same_active_run_terminal || $response_data['owner_mismatch'])) {
+        $response_data['finished'] = false;
+        $response_data['aborted'] = false;
+    }
 
     // Always include live metrics in heartbeat payload using already-fetched transient only
     // (keep handler lightweight; no additional DB reads here)

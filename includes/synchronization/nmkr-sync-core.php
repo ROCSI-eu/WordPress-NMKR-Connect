@@ -1160,7 +1160,7 @@ function nmkr_sync_data($run_id = '') {
         if (is_array($resume_data) && (string) ($resume_data['run_id'] ?? '') === (string) $run_id
             && (int) ($resume_data['sync_stats_id'] ?? 0) === (int) $sync_stats_id
             && nmkr_is_sync_terminal_status($resume_data['status'] ?? '') && nmkr_get_sync_owner() === false
-            && nmkr_finish_ownerless_terminal_cleanup($resume_data, true, get_option(nmkr_sync_finalization_resume_key($sync_stats_id), false))) {
+            && nmkr_finish_ownerless_terminal_cleanup($resume_data, (string) ((get_option(nmkr_sync_finalization_resume_key($sync_stats_id), array())['outcome'] ?? 'failed')), get_option(nmkr_sync_finalization_resume_key($sync_stats_id), false))) {
             return defined('DOING_AJAX') && DOING_AJAX
                 ? array('success' => true, 'message' => 'Sync process completed successfully.', 'log' => $sync_log, 'progress' => 100)
                 : 'Sync process completed successfully.';
