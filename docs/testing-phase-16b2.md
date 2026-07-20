@@ -11,3 +11,16 @@ Run `./scripts/nmkr-sync-owner-regression.sh` and
 synthetic checks do not contact the NMKR API. A deployment must completely uninstall
 and reinstall the plugin database: `nmkr_sync_stats.run_id` is a fresh-install schema
 change and this phase intentionally supplies no in-place migration.
+
+## Progress and Stop authority
+
+Progress exposes the active direct owner as `activeRunId`. The browser enables Stop
+only after attaching that exact ID from a non-mismatched active-owner response. An
+owner mismatch or unexpected owner change clears authority; a later clean response is
+required to attach again. An active owner suppresses terminal fields so predecessor
+terminal data cannot stop a successor's polling. Queued cancellation is terminal only
+when its exact Stop response confirms `cancelled`.
+
+The PHP regressions cover synthetic owner and finalization state; Playwright covers
+mocked browser authority and polling. Cooperative API throttle/cooldown coverage is
+reserved for Commit C.

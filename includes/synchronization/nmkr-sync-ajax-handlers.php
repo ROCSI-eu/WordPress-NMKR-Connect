@@ -585,16 +585,30 @@ function nmkr_sync_progress_handler() {
         && in_array($response_data['owner_state'], array('queued', 'running', 'stop_requested', 'finalizing'), true);
     $terminal_sync_data = is_array($sync_data) && nmkr_is_sync_terminal_status($sync_data['status'] ?? '')
         && nmkr_is_valid_sync_run_id((string) ($sync_data['run_id'] ?? ''));
-    $response_data['run_id'] = $active_direct_owner ? (string) $owner['run_id'] : ($terminal_sync_data ? (string) $sync_data['run_id'] : '');
+    // Active ownership is the sole authority for browser Stop controls. Keep
+    // terminal history separate so a predecessor cannot be combined with a
+    // successor owner in one payload.
+    $response_data['activeRunId'] = $active_direct_owner ? (string) $owner['run_id'] : '';
+    $response_data['active_owner_state'] = $active_direct_owner ? $response_data['owner_state'] : '';
+    $response_data['run_id'] = $response_data['activeRunId']; // legacy alias
     $response_data['owner_mismatch'] = $active_direct_owner && is_array($sync_data) && !empty($sync_data['run_id'])
         && !hash_equals((string) $owner['run_id'], (string) $sync_data['run_id']);
-    $response_data['stop_pending'] = $response_data['owner_state'] === 'stop_requested';
-    $same_active_run_terminal = $active_direct_owner && !$response_data['owner_mismatch'] && $terminal_sync_data
-        && hash_equals((string) $owner['run_id'], (string) $sync_data['run_id']);
-    $response_data['terminal_outcome'] = (!$active_direct_owner && $terminal_sync_data) || $same_active_run_terminal ? (string) $sync_data['status'] : '';
-    if ($active_direct_owner && (!$same_active_run_terminal || $response_data['owner_mismatch'])) {
+    $response_data['stop_pending'] = $active_direct_owner && $response_data['owner_state'] === 'stop_requested';
+    $response_data['terminalRunId'] = '';
+    $response_data['terminal_outcome'] = '';
+    if ($active_direct_owner) {
         $response_data['finished'] = false;
         $response_data['aborted'] = false;
+    } elseif ($terminal_sync_data && !$resume_pending) {
+        $terminal_status = (string) $sync_data['status'];
+        $stopped_clean = $terminal_status === 'stopped' && !$sync_in_progress_option && !$sync_in_progress_flag
+            && !$durable_user_requested_abort && !$user_requested_abort;
+        if (($terminal_status === 'completed' && $canonically_finished) || $stopped_clean || $terminal_status === 'failed') {
+            $response_data['terminalRunId'] = (string) $sync_data['run_id'];
+            $response_data['terminal_outcome'] = $terminal_status;
+            $response_data['finished'] = $terminal_status === 'completed' ? $canonically_finished : false;
+            $response_data['aborted'] = $terminal_status === 'stopped';
+        }
     }
 
     // Always include live metrics in heartbeat payload using already-fetched transient only
