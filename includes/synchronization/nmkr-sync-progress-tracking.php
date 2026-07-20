@@ -586,20 +586,25 @@ function nmkr_cleanup_sync_resume_state($sync_stats_id) {
 }
 
 /** Verify terminal history (and success receipt) before accepting owner absence. */
-function nmkr_verify_sync_terminal_result($sync_data, $success) {
+function nmkr_verify_sync_terminal_result($sync_data, $outcome) {
     global $wpdb;
     if (!is_array($sync_data) || !nmkr_is_sync_terminal_status($sync_data['status'] ?? '')) {
         return false;
     }
     $sync_stats_id = (int) ($sync_data['sync_stats_id'] ?? 0);
     $history = $wpdb->get_row($wpdb->prepare("SELECT id, status, end_time FROM {$wpdb->prefix}nmkr_sync_stats WHERE id = %d", $sync_stats_id), ARRAY_A);
-    $allowed = $success ? array('completed', 'success') : array('failed', 'error', 'stopped');
+    // Keep the boolean compatibility shim for existing callers, but never let
+    // it make stopped and failed interchangeable.
+    if ($outcome === true) $outcome = 'completed';
+    if ($outcome === false) $outcome = 'failed';
+    if (!in_array($outcome, array('completed', 'failed', 'stopped'), true)) return false;
+    $allowed = $outcome === 'completed' ? array('completed', 'success') : ($outcome === 'failed' ? array('failed', 'error') : array('stopped'));
     if (!$history || (int) ($history['id'] ?? 0) !== $sync_stats_id
         || !in_array(strtolower((string) ($history['status'] ?? '')), $allowed, true)
         || (string) ($history['end_time'] ?? '') !== (string) ($sync_data['end_time'] ?? '')) {
         return false;
     }
-    if ($success) {
+    if ($outcome === 'completed') {
         $receipt = nmkr_get_sync_metrics_receipt($sync_stats_id);
         return is_array($receipt) && (string) ($receipt['end_time'] ?? '') === (string) $history['end_time'];
     }
@@ -616,9 +621,10 @@ function nmkr_restore_sync_finalization_retry($sync_stats_id, $resume_record) {
 }
 
 /** Owner absence is complete only after exact terminal verification and resume cleanup. */
-function nmkr_finish_ownerless_terminal_cleanup($sync_data, $success, $resume_record) {
+function nmkr_finish_ownerless_terminal_cleanup($sync_data, $outcome, $resume_record) {
     $sync_stats_id = (int) ($sync_data['sync_stats_id'] ?? 0);
-    if (nmkr_get_sync_owner() !== false || !nmkr_verify_sync_terminal_result($sync_data, $success)) {
+    $outcome = is_array($resume_record) ? ($resume_record['outcome'] ?? $outcome) : $outcome;
+    if (nmkr_get_sync_owner() !== false || !nmkr_verify_sync_terminal_result($sync_data, $outcome)) {
         return false;
     }
     if (nmkr_cleanup_sync_resume_state($sync_stats_id) === true) {

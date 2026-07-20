@@ -595,7 +595,8 @@ function nmkr_request_exact_sync_stop($run_id, $reason = 'user_requested') {
         $owner['stop_requested_at'] = $requested_at;
         $owner['stop_reason'] = sanitize_text_field($reason);
         $owner['updated_at'] = gmdate('c');
-        if (!update_option('nmkr_sync_owner', $owner, false)) return new WP_Error('sync_stop_update_failed', __('Synchronization stop could not be persisted.', 'nmkr-connect'));
+        // WordPress returns false for an unchanged option too; readback is authoritative.
+        update_option('nmkr_sync_owner', $owner, false);
         $verified = nmkr_get_uncached_option_value('nmkr_sync_owner', false);
         if (!is_array($verified) || !hash_equals((string) ($verified['run_id'] ?? ''), $run_id)
             || ($verified['mode'] ?? '') !== 'direct' || (int) ($verified['sync_stats_id'] ?? -1) !== (int) ($owner['sync_stats_id'] ?? -1)
@@ -620,11 +621,16 @@ function nmkr_sync_run_checkpoint($run_id, $sync_stats_id = null, $phase = '') {
         $owner['updated_at'] = $now;
         $owner['checkpoint_seq'] = (int) ($owner['checkpoint_seq'] ?? 0) + 1;
         if ($phase !== '') $owner['safe_phase'] = sanitize_key($phase);
-        update_option('nmkr_sync_owner', $owner, false);
+        $updated = update_option('nmkr_sync_owner', $owner, false);
         $verified = nmkr_get_uncached_option_value('nmkr_sync_owner', false);
-        return $verified === $owner ? 'continue' : 'owner_mismatch';
+        if ($verified !== $owner) return 'checkpoint_persistence_failed';
+        // An unchanged write is valid only when the authoritative record proves it.
+        if ($updated === false && ((int) ($verified['checkpoint_seq'] ?? -1) !== (int) $owner['checkpoint_seq']
+            || ($verified['heartbeat_at'] ?? '') !== $owner['heartbeat_at']
+            || ($verified['safe_phase'] ?? '') !== ($owner['safe_phase'] ?? ''))) return 'checkpoint_persistence_failed';
+        return 'continue';
     });
-    return is_wp_error($result) ? 'owner_mismatch' : $result;
+    return is_wp_error($result) ? 'checkpoint_lock_failed' : $result;
 }
 
 /** Bind an inserted direct-run history row without losing a racing Stop request. */

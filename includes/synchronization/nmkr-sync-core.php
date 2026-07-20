@@ -869,19 +869,11 @@ function nmkr_sync_data($run_id = '') {
         
         try {
             // First, we need to fetch projects to count total steps
-            $checkpoint = nmkr_sync_run_checkpoint($run_id, $sync_stats_id, 'before_projects_request');
-            if ($checkpoint !== 'continue') {
-                $finalizing = nmkr_transition_sync_owner($run_id, 'stop_requested', 'finalizing', $sync_stats_id);
-                if (nmkr_sync_owner_transition_succeeded($finalizing)) return nmkr_sync_data_complete(false, __('Synchronization stopped by user.', 'nmkr-connect'), array('outcome' => 'stopped'));
-                return new WP_Error('sync_owner_mismatch', 'Synchronization ownership no longer matches this worker.');
-            }
+            $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'before_projects_request');
+            if (is_wp_error($halt)) return nmkr_handle_sync_worker_halt($halt, $run_id, $sync_stats_id);
             $projects = nmkr_connect_fetch_projects();
-            $checkpoint = nmkr_sync_run_checkpoint($run_id, $sync_stats_id, 'after_projects_request');
-            if ($checkpoint !== 'continue') {
-                $finalizing = nmkr_transition_sync_owner($run_id, 'stop_requested', 'finalizing', $sync_stats_id);
-                if (nmkr_sync_owner_transition_succeeded($finalizing)) return nmkr_sync_data_complete(false, __('Synchronization stopped by user.', 'nmkr-connect'), array('outcome' => 'stopped'));
-                return new WP_Error('sync_owner_mismatch', 'Synchronization ownership no longer matches this worker.');
-            }
+            $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'after_projects_request');
+            if (is_wp_error($halt)) return nmkr_handle_sync_worker_halt($halt, $run_id, $sync_stats_id);
             
             if (is_wp_error($projects)) {
                 throw new Exception('Failed to fetch projects for step calculation: ' . $projects->get_error_message());
@@ -1071,6 +1063,9 @@ function nmkr_sync_data($run_id = '') {
         
         $sync_log[] = 'Step 5 complete: Finalization finished';
         
+        // The last safe boundary is before any success-only finalization state.
+        $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'before_completed_finalization');
+        if (is_wp_error($halt)) return nmkr_handle_sync_worker_halt($halt, $run_id, $sync_stats_id);
         // Mark sync near completion - all work is done but final flags not yet set
         update_option('nmkr_sync_near_completion', true);
         nmkr_log_data_sync('Marked sync as near completion - all work finished, finalizing flags', 'info');
