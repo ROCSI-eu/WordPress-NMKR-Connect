@@ -110,7 +110,7 @@ function nmkr_start_sync_handler() {
         }
         
         // Let the client know we queued the job successfully
-        wp_send_json_success();
+        wp_send_json_success(array('run_id' => $run_id, 'owner_state' => 'queued'));
         return;
         
     } catch (Throwable $e) {
@@ -578,6 +578,24 @@ function nmkr_sync_progress_handler() {
         'finished'     => $canonically_finished,
         'total_items'  => $total_items,
     );
+    $owner = nmkr_get_sync_owner();
+    $response_data['owner_state'] = is_array($owner) ? (string) ($owner['state'] ?? '') : 'released';
+    $active_direct_owner = is_array($owner) && ($owner['mode'] ?? '') === 'direct'
+        && nmkr_is_valid_sync_run_id((string) ($owner['run_id'] ?? ''))
+        && in_array($response_data['owner_state'], array('queued', 'running', 'stop_requested', 'finalizing'), true);
+    $terminal_sync_data = is_array($sync_data) && nmkr_is_sync_terminal_status($sync_data['status'] ?? '')
+        && nmkr_is_valid_sync_run_id((string) ($sync_data['run_id'] ?? ''));
+    $response_data['run_id'] = $active_direct_owner ? (string) $owner['run_id'] : ($terminal_sync_data ? (string) $sync_data['run_id'] : '');
+    $response_data['owner_mismatch'] = $active_direct_owner && is_array($sync_data) && !empty($sync_data['run_id'])
+        && !hash_equals((string) $owner['run_id'], (string) $sync_data['run_id']);
+    $response_data['stop_pending'] = $response_data['owner_state'] === 'stop_requested';
+    $same_active_run_terminal = $active_direct_owner && !$response_data['owner_mismatch'] && $terminal_sync_data
+        && hash_equals((string) $owner['run_id'], (string) $sync_data['run_id']);
+    $response_data['terminal_outcome'] = (!$active_direct_owner && $terminal_sync_data) || $same_active_run_terminal ? (string) $sync_data['status'] : '';
+    if ($active_direct_owner && (!$same_active_run_terminal || $response_data['owner_mismatch'])) {
+        $response_data['finished'] = false;
+        $response_data['aborted'] = false;
+    }
 
     // Always include live metrics in heartbeat payload using already-fetched transient only
     // (keep handler lightweight; no additional DB reads here)
@@ -630,26 +648,33 @@ function nmkr_stop_sync_handler() {
     if (!current_user_can('nmkr_manage_sync')) {
         wp_send_json_error(array('message' => __('Forbidden', 'nmkr-connect')), 403);
     }
+    $run_id = isset($_POST['run_id']) ? sanitize_text_field(wp_unslash($_POST['run_id'])) : '';
+    $owner = nmkr_get_sync_owner();
+    if (is_array($owner)) {
+        if (!nmkr_is_valid_sync_run_id($run_id)) {
+            wp_send_json_error(array('message' => __('An exact synchronization run identifier is required.', 'nmkr-connect'), 'error_code' => 'invalid_run_id'), 400);
+        }
+        $result = nmkr_request_exact_sync_stop($run_id, 'user_requested');
+        if (is_wp_error($result)) wp_send_json_error(array('message' => $result->get_error_message(), 'error_code' => $result->get_error_code()), 409);
+        if ($result === true) wp_send_json_success(array('run_id' => $run_id, 'owner_state' => 'released', 'completed' => true, 'terminal_outcome' => 'cancelled'));
+        if (is_array($result) && ($result['state'] ?? '') === 'stop_requested') wp_send_json_success(array('run_id' => $run_id, 'owner_state' => 'stop_requested', 'stop_pending' => true, 'completed' => false));
+        wp_send_json_error(array('message' => __('Synchronization ownership no longer matches this run.', 'nmkr-connect'), 'error_code' => 'sync_owner_mismatch'), 409);
+    }
+    if ($owner !== false) {
+        wp_send_json_error(array('message' => __('Synchronization ownership requires recovery.', 'nmkr-connect'), 'error_code' => 'sync_owner_recovery_required'), 409);
+    }
+    // Legacy ownerless Stop remains supported, but it is never selected for a direct run.
     $force = !empty($_POST['force']);
     $result = nmkr_coordinate_sync_cleanup('cancel', function () use ($force) {
         return nmkr_stop_ownerless_sync($force);
     });
     if (is_wp_error($result)) {
         $code = $result->get_error_code();
-        wp_send_json_error(array('message' => $result->get_error_message(), 'error_code' => $code), in_array($code, array('direct_stop_requires_cooperative_worker', 'sync_finalization_pending'), true) ? 409 : 503);
+        wp_send_json_error(array('message' => $result->get_error_message(), 'error_code' => $code), 409);
     }
-    if ($result === true) {
-        wp_send_json_success(array('message' => __('Queued synchronization cancelled.', 'nmkr-connect')));
-    }
-    if (is_array($result) && !empty($result['success'])) {
-        wp_send_json_success(array(
-            'message' => __('Synchronization process stopped successfully', 'nmkr-connect'),
-            'cleared_jobs' => $result['cleared_jobs'],
-            'cleared_data' => $result['cleared_data'],
-            'force_applied' => $result['force_applied'],
-        ));
-    }
+    if (is_array($result) && !empty($result['success'])) wp_send_json_success($result);
     wp_send_json_error(array('message' => __('Synchronization cleanup could not be verified.', 'nmkr-connect'), 'error_code' => 'sync_stop_cleanup_failed'), 503);
+
 }
 
 /**

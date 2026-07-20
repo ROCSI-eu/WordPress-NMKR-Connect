@@ -60,6 +60,8 @@ jQuery(document).ready(function($) {
     let hasError = false;
     let startXhr, pollXhr, stopXhr;
     let syncInProgress = false;
+    let activeRunId = null;
+    let stopPending = false;
     
     // Get settings from WordPress (unified object)
     const options = nmkrSyncProgress.options || {};
@@ -97,7 +99,7 @@ jQuery(document).ready(function($) {
     function updateButtonState() {
         if (syncInProgress) {
             syncButton.hide();
-            stopSyncButton.show();
+            stopSyncButton.show().prop('disabled', !activeRunId);
         } else {
             syncButton.show();
             stopSyncButton.hide();
@@ -175,7 +177,9 @@ jQuery(document).ready(function($) {
             timeout: 300000
         })
         .done(function(response) {
-            if (response.success) {
+            if (response.success && response.data && response.data.run_id) {
+                activeRunId = response.data.run_id;
+                stopPending = false;
                 // Begin polling live metrics
                 startSyncPolling();
             } else {
@@ -192,11 +196,27 @@ jQuery(document).ready(function($) {
 
     // Handle stop sync button click
     stopSyncButton.off('click').on('click', function() {
+        if (!activeRunId) { window.nmkrShowWarning('Waiting for synchronization run attachment.'); return; }
         stopSyncButton.prop('disabled', true);
         stopXhr = $.post(nmkrSyncProgress.ajax_url, {
             action: 'nmkr_stop_sync',
             nonce: nmkrSyncProgress.nonce,
+            run_id: activeRunId,
             _: Date.now()
+        })
+        .done(function(response) {
+            if (response.success && response.data && response.data.completed === true && response.data.terminal_outcome === 'cancelled') {
+                activeRunId = null;
+                stopPending = false;
+                teardownSyncUI();
+                $('#status-message').text('⏹️ Queued synchronization cancelled');
+                return;
+            }
+            if (response.success && response.data && response.data.stop_pending) {
+                stopPending = true;
+                $('#status-message').text('⏹️ Stopping Synchronization…');
+                fetchProgress();
+            }
         })
         .fail(function(xhr, status) {
             if (status === 'abort') return;
@@ -204,8 +224,8 @@ jQuery(document).ready(function($) {
             console.warn('Stop sync request failed:', msg);
         })
         .always(() => {
-            teardownSyncUI();
-            updateLastSyncTime('manual_stop', () => { hideActiveSyncMetrics(); });
+            // Stop acknowledgement is not terminal proof. Poll until canonical state.
+            stopSyncButton.prop('disabled', false);
         });
         $('#status-message').text('⏹️ Stopping Synchronization…');
         if (pollBackoff.timer) {
@@ -248,7 +268,17 @@ jQuery(document).ready(function($) {
         
         try {
           if (response.success && response.data) {
-            const { progress, current_item, in_progress, error, live_metrics, finished, aborted } = response.data;
+            const { progress, current_item, in_progress, error, live_metrics, finished, aborted, terminal_outcome } = response.data;
+            if (response.data.run_id) {
+              if (activeRunId && activeRunId !== response.data.run_id && terminal_outcome === '') {
+                activeRunId = null;
+                stopSyncButton.prop('disabled', true);
+                window.nmkrShowWarning('Synchronization run changed; Stop is disabled until authoritative reattachment.');
+              } else if (!activeRunId) {
+                activeRunId = response.data.run_id;
+                stopSyncButton.prop('disabled', false);
+              }
+            }
             
             // Accept numbers and numeric strings; fall back to 0 only if not finite
             let validProgress = Number(progress);
@@ -285,6 +315,11 @@ jQuery(document).ready(function($) {
             // Do not stop merely because in_progress=false: transient sync flags can expire
             // while durable sync state still indicates work.
             if (aborted === true) {
+              stopPolling();
+              handleStoppedSync(current_item);
+              return;
+            }
+            if (terminal_outcome === 'stopped') {
               stopPolling();
               handleStoppedSync(current_item);
               return;

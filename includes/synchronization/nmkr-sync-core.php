@@ -23,6 +23,63 @@ require_once plugin_dir_path(__FILE__) . 'nmkr-sync-progress-tracking.php';
 require_once plugin_dir_path(__FILE__) . 'nmkr-sync-error-handling.php';
 
 /**
+ * Interpret a run-scoped safe-boundary checkpoint in one place. Legacy callers
+ * pass no context and remain unchanged; direct workers never issue another API
+ * request or business write once this returns an error.
+ */
+function nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, $phase) {
+    if ($run_id === '') return true;
+    $state = nmkr_sync_run_checkpoint($run_id, $sync_stats_id, $phase);
+    if ($state === 'continue') return true;
+    if ($state === 'stop_requested') return new WP_Error('sync_stop_requested', __('Synchronization stop was requested.', 'nmkr-connect'));
+    if ($state === 'checkpoint_lock_failed') return new WP_Error('sync_checkpoint_lock_failed', __('Synchronization checkpoint lock is unavailable.', 'nmkr-connect'));
+    if ($state === 'checkpoint_persistence_failed') return new WP_Error('sync_checkpoint_persistence_failed', __('Synchronization checkpoint could not be persisted.', 'nmkr-connect'));
+    return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this worker.', 'nmkr-connect'));
+}
+
+/** Finalize an exact worker halt only at the top-level orchestrator. */
+function nmkr_handle_sync_worker_halt($halt, $run_id, $sync_stats_id) {
+    if (!is_wp_error($halt)) return false;
+    if ($halt->get_error_code() !== 'sync_stop_requested') return $halt;
+    $owner = nmkr_get_sync_owner();
+    if (!is_array($owner) || !hash_equals((string) ($owner['run_id'] ?? ''), (string) $run_id)
+        || ($owner['mode'] ?? '') !== 'direct' || ($owner['state'] ?? '') !== 'stop_requested'
+        || (int) ($owner['sync_stats_id'] ?? 0) !== (int) $sync_stats_id) return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this worker.', 'nmkr-connect'));
+    $finalizing = nmkr_transition_sync_owner($run_id, 'stop_requested', 'finalizing', $sync_stats_id);
+    if (!nmkr_sync_owner_transition_succeeded($finalizing)) return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this worker.', 'nmkr-connect'));
+    $final = nmkr_sync_data_complete(false, __('Synchronization stopped by user.', 'nmkr-connect'), array('outcome' => 'stopped'));
+    return is_array($final) ? $final : new WP_Error('sync_stopped_finalization_pending', __('Synchronization stop finalization remains pending.', 'nmkr-connect'));
+}
+
+/** Build the small, internal direct-worker terminal result contract. */
+function nmkr_direct_sync_terminal_result($outcome, $run_id, $sync_stats_id, $sync_log = array()) {
+    return array(
+        'terminal' => true,
+        'outcome' => $outcome,
+        'run_id' => (string) $run_id,
+        'sync_stats_id' => (int) $sync_stats_id,
+        'pending_finalization' => false,
+        'success' => $outcome === 'completed',
+        'message' => $outcome === 'completed' ? 'Sync process completed successfully.' : ($outcome === 'stopped' ? 'Synchronization stopped by user.' : 'Synchronization failed.'),
+        'log' => $sync_log,
+        'progress' => $outcome === 'completed' ? 100 : 0,
+    );
+}
+
+function nmkr_direct_sync_finalization_error($code, $message, $run_id, $sync_stats_id, $outcome) {
+    $error = new WP_Error($code, $message);
+    if (method_exists($error, 'add_data')) {
+        $error->add_data(array(
+            'run_id' => (string) $run_id,
+            'sync_stats_id' => (int) $sync_stats_id,
+            'outcome' => $outcome,
+            'pending_finalization' => $code === 'sync_finalization_pending',
+        ));
+    }
+    return $error;
+}
+
+/**
  * Count the total number of sync steps before starting the sync process
  * 
  * This function calculates the total steps needed for the complete sync:
@@ -33,7 +90,7 @@ require_once plugin_dir_path(__FILE__) . 'nmkr-sync-error-handling.php';
  * @param array $projects Array of project data from NMKR API
  * @return int Total number of sync steps
  */
-function nmkr_count_sync_steps($projects) {
+function nmkr_count_sync_steps($projects, $run_id = '', $sync_stats_id = 0) {
     try {
         if (!is_array($projects)) {
             nmkr_log_data_sync('Invalid projects data for step counting: expected array, got ' . gettype($projects), 'warning');
@@ -47,6 +104,8 @@ function nmkr_count_sync_steps($projects) {
         
         // Count tokens for each project (requires API calls)
         foreach ($projects as $project) {
+            $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'between_step_count_projects');
+            if (is_wp_error($halt)) return $halt;
             $project_uid = isset($project['project_uid']) ? $project['project_uid'] : 
                           (isset($project['uid']) ? $project['uid'] : null);
             
@@ -58,7 +117,11 @@ function nmkr_count_sync_steps($projects) {
             try {
                 // Fetch tokens to count them
                 $tracking = nmkr_start_performance_tracking('fetch_tokens_for_count_' . $project_uid);
+                $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'before_step_count_token_list_request');
+                if (is_wp_error($halt)) return $halt;
                 $tokens = nmkr_connect_fetch_nfts_by_project($project_uid);
+                $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'after_step_count_token_list_request');
+                if (is_wp_error($halt)) return $halt;
                 nmkr_end_performance_tracking($tracking);
                 
                 if (is_wp_error($tokens)) {
@@ -100,14 +163,16 @@ function nmkr_count_sync_steps($projects) {
  * @param int $total_steps Total number of sync steps
  * @return array Array of project UIDs on success, empty array on failure
  */
-function nmkr_sync_projects(&$sync_log, &$completed_steps, $total_steps) {
+function nmkr_sync_projects(&$sync_log, &$completed_steps, $total_steps, $run_id = '', $sync_stats_id = 0) {
     try {
         $sync_log[] = 'Starting project synchronization';
         
         // Fetch projects from API with comprehensive error handling
         try {
             $tracking = nmkr_start_performance_tracking('fetch_projects');
+            $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'before_projects_request'); if (is_wp_error($halt)) return $halt;
             $projects = nmkr_connect_fetch_projects();
+            $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'after_projects_request'); if (is_wp_error($halt)) return $halt;
             nmkr_end_performance_tracking($tracking);
             
             if (is_wp_error($projects)) {
@@ -188,6 +253,7 @@ function nmkr_sync_projects(&$sync_log, &$completed_steps, $total_steps) {
         $failed_projects = 0;
         
         foreach ($valid_projects as $project) {
+            $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'between_projects'); if (is_wp_error($halt)) return $halt;
             $project_name = isset($project['projectname']) ? $project['projectname'] : 'Unknown Project';
             $project_uid = isset($project['uid']) ? $project['uid'] : 
                           (isset($project['uid']) ? $project['uid'] : null);
@@ -205,6 +271,7 @@ function nmkr_sync_projects(&$sync_log, &$completed_steps, $total_steps) {
             }
             
             try {
+                $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'before_project_write'); if (is_wp_error($halt)) return $halt;
                 // Store project in database
                 $store_project_tracking = nmkr_start_performance_tracking('store_project_' . $project_uid);
                 $store_result = nmkr_store_project($project);
@@ -262,7 +329,7 @@ function nmkr_sync_projects(&$sync_log, &$completed_steps, $total_steps) {
  * @param array &$sync_log Reference to sync log array
  * @return array Array containing token UIDs and basic token data
  */
-function nmkr_fetch_tokens_for_project($project_uid, &$sync_log, $completed_steps = 0, $total_steps = 1) {
+function nmkr_fetch_tokens_for_project($project_uid, &$sync_log, $completed_steps = 0, $total_steps = 1, $run_id = '', $sync_stats_id = 0) {
     try {
         $sync_log[] = 'Starting token UID fetching for project: ' . $project_uid;
         nmkr_update_sync_progress($completed_steps, $total_steps, '🔍 Fetching Token UIDs for Project: ' . $project_uid);
@@ -270,7 +337,9 @@ function nmkr_fetch_tokens_for_project($project_uid, &$sync_log, $completed_step
         // Fetch tokens for this project
         try {
             $tracking = nmkr_start_performance_tracking('fetch_tokens_for_project_' . $project_uid);
+            $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'before_token_list_request'); if (is_wp_error($halt)) return $halt;
             $tokens = nmkr_connect_fetch_nfts_by_project($project_uid);
+            $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'after_token_list_request'); if (is_wp_error($halt)) return $halt;
             nmkr_end_performance_tracking($tracking);
             
             if (is_wp_error($tokens)) {
@@ -397,7 +466,7 @@ function nmkr_fetch_tokens_for_project($project_uid, &$sync_log, $completed_step
  * @param int $total_steps Total number of sync steps
  * @return array Array containing processing results
  */
-function nmkr_sync_tokens($project_uid, $tokens_data, &$sync_log, &$completed_steps, $total_steps) {
+function nmkr_sync_tokens($project_uid, $tokens_data, &$sync_log, &$completed_steps, $total_steps, $run_id = '', $sync_stats_id = 0) {
     try {
         $sync_log[] = 'Starting token processing for project: ' . $project_uid;
         nmkr_update_sync_progress($completed_steps, $total_steps, '🪙 Processing Token Data for Project: ' . $project_uid);
@@ -420,6 +489,7 @@ function nmkr_sync_tokens($project_uid, $tokens_data, &$sync_log, &$completed_st
         $skipped_tokens = 0;
         
         foreach ($tokens_data as $token_index => $token) {
+            $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'between_tokens'); if (is_wp_error($halt)) return $halt;
             // Validate that $token is an array
             if (!is_array($token)) {
                 $skipped_tokens++;
@@ -524,14 +594,16 @@ function nmkr_sync_tokens($project_uid, $tokens_data, &$sync_log, &$completed_st
  * @param int $total_steps Total number of sync steps
  * @return true|WP_Error True on success, WP_Error on failure or validation issues
  */
-function nmkr_sync_token_details($token_uid, $project_uid, &$sync_log, &$completed_steps, $total_steps, $token = null) {
+function nmkr_sync_token_details($token_uid, $project_uid, &$sync_log, &$completed_steps, $total_steps, $token = null, $run_id = '', $sync_stats_id = 0) {
     try {
         nmkr_update_sync_progress($completed_steps, $total_steps, 'Fetching details for token: ' . $token_uid);
         
         // Fetch token details from API
         try {
             $tracking = nmkr_start_performance_tracking('fetch_token_details_' . $token_uid);
+            $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'before_token_detail_request'); if (is_wp_error($halt)) return $halt;
             $details = nmkr_connect_fetch_nft_details($token_uid);
+            $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'after_token_detail_request'); if (is_wp_error($halt)) return $halt;
             nmkr_end_performance_tracking($tracking);
 
             // Handle validation failure as a special case
@@ -570,6 +642,7 @@ function nmkr_sync_token_details($token_uid, $project_uid, &$sync_log, &$complet
             if (is_array($details) && !empty($details)) {
                 // Merge $token and $details if $token is provided
                 $merged_token_data = is_array($token) ? array_merge($token, $details) : $details;
+                $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'before_token_write'); if (is_wp_error($halt)) return $halt;
                 $store_token_result = nmkr_store_token($merged_token_data, $project_uid);
                 if ($store_token_result === true) {
                     $sync_log[] = 'SUCCESS: Stored token in main table for UID: ' . $token_uid;
@@ -593,6 +666,7 @@ function nmkr_sync_token_details($token_uid, $project_uid, &$sync_log, &$complet
         
         // Store token details in database
         try {
+            $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'before_token_detail_write'); if (is_wp_error($halt)) return $halt;
             $store_result = nmkr_store_token_details($token_uid, $details);
             
             if ($store_result === false) {
@@ -725,6 +799,7 @@ function nmkr_sync_data($run_id = '') {
             
             // Record sync initialization in the sync_stats table
             $sync_stats_id = nmkr_save_sync_stats([
+                'run_id' => $run_id,
                 'sync_type' => 'full_sync',
                 'start_time' => nmkr_get_timestamp(),
                 'status' => 'initializing',
@@ -736,7 +811,7 @@ function nmkr_sync_data($run_id = '') {
             if (!$sync_stats_id) {
                 throw new Exception('Failed to create sync statistics record');
             }
-            $bound_owner = nmkr_transition_sync_owner($run_id, 'running', 'running', $sync_stats_id);
+            $bound_owner = nmkr_bind_exact_sync_history_owner($run_id, $sync_stats_id);
             if (!nmkr_sync_owner_transition_succeeded($bound_owner)) {
                 return nmkr_handle_sync_owner_binding_failure($bound_owner, $run_id, $sync_stats_id);
             }
@@ -789,8 +864,17 @@ function nmkr_sync_data($run_id = '') {
             'all_tokens' => array(),
             'tracking' => null
         );
-        if (!nmkr_sync_owner_matches($run_id, 'running', $sync_stats_id) || !nmkr_save_sync_data($sync_data)) {
+        if (!in_array(($bound_owner['state'] ?? ''), array('running', 'stop_requested'), true) || !nmkr_save_sync_data($sync_data)) {
             throw new Exception('Failed to persist run-owned synchronization state');
+        }
+        // Stop can win after history binding but before initial runtime state.
+        // Persist that minimum state first, then hand off exactly once.
+        if (($bound_owner['state'] ?? '') === 'stop_requested') {
+            $finalizing = nmkr_transition_sync_owner($run_id, 'stop_requested', 'finalizing', $sync_stats_id);
+            if (nmkr_sync_owner_transition_succeeded($finalizing)) {
+                return nmkr_sync_data_complete(false, __('Synchronization stopped by user.', 'nmkr-connect'), array('outcome' => 'stopped'));
+            }
+            return new WP_Error('sync_owner_mismatch', 'Synchronization ownership no longer matches this worker.');
         }
         
         // Start performance tracking
@@ -813,7 +897,11 @@ function nmkr_sync_data($run_id = '') {
         
         try {
             // First, we need to fetch projects to count total steps
+            $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'before_projects_request');
+            if (is_wp_error($halt)) return nmkr_handle_sync_worker_halt($halt, $run_id, $sync_stats_id);
             $projects = nmkr_connect_fetch_projects();
+            $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'after_projects_request');
+            if (is_wp_error($halt)) return nmkr_handle_sync_worker_halt($halt, $run_id, $sync_stats_id);
             
             if (is_wp_error($projects)) {
                 throw new Exception('Failed to fetch projects for step calculation: ' . $projects->get_error_message());
@@ -824,7 +912,8 @@ function nmkr_sync_data($run_id = '') {
             }
             
             // Calculate total steps
-            $total_steps = nmkr_count_sync_steps($projects);
+            $total_steps = nmkr_count_sync_steps($projects, $run_id, $sync_stats_id);
+            if (is_wp_error($total_steps)) return nmkr_handle_sync_worker_halt($total_steps, $run_id, $sync_stats_id);
             
             if ($total_steps <= 0) {
                 $sync_log[] = 'WARNING: No sync steps calculated - projects may be empty';
@@ -854,7 +943,8 @@ function nmkr_sync_data($run_id = '') {
         
         // Step 1: Synchronize projects
         $sync_log[] = 'Step 1: Starting project synchronization';
-        $project_uids = nmkr_sync_projects($sync_log, $completed_steps, $total_steps);
+        $project_uids = nmkr_sync_projects($sync_log, $completed_steps, $total_steps, $run_id, $sync_stats_id);
+        if (is_wp_error($project_uids)) return nmkr_handle_sync_worker_halt($project_uids, $run_id, $sync_stats_id);
         
         if (empty($project_uids)) {
             $error_msg = 'No projects synchronized successfully';
@@ -879,7 +969,8 @@ function nmkr_sync_data($run_id = '') {
             // Update progress while fetching tokens for each project
             nmkr_update_sync_progress($completed_steps, $total_steps, 'Fetching tokens for project ' . ($i + 1));
             
-            $fetch_result = nmkr_fetch_tokens_for_project($project_uid, $sync_log, $completed_steps, $total_steps);
+            $fetch_result = nmkr_fetch_tokens_for_project($project_uid, $sync_log, $completed_steps, $total_steps, $run_id, $sync_stats_id);
+            if (is_wp_error($fetch_result)) return nmkr_handle_sync_worker_halt($fetch_result, $run_id, $sync_stats_id);
             
             if (!empty($fetch_result['token_uids'])) {
                 // NEW: Build structured map with explicit project associations
@@ -920,7 +1011,8 @@ function nmkr_sync_data($run_id = '') {
                 }
             }
             
-            $token_result = nmkr_sync_tokens($project_uid, $project_tokens_data, $sync_log, $completed_steps, $total_steps);
+            $token_result = nmkr_sync_tokens($project_uid, $project_tokens_data, $sync_log, $completed_steps, $total_steps, $run_id, $sync_stats_id);
+            if (is_wp_error($token_result)) return nmkr_handle_sync_worker_halt($token_result, $run_id, $sync_stats_id);
         }
         
         // Token processing complete
@@ -950,7 +1042,8 @@ function nmkr_sync_data($run_id = '') {
                     break;
                 }
             }
-            $result = nmkr_sync_token_details($token_uid, $project_uid, $sync_log, $completed_steps, $total_steps, $token);
+            $result = nmkr_sync_token_details($token_uid, $project_uid, $sync_log, $completed_steps, $total_steps, $token, $run_id, $sync_stats_id);
+            if (is_wp_error($result) && in_array($result->get_error_code(), array('sync_stop_requested', 'sync_owner_mismatch', 'sync_checkpoint_lock_failed', 'sync_checkpoint_persistence_failed'), true)) return nmkr_handle_sync_worker_halt($result, $run_id, $sync_stats_id);
             
             // Handle successful result
             if ($result === true) {
@@ -998,6 +1091,9 @@ function nmkr_sync_data($run_id = '') {
         
         $sync_log[] = 'Step 5 complete: Finalization finished';
         
+        // The last safe boundary is before any success-only finalization state.
+        $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'before_completed_finalization');
+        if (is_wp_error($halt)) return nmkr_handle_sync_worker_halt($halt, $run_id, $sync_stats_id);
         // Mark sync near completion - all work is done but final flags not yet set
         update_option('nmkr_sync_near_completion', true);
         nmkr_log_data_sync('Marked sync as near completion - all work finished, finalizing flags', 'info');
@@ -1089,13 +1185,20 @@ function nmkr_sync_data($run_id = '') {
         ));
 
         $resume_data = nmkr_get_sync_data();
+        $resume_record = $sync_stats_id > 0 ? get_option(nmkr_sync_finalization_resume_key($sync_stats_id), false) : false;
+        $intended_outcome = is_array($resume_record) ? nmkr_normalize_sync_terminal_outcome($resume_record['outcome'] ?? false) : false;
+        $valid_resume = $intended_outcome !== false && nmkr_is_valid_sync_finalization_record($resume_record, $run_id, $sync_stats_id);
         if (is_array($resume_data) && (string) ($resume_data['run_id'] ?? '') === (string) $run_id
             && (int) ($resume_data['sync_stats_id'] ?? 0) === (int) $sync_stats_id
             && nmkr_is_sync_terminal_status($resume_data['status'] ?? '') && nmkr_get_sync_owner() === false
-            && nmkr_finish_ownerless_terminal_cleanup($resume_data, true, get_option(nmkr_sync_finalization_resume_key($sync_stats_id), false))) {
-            return defined('DOING_AJAX') && DOING_AJAX
-                ? array('success' => true, 'message' => 'Sync process completed successfully.', 'log' => $sync_log, 'progress' => 100)
-                : 'Sync process completed successfully.';
+            && $valid_resume
+            && nmkr_finish_ownerless_terminal_cleanup($resume_data, $intended_outcome, $resume_record)) {
+            if ($intended_outcome === 'completed') {
+                return defined('DOING_AJAX') && DOING_AJAX
+                    ? array('success' => true, 'message' => 'Sync process completed successfully.', 'log' => $sync_log, 'progress' => 100)
+                    : 'Sync process completed successfully.';
+            }
+            return nmkr_direct_sync_terminal_result($intended_outcome, $run_id, $sync_stats_id, $sync_log);
         }
 
         if (!nmkr_sync_owner_matches($run_id, null, $sync_stats_id ?: 0)) {
@@ -1115,17 +1218,16 @@ function nmkr_sync_data($run_id = '') {
             }
             update_option('nmkr_sync_in_progress', true);
             set_transient('nmkr_sync_in_progress', true, NMKR_SYNC_TRANSIENT_TTL);
-            return new WP_Error('sync_finalization_pending', 'Synchronization data was saved; terminal cleanup remains pending.');
+            return nmkr_direct_sync_finalization_error('sync_finalization_pending', 'Synchronization data was saved; terminal cleanup remains pending.', $run_id, $sync_stats_id, $valid_resume ? $intended_outcome : 'completed');
         }
-        $handoff_record = $sync_stats_id > 0 ? get_option(nmkr_sync_finalization_resume_key($sync_stats_id), false) : false;
-        if ($business_data_complete && nmkr_is_valid_sync_finalization_record($handoff_record, $run_id, $sync_stats_id)) {
+        if ($business_data_complete && $valid_resume) {
             if (is_array($resume_data) && (int) ($resume_data['sync_stats_id'] ?? 0) === (int) $sync_stats_id) {
                 $resume_data['status'] = 'finalizing';
                 $resume_data['completed'] = false;
                 nmkr_save_sync_data($resume_data);
             }
             nmkr_set_sync_finalization_error();
-            return new WP_Error('sync_finalization_unavailable', 'Synchronization data was saved, but no executable finalization retry is scheduled.');
+            return nmkr_direct_sync_finalization_error('sync_finalization_unavailable', 'Synchronization data was saved, but no executable finalization retry is scheduled.', $run_id, $sync_stats_id, $intended_outcome);
         }
         
         // Update sync stats with critical failure
