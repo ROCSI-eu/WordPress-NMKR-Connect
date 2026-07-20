@@ -223,8 +223,11 @@ jQuery(document).ready(function($) {
             if (status === 'abort') return;
             const msg = nmkrHttpErrorString(xhr);
             console.warn('Stop sync request failed:', msg);
-            const ownerConflict = xhr && xhr.status === 409;
-            const fatalStopFailure = xhr && (xhr.status === 401 || xhr.status === 403);
+            const code = xhr && xhr.responseJSON && xhr.responseJSON.data ? xhr.responseJSON.data.error_code : '';
+            const httpStatus = xhr ? xhr.status : 0;
+            const ownerConflict = httpStatus === 409 || ['sync_owner_mismatch', 'sync_owner_recovery_required', 'sync_finalization_pending', 'sync_finalization_unavailable'].includes(code);
+            const transientStopFailure = status === 'timeout' || httpStatus === 0 || httpStatus === 408 || httpStatus === 429 || httpStatus >= 500;
+            const fatalStopFailure = !transientStopFailure && !ownerConflict;
             stopPending = false;
             if (ownerConflict || fatalStopFailure) {
                 activeRunId = null;

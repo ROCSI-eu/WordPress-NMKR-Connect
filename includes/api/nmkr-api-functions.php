@@ -18,44 +18,34 @@ $nmkr_api_cooldown_until = 0;
  * Throttle API calls to avoid hitting rate limits
  * This function will delay execution if necessary to stay within rate limits
  */
-function nmkr_throttle_api_call() {
+function nmkr_throttle_api_call($context = array()) {
     global $nmkr_api_call_times, $nmkr_api_rate_limited, $nmkr_api_cooldown_until;
-    
-    $current_time = microtime(true);
+    $checkpoint = isset($context['checkpoint']) && is_callable($context['checkpoint']) ? $context['checkpoint'] : null;
+    $clock = isset($context['clock']) && is_callable($context['clock']) ? $context['clock'] : function () { return microtime(true); };
+    $sleeper = isset($context['sleep']) && is_callable($context['sleep']) ? $context['sleep'] : function ($seconds) { usleep((int) round($seconds * 1000000)); };
+    $check = function ($phase) use ($checkpoint) { return $checkpoint ? call_user_func($checkpoint, $phase) : true; };
+    $halt = $check('before_api_throttle'); if (is_wp_error($halt)) return $halt;
+    $current_time = call_user_func($clock);
     
     // Check if we're in a cooldown period
     if ($nmkr_api_rate_limited && $current_time < $nmkr_api_cooldown_until) {
         $wait_time = $nmkr_api_cooldown_until - $current_time;
         nmkr_log_api_status('API in cooldown period, waiting ' . round($wait_time, 2) . ' seconds', 'warning');
         
-        // Sleep to respect cooldown period
-        if ($wait_time > 0) {
-            // For longer waits, use multiple short sleeps to allow process interruption
-            if ($wait_time > 1) {
-                $chunks = ceil($wait_time);
-                for ($i = 0; $i < $chunks; $i++) {
-                    if ($i == $chunks - 1) {
-                        // Last chunk - sleep for remainder
-                        $remainder = $wait_time - (floor($wait_time));
-                        usleep($remainder * 1000000);
-                    } else {
-                        // Full second chunks
-                        sleep(1);
-                    }
-                }
-            } else {
-                // Short wait - use microseconds
-                usleep($wait_time * 1000000);
-            }
+        while ($wait_time > 0) {
+            $halt = $check('before_api_cooldown_wait'); if (is_wp_error($halt)) return $halt;
+            $chunk = min(1.0, $wait_time); call_user_func($sleeper, $chunk);
+            $halt = $check('after_api_cooldown_wait'); if (is_wp_error($halt)) return $halt;
+            $wait_time = $nmkr_api_cooldown_until - call_user_func($clock);
         }
         
         // Reset rate limited flag if cooldown period is over
-        if (microtime(true) >= $nmkr_api_cooldown_until) {
+        if (call_user_func($clock) >= $nmkr_api_cooldown_until) {
             $nmkr_api_rate_limited = false;
             nmkr_log_api_status('API cooldown period ended, resuming normal operation', 'info');
         }
         
-        return;
+        return $check('after_api_throttle');
     }
     
     // Clean up old call timestamps (older than 1 second)
@@ -72,19 +62,22 @@ function nmkr_throttle_api_call() {
         if ($time_since_oldest < 1) {
             $delay_needed = 1 - $time_since_oldest;
             nmkr_log_api_status('Approaching API rate limit, delaying next call by ' . round($delay_needed * 1000, 2) . 'ms', 'info');
-            usleep($delay_needed * 1000000);
+            $halt = $check('before_api_rate_wait'); if (is_wp_error($halt)) return $halt;
+            call_user_func($sleeper, min(1.0, $delay_needed));
+            $halt = $check('after_api_rate_wait'); if (is_wp_error($halt)) return $halt;
         }
     }
     
     // Record this API call
-    $nmkr_api_call_times[] = microtime(true);
+    $nmkr_api_call_times[] = call_user_func($clock);
     
     // If we've hit the rate limit, enter cooldown period
     if (count($nmkr_api_call_times) >= NMKR_API_RATE_LIMIT) {
         $nmkr_api_rate_limited = true;
-        $nmkr_api_cooldown_until = microtime(true) + NMKR_API_COOLDOWN_PERIOD;
+        $nmkr_api_cooldown_until = call_user_func($clock) + NMKR_API_COOLDOWN_PERIOD;
         nmkr_log_api_status('API rate limit reached, entering cooldown period for ' . NMKR_API_COOLDOWN_PERIOD . ' seconds', 'warning');
     }
+    return $check('after_api_throttle');
 }
 
 // Function to check if API is connected
