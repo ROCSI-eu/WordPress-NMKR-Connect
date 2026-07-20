@@ -99,7 +99,7 @@ jQuery(document).ready(function($) {
     function updateButtonState() {
         if (syncInProgress) {
             syncButton.hide();
-            stopSyncButton.show();
+            stopSyncButton.show().prop('disabled', !activeRunId);
         } else {
             syncButton.show();
             stopSyncButton.hide();
@@ -196,6 +196,7 @@ jQuery(document).ready(function($) {
 
     // Handle stop sync button click
     stopSyncButton.off('click').on('click', function() {
+        if (!activeRunId) { window.nmkrShowWarning('Waiting for synchronization run attachment.'); return; }
         stopSyncButton.prop('disabled', true);
         stopXhr = $.post(nmkrSyncProgress.ajax_url, {
             action: 'nmkr_stop_sync',
@@ -270,9 +271,13 @@ jQuery(document).ready(function($) {
             const { progress, current_item, in_progress, error, live_metrics, finished, aborted, terminal_outcome } = response.data;
             if (response.data.run_id) {
               if (activeRunId && activeRunId !== response.data.run_id && terminal_outcome === '') {
-                window.nmkrShowWarning('Synchronization run changed; retaining the server-authoritative run.');
+                activeRunId = null;
+                stopSyncButton.prop('disabled', true);
+                window.nmkrShowWarning('Synchronization run changed; Stop is disabled until authoritative reattachment.');
+              } else if (!activeRunId) {
+                activeRunId = response.data.run_id;
+                stopSyncButton.prop('disabled', false);
               }
-              activeRunId = response.data.run_id;
             }
             
             // Accept numbers and numeric strings; fall back to 0 only if not finite

@@ -718,12 +718,12 @@ function nmkr_sync_data_complete($success = true, $error_message = '', $final = 
                 nmkr_clear_sync_finalization_resume($sync_stats_id);
                 return false;
             }
-            if ((string) ($sync_data['run_id'] ?? '') !== $run_id || !nmkr_verify_sync_terminal_result($sync_data, $success)) {
+            if ((string) ($sync_data['run_id'] ?? '') !== $run_id || !nmkr_verify_sync_terminal_result($sync_data, $outcome)) {
                 return false;
             }
             $owner = nmkr_get_sync_owner();
             if ($owner === false) {
-                return nmkr_finish_ownerless_terminal_cleanup($sync_data, $success, $final) ? $sync_data : false;
+                return nmkr_finish_ownerless_terminal_cleanup($sync_data, $outcome, $final) ? $sync_data : false;
             }
             if (!nmkr_sync_owner_matches($run_id, 'finalizing', $sync_stats_id)) {
                 return false;
@@ -864,7 +864,7 @@ function nmkr_sync_data_complete($success = true, $error_message = '', $final = 
         if ($run_id !== '') {
             $terminal['run_id'] = $run_id;
         }
-        if (!$success && !empty($error_message)) {
+        if ($outcome === 'failed' && !empty($error_message)) {
             $terminal['error_code'] = 'sync_failed';
         }
         if (!nmkr_save_sync_data($terminal)) {
