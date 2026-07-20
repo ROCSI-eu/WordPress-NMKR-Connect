@@ -223,6 +223,11 @@ jQuery(document).ready(function($) {
             if (status === 'abort') return;
             const msg = nmkrHttpErrorString(xhr);
             console.warn('Stop sync request failed:', msg);
+            // A transport failure is not terminal. Retain this exact trusted
+            // attachment and resume the normal authoritative polling loop.
+            stopPending = false;
+            updateButtonState();
+            fetchProgress();
         })
         .always(() => {
             // Stop acknowledgement is not terminal proof. Poll until canonical state.
@@ -275,11 +280,18 @@ jQuery(document).ready(function($) {
             if (response.data.owner_mismatch === true) {
               activeRunTrusted = false;
               activeRunId = null;
+              stopPending = false;
+              stopSyncButton.prop('disabled', true);
+            } else if (!authoritativeRunId) {
+              activeRunId = null;
+              activeRunTrusted = false;
+              stopPending = false;
               stopSyncButton.prop('disabled', true);
             } else if (cleanOwner) {
               if (activeRunId && activeRunId !== authoritativeRunId) {
                 activeRunId = null;
                 activeRunTrusted = false;
+                stopPending = false;
                 stopSyncButton.prop('disabled', true);
                 window.nmkrShowWarning('Synchronization run changed; Stop is disabled until authoritative reattachment.');
               } else if (!activeRunId) {
