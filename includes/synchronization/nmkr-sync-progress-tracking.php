@@ -45,13 +45,15 @@ function nmkr_save_sync_finalization_resume($sync_stats_id, $final) {
     $key = nmkr_sync_finalization_resume_key($sync_stats_id);
     $existing = get_option($key, false);
     $record = array('sync_stats_id' => (int) $sync_stats_id, 'attempt' => is_array($existing) ? (int) ($existing['attempt'] ?? 0) : 0);
+    $requested_outcome = $final['outcome'] ?? 'completed';
+    $record['outcome'] = in_array($requested_outcome, array('completed', 'failed', 'stopped'), true) ? $requested_outcome : 'failed';
     if (!empty($final['run_id'])) {
         $record['run_id'] = (string) $final['run_id'];
     }
     if (!empty($final['end_time'])) {
         $record['end_time'] = (string) $final['end_time'];
     }
-    if (!empty($final['metrics']) && is_array($final['metrics'])) {
+    if ($record['outcome'] === 'completed' && !empty($final['metrics']) && is_array($final['metrics'])) {
         $record['metrics'] = array_intersect_key($final['metrics'], array_flip(array(
             'total_projects', 'total_tokens', 'total_sync_duration', 'total_api_time',
             'average_response_time', 'api_requests', 'memory_usage',
@@ -102,12 +104,13 @@ function nmkr_is_valid_sync_finalization_record($record, $run_id = '', $sync_sta
     if (!is_array($record) || !nmkr_is_valid_sync_run_id((string) ($record['run_id'] ?? ''))
         || (int) ($record['sync_stats_id'] ?? 0) <= 0 || !isset($record['attempt'])
         || !is_int($record['attempt']) || $record['attempt'] < 0 || $record['attempt'] > 5
-        || !is_array($record['metrics'] ?? null)) {
+        || !in_array(($record['outcome'] ?? ''), array('completed', 'failed', 'stopped'), true)
+        || (($record['outcome'] ?? '') === 'completed' && !is_array($record['metrics'] ?? null))) {
         return false;
     }
     if ($run_id !== '' && !hash_equals((string) $record['run_id'], (string) $run_id)) return false;
     if ($sync_stats_id > 0 && (int) $record['sync_stats_id'] !== (int) $sync_stats_id) return false;
-    foreach (array_merge($metric_keys, $counter_keys) as $key) {
+    foreach (array_merge(($record['outcome'] ?? '') === 'completed' ? $metric_keys : array(), $counter_keys) as $key) {
         $source = in_array($key, $metric_keys, true) ? $record['metrics'] : $record;
         if (!array_key_exists($key, $source) || !is_numeric($source[$key])) return false;
     }
@@ -169,6 +172,8 @@ function nmkr_get_canonical_dashboard_sync_state() {
 }
 
 function nmkr_prepare_sync_finalization($sync_stats_id, $final, $sync_data) {
+    $requested_outcome = $final['outcome'] ?? 'completed';
+    $final['outcome'] = in_array($requested_outcome, array('completed', 'failed', 'stopped'), true) ? $requested_outcome : 'failed';
     if (!empty($sync_data['run_id'])) {
         $run_id = (string) $sync_data['run_id'];
         if (!nmkr_sync_owner_matches($run_id, 'finalizing', $sync_stats_id)
@@ -177,7 +182,7 @@ function nmkr_prepare_sync_finalization($sync_stats_id, $final, $sync_data) {
         }
         $final['run_id'] = $run_id;
     }
-    $final['metrics'] = nmkr_build_final_sync_metrics($final['metrics'] ?? array(), $sync_data);
+    if ($final['outcome'] === 'completed') $final['metrics'] = nmkr_build_final_sync_metrics($final['metrics'] ?? array(), $sync_data);
     $saved = nmkr_save_sync_finalization_resume($sync_stats_id, $final);
     $scheduled = !empty($saved['run_id'])
         ? nmkr_preserve_and_schedule_sync_finalization_retry($saved, false)
@@ -240,8 +245,9 @@ function nmkr_resume_sync_finalization($sync_stats_id) {
             return false;
         }
     }
-    $result = nmkr_sync_data_complete(true, '', $record, true);
-    if (is_array($result) && in_array($result['status'] ?? '', array('completed', 'success'), true)) {
+    $outcome = (string) ($record['outcome'] ?? 'completed');
+    $result = nmkr_sync_data_complete($outcome === 'completed', $outcome === 'stopped' ? __('Synchronization stopped by user.', 'nmkr-connect') : '', $record, true);
+    if (is_array($result) && ($result['status'] ?? '') === $outcome) {
         return true;
     }
     // A waiter may have passed validation before another finalizer completed
@@ -587,7 +593,7 @@ function nmkr_verify_sync_terminal_result($sync_data, $success) {
     }
     $sync_stats_id = (int) ($sync_data['sync_stats_id'] ?? 0);
     $history = $wpdb->get_row($wpdb->prepare("SELECT id, status, end_time FROM {$wpdb->prefix}nmkr_sync_stats WHERE id = %d", $sync_stats_id), ARRAY_A);
-    $allowed = $success ? array('completed', 'success') : array('failed', 'error');
+    $allowed = $success ? array('completed', 'success') : array('failed', 'error', 'stopped');
     if (!$history || (int) ($history['id'] ?? 0) !== $sync_stats_id
         || !in_array(strtolower((string) ($history['status'] ?? '')), $allowed, true)
         || (string) ($history['end_time'] ?? '') !== (string) ($sync_data['end_time'] ?? '')) {
@@ -643,6 +649,7 @@ if (!function_exists('nmkr_sync_finalization_checkpoint')) {
  * @return array|false The final sync status or false on error
  */
 function nmkr_sync_data_complete($success = true, $error_message = '', $final = array(), $is_resume = false, $prepared = false) {
+    $outcome = (!$success && is_array($final) && ($final['outcome'] ?? '') === 'stopped') ? 'stopped' : ($success ? 'completed' : 'failed');
     $initial_sync_data = nmkr_get_sync_data();
     $sync_stats_id = isset($initial_sync_data['sync_stats_id']) ? (int) $initial_sync_data['sync_stats_id'] : 0;
     $run_id = is_array($initial_sync_data) ? (string) ($initial_sync_data['run_id'] ?? '') : '';
@@ -668,6 +675,11 @@ function nmkr_sync_data_complete($success = true, $error_message = '', $final = 
             update_option('nmkr_sync_status', 'finalization_error');
             return false;
         }
+    }
+    if (!$success && $outcome === 'stopped' && $sync_stats_id > 0 && !$is_resume) {
+        $final['outcome'] = 'stopped';
+        $final = nmkr_prepare_sync_finalization($sync_stats_id, $final, $initial_sync_data);
+        if (!is_array($final) || !nmkr_sync_finalization_resume_pending($sync_stats_id)) return false;
     }
     if ($sync_stats_id <= 0 || !nmkr_acquire_sync_finalization_lock($sync_stats_id)) {
         return false;
@@ -695,7 +707,7 @@ function nmkr_sync_data_complete($success = true, $error_message = '', $final = 
             // early and permanently retaining post-terminal leftovers.
             $compatible = $success
                 ? in_array(($sync_data['status'] ?? ''), array('completed', 'success'), true)
-                : in_array(($sync_data['status'] ?? ''), array('failed', 'error'), true);
+                : ($outcome === 'stopped' ? (($sync_data['status'] ?? '') === 'stopped') : in_array(($sync_data['status'] ?? ''), array('failed', 'error'), true));
             if (!$compatible) {
                 nmkr_clear_sync_finalization_resume($sync_stats_id);
                 return false;
@@ -729,7 +741,7 @@ function nmkr_sync_data_complete($success = true, $error_message = '', $final = 
             return false;
         }
         if (nmkr_is_sync_terminal_status($history['status'])) {
-            $allowed = $success ? array('completed', 'success') : array('failed', 'error');
+            $allowed = $success ? array('completed', 'success') : array('failed', 'error', 'stopped');
             if (!in_array(strtolower($history['status']), $allowed, true)) {
                 return false;
             }
@@ -782,14 +794,14 @@ function nmkr_sync_data_complete($success = true, $error_message = '', $final = 
             return false;
         }
 
-        $expected_statuses = $success ? array('completed', 'success') : array('failed', 'error');
+        $expected_statuses = $success ? array('completed', 'success') : ($outcome === 'stopped' ? array('stopped') : array('failed', 'error'));
         if (nmkr_is_sync_terminal_status($history['status'])) {
             if (!in_array(strtolower($history['status']), $expected_statuses, true)
                 || (string) $history['end_time'] !== (string) $end_time) {
                 return false;
             }
         } else {
-            $history_update = array('status' => $success ? 'completed' : 'failed', 'end_time' => $end_time);
+            $history_update = array('status' => $success ? 'completed' : $outcome, 'end_time' => $end_time);
             foreach (array('items_processed', 'items_successful', 'items_failed', 'items_skipped', 'token_details_synced') as $counter) {
                 if (isset($final[$counter])) {
                     $history_update[$counter] = (int) $final[$counter];
@@ -818,10 +830,16 @@ function nmkr_sync_data_complete($success = true, $error_message = '', $final = 
             set_transient('nmkr_sync_status', 'completed', NMKR_SYNC_TRANSIENT_TTL);
         } else {
             nmkr_update_sync_progress(0, 100, '❌ Synchronization Failed: ' . $error_message, true);
-            update_option('nmkr_sync_error', $error_message);
-            update_option('nmkr_sync_status', 'failed');
-            set_transient('nmkr_sync_error', $error_message, NMKR_SYNC_TRANSIENT_TTL);
-            set_transient('nmkr_sync_status', 'failed', NMKR_SYNC_TRANSIENT_TTL);
+            // A requested stop is a terminal outcome, not a synchronization error.
+            if ($outcome !== 'stopped') {
+                update_option('nmkr_sync_error', $error_message);
+            } else {
+                delete_option('nmkr_sync_error');
+                delete_transient('nmkr_sync_error');
+            }
+            update_option('nmkr_sync_status', $outcome);
+            if ($outcome !== 'stopped') set_transient('nmkr_sync_error', $error_message, NMKR_SYNC_TRANSIENT_TTL);
+            set_transient('nmkr_sync_status', $outcome, NMKR_SYNC_TRANSIENT_TTL);
         }
 
         // Phase 1 removes active runtime evidence while preserving the exact
@@ -832,7 +850,7 @@ function nmkr_sync_data_complete($success = true, $error_message = '', $final = 
         }
         nmkr_sync_finalization_checkpoint('before_terminal_record', $sync_stats_id);
         $terminal = array(
-            'status' => $success ? 'completed' : 'failed',
+            'status' => $success ? 'completed' : $outcome,
             'completed' => true,
             'sync_stats_id' => $sync_stats_id,
             'end_time' => $end_time,

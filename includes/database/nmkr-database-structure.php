@@ -133,6 +133,7 @@ function nmkr_connect_create_tables() {
     $sync_stats_table = $wpdb->prefix . 'nmkr_sync_stats';
     $sync_stats_sql = "CREATE TABLE IF NOT EXISTS $sync_stats_table (
         id mediumint(9) NOT NULL AUTO_INCREMENT,
+        run_id char(36) NULL,
         sync_type varchar(50) NOT NULL,
         start_time datetime NOT NULL,
         end_time datetime,
@@ -145,6 +146,7 @@ function nmkr_connect_create_tables() {
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
         updated_at datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (id),
+        UNIQUE KEY run_id (run_id),
         KEY sync_type (sync_type),
         KEY status (status)
     ) $charset_collate;";

@@ -164,6 +164,7 @@ function nmkr_save_sync_stats($stats) {
     
     // Prepare data for insertion
     $data = array(
+        'run_id' => !empty($stats['run_id']) && nmkr_is_valid_sync_run_id($stats['run_id']) ? $stats['run_id'] : null,
         'sync_type' => $stats['sync_type'],
         'start_time' => $stats['start_time'],
         'end_time' => isset($stats['end_time']) ? $stats['end_time'] : null,
