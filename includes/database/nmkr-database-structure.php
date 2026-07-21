@@ -110,7 +110,9 @@ function nmkr_connect_delete_exact_schema_upgrade_lock($serialized) {
 
 /** Return whether the installed schema version is current or newer. */
 function nmkr_connect_schema_version_is_current_or_newer($installed_version) {
-    return is_scalar($installed_version) && (string) $installed_version !== '' && version_compare((string) $installed_version, NMKR_CONNECT_SCHEMA_VERSION, '>=');
+    if (is_int($installed_version)) return $installed_version >= 0 && version_compare((string) $installed_version, NMKR_CONNECT_SCHEMA_VERSION, '>=');
+    if (!is_string($installed_version) || !preg_match('/^\d+(?:\.\d+)*$/', $installed_version)) return false;
+    return version_compare($installed_version, NMKR_CONNECT_SCHEMA_VERSION, '>=');
 }
 
 /** Acquire a site-scoped schema lock, using a serialized compare-and-swap for stale recovery. */
