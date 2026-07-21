@@ -1172,6 +1172,16 @@ function nmkr_sync_data($run_id = '') {
         }
         $finalizing_owner = nmkr_transition_sync_owner($run_id, 'running', 'finalizing', $sync_stats_id);
         if (!nmkr_sync_owner_transition_succeeded($finalizing_owner)) {
+            // Stop may win after the durable completion handoff is saved. Do
+            // not strand that owner or let the saved completion input override
+            // the exact cooperative Stop.
+            if (nmkr_sync_owner_matches($run_id, 'stop_requested', $sync_stats_id)) {
+                return nmkr_handle_sync_worker_halt(
+                    new WP_Error('sync_stop_requested', __('Synchronization stop was requested.', 'nmkr-connect')),
+                    $run_id,
+                    $sync_stats_id
+                );
+            }
             throw new Exception('Synchronization owner changed before finalization');
         }
         $terminal = nmkr_sync_data_complete(true, '', $prepared, false, true);

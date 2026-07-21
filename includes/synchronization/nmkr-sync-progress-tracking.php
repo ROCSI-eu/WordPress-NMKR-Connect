@@ -243,6 +243,25 @@ function nmkr_resume_sync_finalization($sync_stats_id) {
                 return false;
             }
         }
+        if (nmkr_sync_owner_matches((string) $record['run_id'], 'stop_requested', $sync_stats_id)) {
+            // A Stop can win after the worker saved completed handoff input.
+            // Replace that input before claiming finalization so retries can
+            // only terminalize the exact Stop outcome.
+            $stopped_final = $record;
+            $stopped_final['outcome'] = 'stopped';
+            unset($stopped_final['metrics']);
+            $record = nmkr_save_sync_finalization_resume($sync_stats_id, $stopped_final);
+            if (!is_array($record)) {
+                nmkr_preserve_and_schedule_sync_finalization_retry($stopped_final, true);
+                return false;
+            }
+            $transitioned = nmkr_transition_sync_owner((string) $record['run_id'], 'stop_requested', 'finalizing', $sync_stats_id);
+            if (is_wp_error($transitioned) || $transitioned === false) {
+                nmkr_preserve_and_schedule_sync_finalization_retry($record, true);
+                return false;
+            }
+            $outcome = 'stopped';
+        }
         if (!nmkr_sync_owner_matches((string) $record['run_id'], 'finalizing', $sync_stats_id)) {
             return false;
         }
