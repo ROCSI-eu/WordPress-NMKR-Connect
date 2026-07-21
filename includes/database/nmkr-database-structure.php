@@ -65,7 +65,7 @@ function nmkr_connect_sync_stats_run_id_column_state() {
     $table = $wpdb->prefix . 'nmkr_sync_stats';
     foreach ((array) $wpdb->get_results("SHOW COLUMNS FROM $table", ARRAY_A) as $column) {
         if (isset($column['Field']) && $column['Field'] === 'run_id') {
-            return array('exists' => true, 'valid' => strtoupper((string) $column['Null']) === 'YES' && preg_match('/^char\(36\)/i', (string) $column['Type']));
+            return array('exists' => true, 'valid' => strtoupper((string) $column['Null']) === 'YES' && strtolower(trim((string) $column['Type'])) === 'char(36)');
         }
     }
     return array('exists' => false, 'valid' => false);
@@ -99,6 +99,20 @@ function nmkr_connect_schema_upgrade_token() {
     return bin2hex(random_bytes(16));
 }
 
+/** Conditionally delete only an exact serialized lock row. */
+function nmkr_connect_delete_exact_schema_upgrade_lock($serialized) {
+    global $wpdb;
+    $changed = $wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->options} WHERE option_name = %s AND option_value = %s", NMKR_CONNECT_SCHEMA_UPGRADE_LOCK_OPTION, $serialized));
+    if ($changed !== 1) return false;
+    nmkr_connect_clear_schema_upgrade_lock_cache();
+    return true;
+}
+
+/** Return whether the installed schema version is current or newer. */
+function nmkr_connect_schema_version_is_current_or_newer($installed_version) {
+    return is_scalar($installed_version) && (string) $installed_version !== '' && version_compare((string) $installed_version, NMKR_CONNECT_SCHEMA_VERSION, '>=');
+}
+
 /** Acquire a site-scoped schema lock, using a serialized compare-and-swap for stale recovery. */
 function nmkr_connect_acquire_schema_upgrade_lock() {
     global $wpdb;
@@ -107,7 +121,9 @@ function nmkr_connect_acquire_schema_upgrade_lock() {
     if (add_option(NMKR_CONNECT_SCHEMA_UPGRADE_LOCK_OPTION, $lock, '', 'no')) {
         nmkr_connect_clear_schema_upgrade_lock_cache();
         $readback = nmkr_connect_get_schema_upgrade_lock_row();
-        return $readback && is_array($readback['value']) && hash_equals($token, (string) $readback['value']['token']) ? $token : false;
+        if ($readback && is_array($readback['value']) && hash_equals($token, (string) $readback['value']['token'])) return $token;
+        nmkr_connect_delete_exact_schema_upgrade_lock(maybe_serialize($lock));
+        return false;
     }
     $observed = nmkr_connect_get_schema_upgrade_lock_row();
     if (!$observed || !is_array($observed['value']) || empty($observed['value']['created_at']) || (int) $observed['value']['created_at'] >= time() - NMKR_CONNECT_SCHEMA_UPGRADE_LOCK_TTL) return false;
@@ -116,7 +132,9 @@ function nmkr_connect_acquire_schema_upgrade_lock() {
     if ($changed !== 1) return false;
     nmkr_connect_clear_schema_upgrade_lock_cache();
     $readback = nmkr_connect_get_schema_upgrade_lock_row();
-    return $readback && $readback['serialized'] === $replacement && is_array($readback['value']) && hash_equals($token, (string) $readback['value']['token']) ? $token : false;
+    if ($readback && $readback['serialized'] === $replacement && is_array($readback['value']) && hash_equals($token, (string) $readback['value']['token'])) return $token;
+    nmkr_connect_delete_exact_schema_upgrade_lock($replacement);
+    return false;
 }
 
 /** Atomically delete only the exact serialized lock record owned by this worker. */
@@ -124,9 +142,7 @@ function nmkr_connect_release_schema_upgrade_lock($token) {
     global $wpdb;
     $observed = nmkr_connect_get_schema_upgrade_lock_row();
     if (!$observed || !is_array($observed['value']) || !isset($observed['value']['token']) || !hash_equals((string) $observed['value']['token'], (string) $token)) return false;
-    $changed = $wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->options} WHERE option_name = %s AND option_value = %s", NMKR_CONNECT_SCHEMA_UPGRADE_LOCK_OPTION, $observed['serialized']));
-    if ($changed !== 1) return false;
-    nmkr_connect_clear_schema_upgrade_lock_cache();
+    if (!nmkr_connect_delete_exact_schema_upgrade_lock($observed['serialized'])) return false;
     return nmkr_connect_get_schema_upgrade_lock_row() === false;
 }
 
@@ -153,11 +169,11 @@ function nmkr_connect_upgrade_sync_stats_schema() {
 
 /** Perform the one-time normal-load schema upgrade and record only verified success. */
 function nmkr_connect_maybe_upgrade_schema() {
-    if (get_option(NMKR_CONNECT_SCHEMA_VERSION_OPTION, '') === NMKR_CONNECT_SCHEMA_VERSION) return true;
+    if (nmkr_connect_schema_version_is_current_or_newer(get_option(NMKR_CONNECT_SCHEMA_VERSION_OPTION, ''))) return true;
     $token = nmkr_connect_acquire_schema_upgrade_lock();
     if (!$token) return false;
     try {
-        if (get_option(NMKR_CONNECT_SCHEMA_VERSION_OPTION, '') === NMKR_CONNECT_SCHEMA_VERSION) return true;
+        if (nmkr_connect_schema_version_is_current_or_newer(get_option(NMKR_CONNECT_SCHEMA_VERSION_OPTION, ''))) return true;
         if (!nmkr_connect_upgrade_sync_stats_schema()) return false;
         return update_option(NMKR_CONNECT_SCHEMA_VERSION_OPTION, NMKR_CONNECT_SCHEMA_VERSION, false) || get_option(NMKR_CONNECT_SCHEMA_VERSION_OPTION, '') === NMKR_CONNECT_SCHEMA_VERSION;
     } finally {
