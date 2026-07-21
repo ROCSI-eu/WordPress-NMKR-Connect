@@ -123,7 +123,6 @@ function nmkr_is_api_connected() {
 function nmkr_connect_fetch_projects($context = array()) {
     $options = get_option('nmkr_connect_options');
     $nmkr_api_key = isset($options['api_key']) ? $options['api_key'] : '';
-
     if (!$nmkr_api_key) {
         nmkr_log_data_sync('API key not set', 'error');
         return new WP_Error('api_key_not_set', 'API key not set');
@@ -131,6 +130,7 @@ function nmkr_connect_fetch_projects($context = array()) {
 
     nmkr_log_api_status('Fetching projects list from API');
 
+    // Apply throttling before making the API call
     $halt = nmkr_throttle_api_call($context);
     if (is_wp_error($halt)) return $halt;
 
@@ -208,7 +208,6 @@ function nmkr_connect_fetch_nfts($project_id) {
 function nmkr_connect_fetch_nfts_by_project($project_uid, $context = array()) {
     $options = get_option('nmkr_connect_options');
     $nmkr_api_key = isset($options['api_key']) ? $options['api_key'] : '';
-
     if (!$nmkr_api_key) {
         nmkr_log_data_sync('API key not set for token fetch by project UID', 'error');
         return new WP_Error('api_key_not_set', 'API key not set');
@@ -216,6 +215,7 @@ function nmkr_connect_fetch_nfts_by_project($project_uid, $context = array()) {
 
     nmkr_log_api_status('Fetching tokens for project UID: ' . $project_uid);
 
+    // Apply throttling before making the API call
     $halt = nmkr_throttle_api_call($context);
     if (is_wp_error($halt)) return $halt;
 
@@ -264,6 +264,7 @@ function nmkr_connect_fetch_nft_details($token_uid, $context = array()) {
 
     nmkr_log_api_status('Fetching details for token UID: ' . $token_uid);
 
+    // Apply throttling before making the API call
     $halt = nmkr_throttle_api_call($context);
     if (is_wp_error($halt)) return $halt;
 

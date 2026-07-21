@@ -1,6 +1,8 @@
 <?php
 /** Public-safe deterministic regression for run-scoped API throttle fencing. */
 
+define('ABSPATH', dirname(__DIR__) . '/');
+
 class WP_Error {
     private $code;
     private $message;
@@ -11,9 +13,13 @@ class WP_Error {
 
 function is_wp_error($value) { return $value instanceof WP_Error; }
 function plugin_dir_path($file) { return rtrim(dirname($file), '/\\') . DIRECTORY_SEPARATOR; }
-function get_option($name) { return $name === 'nmkr_connect_options' ? array('api_key' => 'synthetic-test-key') : false; }
-function nmkr_log_api_status() {}
-function nmkr_log_data_sync() {}
+function get_option($name, $default = false) {
+    return $name === 'nmkr_connect_options' ? array(
+        'api_key' => 'synthetic-test-key',
+        'debug_enabled' => false,
+        'sync_debug_enabled' => false,
+    ) : $default;
+}
 function wp_remote_retrieve_body($response) { return isset($response['body']) ? $response['body'] : ''; }
 function wp_remote_retrieve_response_code($response) { return isset($response['code']) ? $response['code'] : 0; }
 
@@ -28,7 +34,6 @@ function nmkr_tracked_api_call_v2($label, $callback) {
     return call_user_func($callback);
 }
 
-if (!defined('NMKR_API_URL')) define('NMKR_API_URL', 'https://example.invalid');
 require dirname(__DIR__) . '/includes/api/nmkr-api-functions.php';
 
 function check($condition, $message) {
@@ -75,12 +80,12 @@ foreach (array('sync_owner_mismatch', 'sync_checkpoint_lock_failed', 'sync_check
     $halt_context = array('checkpoint' => function () use ($code) { return new WP_Error($code, 'Synthetic halt.'); });
     $token_result = nmkr_connect_fetch_nfts_by_project('synthetic-project', $halt_context);
     check(is_wp_error($token_result) && $token_result->get_error_code() === $code, $code . ' propagates unchanged from token-list throttling');
-    check($GLOBALS['nmkr_test_http_calls'] === 0, $code . ' prevents token-list HTTP dispatch');
+    check($GLOBALS['nmkr_test_http_calls'] === 0 && $GLOBALS['nmkr_test_tracked_calls'] === 0, $code . ' prevents token-list HTTP dispatch and tracking');
 
     reset_throttle_state();
     $detail_result = nmkr_connect_fetch_nft_details('synthetic-token', $halt_context);
     check(is_wp_error($detail_result) && $detail_result->get_error_code() === $code, $code . ' propagates unchanged from token-detail throttling');
-    check($GLOBALS['nmkr_test_http_calls'] === 0, $code . ' prevents token-detail HTTP dispatch');
+    check($GLOBALS['nmkr_test_http_calls'] === 0 && $GLOBALS['nmkr_test_tracked_calls'] === 0, $code . ' prevents token-detail HTTP dispatch and tracking');
 }
 
 reset_throttle_state();

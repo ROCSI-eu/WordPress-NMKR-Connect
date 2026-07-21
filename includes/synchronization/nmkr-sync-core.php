@@ -51,8 +51,8 @@ function nmkr_is_sync_worker_halt_error($value) {
 function nmkr_build_sync_api_execution_context($run_id, $sync_stats_id, $request_phase) {
     if ($run_id === '') return array();
     return array(
-        'checkpoint' => function ($phase) use ($run_id, $sync_stats_id, $request_phase) {
-            return nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, $request_phase . '_' . $phase);
+        'checkpoint' => function ($throttle_phase) use ($run_id, $sync_stats_id, $request_phase) {
+            return nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, $request_phase . '_' . $throttle_phase);
         },
     );
 }

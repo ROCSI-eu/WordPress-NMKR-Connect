@@ -28,7 +28,8 @@ Direct API wrappers receive an exact run-scoped checkpoint context. Rate-limit w
 and cooldown sleeps checkpoint at one-second-or-shorter boundaries. An exact Stop,
 owner mismatch, checkpoint lock failure, or checkpoint persistence failure returns to
 the orchestrator unchanged before another HTTP request or business write can begin.
-Legacy context-free API checks remain supported.
+Legacy context-free API checks remain supported, and the synthetic regression stubs
+every HTTP call so it never contacts the NMKR API.
 
 The PHP regressions cover synthetic owner, finalization, and interruptible API throttle
 state. Playwright covers mocked browser authority and polling.
