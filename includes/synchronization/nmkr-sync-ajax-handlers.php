@@ -61,6 +61,7 @@ function nmkr_start_sync_handler() {
         wp_clear_scheduled_hook('nmkr_execute_sync_background', array());
 
         // Clear past recovery notes only after this request owns admission.
+        delete_option('nmkr_sync_user_stopped');
         delete_option('nmkr_sync_last_result');
         delete_option('nmkr_sync_last_recovery_at');
 
