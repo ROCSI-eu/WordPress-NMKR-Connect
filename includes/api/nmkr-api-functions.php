@@ -20,6 +20,7 @@ $nmkr_api_cooldown_until = 0;
  */
 function nmkr_throttle_api_call($context = array()) {
     global $nmkr_api_call_times, $nmkr_api_rate_limited, $nmkr_api_cooldown_until;
+    $context = is_array($context) ? $context : array();
     $checkpoint = isset($context['checkpoint']) && is_callable($context['checkpoint']) ? $context['checkpoint'] : null;
     $clock = isset($context['clock']) && is_callable($context['clock']) ? $context['clock'] : function () { return microtime(true); };
     $sleeper = isset($context['sleep']) && is_callable($context['sleep']) ? $context['sleep'] : function ($seconds) { usleep((int) round($seconds * 1000000)); };
@@ -119,21 +120,21 @@ function nmkr_is_api_connected() {
 }
 
 // Fetch NMKR account projects
-function nmkr_connect_fetch_projects() {
-    return nmkr_tracked_api_call_v2('fetch_projects', function() {
-        $options = get_option('nmkr_connect_options');
-        $nmkr_api_key = isset($options['api_key']) ? $options['api_key'] : '';
-        
-        if (!$nmkr_api_key) {
-            nmkr_log_data_sync('API key not set', 'error');
-            return new WP_Error('api_key_not_set', 'API key not set');
-        }
+function nmkr_connect_fetch_projects($context = array()) {
+    $options = get_option('nmkr_connect_options');
+    $nmkr_api_key = isset($options['api_key']) ? $options['api_key'] : '';
 
-        nmkr_log_api_status('Fetching projects list from API');
-        
-        // Apply throttling before making the API call
-        nmkr_throttle_api_call();
-        
+    if (!$nmkr_api_key) {
+        nmkr_log_data_sync('API key not set', 'error');
+        return new WP_Error('api_key_not_set', 'API key not set');
+    }
+
+    nmkr_log_api_status('Fetching projects list from API');
+
+    $halt = nmkr_throttle_api_call($context);
+    if (is_wp_error($halt)) return $halt;
+
+    return nmkr_tracked_api_call_v2('fetch_projects', function() use ($nmkr_api_key) {
         $api_url = NMKR_API_URL . '/ListProjects';
         $args = array(
             'headers' => array(
@@ -204,21 +205,21 @@ function nmkr_connect_fetch_nfts($project_id) {
  * @param string $project_uid The unique identifier of the project
  * @return array|WP_Error The tokens data or WP_Error on failure
  */
-function nmkr_connect_fetch_nfts_by_project($project_uid) {
-    return nmkr_tracked_api_call_v2('fetch_tokens_' . $project_uid, function() use ($project_uid) {
-        $options = get_option('nmkr_connect_options');
-        $nmkr_api_key = isset($options['api_key']) ? $options['api_key'] : '';
-        
-        if (!$nmkr_api_key) {
-            nmkr_log_data_sync('API key not set for token fetch by project UID', 'error');
-            return new WP_Error('api_key_not_set', 'API key not set');
-        }
+function nmkr_connect_fetch_nfts_by_project($project_uid, $context = array()) {
+    $options = get_option('nmkr_connect_options');
+    $nmkr_api_key = isset($options['api_key']) ? $options['api_key'] : '';
 
-        nmkr_log_api_status('Fetching tokens for project UID: ' . $project_uid);
-        
-        // Apply throttling before making the API call
-        nmkr_throttle_api_call();
+    if (!$nmkr_api_key) {
+        nmkr_log_data_sync('API key not set for token fetch by project UID', 'error');
+        return new WP_Error('api_key_not_set', 'API key not set');
+    }
 
+    nmkr_log_api_status('Fetching tokens for project UID: ' . $project_uid);
+
+    $halt = nmkr_throttle_api_call($context);
+    if (is_wp_error($halt)) return $halt;
+
+    return nmkr_tracked_api_call_v2('fetch_tokens_' . $project_uid, function() use ($project_uid, $nmkr_api_key) {
         // The API endpoint for fetching NFTs by project UID
         $api_url = NMKR_API_URL . '/GetNfts/' . $project_uid . '/all/50/1';
         $args = array(
@@ -257,16 +258,16 @@ function nmkr_connect_fetch_nfts_by_project($project_uid) {
 }
 
 // Fetch details of a specific NFT by its uid
-function nmkr_connect_fetch_nft_details($token_uid) {
-    return nmkr_tracked_api_call_v2('fetch_token_details_' . $token_uid, function() use ($token_uid) {
-        $options = get_option('nmkr_connect_options');
-        $api_key = isset($options['api_key']) ? $options['api_key'] : '';
-        
-        nmkr_log_api_status('Fetching details for token UID: ' . $token_uid);
-        
-        // Apply throttling before making the API call
-        nmkr_throttle_api_call();
-        
+function nmkr_connect_fetch_nft_details($token_uid, $context = array()) {
+    $options = get_option('nmkr_connect_options');
+    $api_key = isset($options['api_key']) ? $options['api_key'] : '';
+
+    nmkr_log_api_status('Fetching details for token UID: ' . $token_uid);
+
+    $halt = nmkr_throttle_api_call($context);
+    if (is_wp_error($halt)) return $halt;
+
+    return nmkr_tracked_api_call_v2('fetch_token_details_' . $token_uid, function() use ($token_uid, $api_key) {
         // Update endpoint to use the correct path from documentation
         $url = NMKR_API_URL . '/GetNftDetailsById/' . $token_uid;
         $args = array(

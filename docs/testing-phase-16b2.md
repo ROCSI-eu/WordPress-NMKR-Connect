@@ -6,8 +6,9 @@ exact queued owner still has no history ID. A running run records `stop_requeste
 and remains active until the worker reaches a safe checkpoint and writes its canonical
 `stopped` history terminal state.
 
-Run `./scripts/nmkr-sync-owner-regression.sh` and
-`./scripts/nmkr-sync-terminalization-regression.sh` before a public build. These
+Run `./scripts/nmkr-sync-owner-regression.sh`,
+`./scripts/nmkr-sync-terminalization-regression.sh`, and
+`./scripts/nmkr-sync-api-throttle-regression.sh` before a public build. These
 synthetic checks do not contact the NMKR API. A deployment must completely uninstall
 and reinstall the plugin database: `nmkr_sync_stats.run_id` is a fresh-install schema
 change and this phase intentionally supplies no in-place migration.
@@ -21,6 +22,13 @@ required to attach again. An active owner suppresses terminal fields so predeces
 terminal data cannot stop a successor's polling. Queued cancellation is terminal only
 when its exact Stop response confirms `cancelled`.
 
-The PHP regressions cover synthetic owner and finalization state; Playwright covers
-mocked browser authority and polling. Cooperative API throttle/cooldown coverage is
-reserved for Commit C.
+## Cooperative API throttle
+
+Direct API wrappers receive an exact run-scoped checkpoint context. Rate-limit waits
+and cooldown sleeps checkpoint at one-second-or-shorter boundaries. An exact Stop,
+owner mismatch, checkpoint lock failure, or checkpoint persistence failure returns to
+the orchestrator unchanged before another HTTP request or business write can begin.
+Legacy context-free API checks remain supported.
+
+The PHP regressions cover synthetic owner, finalization, and interruptible API throttle
+state. Playwright covers mocked browser authority and polling.

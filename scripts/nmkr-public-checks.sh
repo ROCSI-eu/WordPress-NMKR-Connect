@@ -30,5 +30,8 @@ bash scripts/nmkr-sync-terminalization-regression.sh
 printf '\n== Atomic synchronization ownership regression ==\n'
 bash scripts/nmkr-sync-owner-regression.sh
 
+printf '\n== Run-scoped API throttle regression ==\n'
+bash scripts/nmkr-sync-api-throttle-regression.sh
+
 printf '\n== Public-safe PHP 7.4 compatibility guard ==\n'
 npm run test:php74
