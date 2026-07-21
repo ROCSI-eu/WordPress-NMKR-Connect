@@ -59,16 +59,28 @@ function nmkr_connect_clear_schema_upgrade_lock_cache() {
     wp_cache_delete('alloptions', 'options');
 }
 
+/** Return the authoritative run_id column state for the fixed sync-history table. */
+function nmkr_connect_sync_stats_run_id_column_state() {
+    global $wpdb;
+    $table = $wpdb->prefix . 'nmkr_sync_stats';
+    foreach ((array) $wpdb->get_results("SHOW COLUMNS FROM $table", ARRAY_A) as $column) {
+        if (isset($column['Field']) && $column['Field'] === 'run_id') {
+            return array('exists' => true, 'valid' => strtoupper((string) $column['Null']) === 'YES' && preg_match('/^char\(36\)/i', (string) $column['Type']));
+        }
+    }
+    return array('exists' => false, 'valid' => false);
+}
+
 /** Return the authoritative index state for the fixed sync-history table. */
 function nmkr_connect_sync_stats_index_state() {
     global $wpdb;
     $table = $wpdb->prefix . 'nmkr_sync_stats';
-    $indexes = $wpdb->get_results("SHOW INDEX FROM $table", ARRAY_A);
     $by_name = array();
-    foreach ((array) $indexes as $index) if (isset($index['Key_name'], $index['Column_name'])) $by_name[$index['Key_name']][] = $index;
+    foreach ((array) $wpdb->get_results("SHOW INDEX FROM $table", ARRAY_A) as $index) if (isset($index['Key_name'], $index['Column_name'])) $by_name[$index['Key_name']][] = $index;
     $required = false;
     foreach ($by_name as $entries) {
-        if (count($entries) === 1 && (int) $entries[0]['Non_unique'] === 0 && $entries[0]['Column_name'] === 'run_id') $required = true;
+        $entry = $entries[0];
+        if (count($entries) === 1 && (int) $entry['Non_unique'] === 0 && $entry['Column_name'] === 'run_id' && (!isset($entry['Sub_part']) || $entry['Sub_part'] === null || $entry['Sub_part'] === '')) $required = true;
     }
     return array('required' => $required, 'run_id_name_exists' => isset($by_name['run_id']));
 }
@@ -77,10 +89,8 @@ function nmkr_connect_sync_stats_index_state() {
 function nmkr_connect_verify_sync_stats_schema() {
     global $wpdb;
     $table = $wpdb->prefix . 'nmkr_sync_stats';
-    if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) !== $table) return false;
-    $run_id = false;
-    foreach ((array) $wpdb->get_results("SHOW COLUMNS FROM $table", ARRAY_A) as $column) if (isset($column['Field']) && $column['Field'] === 'run_id') $run_id = $column;
-    return $run_id && strtoupper((string) $run_id['Null']) === 'YES' && preg_match('/^char\(36\)/i', (string) $run_id['Type']) && nmkr_connect_sync_stats_index_state()['required'];
+    if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table))) !== $table) return false;
+    return nmkr_connect_sync_stats_run_id_column_state()['valid'] && nmkr_connect_sync_stats_index_state()['required'];
 }
 
 /** Generate a non-secret, strong lock ownership token. */
@@ -129,14 +139,12 @@ function nmkr_connect_upgrade_sync_stats_schema() {
     if (nmkr_connect_verify_sync_stats_schema()) return true;
 
     $table = $wpdb->prefix . 'nmkr_sync_stats';
-    $columns = $wpdb->get_results("SHOW COLUMNS FROM $table", ARRAY_A);
-    $has_run_id = false;
-    foreach ((array) $columns as $column) if (isset($column['Field']) && $column['Field'] === 'run_id') $has_run_id = true;
-    if (!$has_run_id) return false;
+    $column_state = nmkr_connect_sync_stats_run_id_column_state();
+    if (!$column_state['exists'] || !$column_state['valid']) return false;
 
     // dbDelta can omit an index alteration on some supported database paths.
     $index_state = nmkr_connect_sync_stats_index_state();
-    if ($index_state['required']) return true;
+    if ($index_state['required']) return nmkr_connect_verify_sync_stats_schema();
     if ($index_state['run_id_name_exists']) return false;
     $altered = $wpdb->query("ALTER TABLE $table ADD UNIQUE KEY run_id (run_id)");
     if ($altered === false || !empty($wpdb->last_error)) return false;
