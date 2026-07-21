@@ -11,6 +11,120 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+
+/** Current version for NMKR-owned database schema, independent of plugin version. */
+define('NMKR_CONNECT_SCHEMA_VERSION', '1');
+define('NMKR_CONNECT_SCHEMA_VERSION_OPTION', 'nmkr_connect_schema_version');
+define('NMKR_CONNECT_SCHEMA_UPGRADE_LOCK_OPTION', 'nmkr_connect_schema_upgrade_lock');
+define('NMKR_CONNECT_SCHEMA_UPGRADE_LOCK_TTL', 300);
+
+/** Return the complete definition for the sync-history table. */
+function nmkr_connect_sync_stats_schema_sql() {
+    global $wpdb;
+    $table = $wpdb->prefix . 'nmkr_sync_stats';
+    $charset_collate = $wpdb->get_charset_collate();
+
+    return "CREATE TABLE $table (
+        id mediumint(9) NOT NULL AUTO_INCREMENT,
+        run_id char(36) NULL,
+        sync_type varchar(50) NOT NULL,
+        start_time datetime NOT NULL,
+        end_time datetime,
+        status varchar(50),
+        items_processed int DEFAULT 0,
+        items_successful int DEFAULT 0,
+        items_failed int DEFAULT 0,
+        error_message text,
+        failure_breakdown text,
+        created_at datetime DEFAULT CURRENT_TIMESTAMP,
+        updated_at datetime DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        UNIQUE KEY run_id (run_id),
+        KEY sync_type (sync_type),
+        KEY status (status)
+    ) $charset_collate;";
+}
+
+/** Verify the run-scoped history schema directly instead of trusting dbDelta output. */
+function nmkr_connect_verify_sync_stats_schema() {
+    global $wpdb;
+    $table = $wpdb->prefix . 'nmkr_sync_stats';
+    $exists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table));
+    if ($exists !== $table) return false;
+
+    $columns = $wpdb->get_results("SHOW COLUMNS FROM $table", ARRAY_A);
+    $run_id = false;
+    foreach ((array) $columns as $column) {
+        if (isset($column['Field']) && $column['Field'] === 'run_id') { $run_id = $column; break; }
+    }
+    if (!$run_id || empty($run_id['Null']) || strtoupper((string) $run_id['Null']) !== 'YES' || !preg_match('/^char\(36\)/i', (string) $run_id['Type'])) return false;
+
+    $indexes = $wpdb->get_results("SHOW INDEX FROM $table", ARRAY_A);
+    $unique = array();
+    foreach ((array) $indexes as $index) {
+        if (isset($index['Non_unique'], $index['Key_name'], $index['Column_name']) && (int) $index['Non_unique'] === 0) {
+            $unique[$index['Key_name']][] = $index['Column_name'];
+        }
+    }
+    foreach ($unique as $columns) {
+        if (count($columns) === 1 && $columns[0] === 'run_id') return true;
+    }
+    return false;
+}
+
+/** Acquire a site-scoped schema lock, reclaiming only locks older than the bounded TTL. */
+function nmkr_connect_acquire_schema_upgrade_lock() {
+    $token = uniqid('nmkr-schema-', true);
+    $lock = array('token' => $token, 'created_at' => time());
+    if (add_option(NMKR_CONNECT_SCHEMA_UPGRADE_LOCK_OPTION, $lock, '', 'no')) return $token;
+
+    $existing = get_option(NMKR_CONNECT_SCHEMA_UPGRADE_LOCK_OPTION, array());
+    if (is_array($existing) && isset($existing['created_at']) && (int) $existing['created_at'] < time() - NMKR_CONNECT_SCHEMA_UPGRADE_LOCK_TTL) {
+        delete_option(NMKR_CONNECT_SCHEMA_UPGRADE_LOCK_OPTION);
+        if (add_option(NMKR_CONNECT_SCHEMA_UPGRADE_LOCK_OPTION, $lock, '', 'no')) return $token;
+    }
+    return false;
+}
+
+/** Release only the schema lock owned by this worker. */
+function nmkr_connect_release_schema_upgrade_lock($token) {
+    $lock = get_option(NMKR_CONNECT_SCHEMA_UPGRADE_LOCK_OPTION, array());
+    if (is_array($lock) && isset($lock['token']) && hash_equals((string) $lock['token'], (string) $token)) delete_option(NMKR_CONNECT_SCHEMA_UPGRADE_LOCK_OPTION);
+}
+
+/** Upgrade and verify the sync-history run_id schema without touching existing rows. */
+function nmkr_connect_upgrade_sync_stats_schema() {
+    global $wpdb;
+    if (!function_exists('dbDelta')) require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+    dbDelta(nmkr_connect_sync_stats_schema_sql());
+
+    if (nmkr_connect_verify_sync_stats_schema()) return true;
+
+    $table = $wpdb->prefix . 'nmkr_sync_stats';
+    $columns = $wpdb->get_results("SHOW COLUMNS FROM $table", ARRAY_A);
+    $has_run_id = false;
+    foreach ((array) $columns as $column) if (isset($column['Field']) && $column['Field'] === 'run_id') $has_run_id = true;
+    if (!$has_run_id) return false;
+
+    // dbDelta can omit an index alteration on some supported database paths.
+    $wpdb->query("ALTER TABLE $table ADD UNIQUE KEY run_id (run_id)");
+    return nmkr_connect_verify_sync_stats_schema();
+}
+
+/** Perform the one-time normal-load schema upgrade and record only verified success. */
+function nmkr_connect_maybe_upgrade_schema() {
+    if (get_option(NMKR_CONNECT_SCHEMA_VERSION_OPTION, '') === NMKR_CONNECT_SCHEMA_VERSION) return true;
+    $token = nmkr_connect_acquire_schema_upgrade_lock();
+    if (!$token) return false;
+    try {
+        if (get_option(NMKR_CONNECT_SCHEMA_VERSION_OPTION, '') === NMKR_CONNECT_SCHEMA_VERSION) return true;
+        if (!nmkr_connect_upgrade_sync_stats_schema()) return false;
+        return update_option(NMKR_CONNECT_SCHEMA_VERSION_OPTION, NMKR_CONNECT_SCHEMA_VERSION, false) || get_option(NMKR_CONNECT_SCHEMA_VERSION_OPTION, '') === NMKR_CONNECT_SCHEMA_VERSION;
+    } finally {
+        nmkr_connect_release_schema_upgrade_lock($token);
+    }
+}
+
 /**
  * Create the NMKR tables
  */
@@ -131,25 +245,7 @@ function nmkr_connect_create_tables() {
 
     // Table for NMKR sync process tracking (tracks individual sync operations with detailed status information)
     $sync_stats_table = $wpdb->prefix . 'nmkr_sync_stats';
-    $sync_stats_sql = "CREATE TABLE IF NOT EXISTS $sync_stats_table (
-        id mediumint(9) NOT NULL AUTO_INCREMENT,
-        run_id char(36) NULL,
-        sync_type varchar(50) NOT NULL,
-        start_time datetime NOT NULL,
-        end_time datetime,
-        status varchar(50),
-        items_processed int DEFAULT 0,
-        items_successful int DEFAULT 0,
-        items_failed int DEFAULT 0,
-        error_message text,
-        failure_breakdown text,
-        created_at datetime DEFAULT CURRENT_TIMESTAMP,
-        updated_at datetime DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (id),
-        UNIQUE KEY run_id (run_id),
-        KEY sync_type (sync_type),
-        KEY status (status)
-    ) $charset_collate;";
+    $sync_stats_sql = nmkr_connect_sync_stats_schema_sql();
 
     // Table for NMKR sync performance metrics (stores historical performance data after sync completion)
     $sync_metrics_table = $wpdb->prefix . 'nmkr_sync_metrics';
@@ -197,7 +293,7 @@ function nmkr_connect_create_tables() {
         KEY ix_event_ts (event_ts)
     ) $charset_collate;";
 
-    require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+    if (!function_exists('dbDelta')) require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
     dbDelta($projects_sql);
     dbDelta($tokens_sql);
     dbDelta($token_details_sql);

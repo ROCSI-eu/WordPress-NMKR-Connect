@@ -6,12 +6,23 @@ exact queued owner still has no history ID. A running run records `stop_requeste
 and remains active until the worker reaches a safe checkpoint and writes its canonical
 `stopped` history terminal state.
 
-Run `./scripts/nmkr-sync-owner-regression.sh`,
+Run `./scripts/nmkr-schema-upgrade-regression.sh`,
+`./scripts/nmkr-sync-owner-regression.sh`,
 `./scripts/nmkr-sync-terminalization-regression.sh`, and
 `./scripts/nmkr-sync-api-throttle-regression.sh` before a public build. These
-synthetic checks do not contact the NMKR API. A deployment must completely uninstall
-and reinstall the plugin database: `nmkr_sync_stats.run_id` is a fresh-install schema
-change and this phase intentionally supplies no in-place migration.
+synthetic checks do not contact the NMKR API.
+
+## In-place run_id schema upgrade
+
+Ordinary plugin loading performs a site-scoped, one-time in-place schema upgrade for
+`nmkr_sync_stats.run_id`; uninstalling, resetting, recreating, or truncating the
+database is not required. Existing synchronization history is preserved exactly as it
+is, and legacy rows keep nullable `run_id` values (including multiple `NULL` values).
+The upgrade is idempotent: it verifies the table, nullable `char(36)` column, and
+single-column unique `run_id` index before recording the separate non-autoloaded
+schema version. A non-autoloaded, bounded-stale lock prevents concurrent workers.
+If a column/index change or verification fails, the version is not advanced, the lock
+is released, and no history is deleted or synthesized; a later request can retry.
 
 ## Progress and Stop authority
 

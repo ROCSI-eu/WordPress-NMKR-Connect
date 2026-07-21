@@ -27,6 +27,9 @@ bash scripts/nmkr-real-sync-phase16a-regression.sh
 printf '\n== Canonical synchronization terminalization regression ==\n'
 bash scripts/nmkr-sync-terminalization-regression.sh
 
+printf '\n== In-place run_id schema upgrade regression ==\n'
+bash scripts/nmkr-schema-upgrade-regression.sh
+
 printf '\n== Atomic synchronization ownership regression ==\n'
 bash scripts/nmkr-sync-owner-regression.sh
 
