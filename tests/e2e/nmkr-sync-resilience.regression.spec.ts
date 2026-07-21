@@ -21,6 +21,7 @@ function inProgressPayload(progress: number, currentItem: string) {
       progress,
       current_item: currentItem,
       in_progress: true,
+      activeRunId: "resilience-run-A",
       finished: false,
       aborted: false,
       error: "",

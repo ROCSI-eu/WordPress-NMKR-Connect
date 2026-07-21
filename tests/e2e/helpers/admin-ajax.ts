@@ -150,7 +150,8 @@ export async function installAdminAjaxHarness(
       }
     }
 
-    if (action && blockedMutatingActions.has(action)) {
+    const handler = action ? options.handlers[action] : undefined;
+    if (action && blockedMutatingActions.has(action) && !handler) {
       blockedActions.push(action);
       await route.fulfill({
         contentType: "application/json",
@@ -162,7 +163,6 @@ export async function installAdminAjaxHarness(
       return;
     }
 
-    const handler = action ? options.handlers[action] : undefined;
     if (handler) {
       const fulfillment = await handler({
         action,
@@ -222,9 +222,8 @@ export async function installNmkrSyncAjaxHarness(
   }
 
   return installAdminAjaxHarness(page, {
-    allowedActions: options.allowedActions || SYNC_READ_ACTIONS,
-    blockedMutatingActions:
-      options.blockedMutatingActions || DEFAULT_BLOCKED_SYNC_MUTATING_ACTIONS,
+    allowedActions: options.allowedActions || [...SYNC_READ_ACTIONS, ...Object.keys(options.handlers || {})],
+    blockedMutatingActions: options.blockedMutatingActions || DEFAULT_BLOCKED_SYNC_MUTATING_ACTIONS,
     handlers,
   });
 }

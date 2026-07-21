@@ -96,6 +96,13 @@ jQuery(document).ready(function($) {
     const syncDataPanel = $('.sync-data.panel');
     const syncNonce = $('#nmkr-sync-nonce').val();
 
+    function resetRunAuthority() {
+        activeRunId = null;
+        activeRunTrusted = false;
+        stopPending = false;
+        stopSyncButton.prop('disabled', true);
+    }
+
     // Function to update button state based on sync status
     function updateButtonState() {
         if (syncInProgress) {
@@ -133,6 +140,7 @@ jQuery(document).ready(function($) {
     function teardownSyncUI() {
         // Reset sync state flags immediately
         syncInProgress = false;
+        resetRunAuthority();
         
         // Abort any in-flight XHR requests before stopping polling
         if (pollXhr && pollXhr.readyState !== 4) {
@@ -162,6 +170,7 @@ jQuery(document).ready(function($) {
     syncButton.off('click').on('click', function() {
         // Reset error state immediately when starting fresh sync
         hasError = false;
+        resetRunAuthority();
         
         // Prevent double-clicks by immediately disabling the button
         syncButton.prop('disabled', true);
@@ -180,6 +189,7 @@ jQuery(document).ready(function($) {
         .done(function(response) {
             if (response.success && response.data && response.data.run_id) {
                 activeRunId = response.data.run_id;
+                activeRunTrusted = false;
                 stopPending = false;
                 // Begin polling live metrics
                 startSyncPolling();
@@ -207,8 +217,7 @@ jQuery(document).ready(function($) {
         })
         .done(function(response) {
             if (response.success && response.data && response.data.completed === true && response.data.terminal_outcome === 'cancelled') {
-                activeRunId = null; activeRunTrusted = false;
-                stopPending = false;
+                resetRunAuthority();
                 teardownSyncUI();
                 $('#status-message').text('⏹️ Queued synchronization cancelled');
                 return;
@@ -230,8 +239,7 @@ jQuery(document).ready(function($) {
             const fatalStopFailure = !transientStopFailure && !ownerConflict;
             stopPending = false;
             if (ownerConflict || fatalStopFailure) {
-                activeRunId = null;
-                activeRunTrusted = false;
+                resetRunAuthority();
             }
             if (fatalStopFailure) {
                 handleError(msg);
@@ -291,24 +299,18 @@ jQuery(document).ready(function($) {
             const authoritativeRunId = response.data.activeRunId || '';
             const cleanOwner = authoritativeRunId && response.data.owner_mismatch !== true;
             if (response.data.owner_mismatch === true) {
-              activeRunTrusted = false;
-              activeRunId = null;
-              stopPending = false;
-              stopSyncButton.prop('disabled', true);
+              resetRunAuthority();
             } else if (!authoritativeRunId) {
-              activeRunId = null;
-              activeRunTrusted = false;
-              stopPending = false;
-              stopSyncButton.prop('disabled', true);
+              resetRunAuthority();
             } else if (cleanOwner) {
               if (activeRunId && activeRunId !== authoritativeRunId) {
-                activeRunId = null;
-                activeRunTrusted = false;
-                stopPending = false;
-                stopSyncButton.prop('disabled', true);
+                resetRunAuthority();
                 window.nmkrShowWarning('Synchronization run changed; Stop is disabled until authoritative reattachment.');
               } else if (!activeRunId) {
                 activeRunId = authoritativeRunId;
+                activeRunTrusted = true;
+                updateButtonState();
+              } else if (activeRunId === authoritativeRunId) {
                 activeRunTrusted = true;
                 updateButtonState();
               }
@@ -466,6 +468,7 @@ jQuery(document).ready(function($) {
 
     function handleComplete() {
       syncInProgress = false;
+      resetRunAuthority();
       
       // Update button state on completion
       updateButtonState();
@@ -492,6 +495,7 @@ jQuery(document).ready(function($) {
 
     function handleStoppedSync(message) {
       syncInProgress = false;
+      resetRunAuthority();
       updateButtonState();
       syncButton.prop('disabled', false);
       const stoppedMessage = message || 'Synchronization stopped by server';

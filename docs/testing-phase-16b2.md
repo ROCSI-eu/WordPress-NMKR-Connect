@@ -33,3 +33,12 @@ every HTTP call so it never contacts the NMKR API.
 
 The PHP regressions cover synthetic owner, finalization, and interruptible API throttle
 state. Playwright covers mocked browser authority and polling.
+
+## Browser run authority
+
+A Start response supplies only a provisional run ID. Stop remains disabled until a clean
+progress response confirms that exact active owner. Terminal and fatal cleanup erase that
+browser authority; an unexpected owner change requires a later clean response before the
+successor can attach. Recoverable transport failures retain an already trusted run.
+Playwright regression tests intercept Start, Stop, and progress AJAX with synthetic data,
+so they run no real NMKR synchronization.
