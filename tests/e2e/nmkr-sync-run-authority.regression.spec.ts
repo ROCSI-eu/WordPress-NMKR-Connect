@@ -36,7 +36,7 @@ async function open(page: Page) {
   await page.goto(urlFor(baseUrl, dashboardPath));
   await expectWpAdmin(page);
   async function nextProgress() {
-    await expect.poll(() => harness.progressCallCount()).toBeGreaterThanOrEqual(progressQueue.length + 1);
+    await expect.poll(() => progressQueue.length).toBeGreaterThan(0);
     return progressQueue.shift()!;
   }
   return { harness, stopRunIds, nextProgress };
