@@ -45,51 +45,79 @@ function nmkr_connect_sync_stats_schema_sql() {
     ) $charset_collate;";
 }
 
+/** Return the authoritative serialized lock row, bypassing the option cache. */
+function nmkr_connect_get_schema_upgrade_lock_row() {
+    global $wpdb;
+    $serialized = $wpdb->get_var($wpdb->prepare("SELECT option_value FROM {$wpdb->options} WHERE option_name = %s LIMIT 1", NMKR_CONNECT_SCHEMA_UPGRADE_LOCK_OPTION));
+    if ($serialized === null) return false;
+    return array('serialized' => $serialized, 'value' => maybe_unserialize($serialized));
+}
+
+/** Clear cached option state after a successful direct lock-row mutation. */
+function nmkr_connect_clear_schema_upgrade_lock_cache() {
+    wp_cache_delete(NMKR_CONNECT_SCHEMA_UPGRADE_LOCK_OPTION, 'options');
+    wp_cache_delete('alloptions', 'options');
+}
+
+/** Return the authoritative index state for the fixed sync-history table. */
+function nmkr_connect_sync_stats_index_state() {
+    global $wpdb;
+    $table = $wpdb->prefix . 'nmkr_sync_stats';
+    $indexes = $wpdb->get_results("SHOW INDEX FROM $table", ARRAY_A);
+    $by_name = array();
+    foreach ((array) $indexes as $index) if (isset($index['Key_name'], $index['Column_name'])) $by_name[$index['Key_name']][] = $index;
+    $required = false;
+    foreach ($by_name as $entries) {
+        if (count($entries) === 1 && (int) $entries[0]['Non_unique'] === 0 && $entries[0]['Column_name'] === 'run_id') $required = true;
+    }
+    return array('required' => $required, 'run_id_name_exists' => isset($by_name['run_id']));
+}
+
 /** Verify the run-scoped history schema directly instead of trusting dbDelta output. */
 function nmkr_connect_verify_sync_stats_schema() {
     global $wpdb;
     $table = $wpdb->prefix . 'nmkr_sync_stats';
-    $exists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table));
-    if ($exists !== $table) return false;
-
-    $columns = $wpdb->get_results("SHOW COLUMNS FROM $table", ARRAY_A);
+    if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) !== $table) return false;
     $run_id = false;
-    foreach ((array) $columns as $column) {
-        if (isset($column['Field']) && $column['Field'] === 'run_id') { $run_id = $column; break; }
-    }
-    if (!$run_id || empty($run_id['Null']) || strtoupper((string) $run_id['Null']) !== 'YES' || !preg_match('/^char\(36\)/i', (string) $run_id['Type'])) return false;
-
-    $indexes = $wpdb->get_results("SHOW INDEX FROM $table", ARRAY_A);
-    $unique = array();
-    foreach ((array) $indexes as $index) {
-        if (isset($index['Non_unique'], $index['Key_name'], $index['Column_name']) && (int) $index['Non_unique'] === 0) {
-            $unique[$index['Key_name']][] = $index['Column_name'];
-        }
-    }
-    foreach ($unique as $columns) {
-        if (count($columns) === 1 && $columns[0] === 'run_id') return true;
-    }
-    return false;
+    foreach ((array) $wpdb->get_results("SHOW COLUMNS FROM $table", ARRAY_A) as $column) if (isset($column['Field']) && $column['Field'] === 'run_id') $run_id = $column;
+    return $run_id && strtoupper((string) $run_id['Null']) === 'YES' && preg_match('/^char\(36\)/i', (string) $run_id['Type']) && nmkr_connect_sync_stats_index_state()['required'];
 }
 
-/** Acquire a site-scoped schema lock, reclaiming only locks older than the bounded TTL. */
+/** Generate a non-secret, strong lock ownership token. */
+function nmkr_connect_schema_upgrade_token() {
+    if (function_exists('wp_generate_uuid4')) return wp_generate_uuid4();
+    return bin2hex(random_bytes(16));
+}
+
+/** Acquire a site-scoped schema lock, using a serialized compare-and-swap for stale recovery. */
 function nmkr_connect_acquire_schema_upgrade_lock() {
-    $token = uniqid('nmkr-schema-', true);
+    global $wpdb;
+    $token = nmkr_connect_schema_upgrade_token();
     $lock = array('token' => $token, 'created_at' => time());
-    if (add_option(NMKR_CONNECT_SCHEMA_UPGRADE_LOCK_OPTION, $lock, '', 'no')) return $token;
-
-    $existing = get_option(NMKR_CONNECT_SCHEMA_UPGRADE_LOCK_OPTION, array());
-    if (is_array($existing) && isset($existing['created_at']) && (int) $existing['created_at'] < time() - NMKR_CONNECT_SCHEMA_UPGRADE_LOCK_TTL) {
-        delete_option(NMKR_CONNECT_SCHEMA_UPGRADE_LOCK_OPTION);
-        if (add_option(NMKR_CONNECT_SCHEMA_UPGRADE_LOCK_OPTION, $lock, '', 'no')) return $token;
+    if (add_option(NMKR_CONNECT_SCHEMA_UPGRADE_LOCK_OPTION, $lock, '', 'no')) {
+        nmkr_connect_clear_schema_upgrade_lock_cache();
+        $readback = nmkr_connect_get_schema_upgrade_lock_row();
+        return $readback && is_array($readback['value']) && hash_equals($token, (string) $readback['value']['token']) ? $token : false;
     }
-    return false;
+    $observed = nmkr_connect_get_schema_upgrade_lock_row();
+    if (!$observed || !is_array($observed['value']) || empty($observed['value']['created_at']) || (int) $observed['value']['created_at'] >= time() - NMKR_CONNECT_SCHEMA_UPGRADE_LOCK_TTL) return false;
+    $replacement = maybe_serialize($lock);
+    $changed = $wpdb->query($wpdb->prepare("UPDATE {$wpdb->options} SET option_value = %s, autoload = 'no' WHERE option_name = %s AND option_value = %s", $replacement, NMKR_CONNECT_SCHEMA_UPGRADE_LOCK_OPTION, $observed['serialized']));
+    if ($changed !== 1) return false;
+    nmkr_connect_clear_schema_upgrade_lock_cache();
+    $readback = nmkr_connect_get_schema_upgrade_lock_row();
+    return $readback && $readback['serialized'] === $replacement && is_array($readback['value']) && hash_equals($token, (string) $readback['value']['token']) ? $token : false;
 }
 
-/** Release only the schema lock owned by this worker. */
+/** Atomically delete only the exact serialized lock record owned by this worker. */
 function nmkr_connect_release_schema_upgrade_lock($token) {
-    $lock = get_option(NMKR_CONNECT_SCHEMA_UPGRADE_LOCK_OPTION, array());
-    if (is_array($lock) && isset($lock['token']) && hash_equals((string) $lock['token'], (string) $token)) delete_option(NMKR_CONNECT_SCHEMA_UPGRADE_LOCK_OPTION);
+    global $wpdb;
+    $observed = nmkr_connect_get_schema_upgrade_lock_row();
+    if (!$observed || !is_array($observed['value']) || !isset($observed['value']['token']) || !hash_equals((string) $observed['value']['token'], (string) $token)) return false;
+    $changed = $wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->options} WHERE option_name = %s AND option_value = %s", NMKR_CONNECT_SCHEMA_UPGRADE_LOCK_OPTION, $observed['serialized']));
+    if ($changed !== 1) return false;
+    nmkr_connect_clear_schema_upgrade_lock_cache();
+    return nmkr_connect_get_schema_upgrade_lock_row() === false;
 }
 
 /** Upgrade and verify the sync-history run_id schema without touching existing rows. */
@@ -107,7 +135,11 @@ function nmkr_connect_upgrade_sync_stats_schema() {
     if (!$has_run_id) return false;
 
     // dbDelta can omit an index alteration on some supported database paths.
-    $wpdb->query("ALTER TABLE $table ADD UNIQUE KEY run_id (run_id)");
+    $index_state = nmkr_connect_sync_stats_index_state();
+    if ($index_state['required']) return true;
+    if ($index_state['run_id_name_exists']) return false;
+    $altered = $wpdb->query("ALTER TABLE $table ADD UNIQUE KEY run_id (run_id)");
+    if ($altered === false || !empty($wpdb->last_error)) return false;
     return nmkr_connect_verify_sync_stats_schema();
 }
 
