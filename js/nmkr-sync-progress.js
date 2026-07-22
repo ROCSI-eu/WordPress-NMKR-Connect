@@ -328,12 +328,6 @@ jQuery(document).ready(function($) {
               $('#status-message').html('<div class="status-header">' + current_item + '</div>');
             }
             
-            // Handle error state
-            if (typeof error === 'string' && error.trim() !== '') {
-              handleError(error);
-              return;
-            }
-            
             // Update live metrics if available
             if (live_metrics) {
               updateActiveMetrics(live_metrics);
@@ -364,7 +358,13 @@ jQuery(document).ready(function($) {
             }
             if (terminal_outcome === 'failed' && !authoritativeRunId) {
               stopPolling();
-              handleError(current_item || 'Synchronization failed.');
+              handleError(error || current_item || 'Synchronization failed.');
+              return;
+            }
+
+            // Handle generic errors only after authoritative terminal outcomes.
+            if (typeof error === 'string' && error.trim() !== '' && !authoritativeRunId) {
+              handleError(error);
               return;
             }
             

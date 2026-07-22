@@ -17,7 +17,7 @@ function terminal(): AdminAjaxFulfillment {
   return { body: { success: true, data: { progress: 100, current_item: "Done", in_progress: false, finished: true, activeRunId: "" } } };
 }
 function failedTerminalWithOwner(runId: string): AdminAjaxFulfillment {
-  return { body: { success: true, data: { progress: 0, current_item: "Previous run failed", in_progress: false, finished: false, terminal_outcome: "failed", error: "", activeRunId: runId } } };
+  return { body: { success: true, data: { progress: 0, current_item: "Previous run failed", in_progress: false, finished: false, terminal_outcome: "failed", error: "Previous run failure", activeRunId: runId } } };
 }
 
 async function open(page: Page) {
