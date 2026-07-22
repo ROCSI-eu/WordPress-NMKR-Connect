@@ -21,6 +21,7 @@ function inProgressPayload(progress: number, currentItem: string) {
       progress,
       current_item: currentItem,
       in_progress: true,
+      activeRunId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
       finished: false,
       aborted: false,
       error: "",

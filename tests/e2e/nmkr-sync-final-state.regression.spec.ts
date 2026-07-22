@@ -43,6 +43,9 @@ function stoppedPayload() {
     data: {
       progress: 42,
       current_item: "Synchronization stopped by test payload",
+      activeRunId: "",
+      terminalRunId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      terminal_outcome: "stopped",
       in_progress: false,
       finished: false,
       aborted: true,
@@ -207,6 +210,9 @@ test.describe("NMKR Connect sync final-state regression", () => {
             data: {
               progress: 42,
               current_item: "Controlled failure",
+              activeRunId: "",
+              terminalRunId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+              terminal_outcome: "failed",
               in_progress: false,
               finished: false,
               aborted: false,

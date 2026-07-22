@@ -30,6 +30,22 @@ add_action('wp_ajax_nmkr_check_sync_health', 'nmkr_check_sync_health_handler');
 add_action('nmkr_execute_sync_background', 'nmkr_execute_sync_background_job', 10, 1);
 
 /**
+ * Determine whether polling may expose a failed terminal despite an error marker.
+ *
+ * Error transients are not run-scoped, so only a verified, ownerless canonical
+ * failed result may take precedence over the legacy generic-error envelope.
+ */
+function nmkr_is_verified_failed_terminal_for_progress($sync_data, $has_active_direct_owner, $resume_pending) {
+    return !$has_active_direct_owner
+        && !$resume_pending
+        && is_array($sync_data)
+        && ($sync_data['status'] ?? '') === 'failed'
+        && nmkr_is_valid_sync_run_id((string) ($sync_data['run_id'] ?? ''))
+        && (int) ($sync_data['sync_stats_id'] ?? 0) > 0
+        && nmkr_verify_sync_terminal_result($sync_data, 'failed');
+}
+
+/**
  * AJAX handler for starting the synchronization process
  */
 function nmkr_start_sync_handler() {
@@ -61,6 +77,8 @@ function nmkr_start_sync_handler() {
         wp_clear_scheduled_hook('nmkr_execute_sync_background', array());
 
         // Clear past recovery notes only after this request owns admission.
+        delete_option('nmkr_sync_user_stopped');
+        delete_option('nmkr_sync_error');
         delete_option('nmkr_sync_last_result');
         delete_option('nmkr_sync_last_recovery_at');
 
@@ -74,6 +92,7 @@ function nmkr_start_sync_handler() {
         delete_transient('nmkr_last_progress_update_time');
         delete_transient('nmkr_last_progress_value');
         delete_transient('nmkr_sync_user_stopped');
+        delete_transient('nmkr_sync_error');
         
         // Initialize progress to 0% for fresh start
         set_transient('nmkr_sync_progress', 0, NMKR_SYNC_TRANSIENT_TTL);
@@ -110,7 +129,7 @@ function nmkr_start_sync_handler() {
         }
         
         // Let the client know we queued the job successfully
-        wp_send_json_success();
+        wp_send_json_success(array('run_id' => $run_id, 'owner_state' => 'queued'));
         return;
         
     } catch (Throwable $e) {
@@ -277,21 +296,6 @@ function nmkr_sync_progress_handler() {
             return;
         }
         
-        // ** ENHANCED ERROR HANDLING: Check for Critical Errors **
-        if (!empty($error)) {
-            nmkr_log_data_sync('Progress handler: Critical sync error detected - ' . $error, 'warning');
-            // Clean any stray output captured during handler execution
-            if (ob_get_length()) { ob_clean(); }
-            if ($__nmkr_prev_display_errors !== false) { @ini_set('display_errors', $__nmkr_prev_display_errors); }
-            wp_send_json_error(array(
-                'message' => 'Synchronization encountered a critical error: ' . $error,
-                'error_code' => 'sync_critical_error',
-                'technical_details' => $error,
-                'progress' => $progress
-            ));
-            return;
-        }
-    
     // Initialize project and token variables to prevent undefined variable errors
     $total_projects = 0;
     $completed_projects = 0;
@@ -578,6 +582,66 @@ function nmkr_sync_progress_handler() {
         'finished'     => $canonically_finished,
         'total_items'  => $total_items,
     );
+    $owner = nmkr_get_sync_owner();
+    $response_data['owner_state'] = is_array($owner) ? (string) ($owner['state'] ?? '') : 'released';
+    $active_direct_owner = is_array($owner) && ($owner['mode'] ?? '') === 'direct'
+        && nmkr_is_valid_sync_run_id((string) ($owner['run_id'] ?? ''))
+        && in_array($response_data['owner_state'], array('queued', 'running', 'stop_requested', 'finalizing'), true);
+    $terminal_sync_data = is_array($sync_data) && nmkr_is_sync_terminal_status($sync_data['status'] ?? '')
+        && nmkr_is_valid_sync_run_id((string) ($sync_data['run_id'] ?? ''));
+    $verified_failed_terminal = nmkr_is_verified_failed_terminal_for_progress(
+        $sync_data,
+        $active_direct_owner,
+        $resume_pending
+    );
+    // Active ownership is the sole authority for browser Stop controls. Keep
+    // terminal history separate so a predecessor cannot be combined with a
+    // successor owner in one payload.
+    $response_data['activeRunId'] = $active_direct_owner ? (string) $owner['run_id'] : '';
+    $response_data['active_owner_state'] = $active_direct_owner ? $response_data['owner_state'] : '';
+    $response_data['run_id'] = $response_data['activeRunId']; // legacy alias
+    $response_data['owner_mismatch'] = $active_direct_owner && is_array($sync_data) && !empty($sync_data['run_id'])
+        && !hash_equals((string) $owner['run_id'], (string) $sync_data['run_id']);
+    $response_data['stop_pending'] = $active_direct_owner && $response_data['owner_state'] === 'stop_requested';
+    $response_data['terminalRunId'] = '';
+    $response_data['terminal_outcome'] = '';
+    if ($active_direct_owner) {
+        $response_data['finished'] = false;
+        $response_data['aborted'] = false;
+    } elseif ($terminal_sync_data && !$resume_pending) {
+        $terminal_status = (string) $sync_data['status'];
+        $stopped_clean = $terminal_status === 'stopped' && !$sync_in_progress_option && !$sync_in_progress_flag
+            && !$durable_user_requested_abort && !$user_requested_abort;
+        if (($terminal_status === 'completed' && $canonically_finished) || $stopped_clean || $verified_failed_terminal) {
+            $response_data['terminalRunId'] = (string) $sync_data['run_id'];
+            $response_data['terminal_outcome'] = $terminal_status;
+            $response_data['finished'] = $terminal_status === 'completed' ? $canonically_finished : false;
+            $response_data['aborted'] = $terminal_status === 'stopped';
+            if ($terminal_status === 'failed' && $response_data['error'] === '') {
+                $response_data['error'] = (string) ($sync_data['error_message'] ?? __('Synchronization failed.', 'nmkr-connect'));
+            }
+        }
+    }
+
+    // Keep the legacy critical-error envelope for malformed, pending, and
+    // ownerless nonterminal states. An active exact owner suppresses unscoped
+    // predecessor error evidence, and a verified failed terminal is returned
+    // through the authoritative canonical payload above.
+    if (!empty($error) && !$verified_failed_terminal && !$active_direct_owner) {
+        nmkr_log_data_sync('Progress handler: Critical sync error detected - ' . $error, 'warning');
+        if (ob_get_length()) { ob_clean(); }
+        if ($__nmkr_prev_display_errors !== false) { @ini_set('display_errors', $__nmkr_prev_display_errors); }
+        wp_send_json_error(array(
+            'message' => 'Synchronization encountered a critical error: ' . $error,
+            'error_code' => 'sync_critical_error',
+            'technical_details' => $error,
+            'progress' => $progress
+        ));
+        return;
+    }
+    if ($active_direct_owner) {
+        $response_data['error'] = '';
+    }
 
     // Always include live metrics in heartbeat payload using already-fetched transient only
     // (keep handler lightweight; no additional DB reads here)
@@ -630,26 +694,38 @@ function nmkr_stop_sync_handler() {
     if (!current_user_can('nmkr_manage_sync')) {
         wp_send_json_error(array('message' => __('Forbidden', 'nmkr-connect')), 403);
     }
+    $run_id = isset($_POST['run_id']) ? sanitize_text_field(wp_unslash($_POST['run_id'])) : '';
+    $owner = nmkr_get_sync_owner();
+    // A supplied ID always selects exact direct-run semantics. Never let a
+    // stale browser request fall through into destructive legacy cleanup.
+    if ($run_id !== '') {
+        if (!nmkr_is_valid_sync_run_id($run_id) || !is_array($owner)) {
+            wp_send_json_error(array('message' => __('Synchronization ownership no longer matches this run.', 'nmkr-connect'), 'error_code' => 'sync_owner_mismatch'), 409);
+        }
+        $result = nmkr_request_exact_sync_stop($run_id, 'user_requested');
+        if (is_wp_error($result)) wp_send_json_error(array('message' => $result->get_error_message(), 'error_code' => $result->get_error_code()), 409);
+        if ($result === true) wp_send_json_success(array('run_id' => $run_id, 'owner_state' => 'released', 'completed' => true, 'terminal_outcome' => 'cancelled'));
+        if (is_array($result) && ($result['state'] ?? '') === 'stop_requested') wp_send_json_success(array('run_id' => $run_id, 'owner_state' => 'stop_requested', 'stop_pending' => true, 'completed' => false));
+        wp_send_json_error(array('message' => __('Synchronization ownership no longer matches this run.', 'nmkr-connect'), 'error_code' => 'sync_owner_mismatch'), 409);
+    }
+    if (is_array($owner)) {
+        wp_send_json_error(array('message' => __('An exact synchronization run identifier is required.', 'nmkr-connect'), 'error_code' => 'invalid_run_id'), 400);
+    }
+    if ($owner !== false) {
+        wp_send_json_error(array('message' => __('Synchronization ownership requires recovery.', 'nmkr-connect'), 'error_code' => 'sync_owner_recovery_required'), 409);
+    }
+    // Legacy ownerless Stop remains supported, but it is never selected for a direct run.
     $force = !empty($_POST['force']);
     $result = nmkr_coordinate_sync_cleanup('cancel', function () use ($force) {
         return nmkr_stop_ownerless_sync($force);
     });
     if (is_wp_error($result)) {
         $code = $result->get_error_code();
-        wp_send_json_error(array('message' => $result->get_error_message(), 'error_code' => $code), in_array($code, array('direct_stop_requires_cooperative_worker', 'sync_finalization_pending'), true) ? 409 : 503);
+        wp_send_json_error(array('message' => $result->get_error_message(), 'error_code' => $code), 409);
     }
-    if ($result === true) {
-        wp_send_json_success(array('message' => __('Queued synchronization cancelled.', 'nmkr-connect')));
-    }
-    if (is_array($result) && !empty($result['success'])) {
-        wp_send_json_success(array(
-            'message' => __('Synchronization process stopped successfully', 'nmkr-connect'),
-            'cleared_jobs' => $result['cleared_jobs'],
-            'cleared_data' => $result['cleared_data'],
-            'force_applied' => $result['force_applied'],
-        ));
-    }
+    if (is_array($result) && !empty($result['success'])) wp_send_json_success($result);
     wp_send_json_error(array('message' => __('Synchronization cleanup could not be verified.', 'nmkr-connect'), 'error_code' => 'sync_stop_cleanup_failed'), 503);
+
 }
 
 /**

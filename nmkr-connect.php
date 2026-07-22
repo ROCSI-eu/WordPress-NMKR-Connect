@@ -68,10 +68,14 @@ require_once plugin_dir_path(__FILE__) . 'includes/pages/settings/nmkr-settings-
 require_once plugin_dir_path(__FILE__) . 'includes/roles/nmkr-roles.php';
 require_once plugin_dir_path(__FILE__) . 'includes/helpers/nmkr-access-helpers.php';
 
+// Activation does not run on ordinary updates; upgrade the site schema once after loading it.
+add_action('plugins_loaded', 'nmkr_connect_maybe_upgrade_schema', 5);
+
 // Register activation hook
 function nmkr_connect_activate() {
-    // Create tables
+    // Create tables and record the schema version only after run_id verification.
     nmkr_connect_create_tables();
+    nmkr_connect_maybe_upgrade_schema();
     
     // Ensure NMKR roles & capabilities exist
     nmkr_roles_install_caps();
@@ -238,7 +242,9 @@ function nmkr_connect_uninstall() {
         'nmkr_sync_data',
         'nmkr_sync_owner',
         'nmkr_sync_last_result',
-        'nmkr_sync_last_recovery_at'
+        'nmkr_sync_last_recovery_at',
+        NMKR_CONNECT_SCHEMA_VERSION_OPTION,
+        NMKR_CONNECT_SCHEMA_UPGRADE_LOCK_OPTION
     ];
 
     foreach ($option_keys as $key) {

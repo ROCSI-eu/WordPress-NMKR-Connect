@@ -545,7 +545,7 @@ function nmkr_admit_sync_owner($run_id) {
             return new WP_Error('sync_already_owned', __('A synchronization is already queued or running.', 'nmkr-connect'));
         }
         $now = gmdate('c');
-        $owner = array('run_id' => $run_id, 'mode' => 'direct', 'state' => 'queued', 'sync_stats_id' => 0, 'created_at' => $now, 'updated_at' => $now);
+        $owner = array('run_id' => $run_id, 'mode' => 'direct', 'state' => 'queued', 'sync_stats_id' => 0, 'created_at' => $now, 'updated_at' => $now, 'heartbeat_at' => $now, 'checkpoint_seq' => 0, 'safe_phase' => 'queued');
         if (!add_option('nmkr_sync_owner', $owner, '', 'no')) {
             return new WP_Error('sync_already_owned', __('A synchronization is already queued or running.', 'nmkr-connect'));
         }
@@ -569,11 +569,89 @@ function nmkr_transition_sync_owner($run_id, $from_state, $to_state, $sync_stats
             }
             $owner['sync_stats_id'] = (int) $sync_stats_id;
         }
+        // A Stop that wins the binding race must never be overwritten back to running.
+        if (($owner['state'] ?? '') === 'stop_requested' && $from_state === 'running' && $to_state === 'running') {
+            $to_state = 'stop_requested';
+        }
         $owner['state'] = $to_state;
         $owner['updated_at'] = gmdate('c');
+        $owner['heartbeat_at'] = $owner['updated_at'];
         update_option('nmkr_sync_owner', $owner, false);
         return nmkr_get_sync_owner() === $owner ? $owner : false;
     });
+}
+
+/** Request cooperative termination of one exact direct run. */
+function nmkr_request_exact_sync_stop($run_id, $reason = 'user_requested') {
+    if (!nmkr_is_valid_sync_run_id($run_id)) return new WP_Error('invalid_run_id', __('Invalid synchronization run identifier.', 'nmkr-connect'));
+    return nmkr_with_sync_owner_lock(function () use ($run_id, $reason) {
+        $owner = nmkr_get_uncached_option_value('nmkr_sync_owner', false);
+        if (!is_array($owner) || !hash_equals((string) ($owner['run_id'] ?? ''), $run_id) || ($owner['mode'] ?? '') !== 'direct') return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this run.', 'nmkr-connect'));
+        if (($owner['state'] ?? '') === 'finalizing') return new WP_Error('sync_finalization_pending', __('Synchronization finalization is still pending.', 'nmkr-connect'));
+        if (($owner['state'] ?? '') === 'queued' && (int) ($owner['sync_stats_id'] ?? -1) === 0) return nmkr_cancel_exact_queued_sync_owner_locked($run_id, 'cancelled');
+        if (!in_array(($owner['state'] ?? ''), array('running', 'stop_requested'), true)) return new WP_Error('sync_owner_state_invalid', __('Synchronization cannot be stopped in its current state.', 'nmkr-connect'));
+        $requested_at = $owner['stop_requested_at'] ?? gmdate('c');
+        $owner['state'] = 'stop_requested';
+        $owner['stop_requested_at'] = $requested_at;
+        $owner['stop_reason'] = sanitize_text_field($reason);
+        $owner['updated_at'] = gmdate('c');
+        // WordPress returns false for an unchanged option too; readback is authoritative.
+        update_option('nmkr_sync_owner', $owner, false);
+        $verified = nmkr_get_uncached_option_value('nmkr_sync_owner', false);
+        if (!is_array($verified) || !hash_equals((string) ($verified['run_id'] ?? ''), $run_id)
+            || ($verified['mode'] ?? '') !== 'direct' || (int) ($verified['sync_stats_id'] ?? -1) !== (int) ($owner['sync_stats_id'] ?? -1)
+            || ($verified['state'] ?? '') !== 'stop_requested' || ($verified['stop_requested_at'] ?? '') !== $requested_at
+            || ($verified['stop_reason'] ?? '') !== $owner['stop_reason']) return new WP_Error('sync_stop_readback_failed', __('Synchronization stop could not be verified.', 'nmkr-connect'));
+        return $verified;
+    });
+}
+
+/** Authoritative worker fence. Call only at safe boundaries. */
+function nmkr_sync_run_checkpoint($run_id, $sync_stats_id = null, $phase = '') {
+    $result = nmkr_with_sync_owner_lock(function () use ($run_id, $sync_stats_id, $phase) {
+        $owner = nmkr_get_uncached_option_value('nmkr_sync_owner', false);
+        if (!is_array($owner) || !hash_equals((string) ($owner['run_id'] ?? ''), (string) $run_id)
+            || ($owner['mode'] ?? '') !== 'direct'
+            || ($sync_stats_id !== null && (int) ($owner['sync_stats_id'] ?? 0) !== (int) $sync_stats_id)) return 'owner_mismatch';
+        if (($owner['state'] ?? '') === 'stop_requested') return 'stop_requested';
+        if (($owner['state'] ?? '') === 'finalizing') return 'finalizing';
+        if (($owner['state'] ?? '') !== 'running') return 'owner_mismatch';
+        $now = gmdate('c');
+        $owner['heartbeat_at'] = $now;
+        $owner['updated_at'] = $now;
+        $owner['checkpoint_seq'] = (int) ($owner['checkpoint_seq'] ?? 0) + 1;
+        if ($phase !== '') $owner['safe_phase'] = sanitize_key($phase);
+        $updated = update_option('nmkr_sync_owner', $owner, false);
+        $verified = nmkr_get_uncached_option_value('nmkr_sync_owner', false);
+        if ($verified !== $owner) return 'checkpoint_persistence_failed';
+        // An unchanged write is valid only when the authoritative record proves it.
+        if ($updated === false && ((int) ($verified['checkpoint_seq'] ?? -1) !== (int) $owner['checkpoint_seq']
+            || ($verified['heartbeat_at'] ?? '') !== $owner['heartbeat_at']
+            || ($verified['safe_phase'] ?? '') !== ($owner['safe_phase'] ?? ''))) return 'checkpoint_persistence_failed';
+        return 'continue';
+    });
+    return is_wp_error($result) ? 'checkpoint_lock_failed' : $result;
+}
+
+/** Bind an inserted direct-run history row without losing a racing Stop request. */
+function nmkr_bind_exact_sync_history_owner($run_id, $sync_stats_id) {
+    global $wpdb;
+    $sync_stats_id = (int) $sync_stats_id;
+    if (!nmkr_is_valid_sync_run_id($run_id) || $sync_stats_id <= 0) return new WP_Error('sync_history_binding_invalid_input', __('Invalid synchronization history binding.', 'nmkr-connect'));
+    $result = nmkr_with_sync_owner_lock(function () use ($run_id, $sync_stats_id, $wpdb) {
+        $owner = nmkr_get_uncached_option_value('nmkr_sync_owner', false);
+        if (!is_array($owner) || !hash_equals((string) ($owner['run_id'] ?? ''), $run_id) || ($owner['mode'] ?? '') !== 'direct') return new WP_Error('sync_history_binding_owner_mismatch', __('Synchronization ownership no longer matches this run.', 'nmkr-connect'));
+        if ((int) ($owner['sync_stats_id'] ?? -1) !== 0 || !in_array(($owner['state'] ?? ''), array('running', 'stop_requested'), true)) return new WP_Error('sync_history_binding_owner_state_invalid', __('Synchronization ownership is not bindable.', 'nmkr-connect'));
+        $history = $wpdb->get_row($wpdb->prepare("SELECT id, run_id FROM {$wpdb->prefix}nmkr_sync_stats WHERE id = %d", $sync_stats_id), ARRAY_A);
+        if (!is_array($history) || (int) ($history['id'] ?? 0) !== $sync_stats_id) return new WP_Error('sync_history_binding_history_missing', __('Synchronization history is missing.', 'nmkr-connect'));
+        if (!hash_equals((string) ($history['run_id'] ?? ''), $run_id)) return new WP_Error('sync_history_binding_history_run_mismatch', __('Synchronization history belongs to another run.', 'nmkr-connect'));
+        $owner['sync_stats_id'] = $sync_stats_id; $owner['updated_at'] = gmdate('c');
+        if (!update_option('nmkr_sync_owner', $owner, false)) return new WP_Error('sync_history_binding_update_failed', __('Synchronization history binding could not be persisted.', 'nmkr-connect'));
+        $verified = nmkr_get_uncached_option_value('nmkr_sync_owner', false);
+        if ($verified !== $owner) return new WP_Error('sync_history_binding_readback_failed', __('Synchronization history binding could not be verified.', 'nmkr-connect'));
+        return $verified;
+    });
+    return is_wp_error($result) && $result->get_error_code() === 'sync_owner_lock_unavailable' ? new WP_Error('sync_history_binding_lock_unavailable', $result->get_error_message()) : $result;
 }
 
 function nmkr_sync_owner_matches($run_id, $state = null, $sync_stats_id = null) {

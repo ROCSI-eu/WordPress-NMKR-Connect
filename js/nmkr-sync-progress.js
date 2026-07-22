@@ -60,6 +60,9 @@ jQuery(document).ready(function($) {
     let hasError = false;
     let startXhr, pollXhr, stopXhr;
     let syncInProgress = false;
+    let activeRunId = null;
+    let activeRunTrusted = false;
+    let stopPending = false;
     
     // Get settings from WordPress (unified object)
     const options = nmkrSyncProgress.options || {};
@@ -93,11 +96,22 @@ jQuery(document).ready(function($) {
     const syncDataPanel = $('.sync-data.panel');
     const syncNonce = $('#nmkr-sync-nonce').val();
 
+    function resetRunAuthority() {
+        activeRunId = null;
+        activeRunTrusted = false;
+        stopPending = false;
+        stopSyncButton.prop('disabled', true);
+    }
+
+    function isValidDirectRunId(runId) {
+        return typeof runId === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(runId);
+    }
+
     // Function to update button state based on sync status
     function updateButtonState() {
         if (syncInProgress) {
             syncButton.hide();
-            stopSyncButton.show();
+            stopSyncButton.show().prop('disabled', !(activeRunId && activeRunTrusted) || stopPending);
         } else {
             syncButton.show();
             stopSyncButton.hide();
@@ -130,6 +144,7 @@ jQuery(document).ready(function($) {
     function teardownSyncUI() {
         // Reset sync state flags immediately
         syncInProgress = false;
+        resetRunAuthority();
         
         // Abort any in-flight XHR requests before stopping polling
         if (pollXhr && pollXhr.readyState !== 4) {
@@ -159,6 +174,7 @@ jQuery(document).ready(function($) {
     syncButton.off('click').on('click', function() {
         // Reset error state immediately when starting fresh sync
         hasError = false;
+        resetRunAuthority();
         
         // Prevent double-clicks by immediately disabling the button
         syncButton.prop('disabled', true);
@@ -175,7 +191,10 @@ jQuery(document).ready(function($) {
             timeout: 300000
         })
         .done(function(response) {
-            if (response.success) {
+            if (response.success && response.data && response.data.run_id) {
+                activeRunId = response.data.run_id;
+                activeRunTrusted = false;
+                stopPending = false;
                 // Begin polling live metrics
                 startSyncPolling();
             } else {
@@ -192,20 +211,52 @@ jQuery(document).ready(function($) {
 
     // Handle stop sync button click
     stopSyncButton.off('click').on('click', function() {
+        if (!activeRunId || !activeRunTrusted) { window.nmkrShowWarning('Waiting for authoritative synchronization run attachment.'); return; }
         stopSyncButton.prop('disabled', true);
         stopXhr = $.post(nmkrSyncProgress.ajax_url, {
             action: 'nmkr_stop_sync',
             nonce: nmkrSyncProgress.nonce,
+            run_id: activeRunId,
             _: Date.now()
+        })
+        .done(function(response) {
+            if (response.success && response.data && response.data.completed === true && response.data.terminal_outcome === 'cancelled') {
+                resetRunAuthority();
+                teardownSyncUI();
+                $('#status-message').text('⏹️ Queued synchronization cancelled');
+                return;
+            }
+            if (response.success && response.data && response.data.stop_pending) {
+            stopPending = true;
+                $('#status-message').text('⏹️ Stopping Synchronization…');
+                fetchProgress();
+            }
         })
         .fail(function(xhr, status) {
             if (status === 'abort') return;
             const msg = nmkrHttpErrorString(xhr);
             console.warn('Stop sync request failed:', msg);
+            const code = xhr && xhr.responseJSON && xhr.responseJSON.data ? xhr.responseJSON.data.error_code : '';
+            const httpStatus = xhr ? xhr.status : 0;
+            const ownerConflict = httpStatus === 409 || ['sync_owner_mismatch', 'sync_owner_recovery_required', 'sync_finalization_pending', 'sync_finalization_unavailable'].includes(code);
+            const transientStopFailure = status === 'timeout' || httpStatus === 0 || httpStatus === 408 || httpStatus === 429 || httpStatus >= 500;
+            const fatalStopFailure = !transientStopFailure && !ownerConflict;
+            stopPending = false;
+            if (ownerConflict || fatalStopFailure) {
+                resetRunAuthority();
+            }
+            if (fatalStopFailure) {
+                handleError(msg);
+                return;
+            }
+            updateButtonState();
+            // A transient transport failure retains the exact trusted run;
+            // ownership conflicts instead wait for the next authority poll.
+            fetchProgress();
         })
         .always(() => {
-            teardownSyncUI();
-            updateLastSyncTime('manual_stop', () => { hideActiveSyncMetrics(); });
+            // Stop acknowledgement is not terminal proof. Poll until canonical state.
+            updateButtonState();
         });
         $('#status-message').text('⏹️ Stopping Synchronization…');
         if (pollBackoff.timer) {
@@ -248,7 +299,27 @@ jQuery(document).ready(function($) {
         
         try {
           if (response.success && response.data) {
-            const { progress, current_item, in_progress, error, live_metrics, finished, aborted } = response.data;
+            const { progress, current_item, in_progress, error, live_metrics, finished, aborted, terminal_outcome } = response.data;
+            const reportedRunId = response.data.activeRunId || '';
+            const authoritativeRunId = isValidDirectRunId(reportedRunId) ? reportedRunId : '';
+            const malformedOwner = !!reportedRunId && !authoritativeRunId;
+            const cleanOwner = authoritativeRunId && response.data.owner_mismatch !== true;
+            if (!authoritativeRunId) {
+              resetRunAuthority();
+            } else if (activeRunId && activeRunId !== authoritativeRunId) {
+              resetRunAuthority();
+              window.nmkrShowWarning('Synchronization run changed; Stop is disabled until authoritative reattachment.');
+            } else if (activeRunId === authoritativeRunId) {
+              // Canonical sync data may still describe a predecessor terminal
+              // run while this exact newly started owner is queued. The owner
+              // is authoritative for cooperative Stop in that interval.
+              activeRunTrusted = true;
+              updateButtonState();
+            } else if (cleanOwner) {
+              activeRunId = authoritativeRunId;
+              activeRunTrusted = true;
+              updateButtonState();
+            }
             
             // Accept numbers and numeric strings; fall back to 0 only if not finite
             let validProgress = Number(progress);
@@ -262,12 +333,6 @@ jQuery(document).ready(function($) {
               $('#status-message').html('<div class="status-header">' + current_item + '</div>');
             }
             
-            // Handle error state
-            if (typeof error === 'string' && error.trim() !== '') {
-              handleError(error);
-              return;
-            }
-            
             // Update live metrics if available
             if (live_metrics) {
               updateActiveMetrics(live_metrics);
@@ -276,17 +341,35 @@ jQuery(document).ready(function($) {
             // Only the backend's canonical terminal state may finish polling.
             // (defensive against server-side strict-compare races)
             if (finished === true) {
-              stopPolling();
-              handleComplete();
-              return;
+              if (!authoritativeRunId && !malformedOwner) {
+                stopPolling();
+                handleComplete();
+                return;
+              }
             }
 
             // Treat only an explicit server-declared aborted/stopped payload as terminal.
             // Do not stop merely because in_progress=false: transient sync flags can expire
             // while durable sync state still indicates work.
-            if (aborted === true) {
+            if (aborted === true && !authoritativeRunId && !malformedOwner && terminal_outcome === 'stopped') {
               stopPolling();
               handleStoppedSync(current_item);
+              return;
+            }
+            if (terminal_outcome === 'stopped' && !authoritativeRunId && !malformedOwner) {
+              stopPolling();
+              handleStoppedSync(current_item);
+              return;
+            }
+            if (terminal_outcome === 'failed' && !authoritativeRunId && !malformedOwner) {
+              stopPolling();
+              handleError(error || current_item || 'Synchronization failed.');
+              return;
+            }
+
+            // Handle generic errors only after authoritative terminal outcomes.
+            if (typeof error === 'string' && error.trim() !== '' && !authoritativeRunId && !malformedOwner) {
+              handleError(error);
               return;
             }
             
@@ -395,6 +478,7 @@ jQuery(document).ready(function($) {
 
     function handleComplete() {
       syncInProgress = false;
+      resetRunAuthority();
       
       // Update button state on completion
       updateButtonState();
@@ -421,6 +505,7 @@ jQuery(document).ready(function($) {
 
     function handleStoppedSync(message) {
       syncInProgress = false;
+      resetRunAuthority();
       updateButtonState();
       syncButton.prop('disabled', false);
       const stoppedMessage = message || 'Synchronization stopped by server';
