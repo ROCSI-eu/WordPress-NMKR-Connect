@@ -71,6 +71,23 @@ function nmkr_handle_sync_worker_halt($halt, $run_id, $sync_stats_id) {
     return is_array($final) ? $final : new WP_Error('sync_stopped_finalization_pending', __('Synchronization stop finalization remains pending.', 'nmkr-connect'));
 }
 
+/**
+ * Give an exact cooperative Stop precedence over the generic worker-failure
+ * cleanup. Returning false leaves ordinary running-worker failures unchanged.
+ */
+function nmkr_finalize_stop_winning_worker_failure($run_id, $sync_stats_id) {
+    $owner = nmkr_get_sync_owner();
+    if (!is_array($owner) || !hash_equals((string) ($owner['run_id'] ?? ''), (string) $run_id)
+        || ($owner['mode'] ?? '') !== 'direct' || ($owner['state'] ?? '') !== 'stop_requested'
+        || (int) ($owner['sync_stats_id'] ?? 0) !== (int) $sync_stats_id) return false;
+
+    return nmkr_handle_sync_worker_halt(
+        new WP_Error('sync_stop_requested', __('Synchronization stop was requested.', 'nmkr-connect')),
+        $run_id,
+        $sync_stats_id
+    );
+}
+
 /** Build the small, internal direct-worker terminal result contract. */
 function nmkr_direct_sync_terminal_result($outcome, $run_id, $sync_stats_id, $sync_log = array()) {
     return array(
@@ -1239,6 +1256,12 @@ function nmkr_sync_data($run_id = '') {
         if (!nmkr_sync_owner_matches($run_id, null, $sync_stats_id ?: 0)) {
             return new WP_Error('sync_owner_mismatch', 'Synchronization owner changed; stale worker stopped.');
         }
+
+        // A Stop can win while an API request is in flight and that request
+        // returns an ordinary error. Finalize that exact owner as stopped
+        // before generic failure cleanup can clear its canonical state.
+        $stopped = nmkr_finalize_stop_winning_worker_failure($run_id, $sync_stats_id);
+        if ($stopped !== false) return $stopped;
 
         // Durable success evidence makes this a resumable finalization, not a
         // business-data failure. Preserve active/finalizing state so a retry

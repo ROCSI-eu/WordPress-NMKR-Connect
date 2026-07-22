@@ -362,6 +362,11 @@ jQuery(document).ready(function($) {
               handleStoppedSync(current_item);
               return;
             }
+            if (terminal_outcome === 'failed' && !authoritativeRunId) {
+              stopPolling();
+              handleError(current_item || 'Synchronization failed.');
+              return;
+            }
             
             // Always continue polling unless explicitly finished
             if (true) {

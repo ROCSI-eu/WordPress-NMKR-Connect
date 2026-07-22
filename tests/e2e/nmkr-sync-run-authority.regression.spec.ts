@@ -16,6 +16,9 @@ function active(runId: string): AdminAjaxFulfillment {
 function terminal(): AdminAjaxFulfillment {
   return { body: { success: true, data: { progress: 100, current_item: "Done", in_progress: false, finished: true, activeRunId: "" } } };
 }
+function failedTerminalWithOwner(runId: string): AdminAjaxFulfillment {
+  return { body: { success: true, data: { progress: 0, current_item: "Previous run failed", in_progress: false, finished: false, terminal_outcome: "failed", error: "", activeRunId: runId } } };
+}
 
 async function open(page: Page) {
   const progressQueue: Deferred<AdminAjaxFulfillment>[] = [];
@@ -62,6 +65,19 @@ test.describe("NMKR Connect run-authority regression", () => {
     expect(harness.blockedActions).toEqual([]);
   });
 
+  test("stops ownerless failed terminal polling without a transient error", async ({ page }) => {
+    const { harness, nextProgress } = await open(page);
+    await poll(page);
+    (await nextProgress()).resolve({ body: { success: true, data: { progress: 0, current_item: "Synchronization failed on the server", in_progress: false, finished: false, terminal_outcome: "failed", error: "", activeRunId: "" } } });
+    await expect(page.locator("#status-message")).toContainText(/Synchronization error|failed/i);
+    await expect(page.locator("#nmkr-stop-sync-button")).toBeHidden();
+    await expect(page.locator("#nmkr-sync-button")).toBeVisible();
+    await expect(page.locator("#nmkr-sync-button")).toBeEnabled();
+    const callsAfterTerminal = harness.progressCallCount();
+    await expect.poll(() => harness.progressCallCount(), { intervals: [1000, 2000, 4000], timeout: 7000 }).toBe(callsAfterTerminal);
+    expect(callsAfterTerminal).toBe(1);
+  });
+
   test("terminal, owner-change, recoverable, and fatal paths use controlled progress responses", async ({ page }) => {
     const { harness, nextProgress } = await open(page);
     const stop = page.locator("#nmkr-stop-sync-button");
@@ -76,6 +92,10 @@ test.describe("NMKR Connect run-authority regression", () => {
     await expect(stop).toBeDisabled();
     runB.resolve(active("run-B"));
     await expect(stop).toBeEnabled();
+
+    await poll(page); (await nextProgress()).resolve(failedTerminalWithOwner("run-B"));
+    await expect(stop).toBeEnabled();
+    await expect(page.locator("#nmkr-sync-button")).toBeHidden();
 
     await poll(page); (await nextProgress()).resolve(active("run-C"));
     await expect(stop).toBeDisabled();
