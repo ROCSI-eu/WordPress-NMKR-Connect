@@ -88,6 +88,75 @@ function nmkr_finalize_stop_winning_worker_failure($run_id, $sync_stats_id) {
     );
 }
 
+
+/** Terminalize an ordinary bound-worker failure through the canonical finalizer. */
+function nmkr_finalize_direct_worker_failure($run_id, $sync_stats_id, $error_message, $counters = array()) {
+    $sync_stats_id = (int) $sync_stats_id;
+    if ($sync_stats_id <= 0 || !nmkr_sync_owner_matches($run_id, 'running', $sync_stats_id)) return false;
+    $final = array_merge(array(
+        'run_id' => (string) $run_id,
+        'sync_stats_id' => $sync_stats_id,
+        'outcome' => 'failed',
+        'items_processed' => 0,
+        'items_successful' => 0,
+        'items_failed' => 0,
+        'items_skipped' => 0,
+        'token_details_synced' => 0,
+    ), is_array($counters) ? $counters : array());
+    $prepared = nmkr_prepare_sync_finalization($sync_stats_id, $final, nmkr_get_sync_data());
+    if (!is_array($prepared)) {
+        return nmkr_direct_sync_finalization_error('sync_finalization_pending', 'Synchronization failure terminalization remains pending.', $run_id, $sync_stats_id, 'failed');
+    }
+    $finalizing = nmkr_transition_sync_owner($run_id, 'running', 'finalizing', $sync_stats_id);
+    if (!nmkr_sync_owner_transition_succeeded($finalizing)) {
+        return nmkr_direct_sync_finalization_error('sync_finalization_pending', 'Synchronization failure terminalization remains pending.', $run_id, $sync_stats_id, 'failed');
+    }
+    $terminal = nmkr_sync_data_complete(false, (string) $error_message, $prepared, true, true);
+    return is_array($terminal) && ($terminal['status'] ?? '') === 'failed'
+        ? $terminal
+        : nmkr_direct_sync_finalization_error('sync_finalization_pending', 'Synchronization failure terminalization remains pending.', $run_id, $sync_stats_id, 'failed');
+}
+
+/** Safely publish an ownerless stopped terminal when Stop wins before history binding. */
+function nmkr_finalize_pre_history_stop($run_id) {
+    return nmkr_with_sync_owner_lock(function () use ($run_id) {
+        $owner = nmkr_get_sync_owner();
+        if (!is_array($owner) || !hash_equals((string) ($owner['run_id'] ?? ''), (string) $run_id)
+            || ($owner['mode'] ?? '') !== 'direct' || ($owner['state'] ?? '') !== 'stop_requested'
+            || (int) ($owner['sync_stats_id'] ?? -1) !== 0) return false;
+        $terminal = array(
+            'status' => 'stopped', 'completed' => true, 'run_id' => (string) $run_id,
+            'sync_stats_id' => 0, 'end_time' => nmkr_get_timestamp(),
+        );
+        if (!nmkr_save_sync_data($terminal) || nmkr_get_sync_data() !== $terminal) {
+            update_option('nmkr_sync_status', 'stop_cleanup_error');
+            return new WP_Error('sync_stop_cleanup_pending', __('Synchronization Stop cleanup remains pending.', 'nmkr-connect'));
+        }
+        wp_clear_scheduled_hook('nmkr_execute_sync_background', array($run_id));
+        update_option('nmkr_sync_in_progress', false);
+        delete_transient('nmkr_sync_in_progress');
+        foreach (array('nmkr_sync_progress', 'nmkr_sync_current_item', 'nmkr_sync_current_count', 'nmkr_sync_total_items') as $key) delete_transient($key);
+        $clean = wp_next_scheduled('nmkr_execute_sync_background', array($run_id)) === false
+            && !get_option('nmkr_sync_in_progress', false) && !get_transient('nmkr_sync_in_progress');
+        if (!$clean) {
+            update_option('nmkr_sync_status', 'stop_cleanup_error');
+            return new WP_Error('sync_stop_cleanup_pending', __('Synchronization Stop cleanup remains pending.', 'nmkr-connect'));
+        }
+        delete_option('nmkr_sync_owner');
+        if (nmkr_get_sync_owner() !== false) {
+            update_option('nmkr_sync_status', 'stop_cleanup_error');
+            return new WP_Error('sync_stop_cleanup_pending', __('Synchronization Stop cleanup remains pending.', 'nmkr-connect'));
+        }
+        update_option('nmkr_sync_status', 'stopped');
+        return nmkr_direct_sync_terminal_result('stopped', $run_id, 0);
+    });
+}
+
+/** Give a zero-history Stop precedence over generic early failure cleanup. */
+function nmkr_finalize_pre_history_stop_on_early_failure($run_id) {
+    return nmkr_finalize_pre_history_stop($run_id);
+}
+
 /** Build the small, internal direct-worker terminal result contract. */
 function nmkr_direct_sync_terminal_result($outcome, $run_id, $sync_stats_id, $sync_log = array()) {
     return array(
@@ -801,7 +870,9 @@ function nmkr_sync_data($run_id = '') {
                 $sync_log[] = 'ERROR: ' . $error_details['formatted_display'];
                 nmkr_log_data_sync('Sync failed: ' . $error_details['message'], 'error');
                 
-                // Update sync status for frontend
+                // A Stop can win before history binding; never apply running-only cleanup to it.
+                $stopped = nmkr_finalize_pre_history_stop_on_early_failure($run_id);
+                if ($stopped !== false) return $stopped;
                 nmkr_cleanup_failed_direct_sync($run_id, 0, $error_details['formatted_display']);
                 
                 if (defined('DOING_AJAX') && DOING_AJAX) {
@@ -820,6 +891,8 @@ function nmkr_sync_data($run_id = '') {
             $sync_log[] = 'ERROR: ' . $error_msg;
             nmkr_log_data_sync('Critical error during API configuration check: ' . $e->getMessage(), 'error');
             
+            $stopped = nmkr_finalize_pre_history_stop_on_early_failure($run_id);
+            if ($stopped !== false) return $stopped;
             nmkr_cleanup_failed_direct_sync($run_id, 0, $error_msg);
             
             if (defined('DOING_AJAX') && DOING_AJAX) {
@@ -861,6 +934,8 @@ function nmkr_sync_data($run_id = '') {
             $sync_log[] = 'ERROR: ' . $error_msg;
             nmkr_log_data_sync('Critical error during sync initialization: ' . $e->getMessage(), 'error');
             
+            $stopped = nmkr_finalize_pre_history_stop_on_early_failure($run_id);
+            if ($stopped !== false) return $stopped;
             if (nmkr_sync_owner_matches($run_id, 'running', $sync_stats_id ?: 0)) {
                 nmkr_cleanup_failed_direct_sync($run_id, $sync_stats_id ?: 0, $error_msg);
             }
@@ -1288,51 +1363,25 @@ function nmkr_sync_data($run_id = '') {
             return nmkr_direct_sync_finalization_error('sync_finalization_unavailable', 'Synchronization data was saved, but no executable finalization retry is scheduled.', $run_id, $sync_stats_id, $intended_outcome);
         }
         
-        // Update sync stats with critical failure
-        if ($sync_stats_id) {
-            try {
-                nmkr_update_sync_stats($sync_stats_id, [
-                    'status' => 'failed',
-                    'error_message' => $error_msg,
-                    'end_time' => nmkr_get_timestamp(),
-                    'items_processed' => isset($total_tokens) ? $total_tokens : 0,
-                    'items_successful' => isset($total_successful_tokens) ? $total_successful_tokens : 0,
-                    'items_failed' => isset($total_failed_tokens) ? $total_failed_tokens : 0,
-                    'items_skipped' => isset($total_skipped_tokens) ? $total_skipped_tokens : 0,
-                    'token_details_synced' => isset($token_details_synced) ? $token_details_synced : 0
-                ]);
-            } catch (Exception $stats_error) {
-                nmkr_log_data_sync('Failed to update sync stats during error cleanup: ' . $stats_error->getMessage(), 'error');
-            }
+        // A bound ordinary failure uses the same durable terminalization path as
+        // other direct outcomes so polling can consume the exact failed result.
+        if ($sync_stats_id > 0) {
+            $failed = nmkr_finalize_direct_worker_failure($run_id, $sync_stats_id, $error_msg, array(
+                'items_processed' => isset($total_tokens) ? $total_tokens : 0,
+                'items_successful' => isset($total_successful_tokens) ? $total_successful_tokens : 0,
+                'items_failed' => isset($total_failed_tokens) ? $total_failed_tokens : 0,
+                'items_skipped' => isset($total_skipped_tokens) ? $total_skipped_tokens : 0,
+                'token_details_synced' => isset($token_details_synced) ? $token_details_synced : 0,
+            ));
+            if (is_array($failed) || is_wp_error($failed)) return $failed;
         }
-        
-        // Ensure sync flags are cleared
-        try {
-            update_option('nmkr_sync_in_progress', false);
-            delete_transient('nmkr_sync_in_progress');
-            update_option('nmkr_sync_error', $error_msg);
-            nmkr_update_sync_progress($completed_steps, $total_steps, '❌ Synchronization Failed');
-            
-            // Clear any scheduled batch processing
-            wp_clear_scheduled_hook('nmkr_process_batch_hook');
-            
-        } catch (Exception $cleanup_error) {
-            nmkr_log_data_sync('Failed to cleanup sync state during error handling: ' . $cleanup_error->getMessage(), 'error');
+
+        // Preserve legacy pre-history failure behavior only while the exact
+        // running owner is still present. Never delete a terminal record.
+        if (nmkr_sync_owner_matches($run_id, 'running', 0)) {
+            nmkr_cleanup_failed_direct_sync($run_id, 0, $error_msg);
         }
-        
-        // Clear sync data to prevent stuck state
-        try {
-            if (nmkr_sync_owner_matches($run_id, null, $sync_stats_id ?: 0)) {
-                nmkr_clear_sync_data();
-                $released = nmkr_release_sync_owner($run_id, $sync_stats_id ?: 0, 'running');
-                if ($released !== true) {
-                    update_option('nmkr_sync_status', 'failed_cleanup_pending');
-                }
-            }
-        } catch (Exception $clear_error) {
-            nmkr_log_data_sync('Failed to clear sync data during error cleanup: ' . $clear_error->getMessage(), 'error');
-        }
-        
+
         // At the end of the function, after sync finishes (success or error), delete the transient
         // --- Robustify: Delete performance stats transient on completion or error ---
         delete_transient('nmkr_current_sync_stats_live');
