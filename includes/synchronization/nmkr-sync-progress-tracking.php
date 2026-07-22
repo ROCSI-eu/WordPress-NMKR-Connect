@@ -626,7 +626,7 @@ function nmkr_verify_sync_terminal_result($sync_data, $outcome) {
         return false;
     }
     $sync_stats_id = (int) ($sync_data['sync_stats_id'] ?? 0);
-    $history = $wpdb->get_row($wpdb->prepare("SELECT id, status, end_time FROM {$wpdb->prefix}nmkr_sync_stats WHERE id = %d", $sync_stats_id), ARRAY_A);
+    $history = $wpdb->get_row($wpdb->prepare("SELECT id, run_id, status, end_time FROM {$wpdb->prefix}nmkr_sync_stats WHERE id = %d", $sync_stats_id), ARRAY_A);
     // Keep the boolean compatibility shim for existing callers, but never let
     // it make stopped and failed interchangeable.
     $outcome = nmkr_normalize_sync_terminal_outcome($outcome);
@@ -636,6 +636,14 @@ function nmkr_verify_sync_terminal_result($sync_data, $outcome) {
         || !in_array(strtolower((string) ($history['status'] ?? '')), $allowed, true)
         || (string) ($history['end_time'] ?? '') !== (string) ($sync_data['end_time'] ?? '')) {
         return false;
+    }
+    $run_id = (string) ($sync_data['run_id'] ?? '');
+    if ($run_id !== '') {
+        if (!nmkr_is_valid_sync_run_id($run_id)
+            || !nmkr_is_valid_sync_run_id($history['run_id'] ?? '')
+            || !hash_equals($run_id, (string) $history['run_id'])) {
+            return false;
+        }
     }
     if ($outcome === 'completed') {
         $receipt = nmkr_get_sync_metrics_receipt($sync_stats_id);

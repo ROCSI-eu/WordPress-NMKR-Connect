@@ -3,6 +3,9 @@ import { installNmkrSyncAjaxHarness, type AdminAjaxFulfillment, type AdminAjaxHa
 import { env, expectWpAdmin, loginToWpAdmin, urlFor } from "./helpers/wp-admin";
 
 const dashboardPath = env("NMKR_DASHBOARD_PATH", "/wp-admin/admin.php?page=nmkr-connect-dashboard");
+const runA = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const runB = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+const runC = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 
 type Deferred<T> = { promise: Promise<T>; resolve: (value: T) => void };
 function deferred<T>(): Deferred<T> {
@@ -10,8 +13,8 @@ function deferred<T>(): Deferred<T> {
   const promise = new Promise<T>((done) => { resolve = done; });
   return { promise, resolve };
 }
-function active(runId: string): AdminAjaxFulfillment {
-  return { body: { success: true, data: { progress: 42, current_item: "Synthetic progress", in_progress: true, finished: false, error: "", activeRunId: runId } } };
+function active(runId: string, ownerMismatch = false): AdminAjaxFulfillment {
+  return { body: { success: true, data: { progress: 42, current_item: "Synthetic progress", in_progress: true, finished: false, error: "", activeRunId: runId, owner_mismatch: ownerMismatch } } };
 }
 function terminal(): AdminAjaxFulfillment {
   return { body: { success: true, data: { progress: 100, current_item: "Done", in_progress: false, finished: true, activeRunId: "" } } };
@@ -26,7 +29,7 @@ async function open(page: Page) {
   let starts = 0;
   const harness: AdminAjaxHarness = await installNmkrSyncAjaxHarness(page, {
     handlers: {
-      nmkr_start_sync: () => ({ body: { success: true, data: { run_id: ++starts === 1 ? "run-A" : "run-B" } } }),
+      nmkr_start_sync: () => ({ body: { success: true, data: { run_id: ++starts === 1 ? runA : runB } } }),
       nmkr_stop_sync: ({ params }) => { stopRunIds.push(params.get("run_id") || ""); return { body: { success: true, data: { stop_pending: true } } }; },
     },
     onSyncProgress: () => {
@@ -57,12 +60,34 @@ test.describe("NMKR Connect run-authority regression", () => {
     await expect(stop).toBeVisible();
     await expect(stop).toBeDisabled();
     expect(harness.actionCount("nmkr_stop_sync")).toBe(0);
-    first.resolve(active("run-A"));
+    first.resolve(active(runA));
     await expect(stop).toBeEnabled();
     await stop.click();
     await expect.poll(() => harness.actionCount("nmkr_stop_sync")).toBe(1);
-    expect(stopRunIds).toEqual(["run-A"]);
+    expect(stopRunIds).toEqual([runA]);
     expect(harness.blockedActions).toEqual([]);
+  });
+
+  test("matching queued owner remains trusted across predecessor mismatch", async ({ page }) => {
+    const { harness, stopRunIds, nextProgress } = await open(page);
+    await start(page);
+    const stop = page.locator("#nmkr-stop-sync-button");
+    (await nextProgress()).resolve(active(runA, true));
+    await expect(stop).toBeEnabled();
+
+    await poll(page);
+    (await nextProgress()).resolve(active(runA, true));
+    await expect(stop).toBeEnabled();
+
+    await poll(page);
+    (await nextProgress()).resolve(active(runB, true));
+    await expect(stop).toBeDisabled();
+    await expect.poll(() => harness.actionCount("nmkr_stop_sync")).toBe(0);
+    expect(stopRunIds).toEqual([]);
+
+    await poll(page);
+    (await nextProgress()).resolve(active("not-a-run", true));
+    await expect(stop).toBeDisabled();
   });
 
   test("stops ownerless failed terminal polling without a transient error", async ({ page }) => {
@@ -82,26 +107,26 @@ test.describe("NMKR Connect run-authority regression", () => {
     const { harness, nextProgress } = await open(page);
     const stop = page.locator("#nmkr-stop-sync-button");
     await start(page);
-    (await nextProgress()).resolve(active("run-A"));
+    (await nextProgress()).resolve(active(runA));
     await expect(stop).toBeEnabled();
 
     await poll(page); (await nextProgress()).resolve(terminal());
     await expect(page.locator("#nmkr-sync-button")).toBeVisible();
     await start(page);
-    const runB = await nextProgress();
+    const secondProgress = await nextProgress();
     await expect(stop).toBeDisabled();
-    runB.resolve(active("run-B"));
+    secondProgress.resolve(active(runB));
     await expect(stop).toBeEnabled();
 
-    await poll(page); (await nextProgress()).resolve(failedTerminalWithOwner("run-B"));
+    await poll(page); (await nextProgress()).resolve(failedTerminalWithOwner(runB));
     await expect(stop).toBeEnabled();
     await expect(page.locator("#nmkr-sync-button")).toBeHidden();
 
-    await poll(page); (await nextProgress()).resolve(active("run-C"));
+    await poll(page); (await nextProgress()).resolve(active(runC));
     await expect(stop).toBeDisabled();
     await poll(page); const cleanC = await nextProgress();
     await expect(stop).toBeDisabled();
-    cleanC.resolve(active("run-C"));
+    cleanC.resolve(active(runC));
     await expect(stop).toBeEnabled();
 
     await poll(page); (await nextProgress()).resolve({ status: 503, body: { success: false, data: { message: "Temporary" } } });
@@ -112,7 +137,7 @@ test.describe("NMKR Connect run-authority regression", () => {
     await start(page);
     const provisional = await nextProgress();
     await expect(stop).toBeDisabled();
-    provisional.resolve(active("run-B"));
+    provisional.resolve(active(runB));
     await expect(stop).toBeEnabled();
     expect(harness.blockedActions).toEqual([]);
   });

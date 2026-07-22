@@ -103,6 +103,10 @@ jQuery(document).ready(function($) {
         stopSyncButton.prop('disabled', true);
     }
 
+    function isValidDirectRunId(runId) {
+        return typeof runId === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(runId);
+    }
+
     // Function to update button state based on sync status
     function updateButtonState() {
         if (syncInProgress) {
@@ -296,24 +300,25 @@ jQuery(document).ready(function($) {
         try {
           if (response.success && response.data) {
             const { progress, current_item, in_progress, error, live_metrics, finished, aborted, terminal_outcome } = response.data;
-            const authoritativeRunId = response.data.activeRunId || '';
+            const reportedRunId = response.data.activeRunId || '';
+            const authoritativeRunId = isValidDirectRunId(reportedRunId) ? reportedRunId : '';
+            const malformedOwner = !!reportedRunId && !authoritativeRunId;
             const cleanOwner = authoritativeRunId && response.data.owner_mismatch !== true;
-            if (response.data.owner_mismatch === true) {
+            if (!authoritativeRunId) {
               resetRunAuthority();
-            } else if (!authoritativeRunId) {
+            } else if (activeRunId && activeRunId !== authoritativeRunId) {
               resetRunAuthority();
+              window.nmkrShowWarning('Synchronization run changed; Stop is disabled until authoritative reattachment.');
+            } else if (activeRunId === authoritativeRunId) {
+              // Canonical sync data may still describe a predecessor terminal
+              // run while this exact newly started owner is queued. The owner
+              // is authoritative for cooperative Stop in that interval.
+              activeRunTrusted = true;
+              updateButtonState();
             } else if (cleanOwner) {
-              if (activeRunId && activeRunId !== authoritativeRunId) {
-                resetRunAuthority();
-                window.nmkrShowWarning('Synchronization run changed; Stop is disabled until authoritative reattachment.');
-              } else if (!activeRunId) {
-                activeRunId = authoritativeRunId;
-                activeRunTrusted = true;
-                updateButtonState();
-              } else if (activeRunId === authoritativeRunId) {
-                activeRunTrusted = true;
-                updateButtonState();
-              }
+              activeRunId = authoritativeRunId;
+              activeRunTrusted = true;
+              updateButtonState();
             }
             
             // Accept numbers and numeric strings; fall back to 0 only if not finite
@@ -336,7 +341,7 @@ jQuery(document).ready(function($) {
             // Only the backend's canonical terminal state may finish polling.
             // (defensive against server-side strict-compare races)
             if (finished === true) {
-              if (!authoritativeRunId) {
+              if (!authoritativeRunId && !malformedOwner) {
                 stopPolling();
                 handleComplete();
                 return;
@@ -346,24 +351,24 @@ jQuery(document).ready(function($) {
             // Treat only an explicit server-declared aborted/stopped payload as terminal.
             // Do not stop merely because in_progress=false: transient sync flags can expire
             // while durable sync state still indicates work.
-            if (aborted === true && !authoritativeRunId && terminal_outcome === 'stopped') {
+            if (aborted === true && !authoritativeRunId && !malformedOwner && terminal_outcome === 'stopped') {
               stopPolling();
               handleStoppedSync(current_item);
               return;
             }
-            if (terminal_outcome === 'stopped' && !authoritativeRunId) {
+            if (terminal_outcome === 'stopped' && !authoritativeRunId && !malformedOwner) {
               stopPolling();
               handleStoppedSync(current_item);
               return;
             }
-            if (terminal_outcome === 'failed' && !authoritativeRunId) {
+            if (terminal_outcome === 'failed' && !authoritativeRunId && !malformedOwner) {
               stopPolling();
               handleError(error || current_item || 'Synchronization failed.');
               return;
             }
 
             // Handle generic errors only after authoritative terminal outcomes.
-            if (typeof error === 'string' && error.trim() !== '' && !authoritativeRunId) {
+            if (typeof error === 'string' && error.trim() !== '' && !authoritativeRunId && !malformedOwner) {
               handleError(error);
               return;
             }
