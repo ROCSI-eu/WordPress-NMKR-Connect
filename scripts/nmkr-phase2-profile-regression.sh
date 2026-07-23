@@ -31,6 +31,26 @@ expect_fail 'RUN_REAL_SYNC must be true or false.' RUN_REAL_SYNC=maybe
 expect_fail 'NMKR_RETAIN_AUTH_STATE must be true or false.' NMKR_RETAIN_AUTH_STATE=maybe
 expect_fail 'ERROR: Phase 2 private root is unsafe.' NMKR_PHASE2_LOG_DIR="$ROOT"
 ln -s "$ROOT" "$tmp_dir/escape"; expect_fail 'ERROR: Phase 2 private root is unsafe.' NMKR_PHASE2_LOG_DIR="$tmp_dir/escape"
+# Existing mutable private parents must fail before a new run directory or log is opened.
+assert_mutable_private_parent() {
+  local target="$1" mode="$2" output="$tmp_dir/mutable-private.output"
+  rm -rf "$tmp_dir/private"
+  mkdir -p "$tmp_dir/private/runs"
+  chmod 700 "$tmp_dir/private" "$tmp_dir/private/runs"
+  chmod "$mode" "$target"
+  if "${base[@]}" NMKR_PHASE2_PROFILE=unknown bash "$runner" >"$output" 2>&1; then
+    echo 'Expected mutable private parent rejection.' >&2; exit 1
+  fi
+  grep -F -- 'ERROR: Phase 2 private run directory is unsafe.' "$output" >/dev/null
+  if find "$tmp_dir/private" -type f -print -quit | grep -q .; then
+    echo 'Unsafe private parent received a private file.' >&2; exit 1
+  fi
+  chmod 700 "$tmp_dir/private" "$tmp_dir/private/runs"
+}
+assert_mutable_private_parent "$tmp_dir/private/runs" 770
+assert_mutable_private_parent "$tmp_dir/private/runs" 707
+assert_mutable_private_parent "$tmp_dir/private" 770
+assert_mutable_private_parent "$tmp_dir/private" 707
 # A caller-selected profile cannot be changed or blanked by a sourced file.
 printf 'NMKR_PHASE2_PROFILE=\nNMKR_DEPLOY_COMMAND="touch %s/marker"\nNMKR_PHASE2_SKIP_DEPLOY=false\n' "$tmp_dir" >"$tmp_dir/env"
 expect_fail 'Phase 2 profile conflict.' NMKR_PHASE2_PROFILE=existing-readonly NMKR_PHASE2_ENV_FILE="$tmp_dir/env"

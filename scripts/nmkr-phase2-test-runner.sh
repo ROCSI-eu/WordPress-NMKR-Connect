@@ -243,17 +243,30 @@ fi
 # and public Playwright output trees, including through symlinks.
 LOG_PARENT="${NMKR_PHASE2_LOG_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/nmkr-connect}"
 LOG_PARENT="$(realpath -m -- "$LOG_PARENT")"
-for unsafe in "$REPO_ROOT" "$WP_PATH" "$REPO_ROOT/playwright-report" "$REPO_ROOT/test-results"; do
-  unsafe="$(realpath -m -- "$unsafe")"
-  if [[ "$LOG_PARENT" == "$unsafe" || "$LOG_PARENT" == "$unsafe"/* ]]; then
-    printf 'ERROR: Phase 2 private root is unsafe.\n' >&2; exit 1
-  fi
-done
+private_root_is_approved() {
+  local candidate="$1" unsafe
+  for unsafe in "$REPO_ROOT" "$WP_PATH" "$REPO_ROOT/playwright-report" "$REPO_ROOT/test-results"; do
+    unsafe="$(realpath -m -- "$unsafe")"
+    [[ "$candidate" != "$unsafe" && "$candidate" != "$unsafe"/* ]] || return 1
+  done
+}
+private_directory_is_safe() {
+  local directory="$1" owner mode
+  [[ -d "$directory" && ! -L "$directory" ]] || return 1
+  owner="$(stat -c %u -- "$directory")" || return 1
+  mode="$(stat -c %a -- "$directory")" || return 1
+  [[ "$owner" == "$EFFECTIVE_UID" && "$mode" =~ ^[0-7]{3,4}$ ]] || return 1
+  (( (8#$mode & 8#022) == 0 ))
+}
+if ! command -v stat >/dev/null 2>&1 || ! command -v id >/dev/null 2>&1 || ! private_root_is_approved "$LOG_PARENT"; then
+  printf 'ERROR: Phase 2 private root is unsafe.\n' >&2; exit 1
+fi
+EFFECTIVE_UID="$(id -u)" || { printf 'ERROR: Phase 2 private run directory is unsafe.\n' >&2; exit 1; }
 umask 077
 if ! mkdir -p -m 700 "$LOG_PARENT"; then
   printf 'ERROR: Phase 2 private run directory is unsafe.\n' >&2; exit 1
 fi
-if ! LOG_PARENT="$(realpath -e -- "$LOG_PARENT")"; then
+if ! LOG_PARENT="$(realpath -e -- "$LOG_PARENT")" || ! private_root_is_approved "$LOG_PARENT" || ! private_directory_is_safe "$LOG_PARENT"; then
   printf 'ERROR: Phase 2 private run directory is unsafe.\n' >&2; exit 1
 fi
 RUNS_DIR="$LOG_PARENT/runs"
@@ -266,19 +279,19 @@ else
     printf 'ERROR: Phase 2 private run directory is unsafe.\n' >&2; exit 1
   fi
 fi
-if [[ -L "$RUNS_DIR" ]] || ! RUNS_DIR="$(realpath -e -- "$RUNS_DIR")" || [[ "$RUNS_DIR" != "$LOG_PARENT/runs" ]]; then
+if [[ -L "$RUNS_DIR" ]] || ! RUNS_DIR="$(realpath -e -- "$RUNS_DIR")" || [[ "$RUNS_DIR" != "$LOG_PARENT/runs" ]] || ! private_directory_is_safe "$RUNS_DIR"; then
   printf 'ERROR: Phase 2 private run directory is unsafe.\n' >&2; exit 1
 fi
 RUN_STAMP="$(date -u +%Y%m%dT%H%M%SZ)-$$"
 RUN_DIR="$RUNS_DIR/$RUN_STAMP"
-if ! mkdir -m 700 -- "$RUN_DIR" || [[ -L "$RUN_DIR" ]] || ! RUN_DIR="$(realpath -e -- "$RUN_DIR")" || [[ "$RUN_DIR" != "$RUNS_DIR/$RUN_STAMP" ]]; then
+if ! mkdir -m 700 -- "$RUN_DIR" || [[ -L "$RUN_DIR" ]] || ! RUN_DIR="$(realpath -e -- "$RUN_DIR")" || [[ "$RUN_DIR" != "$RUNS_DIR/$RUN_STAMP" ]] || ! private_directory_is_safe "$RUN_DIR"; then
   printf 'ERROR: Phase 2 private run directory is unsafe.\n' >&2; exit 1
 fi
 {
   printf 'Phase 2 preflight started at %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   printf 'Repository root: %s\n' "$REPO_ROOT"
 } >"$RUN_DIR/preflight.log"
-for tool in git npm npx bash curl setsid; do
+for tool in git npm npx bash curl setsid stat id; do
   if ! command -v "$tool" >/dev/null 2>&1; then
     printf 'Required tool is missing: %s\n' "$tool" >>"$RUN_DIR/preflight.log"
     fail_step "preflight" "$RUN_DIR/preflight.log" 1
