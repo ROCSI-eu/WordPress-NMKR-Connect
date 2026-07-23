@@ -241,8 +241,13 @@ fi
 
 # Resolve the private root before creation. It must remain outside web, checkout,
 # and public Playwright output trees, including through symlinks.
-LOG_PARENT="${NMKR_PHASE2_LOG_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/nmkr-connect}"
-LOG_PARENT="$(realpath -m -- "$LOG_PARENT")"
+CONFIGURED_LOG_PARENT="${NMKR_PHASE2_LOG_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/nmkr-connect}"
+# The configured root is itself a trust boundary.  Check its final entry before
+# canonicalization so a safe-looking link cannot redirect private run files.
+if [[ -e "$CONFIGURED_LOG_PARENT" || -L "$CONFIGURED_LOG_PARENT" ]] && [[ -L "$CONFIGURED_LOG_PARENT" ]]; then
+  printf 'ERROR: Phase 2 private root is unsafe.\n' >&2; exit 1
+fi
+LOG_PARENT="$(realpath -m -- "$CONFIGURED_LOG_PARENT")"
 private_root_is_approved() {
   local candidate="$1" unsafe
   for unsafe in "$REPO_ROOT" "$WP_PATH" "$REPO_ROOT/playwright-report" "$REPO_ROOT/test-results"; do

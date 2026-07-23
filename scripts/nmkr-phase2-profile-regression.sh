@@ -31,6 +31,16 @@ expect_fail 'RUN_REAL_SYNC must be true or false.' RUN_REAL_SYNC=maybe
 expect_fail 'NMKR_RETAIN_AUTH_STATE must be true or false.' NMKR_RETAIN_AUTH_STATE=maybe
 expect_fail 'ERROR: Phase 2 private root is unsafe.' NMKR_PHASE2_LOG_DIR="$ROOT"
 ln -s "$ROOT" "$tmp_dir/escape"; expect_fail 'ERROR: Phase 2 private root is unsafe.' NMKR_PHASE2_LOG_DIR="$tmp_dir/escape"
+# A configured root must not be a link even when its external target would
+# otherwise meet the owner-private directory policy.
+mkdir -p "$tmp_dir/external-private-root"
+chmod 700 "$tmp_dir/external-private-root"
+ln -s "$tmp_dir/external-private-root" "$tmp_dir/private-root-link"
+if "${base[@]}" NMKR_PHASE2_PROFILE=unknown NMKR_PHASE2_LOG_DIR="$tmp_dir/private-root-link" bash "$runner" >"$tmp_dir/private-root-link.output" 2>&1; then
+  echo 'Expected configured symlink root rejection.' >&2; exit 1
+fi
+grep -F -- 'ERROR: Phase 2 private root is unsafe.' "$tmp_dir/private-root-link.output" >/dev/null
+test ! -e "$tmp_dir/external-private-root/runs"
 # Existing mutable private parents must fail before a new run directory or log is opened.
 assert_mutable_private_parent() {
   local target="$1" mode="$2" output="$tmp_dir/mutable-private.output"
