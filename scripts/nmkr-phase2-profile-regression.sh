@@ -8,14 +8,22 @@ mkdir -p "$tmp_dir/wp" "$tmp_dir/private/runs"
 base=(env WP_BASE_URL=http://invalid.test WP_ADMIN_USER=placeholder WP_ADMIN_PASSWORD=placeholder WP_CLI_BIN=true WP_PATH="$tmp_dir/wp" NMKR_PHASE2_LOG_DIR="$tmp_dir/private")
 expect_fail() {
   local expected="$1"; shift
-  local before after
-  before="$(find "$tmp_dir/private/runs" -name preflight.log -print 2>/dev/null | wc -l)"
-  if "${base[@]}" "$@" bash "$runner" >/dev/null 2>&1; then echo 'Expected safe failure.' >&2; exit 1; fi
-  after="$(find "$tmp_dir/private/runs" -name preflight.log -print 2>/dev/null | wc -l)"
-  if [[ "$after" -gt "$before" ]]; then
-    find "$tmp_dir/private/runs" -name preflight.log -print0 | xargs -0 cat | rg -F -- "$expected" >/dev/null
+  local case_id before_runs after_runs new_run output
+  case_id="$(mktemp "$tmp_dir/case.XXXXXX")"
+  before_runs="$case_id.before"
+  after_runs="$case_id.after"
+  output="$case_id.output"
+  find "$tmp_dir/private/runs" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort >"$before_runs"
+  if "${base[@]}" "$@" bash "$runner" >"$output" 2>&1; then echo 'Expected safe failure.' >&2; exit 1; fi
+  find "$tmp_dir/private/runs" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort >"$after_runs"
+  new_run="$(comm -13 "$before_runs" "$after_runs")"
+  if [[ -n "$new_run" ]]; then
+    [[ "$(printf '%s\n' "$new_run" | wc -l)" == 1 ]] || { echo 'Expected one Phase 2 run directory.' >&2; exit 1; }
+    grep -F -- "$expected" "$tmp_dir/private/runs/$new_run/preflight.log" >/dev/null
   else
-    [[ "$expected" == 'ERROR: Phase 2 private root is unsafe.' ]]
+    # Unsafe roots are rejected before a private run directory can be created.
+    [[ "$expected" == 'ERROR: Phase 2 private root is unsafe.' ]] || { echo 'Expected a preflight log for this case.' >&2; exit 1; }
+    grep -F -- "$expected" "$output" >/dev/null
   fi
 }
 expect_fail 'Unknown Phase 2 profile.' NMKR_PHASE2_PROFILE=unknown
