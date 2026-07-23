@@ -19,7 +19,21 @@ synthetic_env="$tmp_dir/synthetic.env"
 chmod 600 "$synthetic_env"
 # Synthetic cases must not inherit a maintainer's Phase 2 settings.  Provide
 # only a controlled process context and the fixture values each case needs.
-safe_path='/usr/local/bin:/usr/bin:/bin'
+tool_dirs=()
+for tool in node npm npx; do
+  tool_path="$(command -v "$tool" 2>/dev/null || true)"
+  if [[ -z "$tool_path" || ! -x "$tool_path" ]]; then
+    printf 'ERROR: Required Node tool is unavailable for Phase 2 regression.\n' >&2
+    exit 1
+  fi
+  tool_dir="$(dirname -- "$tool_path")"
+  seen=false
+  for existing_dir in "${tool_dirs[@]}"; do
+    [[ "$existing_dir" == "$tool_dir" ]] && seen=true && break
+  done
+  [[ "$seen" == true ]] || tool_dirs+=("$tool_dir")
+done
+safe_path="$(IFS=:; printf '%s' "${tool_dirs[*]}"):/usr/local/bin:/usr/bin:/bin"
 synthetic_home="$tmp_dir/home"
 synthetic_tmp="$tmp_dir/tmp"
 mkdir -p "$synthetic_home" "$synthetic_tmp"
@@ -107,10 +121,19 @@ printf '%s' "\$NMKR_PHASE2_ENV_FILE" >"$tmp_dir/selected-env-observed"
 exit 1
 EOF_NPM
 chmod 700 "$tmp_dir/env-selection-bin/curl" "$tmp_dir/env-selection-bin/npm"
-selected_env="$tmp_dir/selected.env"
+outside_dir="$tmp_dir/outside"
+mkdir -p "$outside_dir"
+chmod 700 "$outside_dir"
+selected_env="$outside_dir/selected.env"
 printf 'NMKR_PHASE2_ENV_FILE=\nNMKR_PHASE2_SKIP_DEPLOY=true\nNMKR_PHASE2_INSTALL_DEPS=false\nNMKR_PHASE2_INSTALL_BROWSER=false\n' >"$selected_env"
 chmod 600 "$selected_env"
-if env -i PATH="$tmp_dir/env-selection-bin:$safe_path" HOME="$synthetic_home" TMPDIR="$synthetic_tmp" WP_BASE_URL=http://invalid.test WP_ADMIN_USER=placeholder WP_ADMIN_PASSWORD=placeholder WP_CLI_BIN=true WP_PATH="$tmp_dir/wp" NMKR_PHASE2_LOG_DIR="$tmp_dir/private" NMKR_PHASE2_ENV_FILE="$selected_env" NMKR_PHASE2_PROFILE= RUN_REAL_SYNC=false PW_SAVE_ARTIFACTS=false NMKR_RETAIN_AUTH_STATE=false bash "$runner" >/dev/null 2>&1; then
+checkout_collision="$ROOT/$(basename "$selected_env")"
+if [[ -e "$checkout_collision" || -L "$checkout_collision" ]]; then
+  echo 'Expected an unused checkout collision fixture name.' >&2; exit 1
+fi
+printf 'NMKR_PHASE2_ENV_FILE=checkout-replacement\n' >"$checkout_collision"
+trap 'rm -f "$checkout_collision"; rm -rf "$tmp_dir"' EXIT
+if (cd "$outside_dir" && env -i PATH="$tmp_dir/env-selection-bin:$safe_path" HOME="$synthetic_home" TMPDIR="$synthetic_tmp" WP_BASE_URL=http://invalid.test WP_ADMIN_USER=placeholder WP_ADMIN_PASSWORD=placeholder WP_CLI_BIN=true WP_PATH="$tmp_dir/wp" NMKR_PHASE2_LOG_DIR="$tmp_dir/private" NMKR_PHASE2_ENV_FILE=selected.env NMKR_PHASE2_PROFILE= RUN_REAL_SYNC=false PW_SAVE_ARTIFACTS=false NMKR_RETAIN_AUTH_STATE=false bash "$runner") >/dev/null 2>&1; then
   echo 'Expected synthetic Playwright failure.' >&2; exit 1
 fi
 test "$(cat "$tmp_dir/selected-env-observed")" = "$selected_env"

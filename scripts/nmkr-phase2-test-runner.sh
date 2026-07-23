@@ -35,14 +35,17 @@ fi
 if [[ -n "$ENV_FILE" ]]; then
   # The chosen file is an input boundary.  Its contents must not be able to
   # replace or clear the selection observed by downstream Playwright workers.
-  SELECTED_ENV_FILE="$ENV_FILE"
   if [[ ! -f "$ENV_FILE" ]]; then
     printf 'ERROR: Phase 2 env file was configured but does not exist.\n' >&2
     exit 1
   fi
+  if ! SELECTED_ENV_FILE="$(realpath -e -- "$ENV_FILE" 2>/dev/null)" || [[ ! -f "$SELECTED_ENV_FILE" ]]; then
+    printf 'ERROR: Phase 2 env file could not be resolved.\n' >&2
+    exit 1
+  fi
   set -a
   # shellcheck source=/dev/null
-  source "$ENV_FILE"
+  source "$SELECTED_ENV_FILE"
   set +a
   export NMKR_PHASE2_ENV_FILE="$SELECTED_ENV_FILE"
 fi
