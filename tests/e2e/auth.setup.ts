@@ -1,10 +1,9 @@
 import { test } from '@playwright/test';
 import fs from 'fs';
-import path from 'path';
-import os from 'os';
+import { approvedAuthStatePath } from './helpers/auth-state';
 import { env, expectNotWordPressMaintenancePage, expectWpAdmin, handleAdminEmailVerification, requireEnv, urlFor } from './helpers/wp-admin';
 
-const statePath = process.env.NMKR_AUTH_STATE_PATH || path.join(os.tmpdir(), `nmkr-connect-auth-${process.pid}.json`);
+const statePath = approvedAuthStatePath();
 
 test('authenticate WordPress admin state', async ({ page, context }) => {
   const baseUrl = requireEnv('WP_BASE_URL');
@@ -24,7 +23,6 @@ test('authenticate WordPress admin state', async ({ page, context }) => {
     const message = error instanceof Error && /^auth_failure=/.test(error.message) ? error.message : 'auth_failure=navigation_or_transport_failure';
     throw new Error(message);
   }
-  fs.mkdirSync(path.dirname(statePath), { recursive: true, mode: 0o700 });
-  await context.storageState({ path: statePath });
+    await context.storageState({ path: statePath });
   fs.chmodSync(statePath, 0o600);
 });

@@ -63,7 +63,7 @@ The runner supplies safe defaults when these are unset:
 - `NMKR_PHASE2_WP_READY_TIMEOUT_SECONDS=120`
 - `NMKR_PHASE2_WP_READY_INTERVAL_SECONDS=5`
 - `NMKR_PHASE2_WP_READY_HTTP_TIMEOUT_SECONDS=10`
-- `NMKR_PHASE2_LOG_DIR=$REPO_ROOT/.phase2-private`
+- `NMKR_PHASE2_LOG_DIR=$XDG_STATE_HOME/nmkr-connect` (or `$HOME/.local/state/nmkr-connect`; it must be outside the checkout and WordPress root)
 
 `NMKR_PHASE2_INSTALL_DEPS` accepts `auto`, `true`, or `false`. `auto` runs `npm ci` only when `node_modules` is missing.
 
@@ -138,7 +138,7 @@ NMKR_PHASE2_SKIP_DEPLOY=true npm run test:phase2
 By default, private logs and reports are stored under:
 
 ```text
-.phase2-private/runs/<YYYYmmddTHHMMSSZ>-<pid>/
+an owner-private external state directory: `runs/<YYYYmmddTHHMMSSZ>-<pid>/`
 ```
 
 The runner sets Playwright paths inside the private run directory:

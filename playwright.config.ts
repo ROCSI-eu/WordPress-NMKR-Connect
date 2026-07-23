@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
-import os from 'os';
+import { approvedAuthStatePath } from './tests/e2e/helpers/auth-state';
 
 const envFile = path.resolve(__dirname, '.env.tests');
 
@@ -13,7 +13,7 @@ if (fs.existsSync(envFile)) {
 const saveArtifacts = process.env.PW_SAVE_ARTIFACTS === 'true';
 const htmlReportDir = process.env.PLAYWRIGHT_HTML_REPORT || 'playwright-report';
 const testOutputDir = process.env.PLAYWRIGHT_TEST_OUTPUT_DIR || 'test-results';
-const authStatePath = process.env.NMKR_AUTH_STATE_PATH || path.join(os.tmpdir(), `nmkr-connect-auth-${process.pid}.json`);
+const authStatePath = approvedAuthStatePath();
 const retainAuthState = process.env.NMKR_RETAIN_AUTH_STATE || 'false';
 if (!['true', 'false'].includes(retainAuthState)) throw new Error('NMKR_RETAIN_AUTH_STATE must be true or false.');
 

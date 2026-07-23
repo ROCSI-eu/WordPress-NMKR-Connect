@@ -56,20 +56,12 @@ NMKR_PHASE2_WP_READY_TIMEOUT_SECONDS="${NMKR_PHASE2_WP_READY_TIMEOUT_SECONDS:-12
 NMKR_PHASE2_WP_READY_INTERVAL_SECONDS="${NMKR_PHASE2_WP_READY_INTERVAL_SECONDS:-5}"
 NMKR_PHASE2_WP_READY_HTTP_TIMEOUT_SECONDS="${NMKR_PHASE2_WP_READY_HTTP_TIMEOUT_SECONDS:-10}"
 NMKR_PHASE2_PROFILE="${NMKR_PHASE2_PROFILE:-}"
+NMKR_RETAIN_AUTH_STATE="${NMKR_RETAIN_AUTH_STATE:-false}"
 
 validate_boolean() {
   case "$2" in true|false) ;; *) printf '%s must be true or false.\n' "$1" >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1 ;; esac
 }
 
-LOG_PARENT="${NMKR_PHASE2_LOG_DIR:-$REPO_ROOT/.phase2-private}"
-RUN_STAMP="$(date -u +%Y%m%dT%H%M%SZ)-$$"
-RUN_DIR="$LOG_PARENT/runs/$RUN_STAMP"
-umask 077
-mkdir -p "$RUN_DIR"
-AUTH_STATE_PATH="$RUN_DIR/auth-state.json"
-AUTH_STATE_CLEANUP="PENDING"
-cleanup_auth_state() { rm -f "$AUTH_STATE_PATH"; AUTH_STATE_CLEANUP="PASS"; }
-trap cleanup_auth_state EXIT INT TERM
 
 DEPLOY_STATUS="SKIPPED"
 DEPS_STATUS="SKIPPED"
@@ -253,9 +245,33 @@ for var_name in WP_BASE_URL WP_ADMIN_USER WP_ADMIN_PASSWORD WP_PATH; do
   fi
 done
 if (( ${#missing[@]} > 0 )); then
-  printf 'Missing required Phase 2 variables: %s\n' "${missing[*]}" >>"$RUN_DIR/preflight.log"
-  fail_step "preflight" "$RUN_DIR/preflight.log" 1
+  printf 'ERROR: Missing required Phase 2 variables.\n' >&2
+  exit 1
 fi
+
+# Resolve the private root before creation. It must remain outside web, checkout,
+# and public Playwright output trees, including through symlinks.
+LOG_PARENT="${NMKR_PHASE2_LOG_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/nmkr-connect}"
+LOG_PARENT="$(realpath -m -- "$LOG_PARENT")"
+for unsafe in "$REPO_ROOT" "$WP_PATH" "$REPO_ROOT/playwright-report" "$REPO_ROOT/test-results"; do
+  unsafe="$(realpath -m -- "$unsafe")"
+  if [[ "$LOG_PARENT" == "$unsafe" || "$LOG_PARENT" == "$unsafe"/* ]]; then
+    printf 'ERROR: Phase 2 private root is unsafe.\n' >&2; exit 1
+  fi
+done
+umask 077
+mkdir -p -m 700 "$LOG_PARENT"
+LOG_PARENT="$(realpath -e -- "$LOG_PARENT")"
+RUN_STAMP="$(date -u +%Y%m%dT%H%M%SZ)-$$"
+RUN_DIR="$LOG_PARENT/runs/$RUN_STAMP"
+mkdir -p -m 700 "$RUN_DIR"
+AUTH_STATE_PATH="$RUN_DIR/auth-state.json"
+AUTH_STATE_CLEANUP="PENDING"
+cleanup_auth_state() { [[ "${NMKR_RETAIN_AUTH_STATE:-false}" == true ]] && { AUTH_STATE_CLEANUP="RETAINED"; return; }; rm -f -- "$AUTH_STATE_PATH"; AUTH_STATE_CLEANUP="PASS"; }
+handle_signal() { cleanup_auth_state; trap - EXIT; exit "$1"; }
+trap cleanup_auth_state EXIT
+trap 'handle_signal 130' INT
+trap 'handle_signal 143' TERM
 
 if [[ "$WP_CLI_BIN" =~ ^[A-Za-z0-9._+-]+$ ]] && ! command -v "$WP_CLI_BIN" >/dev/null 2>&1; then
   printf 'Configured WP_CLI_BIN executable was not found on PATH.\n' >>"$RUN_DIR/preflight.log"
@@ -266,11 +282,11 @@ validate_positive_integer "NMKR_PHASE2_WP_READY_TIMEOUT_SECONDS" "$NMKR_PHASE2_W
 validate_positive_integer "NMKR_PHASE2_WP_READY_INTERVAL_SECONDS" "$NMKR_PHASE2_WP_READY_INTERVAL_SECONDS"
 validate_positive_integer "NMKR_PHASE2_WP_READY_HTTP_TIMEOUT_SECONDS" "$NMKR_PHASE2_WP_READY_HTTP_TIMEOUT_SECONDS"
 
-if [[ -n "$CALLER_PROFILE" && -n "$NMKR_PHASE2_PROFILE" && "$CALLER_PROFILE" != "$NMKR_PHASE2_PROFILE" ]]; then
+if [[ -n "$CALLER_PROFILE" && "$CALLER_PROFILE" != "$NMKR_PHASE2_PROFILE" ]]; then
   printf 'Phase 2 profile conflict.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1
 fi
 case "$NMKR_PHASE2_PROFILE" in ''|existing-readonly) ;; *) printf 'Unknown Phase 2 profile.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1 ;; esac
-for boolean in RUN_REAL_SYNC PW_SAVE_ARTIFACTS NMKR_PHASE2_INSTALL_BROWSER NMKR_PHASE2_SKIP_DEPLOY; do validate_boolean "$boolean" "${!boolean}"; done
+for boolean in RUN_REAL_SYNC PW_SAVE_ARTIFACTS NMKR_PHASE2_INSTALL_BROWSER NMKR_PHASE2_SKIP_DEPLOY NMKR_RETAIN_AUTH_STATE; do validate_boolean "$boolean" "${!boolean}"; done
 
 if [[ "$NMKR_PHASE2_PROFILE" == "existing-readonly" ]]; then
   READONLY_POLICY="ENFORCED"; SOURCE_INTEGRITY="FAIL"; DEPLOYED_INTEGRITY="SKIPPED"
@@ -289,7 +305,7 @@ if [[ "$NMKR_PHASE2_PROFILE" == "existing-readonly" ]]; then
     DEPLOYED_INTEGRITY="PASS"
   fi
   node -e "require('@playwright/test')" >/dev/null 2>&1 || { printf 'Required Node dependencies are unavailable.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; }
-  npx playwright install --list 2>/dev/null | grep -q chromium || { printf 'Configured Chromium is unavailable.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; }
+  node -e "const { chromium }=require('@playwright/test'); (async()=>{const b=await chromium.launch({headless:true}); await b.close();})().catch(()=>process.exit(1))" >/dev/null 2>&1 || { printf 'Configured Chromium is unavailable.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; }
 fi
 
 case "$NMKR_PHASE2_INSTALL_DEPS" in
@@ -355,6 +371,7 @@ check_wordpress_ready
 
 export PLAYWRIGHT_HTML_REPORT="$RUN_DIR/playwright-report"
 export PLAYWRIGHT_TEST_OUTPUT_DIR="$RUN_DIR/test-results"
+export NMKR_AUTH_STATE_DIR="$RUN_DIR"
 export NMKR_AUTH_STATE_PATH="$AUTH_STATE_PATH"
 
 PLAYWRIGHT_STATUS="FAIL"

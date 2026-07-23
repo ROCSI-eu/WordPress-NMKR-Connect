@@ -45,7 +45,7 @@ export async function expectNotWordPressMaintenancePage(page: Page): Promise<voi
   );
 
   if (await maintenanceText.isVisible({ timeout: 500 }).catch(() => false)) {
-    throw new Error('WordPress maintenance page was displayed during admin readiness.');
+    throw new Error('auth_failure=maintenance_mode');
   }
 }
 
