@@ -3,6 +3,64 @@ set -Eeuo pipefail
 # Synthetic public-safe preflight cases: no usable host and no credentials.
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 runner="$ROOT/scripts/nmkr-phase2-test-runner.sh"
+
+# Resolve the caller's Node tools before clearing the environment below.  In
+# particular, asdf's standard shims depend on HOME/ASDF_DATA_DIR and cannot be
+# used after env -i replaces HOME.  Ask asdf for the selected executable while
+# its caller environment is still intact, then retain only the resulting tool
+# directories in the synthetic PATH.
+resolve_node_tool() {
+  local tool="$1" command_path resolved asdf_path
+  command_path="$(command -v "$tool" 2>/dev/null || true)"
+  if [[ -z "$command_path" || "$command_path" != /* ]]; then
+    printf 'ERROR: Required Node tool is unavailable for Phase 2 regression.\n' >&2
+    return 1
+  fi
+
+  if [[ "$command_path" == */.asdf/shims/* ]]; then
+    asdf_path="$(command -v asdf 2>/dev/null || true)"
+    if [[ -n "$asdf_path" && "$asdf_path" == /* ]]; then
+      resolved="$("$asdf_path" which "$tool" 2>/dev/null || true)"
+    else
+      resolved=""
+    fi
+  else
+    resolved="$command_path"
+  fi
+
+  if [[ -z "$resolved" ]] || ! resolved="$(realpath -e -- "$resolved" 2>/dev/null)" || [[ ! -x "$resolved" || "$resolved" == */.asdf/shims/* ]]; then
+    printf 'ERROR: Active Node toolchain could not be resolved for Phase 2 regression.\n' >&2
+    return 1
+  fi
+  printf '%s\n' "$resolved"
+}
+
+# Synthetic cases must not inherit a maintainer's Phase 2 settings. Resolve
+# only the active Node toolchain and combine it with the minimum system PATH.
+tool_dirs=()
+for tool in node npm npx; do
+  tool_path="$(resolve_node_tool "$tool")" || exit 1
+  tool_dir="$(dirname -- "$tool_path")"
+  seen=false
+  for existing_dir in "${tool_dirs[@]}"; do
+    [[ "$existing_dir" == "$tool_dir" ]] && seen=true && break
+  done
+  [[ "$seen" == true ]] || tool_dirs+=("$tool_dir")
+done
+safe_path="$(IFS=:; printf '%s' "${tool_dirs[*]}"):/usr/local/bin:/usr/bin:/bin"
+
+if [[ "${1:-}" == --toolchain-smoke ]]; then
+  smoke_dir="$(mktemp -d)"; trap 'rm -rf "$smoke_dir"' EXIT
+  [[ -z "${ASDF_DATA_DIR+x}" && -z "${NMKR_PHASE2_PROFILE+x}" ]]
+  [[ "$(env -i PATH="$safe_path" bash -c 'command -v node')" != */.asdf/shims/* ]]
+  [[ "$(env -i PATH="$safe_path" bash -c 'command -v npm')" != */.asdf/shims/* ]]
+  [[ "$(env -i PATH="$safe_path" bash -c 'command -v npx')" != */.asdf/shims/* ]]
+  env -i PATH="$safe_path" HOME="$smoke_dir" TMPDIR="$smoke_dir" node --version >/dev/null
+  env -i PATH="$safe_path" HOME="$smoke_dir" TMPDIR="$smoke_dir" npm --version >/dev/null
+  env -i PATH="$safe_path" HOME="$smoke_dir" TMPDIR="$smoke_dir" npx --version >/dev/null
+  exit 0
+fi
+
 tmp_dir="$(mktemp -d)"; trap 'rm -rf "$tmp_dir"' EXIT
 mkdir -p "$tmp_dir/wp" "$tmp_dir/private/runs"
 # Keep the synthetic private fixture owner-private regardless of the invoking
@@ -17,28 +75,37 @@ chmod 700 "$tmp_dir/private" "$tmp_dir/private/runs"
 synthetic_env="$tmp_dir/synthetic.env"
 : >"$synthetic_env"
 chmod 600 "$synthetic_env"
-# Synthetic cases must not inherit a maintainer's Phase 2 settings.  Provide
-# only a controlled process context and the fixture values each case needs.
-tool_dirs=()
-for tool in node npm npx; do
-  tool_path="$(command -v "$tool" 2>/dev/null || true)"
-  if [[ -z "$tool_path" || ! -x "$tool_path" ]]; then
-    printf 'ERROR: Required Node tool is unavailable for Phase 2 regression.\n' >&2
-    exit 1
-  fi
-  tool_dir="$(dirname -- "$tool_path")"
-  seen=false
-  for existing_dir in "${tool_dirs[@]}"; do
-    [[ "$existing_dir" == "$tool_dir" ]] && seen=true && break
-  done
-  [[ "$seen" == true ]] || tool_dirs+=("$tool_dir")
-done
-safe_path="$(IFS=:; printf '%s' "${tool_dirs[*]}"):/usr/local/bin:/usr/bin:/bin"
 synthetic_home="$tmp_dir/home"
 synthetic_tmp="$tmp_dir/tmp"
 mkdir -p "$synthetic_home" "$synthetic_tmp"
 chmod 700 "$synthetic_home" "$synthetic_tmp"
 base=(env -i PATH="$safe_path" HOME="$synthetic_home" TMPDIR="$synthetic_tmp" WP_BASE_URL=http://invalid.test WP_ADMIN_USER=placeholder WP_ADMIN_PASSWORD=placeholder WP_CLI_BIN=true WP_PATH="$tmp_dir/wp" NMKR_PHASE2_LOG_DIR="$tmp_dir/private" NMKR_PHASE2_ENV_FILE="$synthetic_env" NMKR_PHASE2_PROFILE= RUN_REAL_SYNC=false PW_SAVE_ARTIFACTS=false NMKR_RETAIN_AUTH_STATE=false NMKR_PHASE2_INSTALL_DEPS=false NMKR_PHASE2_INSTALL_BROWSER=false NMKR_PHASE2_SKIP_DEPLOY=true)
+
+# Exercise asdf-style shims without requiring asdf in CI. The child starts
+# with only shim entries for Node tools and a minimal fake `asdf which`; the
+# resolver must replace them with the caller's actual executable directories
+# before its env -i toolchain smoke test runs.
+asdf_fixture="$tmp_dir/.asdf"
+mkdir -p "$asdf_fixture/shims" "$asdf_fixture/bin"
+for tool in node npm npx; do
+  actual_tool="$(resolve_node_tool "$tool")"
+  cat >"$asdf_fixture/shims/$tool" <<EOF_SHIM
+#!/usr/bin/env bash
+exec "$actual_tool" "\$@"
+EOF_SHIM
+  chmod 700 "$asdf_fixture/shims/$tool"
+done
+cat >"$asdf_fixture/bin/asdf" <<EOF_ASDF
+#!/usr/bin/env bash
+case "\$1:\${2:-}" in
+  which:node) printf '%s\\n' "$(resolve_node_tool node)" ;;
+  which:npm) printf '%s\\n' "$(resolve_node_tool npm)" ;;
+  which:npx) printf '%s\\n' "$(resolve_node_tool npx)" ;;
+  *) exit 1 ;;
+esac
+EOF_ASDF
+chmod 700 "$asdf_fixture/bin/asdf"
+env -i PATH="$asdf_fixture/shims:$asdf_fixture/bin:/usr/local/bin:/usr/bin:/bin" HOME="$tmp_dir/asdf-home" TMPDIR="$synthetic_tmp" bash "$0" --toolchain-smoke
 expect_fail() {
   local expected="$1"; shift
   local case_id before_runs after_runs new_run output
