@@ -51,25 +51,18 @@ export async function expectNotWordPressMaintenancePage(page: Page): Promise<voi
 
 export async function expectWpAdmin(page: Page): Promise<void> {
   await expectNotWordPressMaintenancePage(page);
-  await expect(page).toHaveURL(/wp-admin/);
-  await expect(page.locator('#wpadminbar, #adminmenu, #wpbody-content').first()).toBeVisible();
+  if (/wp-login\.php/.test(page.url())) throw new Error('auth_failure=login_form_again');
+  if (!/wp-admin/.test(page.url())) throw new Error('auth_failure=redirect_outside_admin');
+  try {
+    await expect(page.locator('#wpadminbar, #adminmenu, #wpbody-content').first()).toBeVisible();
+  } catch {
+    throw new Error('auth_failure=authenticated_shell_missing');
+  }
 }
 
 export async function loginToWpAdmin(page: Page): Promise<string> {
   const baseUrl = requireEnv('WP_BASE_URL');
-  const username = requireEnv('WP_ADMIN_USER');
-  const password = requireEnv('WP_ADMIN_PASSWORD');
   const adminPath = env('WP_ADMIN_PATH', '/wp-admin');
-
-  await page.goto(urlFor(baseUrl, '/wp-login.php'));
-  await expectNotWordPressMaintenancePage(page);
-  await expect(page.locator('#user_login')).toBeVisible();
-  await page.locator('#user_login').fill(username);
-  await page.locator('#user_pass').fill(password);
-  await page.locator('#wp-submit').click();
-
-  await page.waitForLoadState('domcontentloaded');
-  await handleAdminEmailVerification(page);
   await page.goto(urlFor(baseUrl, adminPath));
   await expectWpAdmin(page);
 

@@ -22,7 +22,7 @@ Do not run dependency installation from the webserver-owned deployed plugin dire
 
 ## Private env file setup
 
-Create a private env file that is ignored by Git. The default local filename is `.env.tests`, or you may point to another private file with `NMKR_PHASE2_ENV_FILE`.
+Recommended Linux/private-VM layout: create `$HOME/.config/nmkr-connect` with owner-only permissions, store `phase2.env` there owned by the invoking user with mode `600`, and make the ignored checkout `.env.tests` a symlink to it. Verify the link resolves to the intended external file. No populated env file belongs in Git or in the deployed plugin directory. Systems without safe symlink support should use `NMKR_PHASE2_ENV_FILE`; it remains fully supported.
 
 Use placeholders like this and replace values only on your VM:
 
@@ -32,9 +32,8 @@ WP_ADMIN_USER=wordpress-admin-user
 WP_ADMIN_PASSWORD=wordpress-admin-password
 WP_PATH=/path/to/wordpress
 
-NMKR_PHASE2_SKIP_DEPLOY=false
-NMKR_DEPLOY_COMMAND='your-private-deploy-command-here'
-NMKR_PHASE2_INSTALL_DEPS=auto
+NMKR_PHASE2_SKIP_DEPLOY=true
+NMKR_PHASE2_INSTALL_DEPS=false
 NMKR_PHASE2_INSTALL_BROWSER=false
 ```
 
@@ -86,6 +85,18 @@ The npm script runs:
 bash scripts/nmkr-phase2-test-runner.sh
 ```
 
+### Existing deployed commit (readonly)
+
+`existing-readonly` is for validating an already deployed exact commit. The caller-selected profile is captured before the private env file is sourced; a conflicting file profile is rejected. After sourcing, readonly authority overrides mutable values: deployment, dependency/browser installation, real synchronization, and browser artifacts are disabled, and any deploy command is ignored. A full SHA is deliberately required from the maintainer and is not derived by the command.
+
+```bash
+NMKR_PHASE2_ENV_FILE="$HOME/.config/nmkr-connect/phase2.env" \
+NMKR_PHASE2_EXPECTED_SOURCE_SHA=<40-character-commit-sha> \
+npm run test:phase2:existing-readonly
+```
+
+Use the same placeholder form for exact-main, pre-merge, and post-merge checks after supplying the reviewed 40-character SHA. Stop before live validation if the profile, booleans, source/deployed worktree integrity, Node dependencies, or Chromium prerequisite fails.
+
 The runner performs these validation stages in order:
 
 1. Deployment, unless `NMKR_PHASE2_SKIP_DEPLOY=true`.
@@ -134,6 +145,9 @@ The runner sets Playwright paths inside the private run directory:
 
 - `PLAYWRIGHT_HTML_REPORT=<run-dir>/playwright-report`
 - `PLAYWRIGHT_TEST_OUTPUT_DIR=<run-dir>/test-results`
+- `NMKR_AUTH_STATE_PATH=<run-dir>/auth-state.json`
+
+Authentication state is sensitive session material. It is mode-restricted where supported, is not printed, reported, committed, or uploaded, and is removed after each run (including ordinary interruption). Direct Playwright runs use an ignored temporary state path and the teardown project removes it. `NMKR_RETAIN_AUTH_STATE=true` is private-diagnostics-only and should be avoided.
 
 ## Expected success summary shape
 

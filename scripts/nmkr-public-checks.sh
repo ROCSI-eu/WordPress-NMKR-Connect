@@ -20,6 +20,9 @@ npm run test:e2e -- --list --reporter=list
 printf '\n== Public-safe Phase 15 preflight regression checks ==\n'
 bash scripts/nmkr-real-sync-preflight-regression.sh
 
+printf '\n== Public-safe Phase 2 readonly profile regression checks ==\n'
+bash scripts/nmkr-phase2-profile-regression.sh
+
 
 printf '\n== Public-safe Phase 16A controlled real-sync regression checks ==\n'
 bash scripts/nmkr-real-sync-phase16a-regression.sh

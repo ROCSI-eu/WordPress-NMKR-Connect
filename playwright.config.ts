@@ -2,6 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 
 const envFile = path.resolve(__dirname, '.env.tests');
 
@@ -12,6 +13,9 @@ if (fs.existsSync(envFile)) {
 const saveArtifacts = process.env.PW_SAVE_ARTIFACTS === 'true';
 const htmlReportDir = process.env.PLAYWRIGHT_HTML_REPORT || 'playwright-report';
 const testOutputDir = process.env.PLAYWRIGHT_TEST_OUTPUT_DIR || 'test-results';
+const authStatePath = process.env.NMKR_AUTH_STATE_PATH || path.join(os.tmpdir(), `nmkr-connect-auth-${process.pid}.json`);
+const retainAuthState = process.env.NMKR_RETAIN_AUTH_STATE || 'false';
+if (!['true', 'false'].includes(retainAuthState)) throw new Error('NMKR_RETAIN_AUTH_STATE must be true or false.');
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -21,7 +25,7 @@ export default defineConfig({
   },
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
-  retries: process.env.CI ? 1 : 0,
+  retries: 0,
   workers: 1,
   reporter: [
     ['list'],
@@ -37,7 +41,21 @@ export default defineConfig({
   },
   projects: [
     {
+      name: 'auth-setup',
+      testMatch: /auth\.setup\.ts/,
+      retries: 1,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       name: 'chromium',
+      testIgnore: /auth\.(setup|cleanup)\.ts/,
+      dependencies: ['auth-setup'],
+      teardown: 'auth-cleanup',
+      use: { ...devices['Desktop Chrome'], storageState: authStatePath },
+    },
+    {
+      name: 'auth-cleanup',
+      testMatch: /auth\.cleanup\.ts/,
       use: { ...devices['Desktop Chrome'] },
     },
   ],

@@ -21,3 +21,4 @@ traces/
 
 # Phase 2 private runner logs and reports
 .phase2-private/
+nmkr-connect-auth-*.json
