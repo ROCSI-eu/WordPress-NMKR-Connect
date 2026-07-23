@@ -127,6 +127,7 @@ validate_positive_integer() {
 check_wordpress_ready() {
   local log_file="$RUN_DIR/wordpress-ready.log"
   local body_file="$RUN_DIR/wordpress-ready-body.tmp"
+  local status_file="$RUN_DIR/wordpress-ready-status.tmp"
   local maintenance_file="${WP_PATH%/}/.maintenance"
   local login_url="${WP_BASE_URL%/}/wp-login.php"
   local start_time deadline attempt now remaining sleep_for
@@ -158,9 +159,10 @@ check_wordpress_ready() {
       fi
     fi
 
-    rm -f "$body_file" "$RUN_DIR/wordpress-ready-curl-error.tmp"
+    rm -f "$body_file" "$status_file" "$RUN_DIR/wordpress-ready-curl-error.tmp"
     curl_exit=0
-    http_status="$(curl -ksSL --max-time "$NMKR_PHASE2_WP_READY_HTTP_TIMEOUT_SECONDS" -o "$body_file" -w '%{http_code}' "$login_url" 2>"$RUN_DIR/wordpress-ready-curl-error.tmp")" || curl_exit=$?
+    run_external curl -ksSL --max-time "$NMKR_PHASE2_WP_READY_HTTP_TIMEOUT_SECONDS" -o "$body_file" -w '%{http_code}' "$login_url" >"$status_file" 2>"$RUN_DIR/wordpress-ready-curl-error.tmp" || curl_exit=$?
+    http_status="$(cat "$status_file" 2>/dev/null || true)"
     if [[ "$curl_exit" != "0" ]]; then
       http_status="curl_failed"
     fi
@@ -196,7 +198,7 @@ check_wordpress_ready() {
       else
         printf 'readiness_health=pass\n' >>"$log_file"
       fi
-      rm -f "$body_file" "$RUN_DIR/wordpress-ready-curl-error.tmp"
+      rm -f "$body_file" "$status_file" "$RUN_DIR/wordpress-ready-curl-error.tmp"
       printf 'INFO: WordPress readiness passed.\n'
       WORDPRESS_READY_STATUS="PASS"
       return 0
@@ -211,7 +213,7 @@ check_wordpress_ready() {
     now="$(date +%s)"
     if (( now >= deadline )); then
       printf 'WordPress readiness timed out after %s attempts.\n' "$attempt" >>"$log_file"
-      rm -f "$body_file" "$RUN_DIR/wordpress-ready-curl-error.tmp"
+      rm -f "$body_file" "$status_file" "$RUN_DIR/wordpress-ready-curl-error.tmp"
       fail_step "wordpress-ready" "$log_file" 7
     fi
 
@@ -221,7 +223,7 @@ check_wordpress_ready() {
       sleep_for="$remaining"
     fi
     if (( sleep_for > 0 )); then
-      sleep "$sleep_for"
+      run_external sleep "$sleep_for"
     fi
   done
 }
@@ -248,24 +250,64 @@ for unsafe in "$REPO_ROOT" "$WP_PATH" "$REPO_ROOT/playwright-report" "$REPO_ROOT
   fi
 done
 umask 077
-mkdir -p -m 700 "$LOG_PARENT"
-LOG_PARENT="$(realpath -e -- "$LOG_PARENT")"
+if ! mkdir -p -m 700 "$LOG_PARENT"; then
+  printf 'ERROR: Phase 2 private run directory is unsafe.\n' >&2; exit 1
+fi
+if ! LOG_PARENT="$(realpath -e -- "$LOG_PARENT")"; then
+  printf 'ERROR: Phase 2 private run directory is unsafe.\n' >&2; exit 1
+fi
+RUNS_DIR="$LOG_PARENT/runs"
+if [[ -e "$RUNS_DIR" || -L "$RUNS_DIR" ]]; then
+  if [[ -L "$RUNS_DIR" || ! -d "$RUNS_DIR" ]]; then
+    printf 'ERROR: Phase 2 private run directory is unsafe.\n' >&2; exit 1
+  fi
+else
+  if ! mkdir -m 700 -- "$RUNS_DIR"; then
+    printf 'ERROR: Phase 2 private run directory is unsafe.\n' >&2; exit 1
+  fi
+fi
+if [[ -L "$RUNS_DIR" ]] || ! RUNS_DIR="$(realpath -e -- "$RUNS_DIR")" || [[ "$RUNS_DIR" != "$LOG_PARENT/runs" ]]; then
+  printf 'ERROR: Phase 2 private run directory is unsafe.\n' >&2; exit 1
+fi
 RUN_STAMP="$(date -u +%Y%m%dT%H%M%SZ)-$$"
-RUN_DIR="$LOG_PARENT/runs/$RUN_STAMP"
-mkdir -p -m 700 "$RUN_DIR"
+RUN_DIR="$RUNS_DIR/$RUN_STAMP"
+if ! mkdir -m 700 -- "$RUN_DIR" || [[ -L "$RUN_DIR" ]] || ! RUN_DIR="$(realpath -e -- "$RUN_DIR")" || [[ "$RUN_DIR" != "$RUNS_DIR/$RUN_STAMP" ]]; then
+  printf 'ERROR: Phase 2 private run directory is unsafe.\n' >&2; exit 1
+fi
 {
   printf 'Phase 2 preflight started at %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   printf 'Repository root: %s\n' "$REPO_ROOT"
 } >"$RUN_DIR/preflight.log"
-for tool in git npm npx bash curl; do
+for tool in git npm npx bash curl setsid; do
   if ! command -v "$tool" >/dev/null 2>&1; then
     printf 'Required tool is missing: %s\n' "$tool" >>"$RUN_DIR/preflight.log"
     fail_step "preflight" "$RUN_DIR/preflight.log" 1
   fi
 done
 AUTH_STATE_CLEANUP="PENDING"
+ACTIVE_CHILD_PID=""
 cleanup_auth_state() { [[ "${NMKR_RETAIN_AUTH_STATE:-false}" == true ]] && { AUTH_STATE_CLEANUP="RETAINED"; return; }; AUTH_STATE_CLEANUP="MANAGED_BY_WRAPPER"; }
-handle_signal() { cleanup_auth_state; trap - EXIT; exit "$1"; }
+run_external() {
+  setsid "$@" &
+  ACTIVE_CHILD_PID=$!
+  local status=0
+  wait "$ACTIVE_CHILD_PID" || status=$?
+  ACTIVE_CHILD_PID=""
+  return "$status"
+}
+terminate_active_child() {
+  local pid="$ACTIVE_CHILD_PID" attempts=0
+  [[ -n "$pid" ]] || return 0
+  kill -TERM -- "-$pid" 2>/dev/null || true
+  while kill -0 "$pid" 2>/dev/null && (( attempts < 10 )); do
+    sleep 0.1
+    attempts=$((attempts + 1))
+  done
+  kill -KILL -- "-$pid" 2>/dev/null || true
+  wait "$pid" 2>/dev/null || true
+  ACTIVE_CHILD_PID=""
+}
+handle_signal() { terminate_active_child; cleanup_auth_state; trap - EXIT; exit "$1"; }
 trap cleanup_auth_state EXIT
 trap 'handle_signal 130' INT
 trap 'handle_signal 143' TERM
@@ -301,8 +343,8 @@ if [[ "$NMKR_PHASE2_PROFILE" == "existing-readonly" ]]; then
     git -C "$NMKR_DEPLOYED_PLUGIN_PATH" rev-parse --is-inside-work-tree >/dev/null 2>&1 && [[ "$(git -C "$NMKR_DEPLOYED_PLUGIN_PATH" rev-parse HEAD)" == "$NMKR_PHASE2_EXPECTED_SOURCE_SHA" ]] && [[ -z "$(git -C "$NMKR_DEPLOYED_PLUGIN_PATH" status --porcelain)" ]] || { printf 'Deployed worktree integrity check failed.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; }
     DEPLOYED_INTEGRITY="PASS"
   fi
-  node -e "require('@playwright/test')" >/dev/null 2>&1 || { printf 'Required Node dependencies are unavailable.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; }
-  node -e "const { chromium }=require('@playwright/test'); (async()=>{const b=await chromium.launch({headless:true}); await b.close();})().catch(()=>process.exit(1))" >/dev/null 2>&1 || { printf 'Configured Chromium is unavailable.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; }
+  run_external node -e "require('@playwright/test')" >/dev/null 2>&1 || { printf 'Required Node dependencies are unavailable.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; }
+  run_external node -e "const { chromium }=require('@playwright/test'); (async()=>{const b=await chromium.launch({headless:true}); await b.close();})().catch(()=>process.exit(1))" >/dev/null 2>&1 || { printf 'Configured Chromium is unavailable.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; }
 fi
 
 case "$NMKR_PHASE2_INSTALL_DEPS" in
@@ -323,7 +365,7 @@ else
     printf 'NMKR_DEPLOY_COMMAND is required unless NMKR_PHASE2_SKIP_DEPLOY=true.\n' >"$RUN_DIR/deploy.log"
     fail_step "deploy" "$RUN_DIR/deploy.log" 2
   fi
-  if bash -lc "$NMKR_DEPLOY_COMMAND" >"$RUN_DIR/deploy.log" 2>&1; then
+  if run_external bash -lc "$NMKR_DEPLOY_COMMAND" >"$RUN_DIR/deploy.log" 2>&1; then
     DEPLOY_STATUS="PASS"
   else
     fail_step "deploy" "$RUN_DIR/deploy.log" 2
@@ -343,7 +385,7 @@ if [[ "$install_deps" == "true" ]]; then
     printf 'Dependency installation is needed, but the repository root is not writable. Run Phase 2 from a user-owned checkout.\n' >"$RUN_DIR/npm-ci.log"
     fail_step "dependencies" "$RUN_DIR/npm-ci.log" 3
   fi
-  if npm ci >"$RUN_DIR/npm-ci.log" 2>&1; then
+  if run_external npm ci >"$RUN_DIR/npm-ci.log" 2>&1; then
     DEPS_STATUS="PASS"
   else
     fail_step "dependencies" "$RUN_DIR/npm-ci.log" 3
@@ -354,7 +396,7 @@ fi
 
 if [[ "$NMKR_PHASE2_INSTALL_BROWSER" == "true" ]]; then
   BROWSER_STATUS="FAIL"
-  if npx playwright install chromium >"$RUN_DIR/playwright-install.log" 2>&1; then
+  if run_external npx playwright install chromium >"$RUN_DIR/playwright-install.log" 2>&1; then
     BROWSER_STATUS="PASS"
   else
     fail_step "browser" "$RUN_DIR/playwright-install.log" 3
@@ -372,21 +414,21 @@ export NMKR_AUTH_STATE_ROOT="$RUN_DIR"
 unset NMKR_AUTH_STATE_DIR NMKR_AUTH_STATE_PATH NMKR_AUTH_STATE_OWNER_TOKEN
 
 PLAYWRIGHT_STATUS="FAIL"
-if npm run test:e2e >"$RUN_DIR/playwright.log" 2>&1; then
+if run_external npm run test:e2e >"$RUN_DIR/playwright.log" 2>&1; then
   PLAYWRIGHT_STATUS="PASS"
 else
   fail_step "playwright" "$RUN_DIR/playwright.log" 4
 fi
 
 WPCLI_STATUS="FAIL"
-if bash scripts/nmkr-wpcli-smoke.sh >"$RUN_DIR/wpcli.log" 2>&1; then
+if run_external bash scripts/nmkr-wpcli-smoke.sh >"$RUN_DIR/wpcli.log" 2>&1; then
   WPCLI_STATUS="PASS"
 else
   fail_step "wpcli" "$RUN_DIR/wpcli.log" 5
 fi
 
 DBSTATE_STATUS="FAIL"
-if bash scripts/nmkr-wpcli-db-state.sh >"$RUN_DIR/wpcli-db-state.log" 2>&1; then
+if run_external bash scripts/nmkr-wpcli-db-state.sh >"$RUN_DIR/wpcli-db-state.log" 2>&1; then
   DBSTATE_STATUS="PASS"
 else
   fail_step "wpcli-db-state" "$RUN_DIR/wpcli-db-state.log" 6

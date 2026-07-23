@@ -44,4 +44,62 @@ if NMKR_AUTH_STATE_ROOT="$tmp_dir/unrelated" NMKR_AUTH_STATE_PATH="$tmp_dir/unre
 test "$(cat "$tmp_dir/unrelated/auth-state.json")" = sentinel
 # Wrapper publishes one approved state path to config and all workers (discovery does no login).
 NMKR_AUTH_STATE_ROOT= NMKR_AUTH_STATE_DIR= NMKR_AUTH_STATE_PATH= NMKR_AUTH_STATE_OWNER_TOKEN= node "$ROOT/scripts/nmkr-playwright.js" --list --reporter=list >/dev/null
+# A pre-existing runs entry must never redirect private run files.
+assert_unsafe_runs() {
+  local target="$1" output="$tmp_dir/runs-unsafe.output"
+  rm -rf "$tmp_dir/private/runs"
+  ln -s "$target" "$tmp_dir/private/runs"
+  if "${base[@]}" NMKR_PHASE2_PROFILE=unknown bash "$runner" >"$output" 2>&1; then
+    echo 'Expected unsafe runs rejection.' >&2; exit 1
+  fi
+  grep -F -- 'ERROR: Phase 2 private run directory is unsafe.' "$output" >/dev/null
+  test ! -e "$target/marker-private-write"
+  rm -f "$tmp_dir/private/runs"; mkdir -p "$tmp_dir/private/runs"
+}
+mkdir -p "$tmp_dir/repository-target" "$tmp_dir/wordpress-target"
+assert_unsafe_runs "$tmp_dir/repository-target"
+assert_unsafe_runs "$tmp_dir/wordpress-target"
+rm -rf "$tmp_dir/private/runs"; : >"$tmp_dir/private/runs"
+if "${base[@]}" NMKR_PHASE2_PROFILE=unknown bash "$runner" >"$tmp_dir/runs-file.output" 2>&1; then
+  echo 'Expected non-directory runs rejection.' >&2; exit 1
+fi
+grep -F -- 'ERROR: Phase 2 private run directory is unsafe.' "$tmp_dir/runs-file.output" >/dev/null
+rm -f "$tmp_dir/private/runs"; mkdir -p "$tmp_dir/private/runs"
+
+# Signals must stop a dedicated process group before deployment can complete or readiness begins.
+mkdir -p "$tmp_dir/bin"
+cat >"$tmp_dir/long-child.sh" <<'EOF_CHILD'
+#!/usr/bin/env bash
+sleep 30 &
+child=$!
+printf '%s' "$child" >"$TMP_DIR/active-child.pid"
+wait "$child"
+touch "$TMP_DIR/deploy-completed"
+EOF_CHILD
+cat >"$tmp_dir/bin/curl" <<EOF_CURL
+#!/usr/bin/env bash
+touch "$tmp_dir/later-stage-marker"
+exit 1
+EOF_CURL
+chmod +x "$tmp_dir/long-child.sh" "$tmp_dir/bin/curl"
+assert_signal() {
+  local signal="$1" expected="$2" pid status=0 attempts=0
+  rm -f "$tmp_dir/active-child.pid" "$tmp_dir/deploy-completed" "$tmp_dir/later-stage-marker"
+  ( trap - INT TERM; exec setsid env TMP_DIR="$tmp_dir" PATH="$tmp_dir/bin:$PATH" WP_BASE_URL=http://invalid.test WP_ADMIN_USER=placeholder WP_ADMIN_PASSWORD=placeholder WP_CLI_BIN=true WP_PATH="$tmp_dir/wp" NMKR_PHASE2_LOG_DIR="$tmp_dir/private" NMKR_PHASE2_SKIP_DEPLOY=false NMKR_PHASE2_INSTALL_DEPS=false NMKR_PHASE2_INSTALL_BROWSER=false NMKR_DEPLOY_COMMAND="bash '$tmp_dir/long-child.sh'" bash "$runner" ) >"$tmp_dir/signal-$signal.output" 2>&1 &
+  pid=$!
+  while [[ ! -s "$tmp_dir/active-child.pid" && $attempts -lt 150 ]]; do sleep 0.1; attempts=$((attempts + 1)); done
+  [[ -s "$tmp_dir/active-child.pid" ]] || { kill -KILL "$pid" 2>/dev/null || true; echo 'Long-lived child did not start.' >&2; exit 1; }
+  kill "-$signal" "$pid"
+  while kill -0 "$pid" 2>/dev/null && [[ "$(ps -o stat= -p "$pid" 2>/dev/null)" != Z* ]] && (( attempts < 150 )); do sleep 0.1; attempts=$((attempts + 1)); done
+  if kill -0 "$pid" 2>/dev/null && [[ "$(ps -o stat= -p "$pid" 2>/dev/null)" != Z* ]]; then kill -KILL "$pid" 2>/dev/null || true; echo 'Runner did not exit promptly after signal.' >&2; exit 1; fi
+  wait "$pid" || status=$?
+  [[ "$status" == "$expected" ]] || { echo "Unexpected signal status: $status" >&2; exit 1; }
+  child="$(cat "$tmp_dir/active-child.pid")"
+  if kill -0 "$child" 2>/dev/null && [[ "$(ps -o stat= -p "$child" 2>/dev/null)" != Z* ]]; then
+    echo 'Active child survived signal.' >&2; exit 1
+  fi
+  test ! -e "$tmp_dir/deploy-completed" && test ! -e "$tmp_dir/later-stage-marker"
+}
+assert_signal TERM 143
+assert_signal INT 130
 echo 'PASS: Phase 2 profile and auth-state validation regressions.'

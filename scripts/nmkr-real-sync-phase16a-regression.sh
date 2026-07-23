@@ -571,5 +571,6 @@ NODE
 pass "driver nonce, POST routing, frozen same-origin blocking, progress success false, second Start, and ambiguous/no-terminal regressions"
 find "$TMP" \( -path '*/playwright-report' -o -path '*/test-results' -o -path '*/blob-report' -o -path '*/playwright/.cache' -o -name '*.webm' -o -name 'trace.zip' \) -print -quit | grep -q . && fail "Playwright artifacts created"
 if find "$TMP" -maxdepth 1 -type f -print0 | xargs -0 --no-run-if-empty grep -En -- 'nonce-fixture-value|private-token-fixture|cookie-fixture' >/dev/null 2>&1; then fail "fixture secret value appeared in output"; fi
-npx playwright test --list --reporter=list 2>/dev/null | grep -E -- 'nmkr-real-sync-phase16a-driver' && fail "private driver discovered by Playwright"
+discovery_output="$(npm run test:e2e -- --list --reporter=list 2>&1)" || fail "Playwright discovery failed"
+printf '%s\n' "$discovery_output" | grep -E -- 'nmkr-real-sync-phase16a-driver' && fail "private driver discovered by Playwright"
 pass "no external network, no browser artifacts, no nonce leak, and no private driver discovery"
