@@ -17,7 +17,14 @@ chmod 700 "$tmp_dir/private" "$tmp_dir/private/runs"
 synthetic_env="$tmp_dir/synthetic.env"
 : >"$synthetic_env"
 chmod 600 "$synthetic_env"
-base=(env WP_BASE_URL=http://invalid.test WP_ADMIN_USER=placeholder WP_ADMIN_PASSWORD=placeholder WP_CLI_BIN=true WP_PATH="$tmp_dir/wp" NMKR_PHASE2_LOG_DIR="$tmp_dir/private" NMKR_PHASE2_ENV_FILE="$synthetic_env")
+# Synthetic cases must not inherit a maintainer's Phase 2 settings.  Provide
+# only a controlled process context and the fixture values each case needs.
+safe_path='/usr/local/bin:/usr/bin:/bin'
+synthetic_home="$tmp_dir/home"
+synthetic_tmp="$tmp_dir/tmp"
+mkdir -p "$synthetic_home" "$synthetic_tmp"
+chmod 700 "$synthetic_home" "$synthetic_tmp"
+base=(env -i PATH="$safe_path" HOME="$synthetic_home" TMPDIR="$synthetic_tmp" WP_BASE_URL=http://invalid.test WP_ADMIN_USER=placeholder WP_ADMIN_PASSWORD=placeholder WP_CLI_BIN=true WP_PATH="$tmp_dir/wp" NMKR_PHASE2_LOG_DIR="$tmp_dir/private" NMKR_PHASE2_ENV_FILE="$synthetic_env" NMKR_PHASE2_PROFILE= RUN_REAL_SYNC=false PW_SAVE_ARTIFACTS=false NMKR_RETAIN_AUTH_STATE=false NMKR_PHASE2_INSTALL_DEPS=false NMKR_PHASE2_INSTALL_BROWSER=false NMKR_PHASE2_SKIP_DEPLOY=true)
 expect_fail() {
   local expected="$1"; shift
   local case_id before_runs after_runs new_run output
@@ -80,12 +87,39 @@ test ! -e "$tmp_dir/marker"
 printf 'NMKR_PHASE2_PROFILE=general\n' >"$tmp_dir/env"; expect_fail 'Phase 2 profile conflict.' NMKR_PHASE2_PROFILE=existing-readonly NMKR_PHASE2_ENV_FILE="$tmp_dir/env"
 printf 'NMKR_PHASE2_SKIP_DEPLOY=true\n' >"$tmp_dir/env"; expect_fail 'Expected source SHA is invalid.' NMKR_PHASE2_PROFILE=existing-readonly NMKR_PHASE2_ENV_FILE="$tmp_dir/env" NMKR_PHASE2_EXPECTED_SOURCE_SHA=invalid
 printf 'NMKR_PHASE2_PROFILE=existing-readonly\n' >"$tmp_dir/env"; expect_fail 'Expected source SHA is invalid.' NMKR_PHASE2_ENV_FILE="$tmp_dir/env" NMKR_PHASE2_EXPECTED_SOURCE_SHA=invalid
+# A sourced env file cannot clear the runner's selected-file identity before
+# the later Playwright command is launched.
+mkdir -p "$tmp_dir/env-selection-bin"
+cat >"$tmp_dir/env-selection-bin/curl" <<'EOF_CURL'
+#!/usr/bin/env bash
+while (($#)); do
+  if [[ "$1" == -o ]]; then
+    shift
+    printf '<input id="user_login">' >"$1"
+  fi
+  shift
+done
+printf '200'
+EOF_CURL
+cat >"$tmp_dir/env-selection-bin/npm" <<EOF_NPM
+#!/usr/bin/env bash
+printf '%s' "\$NMKR_PHASE2_ENV_FILE" >"$tmp_dir/selected-env-observed"
+exit 1
+EOF_NPM
+chmod 700 "$tmp_dir/env-selection-bin/curl" "$tmp_dir/env-selection-bin/npm"
+selected_env="$tmp_dir/selected.env"
+printf 'NMKR_PHASE2_ENV_FILE=\nNMKR_PHASE2_SKIP_DEPLOY=true\nNMKR_PHASE2_INSTALL_DEPS=false\nNMKR_PHASE2_INSTALL_BROWSER=false\n' >"$selected_env"
+chmod 600 "$selected_env"
+if env -i PATH="$tmp_dir/env-selection-bin:$safe_path" HOME="$synthetic_home" TMPDIR="$synthetic_tmp" WP_BASE_URL=http://invalid.test WP_ADMIN_USER=placeholder WP_ADMIN_PASSWORD=placeholder WP_CLI_BIN=true WP_PATH="$tmp_dir/wp" NMKR_PHASE2_LOG_DIR="$tmp_dir/private" NMKR_PHASE2_ENV_FILE="$selected_env" NMKR_PHASE2_PROFILE= RUN_REAL_SYNC=false PW_SAVE_ARTIFACTS=false NMKR_RETAIN_AUTH_STATE=false bash "$runner" >/dev/null 2>&1; then
+  echo 'Expected synthetic Playwright failure.' >&2; exit 1
+fi
+test "$(cat "$tmp_dir/selected-env-observed")" = "$selected_env"
 # Direct Playwright path validation must fail closed without touching an exact-name sentinel.
 mkdir -p "$tmp_dir/unrelated"; printf sentinel >"$tmp_dir/unrelated/auth-state.json"
-if NMKR_AUTH_STATE_ROOT="$tmp_dir/unrelated" NMKR_AUTH_STATE_PATH="$tmp_dir/unrelated/auth-state.json" node "$ROOT/scripts/nmkr-playwright.js" --list >/dev/null 2>&1; then exit 1; fi
+if "${base[@]}" NMKR_AUTH_STATE_ROOT="$tmp_dir/unrelated" NMKR_AUTH_STATE_PATH="$tmp_dir/unrelated/auth-state.json" node "$ROOT/scripts/nmkr-playwright.js" --list >/dev/null 2>&1; then exit 1; fi
 test "$(cat "$tmp_dir/unrelated/auth-state.json")" = sentinel
 # Wrapper publishes one approved state path to config and all workers (discovery does no login).
-NMKR_AUTH_STATE_ROOT= NMKR_AUTH_STATE_DIR= NMKR_AUTH_STATE_PATH= NMKR_AUTH_STATE_OWNER_TOKEN= NMKR_PHASE2_ENV_FILE="$synthetic_env" WP_BASE_URL=http://invalid.test WP_ADMIN_USER=placeholder WP_ADMIN_PASSWORD=placeholder WP_PATH="$tmp_dir/wp" node "$ROOT/scripts/nmkr-playwright.js" --list --reporter=list >/dev/null
+"${base[@]}" node "$ROOT/scripts/nmkr-playwright.js" --list --reporter=list >/dev/null
 # A pre-existing runs entry must never redirect private run files.
 assert_unsafe_runs() {
   local target="$1" output="$tmp_dir/runs-unsafe.output"
@@ -127,7 +161,7 @@ chmod +x "$tmp_dir/long-child.sh" "$tmp_dir/bin/curl"
 assert_signal() {
   local signal="$1" expected="$2" pid status=0 attempts=0
   rm -f "$tmp_dir/active-child.pid" "$tmp_dir/deploy-completed" "$tmp_dir/later-stage-marker"
-  ( trap - INT TERM; exec setsid env TMP_DIR="$tmp_dir" PATH="$tmp_dir/bin:$PATH" WP_BASE_URL=http://invalid.test WP_ADMIN_USER=placeholder WP_ADMIN_PASSWORD=placeholder WP_CLI_BIN=true WP_PATH="$tmp_dir/wp" NMKR_PHASE2_LOG_DIR="$tmp_dir/private" NMKR_PHASE2_ENV_FILE="$synthetic_env" NMKR_PHASE2_SKIP_DEPLOY=false NMKR_PHASE2_INSTALL_DEPS=false NMKR_PHASE2_INSTALL_BROWSER=false NMKR_DEPLOY_COMMAND="bash '$tmp_dir/long-child.sh'" bash "$runner" ) >"$tmp_dir/signal-$signal.output" 2>&1 &
+  ( trap - INT TERM; exec setsid env -i PATH="$tmp_dir/bin:$safe_path" HOME="$synthetic_home" TMPDIR="$synthetic_tmp" TMP_DIR="$tmp_dir" WP_BASE_URL=http://invalid.test WP_ADMIN_USER=placeholder WP_ADMIN_PASSWORD=placeholder WP_CLI_BIN=true WP_PATH="$tmp_dir/wp" NMKR_PHASE2_LOG_DIR="$tmp_dir/private" NMKR_PHASE2_ENV_FILE="$synthetic_env" NMKR_PHASE2_PROFILE= RUN_REAL_SYNC=false PW_SAVE_ARTIFACTS=false NMKR_RETAIN_AUTH_STATE=false NMKR_PHASE2_SKIP_DEPLOY=false NMKR_PHASE2_INSTALL_DEPS=false NMKR_PHASE2_INSTALL_BROWSER=false NMKR_DEPLOY_COMMAND="bash '$tmp_dir/long-child.sh'" bash "$runner" ) >"$tmp_dir/signal-$signal.output" 2>&1 &
   pid=$!
   while [[ ! -s "$tmp_dir/active-child.pid" && $attempts -lt 150 ]]; do sleep 0.1; attempts=$((attempts + 1)); done
   [[ -s "$tmp_dir/active-child.pid" ]] || { kill -KILL "$pid" 2>/dev/null || true; echo 'Long-lived child did not start.' >&2; exit 1; }
