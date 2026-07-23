@@ -5,6 +5,12 @@ ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 runner="$ROOT/scripts/nmkr-phase2-test-runner.sh"
 tmp_dir="$(mktemp -d)"; trap 'rm -rf "$tmp_dir"' EXIT
 mkdir -p "$tmp_dir/wp" "$tmp_dir/private/runs"
+# Keep the synthetic private fixture owner-private regardless of the invoking
+# shell's umask. Later cases intentionally relax these modes to exercise the
+# runner's rejection paths and reset them to 0700.
+chmod 700 "$tmp_dir/private" "$tmp_dir/private/runs"
+[[ "$(stat -c '%a' "$tmp_dir/private")" == 700 ]]
+[[ "$(stat -c '%a' "$tmp_dir/private/runs")" == 700 ]]
 base=(env WP_BASE_URL=http://invalid.test WP_ADMIN_USER=placeholder WP_ADMIN_PASSWORD=placeholder WP_CLI_BIN=true WP_PATH="$tmp_dir/wp" NMKR_PHASE2_LOG_DIR="$tmp_dir/private")
 expect_fail() {
   local expected="$1"; shift
@@ -84,7 +90,7 @@ assert_unsafe_runs() {
   fi
   grep -F -- 'ERROR: Phase 2 private run directory is unsafe.' "$output" >/dev/null
   test ! -e "$target/marker-private-write"
-  rm -f "$tmp_dir/private/runs"; mkdir -p "$tmp_dir/private/runs"
+  rm -f "$tmp_dir/private/runs"; mkdir -p "$tmp_dir/private/runs"; chmod 700 "$tmp_dir/private/runs"
 }
 mkdir -p "$tmp_dir/repository-target" "$tmp_dir/wordpress-target"
 assert_unsafe_runs "$tmp_dir/repository-target"
@@ -94,7 +100,7 @@ if "${base[@]}" NMKR_PHASE2_PROFILE=unknown bash "$runner" >"$tmp_dir/runs-file.
   echo 'Expected non-directory runs rejection.' >&2; exit 1
 fi
 grep -F -- 'ERROR: Phase 2 private run directory is unsafe.' "$tmp_dir/runs-file.output" >/dev/null
-rm -f "$tmp_dir/private/runs"; mkdir -p "$tmp_dir/private/runs"
+rm -f "$tmp_dir/private/runs"; mkdir -p "$tmp_dir/private/runs"; chmod 700 "$tmp_dir/private/runs"
 
 # Signals must stop a dedicated process group before deployment can complete or readiness begins.
 mkdir -p "$tmp_dir/bin"
