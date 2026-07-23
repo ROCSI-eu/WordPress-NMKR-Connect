@@ -11,7 +11,13 @@ mkdir -p "$tmp_dir/wp" "$tmp_dir/private/runs"
 chmod 700 "$tmp_dir/private" "$tmp_dir/private/runs"
 [[ "$(stat -c '%a' "$tmp_dir/private")" == 700 ]]
 [[ "$(stat -c '%a' "$tmp_dir/private/runs")" == 700 ]]
-base=(env WP_BASE_URL=http://invalid.test WP_ADMIN_USER=placeholder WP_ADMIN_PASSWORD=placeholder WP_CLI_BIN=true WP_PATH="$tmp_dir/wp" NMKR_PHASE2_LOG_DIR="$tmp_dir/private")
+# Every synthetic runner invocation must explicitly select this empty,
+# owner-private file. This prevents an ignored checkout .env.tests (including a
+# private symlink) from influencing the public-safe fixtures.
+synthetic_env="$tmp_dir/synthetic.env"
+: >"$synthetic_env"
+chmod 600 "$synthetic_env"
+base=(env WP_BASE_URL=http://invalid.test WP_ADMIN_USER=placeholder WP_ADMIN_PASSWORD=placeholder WP_CLI_BIN=true WP_PATH="$tmp_dir/wp" NMKR_PHASE2_LOG_DIR="$tmp_dir/private" NMKR_PHASE2_ENV_FILE="$synthetic_env")
 expect_fail() {
   local expected="$1"; shift
   local case_id before_runs after_runs new_run output
@@ -79,7 +85,7 @@ mkdir -p "$tmp_dir/unrelated"; printf sentinel >"$tmp_dir/unrelated/auth-state.j
 if NMKR_AUTH_STATE_ROOT="$tmp_dir/unrelated" NMKR_AUTH_STATE_PATH="$tmp_dir/unrelated/auth-state.json" node "$ROOT/scripts/nmkr-playwright.js" --list >/dev/null 2>&1; then exit 1; fi
 test "$(cat "$tmp_dir/unrelated/auth-state.json")" = sentinel
 # Wrapper publishes one approved state path to config and all workers (discovery does no login).
-NMKR_AUTH_STATE_ROOT= NMKR_AUTH_STATE_DIR= NMKR_AUTH_STATE_PATH= NMKR_AUTH_STATE_OWNER_TOKEN= node "$ROOT/scripts/nmkr-playwright.js" --list --reporter=list >/dev/null
+NMKR_AUTH_STATE_ROOT= NMKR_AUTH_STATE_DIR= NMKR_AUTH_STATE_PATH= NMKR_AUTH_STATE_OWNER_TOKEN= NMKR_PHASE2_ENV_FILE="$synthetic_env" WP_BASE_URL=http://invalid.test WP_ADMIN_USER=placeholder WP_ADMIN_PASSWORD=placeholder WP_PATH="$tmp_dir/wp" node "$ROOT/scripts/nmkr-playwright.js" --list --reporter=list >/dev/null
 # A pre-existing runs entry must never redirect private run files.
 assert_unsafe_runs() {
   local target="$1" output="$tmp_dir/runs-unsafe.output"
@@ -121,7 +127,7 @@ chmod +x "$tmp_dir/long-child.sh" "$tmp_dir/bin/curl"
 assert_signal() {
   local signal="$1" expected="$2" pid status=0 attempts=0
   rm -f "$tmp_dir/active-child.pid" "$tmp_dir/deploy-completed" "$tmp_dir/later-stage-marker"
-  ( trap - INT TERM; exec setsid env TMP_DIR="$tmp_dir" PATH="$tmp_dir/bin:$PATH" WP_BASE_URL=http://invalid.test WP_ADMIN_USER=placeholder WP_ADMIN_PASSWORD=placeholder WP_CLI_BIN=true WP_PATH="$tmp_dir/wp" NMKR_PHASE2_LOG_DIR="$tmp_dir/private" NMKR_PHASE2_SKIP_DEPLOY=false NMKR_PHASE2_INSTALL_DEPS=false NMKR_PHASE2_INSTALL_BROWSER=false NMKR_DEPLOY_COMMAND="bash '$tmp_dir/long-child.sh'" bash "$runner" ) >"$tmp_dir/signal-$signal.output" 2>&1 &
+  ( trap - INT TERM; exec setsid env TMP_DIR="$tmp_dir" PATH="$tmp_dir/bin:$PATH" WP_BASE_URL=http://invalid.test WP_ADMIN_USER=placeholder WP_ADMIN_PASSWORD=placeholder WP_CLI_BIN=true WP_PATH="$tmp_dir/wp" NMKR_PHASE2_LOG_DIR="$tmp_dir/private" NMKR_PHASE2_ENV_FILE="$synthetic_env" NMKR_PHASE2_SKIP_DEPLOY=false NMKR_PHASE2_INSTALL_DEPS=false NMKR_PHASE2_INSTALL_BROWSER=false NMKR_DEPLOY_COMMAND="bash '$tmp_dir/long-child.sh'" bash "$runner" ) >"$tmp_dir/signal-$signal.output" 2>&1 &
   pid=$!
   while [[ ! -s "$tmp_dir/active-child.pid" && $attempts -lt 150 ]]; do sleep 0.1; attempts=$((attempts + 1)); done
   [[ -s "$tmp_dir/active-child.pid" ]] || { kill -KILL "$pid" 2>/dev/null || true; echo 'Long-lived child did not start.' >&2; exit 1; }

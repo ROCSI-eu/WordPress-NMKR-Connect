@@ -4,10 +4,22 @@ import fs from 'fs';
 import path from 'path';
 import { approvedAuthStatePath } from './tests/e2e/helpers/auth-state';
 
-const envFile = path.resolve(__dirname, '.env.tests');
+const configuredEnvFile = process.env.NMKR_PHASE2_ENV_FILE;
+const envFile = configuredEnvFile
+  ? path.resolve(configuredEnvFile)
+  : path.resolve(__dirname, '.env.tests');
+
+// An explicit Phase 2 env file is an isolation boundary: never fall back to a
+// checkout-local file when the caller selected another file for this run.
+if (configuredEnvFile && !fs.existsSync(envFile)) {
+  throw new Error('Configured Playwright environment file is unavailable.');
+}
 
 if (fs.existsSync(envFile)) {
-  dotenv.config({ path: envFile });
+  const result = dotenv.config({ path: envFile });
+  if (result.error) {
+    throw new Error('Configured Playwright environment file is unavailable.');
+  }
 }
 
 const saveArtifacts = process.env.PW_SAVE_ARTIFACTS === 'true';
