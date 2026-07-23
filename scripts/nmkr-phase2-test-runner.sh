@@ -226,18 +226,6 @@ check_wordpress_ready() {
   done
 }
 
-{
-  printf 'Phase 2 preflight started at %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  printf 'Repository root: %s\n' "$REPO_ROOT"
-} >"$RUN_DIR/preflight.log"
-
-for tool in git npm npx bash curl; do
-  if ! command -v "$tool" >/dev/null 2>&1; then
-    printf 'Required tool is missing: %s\n' "$tool" >>"$RUN_DIR/preflight.log"
-    fail_step "preflight" "$RUN_DIR/preflight.log" 1
-  fi
-done
-
 missing=()
 for var_name in WP_BASE_URL WP_ADMIN_USER WP_ADMIN_PASSWORD WP_PATH; do
   if [[ -z "${!var_name:-}" ]]; then
@@ -265,9 +253,18 @@ LOG_PARENT="$(realpath -e -- "$LOG_PARENT")"
 RUN_STAMP="$(date -u +%Y%m%dT%H%M%SZ)-$$"
 RUN_DIR="$LOG_PARENT/runs/$RUN_STAMP"
 mkdir -p -m 700 "$RUN_DIR"
-AUTH_STATE_PATH="$RUN_DIR/auth-state.json"
+{
+  printf 'Phase 2 preflight started at %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  printf 'Repository root: %s\n' "$REPO_ROOT"
+} >"$RUN_DIR/preflight.log"
+for tool in git npm npx bash curl; do
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    printf 'Required tool is missing: %s\n' "$tool" >>"$RUN_DIR/preflight.log"
+    fail_step "preflight" "$RUN_DIR/preflight.log" 1
+  fi
+done
 AUTH_STATE_CLEANUP="PENDING"
-cleanup_auth_state() { [[ "${NMKR_RETAIN_AUTH_STATE:-false}" == true ]] && { AUTH_STATE_CLEANUP="RETAINED"; return; }; rm -f -- "$AUTH_STATE_PATH"; AUTH_STATE_CLEANUP="PASS"; }
+cleanup_auth_state() { [[ "${NMKR_RETAIN_AUTH_STATE:-false}" == true ]] && { AUTH_STATE_CLEANUP="RETAINED"; return; }; AUTH_STATE_CLEANUP="MANAGED_BY_WRAPPER"; }
 handle_signal() { cleanup_auth_state; trap - EXIT; exit "$1"; }
 trap cleanup_auth_state EXIT
 trap 'handle_signal 130' INT
@@ -371,8 +368,8 @@ check_wordpress_ready
 
 export PLAYWRIGHT_HTML_REPORT="$RUN_DIR/playwright-report"
 export PLAYWRIGHT_TEST_OUTPUT_DIR="$RUN_DIR/test-results"
-export NMKR_AUTH_STATE_DIR="$RUN_DIR"
-export NMKR_AUTH_STATE_PATH="$AUTH_STATE_PATH"
+export NMKR_AUTH_STATE_ROOT="$RUN_DIR"
+unset NMKR_AUTH_STATE_DIR NMKR_AUTH_STATE_PATH NMKR_AUTH_STATE_OWNER_TOKEN
 
 PLAYWRIGHT_STATUS="FAIL"
 if npm run test:e2e >"$RUN_DIR/playwright.log" 2>&1; then

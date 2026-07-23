@@ -145,9 +145,9 @@ The runner sets Playwright paths inside the private run directory:
 
 - `PLAYWRIGHT_HTML_REPORT=<run-dir>/playwright-report`
 - `PLAYWRIGHT_TEST_OUTPUT_DIR=<run-dir>/test-results`
-- `NMKR_AUTH_STATE_PATH=<run-dir>/auth-state.json`
+- `NMKR_AUTH_STATE_ROOT=<private-run-dir>` (the Playwright wrapper creates a fresh private child directory and its `auth-state.json` itself)
 
-Authentication state is sensitive session material. It is mode-restricted where supported, is not printed, reported, committed, or uploaded, and is removed after each run (including ordinary interruption). Direct Playwright runs use an ignored temporary state path and the teardown project removes it. `NMKR_RETAIN_AUTH_STATE=true` is private-diagnostics-only and should be avoided.
+Authentication state is sensitive session material. It is mode-restricted where supported, is not printed, reported, committed, or uploaded, and is removed after each run (including ordinary interruption). The Playwright wrapper creates and owns a fresh private child directory for every invocation; callers can provide only its private parent through `NMKR_AUTH_STATE_ROOT`, not an exact state file. Direct Playwright runs use a wrapper-created temporary root. `NMKR_RETAIN_AUTH_STATE=true` is private-diagnostics-only and should be avoided.
 
 ## Expected success summary shape
 
