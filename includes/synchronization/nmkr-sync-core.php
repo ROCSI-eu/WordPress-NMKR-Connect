@@ -727,6 +727,12 @@ function nmkr_sync_token_details($token_uid, $project_uid, &$sync_log, &$complet
                 // Do not increment $completed_steps here; handled in the retry loop for skipped tokens
                 return $details;
             }
+
+            // Losing durable attempt evidence is a run-fatal error, not a
+            // recoverable failure for this individual token.
+            if (is_wp_error($details) && $details->get_error_code() === 'nmkr_api_metric_evidence_persistence_failure') {
+                return $details;
+            }
             
             if (is_wp_error($details)) {
                 $error_message = $details->get_error_message();
@@ -1187,7 +1193,7 @@ function nmkr_sync_data($run_id = '') {
             // Handle WP_Error results
             else if (is_wp_error($result)) {
                 $error_code = $result->get_error_code();
-                if (strpos($error_code, 'nmkr_token_') === 0) {
+                if ($error_code === 'nmkr_api_metric_evidence_persistence_failure' || strpos($error_code, 'nmkr_token_') === 0) {
                     return nmkr_handle_direct_worker_error($result, $run_id, $sync_stats_id, array(
                         'items_processed' => $total_tokens,
                         'items_successful' => $total_successful_tokens,
