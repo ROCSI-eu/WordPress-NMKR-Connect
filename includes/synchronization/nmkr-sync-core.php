@@ -382,12 +382,10 @@ function nmkr_sync_projects(&$sync_log, &$completed_steps, $total_steps, $run_id
                 $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'before_project_write'); if (is_wp_error($halt)) return $halt;
                 // Store project in database
                 $store_project_tracking = nmkr_start_performance_tracking('store_project_' . $project_uid);
-                $store_result = nmkr_store_project($project);
+                $store_result = nmkr_store_project_exact($project);
                 $store_project_performance = nmkr_end_performance_tracking($store_project_tracking);
                 
-                if ($store_result === false) {
-                    throw new Exception('Database insertion failed for project');
-                }
+                if (is_wp_error($store_result)) return $store_result;
                 
                 $sync_log[] = 'SUCCESS: Stored project "' . $project['projectname'] . '" (UID: ' . $project_uid . ')';
                 $project_uids[] = $project_uid;
@@ -753,13 +751,14 @@ function nmkr_sync_token_details($token_uid, $project_uid, &$sync_log, &$complet
                 // Merge $token and $details if $token is provided
                 $merged_token_data = is_array($token) ? array_merge($token, $details) : $details;
                 $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'before_token_write'); if (is_wp_error($halt)) return $halt;
-                $store_token_result = nmkr_store_token($merged_token_data, $project_uid);
-                if ($store_token_result === true) {
+                $store_token_result = nmkr_store_token_exact($merged_token_data, $project_uid);
+                if (!is_wp_error($store_token_result)) {
                     $sync_log[] = 'SUCCESS: Stored token in main table for UID: ' . $token_uid;
                     nmkr_log_data_sync('Stored token in main table for UID: ' . $token_uid, 'info');
                 } else {
                     $sync_log[] = 'ERROR: Failed to store token in main table for UID: ' . $token_uid;
                     nmkr_log_data_sync('Failed to store token in main table for UID: ' . $token_uid, 'error');
+                    return $store_token_result;
                 }
             }
         } catch (Exception $e) {
@@ -777,11 +776,9 @@ function nmkr_sync_token_details($token_uid, $project_uid, &$sync_log, &$complet
         // Store token details in database
         try {
             $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'before_token_detail_write'); if (is_wp_error($halt)) return $halt;
-            $store_result = nmkr_store_token_details($token_uid, $details);
+            $store_result = nmkr_store_token_details_exact($token_uid, $details);
             
-            if ($store_result === false) {
-                throw new Exception('Database insertion failed for token details');
-            }
+            if (is_wp_error($store_result)) return $store_result;
             
             $sync_log[] = 'SUCCESS: Stored details for token UID: ' . $token_uid;
             nmkr_update_sync_progress($completed_steps, $total_steps, 'Processing token details - Token: ' . $token_uid);
@@ -1229,7 +1226,7 @@ function nmkr_sync_data($run_id = '') {
             // Merge computed performance metrics into live stats with proper field mapping
             if ($performance_data) {
                 $live['total_sync_duration'] = $performance_data['total_duration'] ?? 0;
-                $live['average_response_time'] = $performance_data['average_time'] ?? 0;
+                $live['average_response_time'] = array_key_exists('average_time', $performance_data) ? $performance_data['average_time'] : null;
                 $live['memory_usage'] = $performance_data['memory_used'] ?? 0;
                 $live['api_requests'] = $performance_data['request_count'] ?? 0;
                 // total_api_time, total_projects, total_tokens already in live stats

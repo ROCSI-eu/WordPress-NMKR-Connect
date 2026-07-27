@@ -119,188 +119,98 @@ function nmkr_is_api_connected() {
     return $is_connected;
 }
 
+/**
+ * Execute a synchronization GET/JSON operation with bounded retries.
+ * Dependencies in $context are injectable for deterministic public tests.
+ */
+function nmkr_sync_http_json_execute($endpoint_class, $url, $args, $shape, $context = array()) {
+    $context = is_array($context) ? $context : array();
+    $clock = isset($context['clock']) && is_callable($context['clock']) ? $context['clock'] : function () { return microtime(true); };
+    $sleep = isset($context['sleep']) && is_callable($context['sleep']) ? $context['sleep'] : function ($seconds) { usleep((int) round($seconds * 1000000)); };
+    $request = isset($context['request']) && is_callable($context['request']) ? $context['request'] : 'wp_remote_get';
+    $checkpoint = isset($context['checkpoint']) && is_callable($context['checkpoint']) ? $context['checkpoint'] : null;
+    $jitter = isset($context['jitter']) && is_callable($context['jitter']) ? $context['jitter'] : function () { return 0.0; };
+    $check = function ($phase) use ($checkpoint) { return $checkpoint ? call_user_func($checkpoint, $phase) : true; };
+    $wait = function ($seconds, $kind) use ($sleep, $clock, $check) {
+        $remaining = max(0.0, min(30.0, (float) $seconds));
+        $started = call_user_func($clock);
+        while ($remaining > 0) {
+            $halt = $check('before_api_' . $kind . '_wait'); if (is_wp_error($halt)) return $halt;
+            $chunk = min(1.0, $remaining); call_user_func($sleep, $chunk); $remaining -= $chunk;
+            $halt = $check('after_api_' . $kind . '_wait'); if (is_wp_error($halt)) return $halt;
+        }
+        if (function_exists('nmkr_record_api_wait')) nmkr_record_api_wait($kind, max(0.0, call_user_func($clock) - $started));
+        return true;
+    };
+
+    for ($attempt = 1; $attempt <= 3; $attempt++) {
+        $halt = $check('before_api_attempt'); if (is_wp_error($halt)) return $halt;
+        $throttle_started = call_user_func($clock);
+        $halt = nmkr_throttle_api_call($context); if (is_wp_error($halt)) return $halt;
+        if (function_exists('nmkr_record_api_wait')) nmkr_record_api_wait('throttle', max(0.0, call_user_func($clock) - $throttle_started));
+        $halt = $check('before_api_dispatch'); if (is_wp_error($halt)) return $halt;
+
+        $started = call_user_func($clock);
+        $response = call_user_func($request, $url, $args);
+        $duration = max(0.0, call_user_func($clock) - $started);
+        $valid = false; $retry = false; $error = null;
+        if (is_wp_error($response)) {
+            $retry = true;
+            $error = new WP_Error('nmkr_api_transport_failure', 'Synchronization request transport failure.', array('endpoint' => $endpoint_class));
+        } else {
+            $status = (int) wp_remote_retrieve_response_code($response);
+            if ($status < 200 || $status >= 300) {
+                $retry = $status === 408 || $status === 429 || $status >= 500;
+                $code = $status === 404 ? 'nmkr_api_endpoint_not_found' : (($status === 401 || $status === 403) ? 'nmkr_api_authorization_failure' : 'nmkr_api_http_failure');
+                $error = new WP_Error($code, 'Synchronization endpoint returned an HTTP error.', array('endpoint' => $endpoint_class, 'status' => $status));
+            } else {
+                $body = wp_remote_retrieve_body($response);
+                $data = json_decode($body, true);
+                if ($body === '' || json_last_error() !== JSON_ERROR_NONE) {
+                    $error = new WP_Error('nmkr_api_invalid_json', 'Synchronization endpoint returned invalid JSON.', array('endpoint' => $endpoint_class));
+                } elseif (!call_user_func($shape, $data, $body)) {
+                    $error = new WP_Error('nmkr_api_invalid_shape', 'Synchronization endpoint returned an unexpected payload.', array('endpoint' => $endpoint_class));
+                } else { $valid = true; }
+            }
+        }
+        if (function_exists('nmkr_record_api_attempt')) nmkr_record_api_attempt($duration, $valid, $attempt > 1);
+        if ($valid) return $data;
+        if (!$retry) return $error;
+        if ($attempt === 3) return new WP_Error('nmkr_api_retry_exhausted', 'Synchronization request retry budget exhausted.', array('endpoint' => $endpoint_class));
+
+        $retry_after = 0.0;
+        if (!is_wp_error($response) && function_exists('wp_remote_retrieve_header')) {
+            $header = wp_remote_retrieve_header($response, 'retry-after');
+            if (is_numeric($header)) $retry_after = (float) $header;
+            elseif (is_string($header) && ($when = strtotime($header)) !== false) $retry_after = max(0, $when - time());
+        }
+        $delay = min(30.0, max($retry_after, pow(2, $attempt - 1) + max(0.0, (float) call_user_func($jitter, $attempt))));
+        $halt = $wait($delay, 'backoff'); if (is_wp_error($halt)) return $halt;
+    }
+}
+
+function nmkr_sync_list_shape($data, $body = '') { return is_array($data) && substr(ltrim($body), 0, 1) === '[' && (empty($data) || array_keys($data) === range(0, count($data) - 1)); }
+function nmkr_sync_detail_shape($data, $body = '') { return is_array($data) && !empty($data) && substr(ltrim($body), 0, 1) === '{'; }
+function nmkr_sync_api_key() { $options = get_option('nmkr_connect_options'); return is_array($options) ? (string) ($options['api_key'] ?? '') : ''; }
+function nmkr_sync_api_args($key, $timeout) { return array('headers' => array('Authorization' => 'Bearer ' . $key), 'timeout' => $timeout); }
+
 // Fetch NMKR account projects
 function nmkr_connect_fetch_projects($context = array()) {
-    $options = get_option('nmkr_connect_options');
-    $nmkr_api_key = isset($options['api_key']) ? $options['api_key'] : '';
-    if (!$nmkr_api_key) {
-        nmkr_log_data_sync('API key not set', 'error');
-        return new WP_Error('api_key_not_set', 'API key not set');
-    }
-
-    nmkr_log_api_status('Fetching projects list from API');
-
-    // Apply throttling before making the API call
-    $halt = nmkr_throttle_api_call($context);
-    if (is_wp_error($halt)) return $halt;
-
-    return nmkr_tracked_api_call_v2('fetch_projects', function() use ($nmkr_api_key) {
-        $api_url = NMKR_API_URL . '/ListProjects';
-        $args = array(
-            'headers' => array(
-                'Authorization' => 'Bearer ' . $nmkr_api_key,
-            ),
-            'timeout' => 30 // Increase timeout to 30 seconds for potentially large responses
-        );
-
-        $response = wp_remote_get($api_url, $args);
-        
-        if (is_wp_error($response)) {
-            nmkr_log_data_sync('Error fetching projects: ' . $response->get_error_message(), 'error');
-            return new WP_Error('api_request_failed', 'Error fetching projects: ' . $response->get_error_message());
-        }
-
-        $body = wp_remote_retrieve_body($response);
-        $projects = json_decode($body, true);
-        
-        // Check for JSON parsing errors
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            $error_message = 'Failed to parse projects response: ' . json_last_error_msg();
-            nmkr_log_data_sync($error_message, 'error');
-            return new WP_Error('json_parse_error', $error_message);
-        }
-        
-        nmkr_log_api_status('Received projects list from API, count: ' . count($projects));
-        
-        return $projects;
-    });
+    $key = nmkr_sync_api_key(); if ($key === '') return new WP_Error('api_key_not_set', 'API key not set');
+    return nmkr_sync_http_json_execute('projects', NMKR_API_URL . '/ListProjects', nmkr_sync_api_args($key, 30), 'nmkr_sync_list_shape', $context);
 }
 
-// Fetch NMKR account tokens (NFTs) for a project
-function nmkr_connect_fetch_nfts($project_id) {
-    $options = get_option('nmkr_connect_options');
-    $nmkr_api_key = isset($options['api_key']) ? $options['api_key'] : '';
-    
-    if (!$nmkr_api_key) {
-        nmkr_log_data_sync('API key not set for token fetch', 'error');
-        return new WP_Error('api_key_not_set', 'API key not set');
-    }
-
-    nmkr_log_api_status('Fetching tokens for project ID: ' . $project_id);
-    
-    $api_url = NMKR_API_URL . '/GetNfts/' . $project_id . '/all/50/1';
-    $args = array(
-        'headers' => array(
-            'Authorization' => 'Bearer ' . $nmkr_api_key,
-        ),
-    );
-
-    $response = wp_remote_get($api_url, $args);
-    if (is_wp_error($response)) {
-        nmkr_log_data_sync('Error fetching tokens: ' . $response->get_error_message(), 'error');
-        return new WP_Error('api_request_failed', 'Error fetching tokens: ' . $response->get_error_message());
-    }
-
-    $body = wp_remote_retrieve_body($response);
-    $tokens = json_decode($body, true);
-    
-    nmkr_log_api_status('Received tokens for project ID: ' . $project_id . ', count: ' . count($tokens));
-    
-    return $tokens;
+// Compatibility page-one adapter; pagination remains deferred.
+function nmkr_connect_fetch_nfts($project_id, $context = array()) {
+    return nmkr_connect_fetch_nfts_by_project($project_id, $context);
 }
 
-/**
- * Fetch NMKR account tokens (NFTs) by project UID
- * 
- * @param string $project_uid The unique identifier of the project
- * @return array|WP_Error The tokens data or WP_Error on failure
- */
 function nmkr_connect_fetch_nfts_by_project($project_uid, $context = array()) {
-    $options = get_option('nmkr_connect_options');
-    $nmkr_api_key = isset($options['api_key']) ? $options['api_key'] : '';
-    if (!$nmkr_api_key) {
-        nmkr_log_data_sync('API key not set for token fetch by project UID', 'error');
-        return new WP_Error('api_key_not_set', 'API key not set');
-    }
-
-    nmkr_log_api_status('Fetching tokens for project UID: ' . $project_uid);
-
-    // Apply throttling before making the API call
-    $halt = nmkr_throttle_api_call($context);
-    if (is_wp_error($halt)) return $halt;
-
-    return nmkr_tracked_api_call_v2('fetch_tokens_' . $project_uid, function() use ($project_uid, $nmkr_api_key) {
-        // The API endpoint for fetching NFTs by project UID
-        $api_url = NMKR_API_URL . '/GetNfts/' . $project_uid . '/all/50/1';
-        $args = array(
-            'headers' => array(
-                'Authorization' => 'Bearer ' . $nmkr_api_key,
-            ),
-            'timeout' => 45 // Longer timeout for potentially large collections
-        );
-
-        $response = wp_remote_get($api_url, $args);
-
-        if (is_wp_error($response)) {
-            $error_message = 'Error fetching tokens by project UID: ' . $response->get_error_message();
-            nmkr_log_data_sync($error_message, 'error', array(
-                'project_uid' => $project_uid
-            ));
-            return new WP_Error('api_request_failed', $error_message);
-        }
-
-        $body = wp_remote_retrieve_body($response);
-        $data = json_decode($body, true);
-        
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            $error_message = 'Failed to parse API response for tokens by project UID: ' . json_last_error_msg();
-            nmkr_log_data_sync($error_message, 'error', array(
-                'project_uid' => $project_uid,
-                'json_error' => json_last_error_msg()
-            ));
-            return new WP_Error('json_parse_error', $error_message);
-        }
-        
-        nmkr_log_api_status('Received tokens for project UID: ' . $project_uid . ', count: ' . count($data));
-
-        return $data;
-    });
+    $key = nmkr_sync_api_key(); if ($key === '') return new WP_Error('api_key_not_set', 'API key not set');
+    return nmkr_sync_http_json_execute('token_list', NMKR_API_URL . '/GetNfts/' . rawurlencode($project_uid) . '/all/50/1', nmkr_sync_api_args($key, 45), 'nmkr_sync_list_shape', $context);
 }
 
-// Fetch details of a specific NFT by its uid
 function nmkr_connect_fetch_nft_details($token_uid, $context = array()) {
-    $options = get_option('nmkr_connect_options');
-    $api_key = isset($options['api_key']) ? $options['api_key'] : '';
-
-    nmkr_log_api_status('Fetching details for token UID: ' . $token_uid);
-
-    // Apply throttling before making the API call
-    $halt = nmkr_throttle_api_call($context);
-    if (is_wp_error($halt)) return $halt;
-
-    return nmkr_tracked_api_call_v2('fetch_token_details_' . $token_uid, function() use ($token_uid, $api_key) {
-        // Update endpoint to use the correct path from documentation
-        $url = NMKR_API_URL . '/GetNftDetailsById/' . $token_uid;
-        $args = array(
-            'headers' => array(
-                'Authorization' => 'Bearer ' . $api_key,
-                'Content-Type' => 'application/json'
-            ),
-            'timeout' => 30
-        );
-
-        $response = wp_remote_get($url, $args);
-        
-        if (is_wp_error($response)) {
-            $error_message = 'Error fetching token details: ' . $response->get_error_message();
-            nmkr_log_data_sync($error_message, 'error', array('token_uid' => $token_uid));
-            return new WP_Error('api_request_failed', $error_message);
-        }
-
-        $body = wp_remote_retrieve_body($response);
-        $data = json_decode($body, true);
-        
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            $error_message = 'Failed to parse token details response: ' . json_last_error_msg();
-            nmkr_log_data_sync($error_message, 'error', array(
-                'token_uid' => $token_uid,
-                'json_error' => json_last_error_msg()
-            ));
-            return new WP_Error('json_parse_error', $error_message);
-        }
-        
-        nmkr_log_api_status('Received details for token UID: ' . $token_uid);
-        
-        return $data;
-    });
+    $key = nmkr_sync_api_key(); if ($key === '') return new WP_Error('api_key_not_set', 'API key not set');
+    return nmkr_sync_http_json_execute('token_detail', NMKR_API_URL . '/GetNftDetailsById/' . rawurlencode($token_uid), nmkr_sync_api_args($key, 30), 'nmkr_sync_detail_shape', $context);
 }

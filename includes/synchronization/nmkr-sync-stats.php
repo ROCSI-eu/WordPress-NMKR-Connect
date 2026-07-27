@@ -26,11 +26,16 @@ function nmkr_validate_metrics_complete($metrics, $trusted_finalizer = false) {
     $required_fields = [
         'last_sync_time',
         'total_projects',
-        'total_tokens'
+        'total_tokens',
+        'total_sync_duration',
+        'total_api_time',
+        'average_response_time',
+        'api_requests',
+        'memory_usage'
     ];
     
     foreach ($required_fields as $field) {
-        if (!isset($metrics[$field])) {
+        if (!array_key_exists($field, $metrics) || $metrics[$field] === null) {
             nmkr_log_data_sync("❌ Metrics validation failed: required field '{$field}' is missing.");
             return false;
         }
@@ -70,35 +75,16 @@ function nmkr_save_sync_metrics($metrics, $trusted_finalizer = false) {
         return false;
     }
 
-    // Defensive defaults for all expected fields
-    $metrics_defaults = [
-        'total_projects'         => 0,
-        'total_tokens'           => 0,
-        'total_sync_duration'    => 0.0,
-        'total_api_time'         => 0.0,
-        'average_response_time'  => 0.0,
-        'api_requests'           => 0,
-        'memory_usage'           => 0.0,
-    ];
-
-    // Fill in missing or null values with defaults
-    foreach ($metrics_defaults as $key => $default) {
-        if (!isset($metrics[$key]) || is_null($metrics[$key])) {
-            nmkr_log_data_sync("ℹ️ Metrics field '{$key}' was missing or null. Defaulting to: {$default}");
-            $metrics[$key] = $default;
-        }
-    }
-
     // Prepare data for insertion
     $data = array(
         'last_sync_time' => $metrics['last_sync_time'],
-        'total_projects' => isset($metrics['total_projects']) ? intval($metrics['total_projects']) : 0,
-        'total_tokens' => isset($metrics['total_tokens']) ? intval($metrics['total_tokens']) : 0,
-        'total_sync_duration' => isset($metrics['total_sync_duration']) ? floatval($metrics['total_sync_duration']) : 0,
-        'total_api_time' => isset($metrics['total_api_time']) ? floatval($metrics['total_api_time']) : 0,
-        'average_response_time' => isset($metrics['average_response_time']) ? floatval($metrics['average_response_time']) : 0,
-        'api_requests' => isset($metrics['api_requests']) ? intval($metrics['api_requests']) : 0,
-        'memory_usage' => isset($metrics['memory_usage']) ? floatval($metrics['memory_usage']) : 0,
+        'total_projects' => intval($metrics['total_projects']),
+        'total_tokens' => intval($metrics['total_tokens']),
+        'total_sync_duration' => floatval($metrics['total_sync_duration']),
+        'total_api_time' => floatval($metrics['total_api_time']),
+        'average_response_time' => floatval($metrics['average_response_time']),
+        'api_requests' => intval($metrics['api_requests']),
+        'memory_usage' => floatval($metrics['memory_usage']),
         'created_at' => nmkr_get_timestamp()
     );
 
@@ -112,8 +98,7 @@ function nmkr_save_sync_metrics($metrics, $trusted_finalizer = false) {
         nmkr_log_data_sync('✅ Sync metrics saved successfully.');
         return $wpdb->insert_id;
     } else {
-        nmkr_log_data_sync('❌ Insert to wp_nmkr_sync_metrics failed. Error: ' . $wpdb->last_error);
-        nmkr_log_data_sync('❌ Insert data: ' . print_r($data, true));
+        nmkr_log_data_sync('❌ Sync metrics insert failed.');
         return false;
     }
 

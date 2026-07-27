@@ -76,6 +76,26 @@ function nmkr_build_final_sync_metrics($provided, $sync_data, $totals = array())
     $sync_data = is_array($sync_data) ? $sync_data : array();
     $performance = nmkr_get_sync_stats();
     $performance = is_array($performance) ? $performance : array();
+    $evidence = get_transient('nmkr_current_sync_stats_live');
+    $required = array('request_count', 'successful_requests', 'failed_requests', 'total_api_time', 'request_times');
+    // An already committed receipt is durable evidence; exactly-once resume
+    // must not depend on a live transient that terminal cleanup removed.
+    if (!is_array($evidence) && !empty($sync_data['sync_stats_id'])
+        && function_exists('nmkr_get_sync_metrics_receipt')
+        && is_array(nmkr_get_sync_metrics_receipt((int) $sync_data['sync_stats_id']))) {
+        $metric_keys = array('total_projects', 'total_tokens', 'total_sync_duration', 'total_api_time', 'average_response_time', 'api_requests', 'memory_usage');
+        if (count(array_intersect_key($provided, array_flip($metric_keys))) === count($metric_keys)) return array_intersect_key($provided, array_flip($metric_keys));
+    }
+    if (!is_array($evidence)) return new WP_Error('nmkr_final_metrics_unavailable', 'Completed synchronization metrics are unavailable.');
+    foreach ($required as $key) if (!array_key_exists($key, $evidence)) return new WP_Error('nmkr_final_metrics_incomplete', 'Completed synchronization metrics are incomplete.');
+    $request_count = (int) $evidence['request_count'];
+    if ($request_count < 1 || !is_array($evidence['request_times']) || count($evidence['request_times']) !== $request_count
+        || (int) $evidence['successful_requests'] + (int) $evidence['failed_requests'] !== $request_count) {
+        return new WP_Error('nmkr_final_metrics_inconsistent', 'Completed synchronization metrics are inconsistent.');
+    }
+    foreach (array_merge($evidence['request_times'], array($evidence['total_api_time'])) as $duration) {
+        if (!is_numeric($duration) || !is_finite((float) $duration) || (float) $duration < 0) return new WP_Error('nmkr_final_metrics_invalid_duration', 'Completed synchronization timing evidence is invalid.');
+    }
     $metrics = array(
         'total_projects' => (int) ($totals['total_projects'] ?? $provided['total_projects'] ?? $sync_data['total_projects'] ?? 0),
         'total_tokens' => (int) ($totals['total_tokens'] ?? $provided['total_tokens'] ?? $sync_data['total_tokens'] ?? 0),
@@ -85,6 +105,7 @@ function nmkr_build_final_sync_metrics($provided, $sync_data, $totals = array())
         'api_requests' => (int) ($provided['api_requests'] ?? $performance['request_count'] ?? 0),
         'memory_usage' => (float) ($provided['memory_usage'] ?? $performance['memory_used'] ?? 0),
     );
+    foreach ($metrics as $value) if (!is_numeric($value) || !is_finite((float) $value) || (float) $value < 0) return new WP_Error('nmkr_final_metrics_invalid', 'Completed synchronization metrics are invalid.');
     return $metrics;
 }
 
@@ -182,7 +203,13 @@ function nmkr_prepare_sync_finalization($sync_stats_id, $final, $sync_data) {
         }
         $final['run_id'] = $run_id;
     }
-    if ($final['outcome'] === 'completed') $final['metrics'] = nmkr_build_final_sync_metrics($final['metrics'] ?? array(), $sync_data);
+    if ($final['outcome'] === 'completed') {
+        $final['metrics'] = nmkr_build_final_sync_metrics($final['metrics'] ?? array(), $sync_data);
+        if (is_wp_error($final['metrics'])) {
+            $final['outcome'] = 'failed';
+            unset($final['metrics']);
+        }
+    }
     $saved = nmkr_save_sync_finalization_resume($sync_stats_id, $final);
     $scheduled = !empty($saved['run_id'])
         ? nmkr_preserve_and_schedule_sync_finalization_retry($saved, false)

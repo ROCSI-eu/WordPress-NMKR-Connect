@@ -645,7 +645,7 @@ function nmkr_sync_progress_handler() {
 
     // Always include live metrics in heartbeat payload using already-fetched transient only
     // (keep handler lightweight; no additional DB reads here)
-    $avg_seconds = isset($current_stats['average_time']) ? (float) $current_stats['average_time'] : 0.0;
+    $avg_seconds = array_key_exists('average_time', $current_stats) && $current_stats['average_time'] !== null ? (float) $current_stats['average_time'] : null;
     $mem_mb      = isset($current_stats['memory_used']) ? (float) $current_stats['memory_used'] : 0.0;
     $response_data['live_metrics'] = array(
         'total_projects'        => isset($current_stats['total_projects']) ? (int) $current_stats['total_projects'] : 0,
@@ -656,7 +656,7 @@ function nmkr_sync_progress_handler() {
         'api_requests'          => isset($current_stats['request_count']) ? (int) $current_stats['request_count'] : 0,
         'memory_usage'          => $mem_mb,
         // optional duplicates for legacy/interop without breaking existing keys
-        'avg_api_ms'            => (int) round($avg_seconds * 1000),
+        'avg_api_ms'            => $avg_seconds === null ? null : (int) round($avg_seconds * 1000),
         'memory_bytes'          => (int) round($mem_mb * 1024 * 1024),
         'updated_at'            => isset($current_stats['updated_at']) ? (int) $current_stats['updated_at'] : time(),
     );

@@ -1,0 +1,20 @@
+<?php
+/** Public-safe deterministic HTTP attempt and metric regression. */
+define('ABSPATH', dirname(__DIR__) . '/'); define('HOUR_IN_SECONDS', 3600); define('NMKR_SYNC_TRANSIENT_TTL', 3600);
+class WP_Error { private $c; private $m; private $d; function __construct($c,$m='',$d=null){$this->c=$c;$this->m=$m;$this->d=$d;} function get_error_code(){return $this->c;} function get_error_message(){return $this->m;} }
+function is_wp_error($v){return $v instanceof WP_Error;} function plugin_dir_path($f){return dirname($f).'/';}
+$GLOBALS['tr']=array(); function get_transient($k){return $GLOBALS['tr'][$k]??false;} function set_transient($k,$v,$t){$GLOBALS['tr'][$k]=$v;return true;} function delete_transient($k){unset($GLOBALS['tr'][$k]);}
+function get_option($k,$d=false){return $k==='nmkr_connect_options'?array('api_key'=>'synthetic-placeholder'):$d;}
+function wp_remote_retrieve_body($r){return $r['body']??'';} function wp_remote_retrieve_response_code($r){return $r['code']??0;} function wp_remote_retrieve_header($r,$k){return $r['headers'][$k]??'';}
+require dirname(__DIR__).'/includes/helpers/nmkr-performance-functions.php'; require dirname(__DIR__).'/includes/api/nmkr-api-functions.php';
+function ok($v,$m){if(!$v){fwrite(STDERR,"FAIL: $m\n");exit(1);}echo "PASS: $m\n";}
+function run_case($responses,$shape='nmkr_sync_list_shape',$checkpoint=null){global $nmkr_api_call_times,$nmkr_api_rate_limited,$nmkr_api_cooldown_until;$nmkr_api_call_times=array();$nmkr_api_rate_limited=false;$nmkr_api_cooldown_until=0;$GLOBALS['tr']=array();$now=0.0;$calls=0;$ctx=array('clock'=>function()use(&$now){return $now;},'sleep'=>function($s)use(&$now){$now+=$s;},'jitter'=>function(){return 0;},'request'=>function()use(&$responses,&$calls,&$now){$calls++;$now+=0.25;return array_shift($responses);});if($checkpoint)$ctx['checkpoint']=$checkpoint;$result=nmkr_sync_http_json_execute('synthetic','https://public.invalid/synthetic',array(),$shape,$ctx);return array($result,$GLOBALS['tr']['nmkr_current_sync_stats_live']??array(),$calls);}
+list($r,$m)=run_case(array(array('code'=>200,'body'=>'[]')));ok(is_array($r)&&$m['request_count']===1&&$m['successful_requests']===1,'valid list dispatch counted exactly once');
+foreach(array(array('code'=>200,'body'=>''),array('code'=>200,'body'=>'{'),array('code'=>200,'body'=>'{}'),array('code'=>401,'body'=>'{}'),array('code'=>403,'body'=>'{}'),array('code'=>404,'body'=>'{}')) as $response){list($r,$m)=run_case(array($response));ok(is_wp_error($r)&&$m['failed_requests']===1,'invalid/HTTP response counted failed');}
+list($r,$m)=run_case(array(array('code'=>408,'body'=>'{}'),array('code'=>200,'body'=>'[]')));ok(is_array($r)&&$m['request_count']===2&&$m['retry_count']===1,'408 retries and every dispatch is counted');
+list($r,$m)=run_case(array(array('code'=>429,'body'=>'{}','headers'=>array('retry-after'=>'2')),array('code'=>200,'body'=>'[]')));ok(is_array($r)&&$m['backoff_wait_duration']>=2,'Retry-After wait is separate from network time');
+list($r,$m)=run_case(array(array('code'=>500,'body'=>'{}'),array('code'=>502,'body'=>'{}'),array('code'=>503,'body'=>'{}')));ok(is_wp_error($r)&&$r->get_error_code()==='nmkr_api_retry_exhausted'&&$m['request_count']===3,'retry exhaustion is typed and bounded');
+list($r,$m)=run_case(array(new WP_Error('http_request_failed','timeout'),array('code'=>200,'body'=>'[]')));ok(is_array($r)&&$m['failed_requests']===1&&$m['successful_requests']===1,'transport timeout retries and accounting balances');
+$stop=function($phase){return $phase==='before_api_dispatch'?new WP_Error('sync_stop_requested','stop'):true;};list($r,$m,$calls)=run_case(array(array('code'=>200,'body'=>'[]')),'nmkr_sync_list_shape',$stop);ok(is_wp_error($r)&&$calls===0&&empty($m['request_count']),'checkpoint halt before dispatch records no attempt');
+ok($m===array() || (($m['successful_requests']??0)+($m['failed_requests']??0)===($m['request_count']??0)),'attempt accounting invariant holds');
+echo "All HTTP and metric regressions passed.\n";

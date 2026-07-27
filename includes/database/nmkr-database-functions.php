@@ -1,6 +1,6 @@
 <?php
 // Function to store project data
-function nmkr_store_project($project_data) {
+function nmkr_store_project_exact($project_data) {
     global $wpdb;
     $table_name = $wpdb->prefix . 'nmkr_projects';
     
@@ -10,7 +10,8 @@ function nmkr_store_project($project_data) {
     // Validate required fields before processing
     if (!is_array($project_data)) {
         nmkr_log_data_sync('Invalid project data: expected array, got ' . gettype($project_data), 'error');
-        return false;
+        nmkr_end_performance_tracking($tracking);
+        return new WP_Error('nmkr_project_validation_failed', 'Project data is invalid.');
     }
     
     // Validate critical required fields
@@ -27,7 +28,8 @@ function nmkr_store_project($project_data) {
         nmkr_log_data_sync('Project data missing required fields: ' . implode(', ', $missing_fields), 'error', array(
             'project_data_keys' => array_keys($project_data)
         ));
-        return false;
+        nmkr_end_performance_tracking($tracking);
+        return new WP_Error('nmkr_project_validation_failed', 'Project data is missing required fields.');
     }
     
     // Create a unique hash for the project data
@@ -80,6 +82,10 @@ function nmkr_store_project($project_data) {
         "SELECT * FROM {$wpdb->prefix}nmkr_projects WHERE project_uid = %s",
         $project_data['uid']
     ));
+    if ($wpdb->last_error !== '') {
+        nmkr_end_performance_tracking($tracking);
+        return new WP_Error('nmkr_project_existence_query_failed', 'Project existence check failed.');
+    }
     
     if ($existing_project) {
         // Update existing project if hash is different
@@ -88,24 +94,28 @@ function nmkr_store_project($project_data) {
             $data['updated_at'] = nmkr_get_timestamp();
             $data['synced_at'] = nmkr_get_timestamp();
             
-            $wpdb->update(
+            $write_result = $wpdb->update(
                 "{$wpdb->prefix}nmkr_projects",
                 $data,
                 array('project_uid' => $project_data['uid'])
             );
             
+            if ($write_result === false) { nmkr_end_performance_tracking($tracking); return new WP_Error('nmkr_project_write_failed', 'Project update failed.'); }
+            $action = $write_result === 0 ? 'unchanged' : 'updated';
             nmkr_log_data_sync('Updated project with changes', 'debug', array(
                 'project_uid' => $project_data['uid'],
                 'project_name' => $project_data['projectname']
             ));
         } else {
             // Only update synced_at if data hasn't changed
-            $wpdb->update(
+            $write_result = $wpdb->update(
                 "{$wpdb->prefix}nmkr_projects",
                 array('synced_at' => nmkr_get_timestamp()),
                 array('project_uid' => $project_data['uid'])
             );
             
+            if ($write_result === false) { nmkr_end_performance_tracking($tracking); return new WP_Error('nmkr_project_write_failed', 'Project update failed.'); }
+            $action = 'unchanged';
             nmkr_log_data_sync('Project unchanged, only updated synced_at', 'debug', array(
                 'project_uid' => $project_data['uid'],
                 'project_name' => $project_data['projectname']
@@ -118,11 +128,13 @@ function nmkr_store_project($project_data) {
         $data['synced_at'] = nmkr_get_timestamp();
         
         // Insert new project
-        $wpdb->insert(
+        $write_result = $wpdb->insert(
             "{$wpdb->prefix}nmkr_projects",
             $data
         );
         
+        if ($write_result === false) { nmkr_end_performance_tracking($tracking); return new WP_Error('nmkr_project_write_failed', 'Project insert failed.'); }
+        $action = 'inserted';
         nmkr_log_data_sync('Created new project', 'info', array(
             'project_uid' => $project_data['uid'],
             'project_name' => $project_data['projectname']
@@ -132,11 +144,11 @@ function nmkr_store_project($project_data) {
     // End performance tracking
     nmkr_end_performance_tracking($tracking);
     
-    return true;
+    return array('action' => $action);
 }
 
 // Function to store token data
-function nmkr_store_token($token_data, $project_uid) {
+function nmkr_store_token_exact($token_data, $project_uid) {
     global $wpdb;
     $table_name = $wpdb->prefix . 'nmkr_tokens';
     
@@ -146,7 +158,8 @@ function nmkr_store_token($token_data, $project_uid) {
     // Validate required fields before processing
     if (!is_array($token_data)) {
         nmkr_log_data_sync('Invalid token data: expected array, got ' . gettype($token_data), 'error');
-        return false;
+        nmkr_end_performance_tracking($tracking);
+        return new WP_Error('nmkr_token_validation_failed', 'Token data is invalid.');
     }
     
     // Validate critical required fields
@@ -164,7 +177,8 @@ function nmkr_store_token($token_data, $project_uid) {
             'token_data_keys' => array_keys($token_data),
             'project_uid' => $project_uid
         ));
-        return false;
+        nmkr_end_performance_tracking($tracking);
+        return new WP_Error('nmkr_token_validation_failed', 'Token data is missing required fields.');
     }
     
     // Generate hash for the token data
@@ -175,11 +189,12 @@ function nmkr_store_token($token_data, $project_uid) {
         "SELECT * FROM $table_name WHERE token_uid = %s",
         $token_data['uid']
     ));
+    if ($wpdb->last_error !== '') { nmkr_end_performance_tracking($tracking); return new WP_Error('nmkr_token_existence_query_failed', 'Token existence check failed.'); }
     
     if ($existing_token) {
         // Update existing token if hash is different
         if ($existing_token->hash !== $hash) {
-            $wpdb->update(
+            $write_result = $wpdb->update(
                 $table_name,
                 array(
                     'token_name' => $token_data['name'],
@@ -204,17 +219,19 @@ function nmkr_store_token($token_data, $project_uid) {
                 ),
                 array('token_uid' => $token_data['uid'])
             );
+            $action = $write_result === 0 ? 'unchanged' : 'updated';
         } else {
             // Update synced_at even if data hasn't changed
-            $wpdb->update(
+            $write_result = $wpdb->update(
                 $table_name,
                 array('synced_at' => nmkr_get_timestamp()),
                 array('token_uid' => $token_data['uid'])
             );
+            $action = 'unchanged';
         }
     } else {
         // Insert new token
-        $wpdb->insert(
+        $write_result = $wpdb->insert(
             $table_name,
             array(
                 'token_id' => $token_data['id'],
@@ -242,7 +259,9 @@ function nmkr_store_token($token_data, $project_uid) {
                 'hash' => $hash
             )
         );
+        $action = 'inserted';
     }
+    if ($write_result === false) { nmkr_end_performance_tracking($tracking); return new WP_Error('nmkr_token_write_failed', 'Token write failed.'); }
     
     // End performance tracking
     nmkr_end_performance_tracking($tracking);
@@ -250,13 +269,14 @@ function nmkr_store_token($token_data, $project_uid) {
     // Update sync heartbeat to indicate backend activity
     nmkr_update_sync_heartbeat();
     
-    return true;
+    return array('action' => $action);
 }
 
 // Storing the token details data
-function nmkr_store_token_details($token_uid, $token_details) {
+function nmkr_store_token_details_exact($token_uid, $token_details) {
     global $wpdb;
     $tracking = nmkr_start_performance_tracking('store_token_details');
+    if ($token_uid === '' || !is_array($token_details)) { nmkr_end_performance_tracking($tracking); return new WP_Error('nmkr_token_details_validation_failed', 'Token details are invalid.'); }
     
     // Create a unique hash for the token details
     $hash = nmkr_generate_token_details_hash($token_details);
@@ -266,11 +286,12 @@ function nmkr_store_token_details($token_uid, $token_details) {
         "SELECT COUNT(*) FROM {$wpdb->prefix}nmkr_token_details WHERE token_uid = %s",
         $token_uid
     ));
+    if ($wpdb->last_error !== '') { nmkr_end_performance_tracking($tracking); return new WP_Error('nmkr_token_details_existence_query_failed', 'Token details existence check failed.'); }
     
     // Determine action based on existence
     if ($token_exists) {
         // Update existing token
-        $wpdb->update(
+        $write_result = $wpdb->update(
             "{$wpdb->prefix}nmkr_token_details",
             array(
                 'receiver_address' => isset($token_details['receiveraddress']) ? sanitize_text_field($token_details['receiveraddress']) : null,
@@ -291,9 +312,10 @@ function nmkr_store_token_details($token_uid, $token_details) {
             ),
             array('token_uid' => $token_uid)
         );
+        $action = $write_result === 0 ? 'unchanged' : 'updated';
     } else {
         // Insert new token
-        $wpdb->insert("{$wpdb->prefix}nmkr_token_details", array(
+        $write_result = $wpdb->insert("{$wpdb->prefix}nmkr_token_details", array(
             'token_uid' => sanitize_text_field($token_uid),
             'receiver_address' => isset($token_details['receiveraddress']) ? sanitize_text_field($token_details['receiveraddress']) : null,
             'sell_date' => isset($token_details['selldate']) ? sanitize_text_field($token_details['selldate']) : null,
@@ -312,7 +334,9 @@ function nmkr_store_token_details($token_uid, $token_details) {
             'synced_at' => nmkr_get_timestamp(),
             'hash' => $hash
         ));
+        $action = 'inserted';
     }
+    if ($write_result === false) { nmkr_end_performance_tracking($tracking); return new WP_Error('nmkr_token_details_write_failed', 'Token details write failed.'); }
 
     // End performance tracking
     nmkr_end_performance_tracking($tracking);
@@ -320,5 +344,10 @@ function nmkr_store_token_details($token_uid, $token_details) {
     // Update sync heartbeat to indicate backend activity
     nmkr_update_sync_heartbeat();
     
-    return true;
+    return array('action' => $action);
 }
+
+// Boolean compatibility wrappers retained for external callers.
+function nmkr_store_project($project_data) { return !is_wp_error(nmkr_store_project_exact($project_data)); }
+function nmkr_store_token($token_data, $project_uid) { return !is_wp_error(nmkr_store_token_exact($token_data, $project_uid)); }
+function nmkr_store_token_details($token_uid, $token_details) { return !is_wp_error(nmkr_store_token_details_exact($token_uid, $token_details)); }

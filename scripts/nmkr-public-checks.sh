@@ -39,5 +39,8 @@ bash scripts/nmkr-sync-owner-regression.sh
 printf '\n== Run-scoped API throttle regression ==\n'
 bash scripts/nmkr-sync-api-throttle-regression.sh
 
+printf '\n== HTTP and metric correctness regression ==\n'
+php scripts/nmkr-http-metrics-regression.php
+
 printf '\n== Public-safe PHP 7.4 compatibility guard ==\n'
 npm run test:php74
