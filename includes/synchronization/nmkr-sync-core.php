@@ -47,6 +47,12 @@ function nmkr_is_sync_worker_halt_error($value) {
     ), true);
 }
 
+/** Return true only when an API request lost its durable attempt evidence. */
+function nmkr_is_fatal_api_error($value) {
+    return is_wp_error($value)
+        && $value->get_error_code() === 'nmkr_api_metric_evidence_persistence_failure';
+}
+
 /** Build the execution context consumed by interruptible API throttling. */
 function nmkr_build_sync_api_execution_context($run_id, $sync_stats_id, $request_phase) {
     if ($run_id === '') return array();
@@ -237,6 +243,7 @@ function nmkr_count_sync_steps($projects, $run_id = '', $sync_stats_id = 0) {
                 if (is_wp_error($halt)) return $halt;
                 $tokens = nmkr_connect_fetch_nfts_by_project($project_uid, nmkr_build_sync_api_execution_context($run_id, $sync_stats_id, 'step_count_token_list'));
                 if (nmkr_is_sync_worker_halt_error($tokens)) return $tokens;
+                if (nmkr_is_fatal_api_error($tokens)) return $tokens;
                 $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'after_step_count_token_list_request');
                 if (is_wp_error($halt)) return $halt;
                 nmkr_end_performance_tracking($tracking);
@@ -290,6 +297,7 @@ function nmkr_sync_projects(&$sync_log, &$completed_steps, $total_steps, $run_id
             $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'before_projects_request'); if (is_wp_error($halt)) return $halt;
             $projects = nmkr_connect_fetch_projects(nmkr_build_sync_api_execution_context($run_id, $sync_stats_id, 'projects'));
             if (nmkr_is_sync_worker_halt_error($projects)) return $projects;
+            if (nmkr_is_fatal_api_error($projects)) return $projects;
             $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'after_projects_request'); if (is_wp_error($halt)) return $halt;
             nmkr_end_performance_tracking($tracking);
             
@@ -454,6 +462,7 @@ function nmkr_fetch_tokens_for_project($project_uid, &$sync_log, $completed_step
             $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'before_token_list_request'); if (is_wp_error($halt)) return $halt;
             $tokens = nmkr_connect_fetch_nfts_by_project($project_uid, nmkr_build_sync_api_execution_context($run_id, $sync_stats_id, 'token_list'));
             if (nmkr_is_sync_worker_halt_error($tokens)) return $tokens;
+            if (nmkr_is_fatal_api_error($tokens)) return $tokens;
             $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'after_token_list_request'); if (is_wp_error($halt)) return $halt;
             nmkr_end_performance_tracking($tracking);
             
@@ -730,7 +739,7 @@ function nmkr_sync_token_details($token_uid, $project_uid, &$sync_log, &$complet
 
             // Losing durable attempt evidence is a run-fatal error, not a
             // recoverable failure for this individual token.
-            if (is_wp_error($details) && $details->get_error_code() === 'nmkr_api_metric_evidence_persistence_failure') {
+            if (nmkr_is_fatal_api_error($details)) {
                 return $details;
             }
             
@@ -1038,6 +1047,7 @@ function nmkr_sync_data($run_id = '') {
             if (is_wp_error($halt)) return nmkr_handle_sync_worker_halt($halt, $run_id, $sync_stats_id);
             $projects = nmkr_connect_fetch_projects(nmkr_build_sync_api_execution_context($run_id, $sync_stats_id, 'initial_projects'));
             if (nmkr_is_sync_worker_halt_error($projects)) return nmkr_handle_sync_worker_halt($projects, $run_id, $sync_stats_id);
+            if (nmkr_is_fatal_api_error($projects)) return nmkr_handle_direct_worker_error($projects, $run_id, $sync_stats_id);
             $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'after_projects_request');
             if (is_wp_error($halt)) return nmkr_handle_sync_worker_halt($halt, $run_id, $sync_stats_id);
             
@@ -1051,7 +1061,7 @@ function nmkr_sync_data($run_id = '') {
             
             // Calculate total steps
             $total_steps = nmkr_count_sync_steps($projects, $run_id, $sync_stats_id);
-            if (is_wp_error($total_steps)) return nmkr_handle_sync_worker_halt($total_steps, $run_id, $sync_stats_id);
+            if (is_wp_error($total_steps)) return nmkr_handle_direct_worker_error($total_steps, $run_id, $sync_stats_id);
             
             if ($total_steps <= 0) {
                 $sync_log[] = 'WARNING: No sync steps calculated - projects may be empty';
@@ -1193,7 +1203,7 @@ function nmkr_sync_data($run_id = '') {
             // Handle WP_Error results
             else if (is_wp_error($result)) {
                 $error_code = $result->get_error_code();
-                if ($error_code === 'nmkr_api_metric_evidence_persistence_failure' || strpos($error_code, 'nmkr_token_') === 0) {
+                if (nmkr_is_fatal_api_error($result) || strpos($error_code, 'nmkr_token_') === 0) {
                     return nmkr_handle_direct_worker_error($result, $run_id, $sync_stats_id, array(
                         'items_processed' => $total_tokens,
                         'items_successful' => $total_successful_tokens,
