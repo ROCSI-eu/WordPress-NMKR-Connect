@@ -129,18 +129,34 @@ function nmkr_record_api_attempt($duration, $successful, $is_retry = false, $con
     $stats['total_api_time'] += $duration;
     $stats['average_time'] = array_sum($stats['request_times']) / count($stats['request_times']);
     set_transient('nmkr_current_sync_stats_live', $stats, NMKR_SYNC_TRANSIENT_TTL);
-    if (is_array($context) && !empty($context['run_id']) && !empty($context['sync_stats_id'])
-        && function_exists('nmkr_get_sync_data') && function_exists('nmkr_save_sync_data')) {
-        $sync_data = nmkr_get_sync_data();
-        if (is_array($sync_data) && hash_equals((string) ($sync_data['run_id'] ?? ''), (string) $context['run_id'])
-            && (int) ($sync_data['sync_stats_id'] ?? 0) === (int) $context['sync_stats_id']) {
-            $sync_data['api_metric_evidence'] = array_intersect_key($stats, array_flip(array(
-                'request_count', 'successful_requests', 'failed_requests', 'retry_count',
-                'total_api_time', 'request_times', 'throttle_wait_duration', 'backoff_wait_duration',
-            )));
-            nmkr_save_sync_data($sync_data);
-        }
+    if (!is_array($context) || empty($context['run_id']) || empty($context['sync_stats_id'])) return true;
+
+    $error = function () {
+        return new WP_Error('nmkr_api_metric_evidence_persistence_failure', 'Synchronization API attempt evidence could not be persisted.');
+    };
+    if (!function_exists('nmkr_get_sync_data') || !function_exists('nmkr_save_sync_data')) return $error();
+    $sync_data = nmkr_get_sync_data();
+    if (!is_array($sync_data) || !hash_equals((string) ($sync_data['run_id'] ?? ''), (string) $context['run_id'])
+        || (int) ($sync_data['sync_stats_id'] ?? 0) !== (int) $context['sync_stats_id']) return $error();
+
+    $evidence_keys = array('request_count', 'successful_requests', 'failed_requests', 'retry_count', 'total_api_time', 'request_times');
+    $evidence = array_intersect_key($stats, array_flip($evidence_keys));
+    // Wait totals remain useful durable evidence, but are not part of the
+    // dispatch record whose exact persistence gates further HTTP work.
+    foreach (array('throttle_wait_duration', 'backoff_wait_duration') as $key) {
+        if (array_key_exists($key, $stats)) $evidence[$key] = $stats[$key];
     }
+    $sync_data['api_metric_evidence'] = $evidence;
+    if (nmkr_save_sync_data($sync_data) !== true) return $error();
+
+    $saved = nmkr_get_sync_data();
+    if (!is_array($saved) || !hash_equals((string) ($saved['run_id'] ?? ''), (string) $context['run_id'])
+        || (int) ($saved['sync_stats_id'] ?? 0) !== (int) $context['sync_stats_id']
+        || !isset($saved['api_metric_evidence']) || !is_array($saved['api_metric_evidence'])) return $error();
+    foreach ($evidence_keys as $key) {
+        if (!array_key_exists($key, $saved['api_metric_evidence']) || $saved['api_metric_evidence'][$key] !== $evidence[$key]) return $error();
+    }
+    return true;
 }
 
 /** Record one confirmed database storage operation without prefix inference. */

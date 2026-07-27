@@ -173,7 +173,10 @@ function nmkr_sync_http_json_execute($endpoint_class, $url, $args, $shape, $cont
                 } else { $valid = true; }
             }
         }
-        if (function_exists('nmkr_record_api_attempt')) nmkr_record_api_attempt($duration, $valid, $attempt > 1, $context);
+        if (function_exists('nmkr_record_api_attempt')) {
+            $recorded = nmkr_record_api_attempt($duration, $valid, $attempt > 1, $context);
+            if (is_wp_error($recorded)) return $recorded;
+        }
         if ($valid) return $data;
         if (!$retry) return $error;
         if ($attempt === 3) return new WP_Error('nmkr_api_retry_exhausted', 'Synchronization request retry budget exhausted.', array('endpoint' => $endpoint_class));

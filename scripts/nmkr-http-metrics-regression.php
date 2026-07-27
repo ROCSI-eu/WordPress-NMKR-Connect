@@ -4,7 +4,8 @@ define('ABSPATH', dirname(__DIR__) . '/'); define('HOUR_IN_SECONDS', 3600); defi
 class WP_Error { private $c; private $m; function __construct($c,$m='',$d=null){$this->c=$c;$this->m=$m;} function get_error_code(){return $this->c;} function get_error_message(){return $this->m;} }
 function is_wp_error($v){return $v instanceof WP_Error;} function plugin_dir_path($f){return dirname($f).'/';}
 $GLOBALS['tr']=array(); function get_transient($k){return $GLOBALS['tr'][$k]??false;} function set_transient($k,$v,$t){$GLOBALS['tr'][$k]=$v;return true;} function delete_transient($k){unset($GLOBALS['tr'][$k]);}
-function get_option($k,$d=false){return $k==='nmkr_connect_options'?array('api_key'=>'synthetic-placeholder'):$d;}
+function get_option($k,$d=false){if($k==='nmkr_connect_options')return array('api_key'=>'synthetic-placeholder');if($k==='nmkr_sync_data')return $GLOBALS['sync_data_readback']??($GLOBALS['sync_data']??$d);return $d;}
+function update_option($k,$v,$autoload=null){if($k==='nmkr_sync_data'){if(!empty($GLOBALS['fail_sync_data_save']))return false;$GLOBALS['sync_data']=$v;}return true;}
 function wp_remote_retrieve_body($r){return $r['body']??'';} function wp_remote_retrieve_response_code($r){return $r['code']??0;} function wp_remote_retrieve_header($r,$k){return $r['headers'][$k]??'';}
 require dirname(__DIR__).'/includes/helpers/nmkr-performance-functions.php'; require dirname(__DIR__).'/includes/api/nmkr-api-functions.php';
 function ok($v,$m){if(!$v){fwrite(STDERR,"FAIL: $m\n");exit(1);}echo "PASS: $m\n";}
@@ -21,6 +22,13 @@ list($r,$m)=run_case(array(array('code'=>503,'body'=>'{}'),array('code'=>503,'bo
 $stop_backoff=function($phase){return $phase==='before_api_backoff_wait'?new WP_Error('sync_stop_requested','stop'):true;};list($r,$m,$calls)=run_case(array(array('code'=>500,'body'=>'{}'),array('code'=>200,'body'=>'[]')),'nmkr_sync_list_shape',$stop_backoff);ok(is_wp_error($r)&&$r->get_error_code()==='sync_stop_requested'&&$calls===1,'Stop during retry wait prevents another dispatch');
 $owner_halt=function($phase){return $phase==='before_api_dispatch'?new WP_Error('sync_owner_mismatch','owner'):true;};list($r,$m,$calls)=run_case(array(array('code'=>200,'body'=>'[]')),'nmkr_sync_list_shape',$owner_halt);ok(is_wp_error($r)&&$r->get_error_code()==='sync_owner_mismatch'&&$calls===0&&empty($m['request_count']),'owner halt immediately before dispatch records no attempt');
 list($r,$m)=run_case(array(array('code'=>408,'body'=>'{}'),array('code'=>200,'body'=>'[]')));ok($m['successful_requests']+$m['failed_requests']===$m['request_count']&&count($m['request_times'])===$m['request_count'],'attempt-accounting invariants hold');
+// Once a run-scoped request has actually dispatched, failure to durably save
+// its evidence is fatal and must prevent both success and another dispatch.
+$GLOBALS['sync_data']=array('run_id'=>'run-evidence','sync_stats_id'=>77);$GLOBALS['fail_sync_data_save']=true;
+$now=0.0;$calls=0;$responses=array(array('code'=>500,'body'=>'{}'),array('code'=>200,'body'=>'[]'));
+$r=nmkr_sync_http_json_execute('synthetic','https://public.invalid/synthetic',array(),'nmkr_sync_list_shape',array('run_id'=>'run-evidence','sync_stats_id'=>77,'clock'=>function()use(&$now){return $now;},'sleep'=>function($s)use(&$now){$now+=$s;},'request'=>function()use(&$responses,&$calls,&$now){$calls++;$now+=.25;return array_shift($responses);},'jitter'=>function(){return 0;}));
+unset($GLOBALS['fail_sync_data_save']);$persist_stats=get_transient('nmkr_current_sync_stats_live');
+ok(is_wp_error($r)&&$r->get_error_code()==='nmkr_api_metric_evidence_persistence_failure'&&$calls===1&&$persist_stats['request_count']>=1,'failed attempt-evidence save returns typed error after dispatch and prevents retry');
 // A real measured zero is a sample, not missing evidence.
 list($r,$m)=run_case(array(array('code'=>200,'body'=>'[]')));$m['request_times']=array(0.0);$m['total_api_time']=0.0;ok($m['request_times'][0]===0.0,'measured zero duration remains valid');
 echo "All HTTP and metric regressions passed.\n";
