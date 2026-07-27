@@ -780,7 +780,7 @@ function nmkr_process_next_batch() {
         $sync_stats = array(
             'total_duration' => $sync_end_time - $sync_start_time,
             'request_count' => 0,
-            'average_time' => 0,
+            'average_time' => null,
             'total_api_time' => 0,
             'memory_used' => memory_get_usage(true)
         );

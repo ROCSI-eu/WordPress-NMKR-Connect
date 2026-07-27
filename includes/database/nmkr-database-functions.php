@@ -142,7 +142,8 @@ function nmkr_store_project_exact($project_data) {
     }
     
     // End performance tracking
-    nmkr_end_performance_tracking($tracking);
+    $performance = nmkr_end_performance_tracking($tracking);
+    nmkr_record_database_operation('project', $performance['duration']);
     
     return array('action' => $action);
 }
@@ -264,7 +265,8 @@ function nmkr_store_token_exact($token_data, $project_uid) {
     if ($write_result === false) { nmkr_end_performance_tracking($tracking); return new WP_Error('nmkr_token_write_failed', 'Token write failed.'); }
     
     // End performance tracking
-    nmkr_end_performance_tracking($tracking);
+    $performance = nmkr_end_performance_tracking($tracking);
+    nmkr_record_database_operation('token', $performance['duration']);
     
     // Update sync heartbeat to indicate backend activity
     nmkr_update_sync_heartbeat();
@@ -339,7 +341,8 @@ function nmkr_store_token_details_exact($token_uid, $token_details) {
     if ($write_result === false) { nmkr_end_performance_tracking($tracking); return new WP_Error('nmkr_token_details_write_failed', 'Token details write failed.'); }
 
     // End performance tracking
-    nmkr_end_performance_tracking($tracking);
+    $performance = nmkr_end_performance_tracking($tracking);
+    nmkr_record_database_operation('token_details', $performance['duration']);
     
     // Update sync heartbeat to indicate backend activity
     nmkr_update_sync_heartbeat();

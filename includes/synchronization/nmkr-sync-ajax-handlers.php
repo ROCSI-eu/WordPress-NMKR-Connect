@@ -256,7 +256,7 @@ function nmkr_sync_progress_handler() {
             $current_stats = get_transient('nmkr_current_sync_stats_live');
             if (($current_stats === false || $current_stats === null)) {
                 $current_stats = [
-                    'average_time'   => 0,
+                    'average_time'   => null,
                     'request_count'  => 0,
                     'memory_used'    => 0,
                     'total_duration' => 0,
@@ -273,7 +273,7 @@ function nmkr_sync_progress_handler() {
                         $current_stats['total_duration'] = isset($forced_stats['total_duration']) ? $forced_stats['total_duration'] : $current_stats['total_duration'];
                         $current_stats['request_count']  = isset($forced_stats['request_count']) ? (int) $forced_stats['request_count'] : $current_stats['request_count'];
                         $current_stats['memory_used']    = isset($forced_stats['memory_used']) ? (float) $forced_stats['memory_used'] : $current_stats['memory_used'];
-                        $current_stats['average_time']   = isset($forced_stats['average_time']) ? (float) $forced_stats['average_time'] : $current_stats['average_time'];
+                        $current_stats['average_time']   = array_key_exists('average_time', $forced_stats) && $forced_stats['average_time'] !== null ? (float) $forced_stats['average_time'] : null;
                         $current_stats['total_api_time'] = isset($forced_stats['total_api_time']) ? (float) $forced_stats['total_api_time'] : $current_stats['total_api_time'];
                         $current_stats['total_projects']  = isset($forced_stats['total_projects']) ? (int) $forced_stats['total_projects'] : ($current_stats['total_projects'] ?? 0);
                         $current_stats['total_tokens']    = isset($forced_stats['total_tokens']) ? (int) $forced_stats['total_tokens'] : ($current_stats['total_tokens'] ?? 0);

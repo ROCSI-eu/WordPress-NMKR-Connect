@@ -173,7 +173,7 @@ function nmkr_sync_http_json_execute($endpoint_class, $url, $args, $shape, $cont
                 } else { $valid = true; }
             }
         }
-        if (function_exists('nmkr_record_api_attempt')) nmkr_record_api_attempt($duration, $valid, $attempt > 1);
+        if (function_exists('nmkr_record_api_attempt')) nmkr_record_api_attempt($duration, $valid, $attempt > 1, $context);
         if ($valid) return $data;
         if (!$retry) return $error;
         if ($attempt === 3) return new WP_Error('nmkr_api_retry_exhausted', 'Synchronization request retry budget exhausted.', array('endpoint' => $endpoint_class));
@@ -182,7 +182,7 @@ function nmkr_sync_http_json_execute($endpoint_class, $url, $args, $shape, $cont
         if (!is_wp_error($response) && function_exists('wp_remote_retrieve_header')) {
             $header = wp_remote_retrieve_header($response, 'retry-after');
             if (is_numeric($header)) $retry_after = (float) $header;
-            elseif (is_string($header) && ($when = strtotime($header)) !== false) $retry_after = max(0, $when - time());
+            elseif (is_string($header) && ($when = strtotime($header)) !== false) $retry_after = max(0, $when - call_user_func($clock));
         }
         $delay = min(30.0, max($retry_after, pow(2, $attempt - 1) + max(0.0, (float) call_user_func($jitter, $attempt))));
         $halt = $wait($delay, 'backoff'); if (is_wp_error($halt)) return $halt;

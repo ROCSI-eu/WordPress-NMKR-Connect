@@ -72,15 +72,7 @@ function nmkr_end_performance_tracking($tracking_data) {
     
     // HTTP attempts are recorded explicitly at the dispatch boundary. Generic
     // labels must never imply that a request happened.
-    if (strpos($tracking_data['operation'], 'store_project') === 0) {
-        $current_stats['total_projects']++;
-        $current_stats['db_queries']++;
-        $current_stats['db_duration'] += $duration;
-    } elseif (strpos($tracking_data['operation'], 'store_token') === 0) {
-        $current_stats['total_tokens']++;
-        $current_stats['db_queries']++;
-        $current_stats['db_duration'] += $duration;
-    }
+    // Entity/query counters are recorded explicitly after a confirmed write.
     
     set_transient('nmkr_current_sync_stats_live', $current_stats, NMKR_SYNC_TRANSIENT_TTL);
     // Only live transient is set here
@@ -121,7 +113,7 @@ function nmkr_end_performance_tracking($tracking_data) {
 }
 
 /** Record exactly one synchronization HTTP dispatch. */
-function nmkr_record_api_attempt($duration, $successful, $is_retry = false) {
+function nmkr_record_api_attempt($duration, $successful, $is_retry = false, $context = array()) {
     $stats = get_transient('nmkr_current_sync_stats_live');
     if (!is_array($stats)) $stats = array();
     foreach (array('request_count', 'successful_requests', 'failed_requests', 'retry_count') as $key) {
@@ -136,6 +128,29 @@ function nmkr_record_api_attempt($duration, $successful, $is_retry = false) {
     $stats['request_times'][] = $duration;
     $stats['total_api_time'] += $duration;
     $stats['average_time'] = array_sum($stats['request_times']) / count($stats['request_times']);
+    set_transient('nmkr_current_sync_stats_live', $stats, NMKR_SYNC_TRANSIENT_TTL);
+    if (is_array($context) && !empty($context['run_id']) && !empty($context['sync_stats_id'])
+        && function_exists('nmkr_get_sync_data') && function_exists('nmkr_save_sync_data')) {
+        $sync_data = nmkr_get_sync_data();
+        if (is_array($sync_data) && hash_equals((string) ($sync_data['run_id'] ?? ''), (string) $context['run_id'])
+            && (int) ($sync_data['sync_stats_id'] ?? 0) === (int) $context['sync_stats_id']) {
+            $sync_data['api_metric_evidence'] = array_intersect_key($stats, array_flip(array(
+                'request_count', 'successful_requests', 'failed_requests', 'retry_count',
+                'total_api_time', 'request_times', 'throttle_wait_duration', 'backoff_wait_duration',
+            )));
+            nmkr_save_sync_data($sync_data);
+        }
+    }
+}
+
+/** Record one confirmed database storage operation without prefix inference. */
+function nmkr_record_database_operation($entity, $duration) {
+    $stats = get_transient('nmkr_current_sync_stats_live');
+    if (!is_array($stats)) $stats = array();
+    $stats['db_queries'] = (int) ($stats['db_queries'] ?? 0) + 1;
+    $stats['db_duration'] = (float) ($stats['db_duration'] ?? 0) + max(0.0, (float) $duration);
+    if ($entity === 'project') $stats['total_projects'] = (int) ($stats['total_projects'] ?? 0) + 1;
+    if ($entity === 'token') $stats['total_tokens'] = (int) ($stats['total_tokens'] ?? 0) + 1;
     set_transient('nmkr_current_sync_stats_live', $stats, NMKR_SYNC_TRANSIENT_TTL);
 }
 
@@ -163,7 +178,7 @@ function nmkr_log_performance_data($performance_data) {
                 'duration' => isset($performance_data['duration']) ? $performance_data['duration'] : 0,
                 'memory_used' => isset($performance_data['memory_used']) ? $performance_data['memory_used'] : 0,
                 'request_count' => isset($performance_data['request_count']) ? $performance_data['request_count'] : 0,
-                'average_time' => isset($performance_data['average_time']) ? $performance_data['average_time'] : 0,
+                'average_time' => array_key_exists('average_time', $performance_data) ? $performance_data['average_time'] : null,
                 'warning' => 'Performance data too large, truncated to essential metrics'
             ];
         }
@@ -227,7 +242,7 @@ function nmkr_get_sync_stats() {
     $total_duration = (microtime(true) - $stats['operation_start_time']); // Now in seconds
     
     // Calculate average response time from individual API request times
-    $average_time = 0;
+    $average_time = null;
     if ($stats['request_count'] > 0 && !empty($stats['request_times'])) {
         $average_time = round(array_sum($stats['request_times']) / $stats['request_count'], 2); // Keep in seconds for display
     }
@@ -297,7 +312,7 @@ function nmkr_get_performance_metrics($stats) {
     $total_duration = (microtime(true) - $stats['operation_start_time']); // In seconds
     
     // Calculate average response time from individual API request times
-    $average_time = 0;
+    $average_time = null;
     if ($stats['request_count'] > 0 && !empty($stats['request_times'])) {
         $average_time = array_sum($stats['request_times']) / $stats['request_count']; // Keep in seconds for display
     }
