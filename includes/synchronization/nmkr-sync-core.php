@@ -83,6 +83,8 @@ function nmkr_handle_sync_worker_halt($halt, $run_id, $sync_stats_id) {
 function nmkr_handle_direct_worker_error($error, $run_id, $sync_stats_id, $counters = array()) {
     if (!is_wp_error($error)) return false;
     if (nmkr_is_sync_worker_halt_error($error)) return nmkr_handle_sync_worker_halt($error, $run_id, $sync_stats_id);
+    $stopped = nmkr_finalize_stop_winning_worker_failure($run_id, $sync_stats_id);
+    if ($stopped !== false) return $stopped;
     $failed = nmkr_finalize_direct_worker_failure($run_id, $sync_stats_id, $error->get_error_message(), $counters);
     return $failed !== false ? $failed : $error;
 }
