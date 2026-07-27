@@ -728,6 +728,21 @@ function nmkr_sync_token_details($token_uid, $project_uid, &$sync_log, &$complet
             $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'before_token_detail_request'); if (is_wp_error($halt)) return $halt;
             $details = nmkr_connect_fetch_nft_details($token_uid, nmkr_build_sync_api_execution_context($run_id, $sync_stats_id, 'token_detail'));
             if (nmkr_is_sync_worker_halt_error($details)) return $details;
+
+            // A cooperative Stop that became canonical while the request was
+            // in flight wins over an attempt-evidence persistence failure.
+            // Otherwise preserve that run-fatal error before a checkpoint can
+            // replace it with its own persistence failure.
+            if (nmkr_is_fatal_api_error($details)) {
+                $owner = nmkr_get_sync_owner();
+                if (is_array($owner) && hash_equals((string) ($owner['run_id'] ?? ''), (string) $run_id)
+                    && ($owner['mode'] ?? '') === 'direct' && ($owner['state'] ?? '') === 'stop_requested'
+                    && (int) ($owner['sync_stats_id'] ?? 0) === (int) $sync_stats_id) {
+                    return new WP_Error('sync_stop_requested', __('Synchronization stop was requested.', 'nmkr-connect'));
+                }
+                return $details;
+            }
+
             $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'after_token_detail_request'); if (is_wp_error($halt)) return $halt;
             nmkr_end_performance_tracking($tracking);
 
@@ -737,12 +752,6 @@ function nmkr_sync_token_details($token_uid, $project_uid, &$sync_log, &$complet
                 return $details;
             }
 
-            // Losing durable attempt evidence is a run-fatal error, not a
-            // recoverable failure for this individual token.
-            if (nmkr_is_fatal_api_error($details)) {
-                return $details;
-            }
-            
             if (is_wp_error($details)) {
                 $error_message = $details->get_error_message();
                 $sync_log[] = 'ERROR: Failed to fetch details for token ' . $token_uid . ': ' . $error_message;
