@@ -1337,7 +1337,7 @@ function nmkr_sync_data($run_id = '') {
         }
         $terminal = nmkr_sync_data_complete(
             $prepared_outcome === 'completed',
-            $prepared_outcome === 'failed' ? __('Synchronization completed without valid final metrics evidence.', 'nmkr-connect') : '',
+            $prepared_outcome === 'failed' ? (string) ($prepared['error_message'] ?? '') : '',
             $prepared,
             false,
             true
