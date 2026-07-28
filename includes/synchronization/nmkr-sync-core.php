@@ -99,7 +99,15 @@ function nmkr_handle_sync_worker_halt($halt, $run_id, $sync_stats_id, $counters 
 /** Route non-halt worker errors through the canonical failed finalizer. */
 function nmkr_handle_direct_worker_error($error, $run_id, $sync_stats_id, $counters = array()) {
     if (!is_wp_error($error)) return false;
-    if (nmkr_is_sync_worker_halt_error($error)) return nmkr_handle_sync_worker_halt($error, $run_id, $sync_stats_id, $counters);
+    if (nmkr_is_sync_worker_halt_error($error)) {
+        // A Stop may become authoritative after a non-Stop checkpoint halt was
+        // produced but before the shared router receives it.
+        if ($error->get_error_code() !== 'sync_stop_requested') {
+            $stopped = nmkr_finalize_stop_winning_worker_failure($run_id, $sync_stats_id, $counters);
+            if ($stopped !== false) return $stopped;
+        }
+        return nmkr_handle_sync_worker_halt($error, $run_id, $sync_stats_id, $counters);
+    }
     $stopped = nmkr_finalize_stop_winning_worker_failure($run_id, $sync_stats_id, $counters);
     if ($stopped !== false) return $stopped;
     $failed = nmkr_finalize_direct_worker_failure($run_id, $sync_stats_id, $error->get_error_message(), $counters);
