@@ -42,8 +42,19 @@ function nmkr_clear_sync_finalization_resume($sync_stats_id) {
 }
 
 function nmkr_bound_sync_finalization_error_message($message) {
-    $message = trim(preg_replace('/\s+/', ' ', strip_tags((string) $message)));
-    return substr($message, 0, 500);
+    $message = strip_tags((string) $message);
+    if (function_exists('wp_check_invalid_utf8')) {
+        $message = wp_check_invalid_utf8($message, true);
+    }
+    $normalized = preg_replace('/\s+/u', ' ', $message);
+    $message = trim($normalized === null ? preg_replace('/[\r\n\t ]+/', ' ', $message) : $normalized);
+    if (strlen($message) <= 500) return $message;
+    if (function_exists('mb_strcut')) return mb_strcut($message, 0, 500, 'UTF-8');
+    $message = substr($message, 0, 500);
+    while ($message !== '' && preg_match('//u', $message) !== 1) {
+        $message = substr($message, 0, -1);
+    }
+    return $message;
 }
 
 function nmkr_save_sync_finalization_resume($sync_stats_id, $final) {
@@ -225,8 +236,11 @@ function nmkr_prepare_sync_finalization($sync_stats_id, $final, $sync_data) {
     $final['outcome'] = in_array($requested_outcome, array('completed', 'failed', 'stopped'), true) ? $requested_outcome : 'failed';
     if (!empty($sync_data['run_id'])) {
         $run_id = (string) $sync_data['run_id'];
+        $stopped_handoff = $final['outcome'] === 'stopped'
+            && nmkr_sync_owner_matches($run_id, 'stop_requested', $sync_stats_id);
         if (!nmkr_sync_owner_matches($run_id, 'finalizing', $sync_stats_id)
-            && !nmkr_sync_owner_matches($run_id, 'running', $sync_stats_id)) {
+            && !nmkr_sync_owner_matches($run_id, 'running', $sync_stats_id)
+            && !$stopped_handoff) {
             return false;
         }
         $final['run_id'] = $run_id;

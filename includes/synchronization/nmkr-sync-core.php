@@ -84,16 +84,22 @@ function nmkr_handle_sync_worker_halt($halt, $run_id, $sync_stats_id, $counters 
             ? (int) $counters[$counter]
             : (int) (is_array($sync_data) ? ($sync_data[$counter] ?? 0) : 0);
     }
+    // The exact Stop owner remains recoverable until its complete handoff has
+    // been saved, read back, and given an executable retry event.
+    $prepared = nmkr_prepare_sync_finalization($sync_stats_id, $final, $sync_data);
+    if (!is_array($prepared)) {
+        return new WP_Error('sync_stopped_finalization_pending', __('Synchronization stop finalization remains pending.', 'nmkr-connect'));
+    }
     $finalizing = nmkr_transition_sync_owner($run_id, 'stop_requested', 'finalizing', $sync_stats_id);
     if (!nmkr_sync_owner_transition_succeeded($finalizing)) return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this worker.', 'nmkr-connect'));
-    $terminal = nmkr_sync_data_complete(false, __('Synchronization stopped by user.', 'nmkr-connect'), $final);
+    $terminal = nmkr_sync_data_complete(false, __('Synchronization stopped by user.', 'nmkr-connect'), $prepared, false, true);
     return is_array($terminal) ? $terminal : new WP_Error('sync_stopped_finalization_pending', __('Synchronization stop finalization remains pending.', 'nmkr-connect'));
 }
 
 /** Route non-halt worker errors through the canonical failed finalizer. */
 function nmkr_handle_direct_worker_error($error, $run_id, $sync_stats_id, $counters = array()) {
     if (!is_wp_error($error)) return false;
-    if (nmkr_is_sync_worker_halt_error($error)) return nmkr_handle_sync_worker_halt($error, $run_id, $sync_stats_id);
+    if (nmkr_is_sync_worker_halt_error($error)) return nmkr_handle_sync_worker_halt($error, $run_id, $sync_stats_id, $counters);
     $stopped = nmkr_finalize_stop_winning_worker_failure($run_id, $sync_stats_id, $counters);
     if ($stopped !== false) return $stopped;
     $failed = nmkr_finalize_direct_worker_failure($run_id, $sync_stats_id, $error->get_error_message(), $counters);
@@ -1040,11 +1046,11 @@ function nmkr_sync_data($run_id = '') {
         // Stop can win after history binding but before initial runtime state.
         // Persist that minimum state first, then hand off exactly once.
         if (($bound_owner['state'] ?? '') === 'stop_requested') {
-            $finalizing = nmkr_transition_sync_owner($run_id, 'stop_requested', 'finalizing', $sync_stats_id);
-            if (nmkr_sync_owner_transition_succeeded($finalizing)) {
-                return nmkr_sync_data_complete(false, __('Synchronization stopped by user.', 'nmkr-connect'), array('outcome' => 'stopped'));
-            }
-            return new WP_Error('sync_owner_mismatch', 'Synchronization ownership no longer matches this worker.');
+            return nmkr_handle_sync_worker_halt(
+                new WP_Error('sync_stop_requested', __('Synchronization stop was requested.', 'nmkr-connect')),
+                $run_id,
+                $sync_stats_id
+            );
         }
         
         // Start performance tracking
@@ -1133,6 +1139,9 @@ function nmkr_sync_data($run_id = '') {
         $total_projects = count($project_uids);
         $total_tokens = 0; // Initialize total tokens counter
         $token_details_synced = 0; // Initialize token details counter
+        $total_successful_tokens = 0;
+        $total_failed_tokens = 0;
+        $total_skipped_tokens = 0;
         
         // Step 3a: Fetch token UIDs for all projects
         nmkr_update_sync_progress($completed_steps, $total_steps, 'Preparing to fetch tokens');
@@ -1142,7 +1151,13 @@ function nmkr_sync_data($run_id = '') {
             nmkr_update_sync_progress($completed_steps, $total_steps, 'Fetching tokens for project ' . ($i + 1));
             
             $fetch_result = nmkr_fetch_tokens_for_project($project_uid, $sync_log, $completed_steps, $total_steps, $run_id, $sync_stats_id);
-            if (is_wp_error($fetch_result)) return nmkr_handle_direct_worker_error($fetch_result, $run_id, $sync_stats_id);
+            if (is_wp_error($fetch_result)) return nmkr_handle_direct_worker_error($fetch_result, $run_id, $sync_stats_id, array(
+                'items_processed' => $total_tokens,
+                'items_successful' => $total_successful_tokens,
+                'items_failed' => $total_failed_tokens,
+                'items_skipped' => $total_skipped_tokens,
+                'token_details_synced' => $token_details_synced,
+            ));
             
             if (!empty($fetch_result['token_uids'])) {
                 // NEW: Build structured map with explicit project associations
@@ -1184,7 +1199,13 @@ function nmkr_sync_data($run_id = '') {
             }
             
             $token_result = nmkr_sync_tokens($project_uid, $project_tokens_data, $sync_log, $completed_steps, $total_steps, $run_id, $sync_stats_id);
-            if (is_wp_error($token_result)) return nmkr_handle_direct_worker_error($token_result, $run_id, $sync_stats_id);
+            if (is_wp_error($token_result)) return nmkr_handle_direct_worker_error($token_result, $run_id, $sync_stats_id, array(
+                'items_processed' => $total_tokens,
+                'items_successful' => $total_successful_tokens,
+                'items_failed' => $total_failed_tokens,
+                'items_skipped' => $total_skipped_tokens,
+                'token_details_synced' => $token_details_synced,
+            ));
         }
         
         // Token processing complete
@@ -1195,9 +1216,6 @@ function nmkr_sync_data($run_id = '') {
         $successful_details = 0;
         $skipped_details = 0;
         $failed_details = 0;
-        $total_successful_tokens = 0;
-        $total_failed_tokens = 0;
-        $total_skipped_tokens = 0;
         
         // Begin token details synchronization
         nmkr_update_sync_progress($completed_steps, $total_steps, 'Starting token details synchronization');
@@ -1215,7 +1233,13 @@ function nmkr_sync_data($run_id = '') {
                 }
             }
             $result = nmkr_sync_token_details($token_uid, $project_uid, $sync_log, $completed_steps, $total_steps, $token, $run_id, $sync_stats_id);
-            if (nmkr_is_sync_worker_halt_error($result)) return nmkr_handle_sync_worker_halt($result, $run_id, $sync_stats_id);
+            if (nmkr_is_sync_worker_halt_error($result)) return nmkr_handle_sync_worker_halt($result, $run_id, $sync_stats_id, array(
+                'items_processed' => $total_tokens,
+                'items_successful' => $total_successful_tokens,
+                'items_failed' => $total_failed_tokens,
+                'items_skipped' => $total_skipped_tokens,
+                'token_details_synced' => $token_details_synced,
+            ));
             
             // Handle successful result
             if ($result === true) {
@@ -1274,7 +1298,13 @@ function nmkr_sync_data($run_id = '') {
         
         // The last safe boundary is before any success-only finalization state.
         $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'before_completed_finalization');
-        if (is_wp_error($halt)) return nmkr_handle_sync_worker_halt($halt, $run_id, $sync_stats_id);
+        if (is_wp_error($halt)) return nmkr_handle_sync_worker_halt($halt, $run_id, $sync_stats_id, array(
+            'items_processed' => $total_tokens,
+            'items_successful' => $total_successful_tokens,
+            'items_failed' => $total_failed_tokens,
+            'items_skipped' => $total_skipped_tokens,
+            'token_details_synced' => $token_details_synced,
+        ));
         // Mark sync near completion - all work is done but final flags not yet set
         update_option('nmkr_sync_near_completion', true);
         nmkr_log_data_sync('Marked sync as near completion - all work finished, finalizing flags', 'info');
@@ -1339,7 +1369,14 @@ function nmkr_sync_data($run_id = '') {
                 return nmkr_handle_sync_worker_halt(
                     new WP_Error('sync_stop_requested', __('Synchronization stop was requested.', 'nmkr-connect')),
                     $run_id,
-                    $sync_stats_id
+                    $sync_stats_id,
+                    array(
+                        'items_processed' => $total_tokens,
+                        'items_successful' => $total_successful_tokens,
+                        'items_failed' => $total_failed_tokens,
+                        'items_skipped' => $total_skipped_tokens,
+                        'token_details_synced' => $token_details_synced,
+                    )
                 );
             }
             throw new Exception('Synchronization owner changed before finalization');
