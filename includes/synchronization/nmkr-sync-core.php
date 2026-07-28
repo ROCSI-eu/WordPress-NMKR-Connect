@@ -87,15 +87,24 @@ function nmkr_handle_sync_worker_halt($halt, $run_id, $sync_stats_id, $counters 
     // The exact Stop owner remains recoverable until its complete handoff has
     // been saved, read back, and given an executable retry event.
     $prepared = false;
-    // The direct worker is the only guaranteed executor at this point. Retry
-    // transient option/readback or cron failures inline before relinquishing
+    // The direct worker is the only guaranteed executor at this point. Keep
+    // retrying option/readback or cron failures inline before relinquishing
     // that executor; a successful preparation includes a verified record and
     // event, so subsequent interruption remains independently recoverable.
-    for ($attempt = 0; $attempt < 3 && !is_array($prepared); $attempt++) {
+    while (!is_array($prepared)) {
         $prepared = nmkr_prepare_sync_finalization($sync_stats_id, $final, $sync_data);
-    }
-    if (!is_array($prepared)) {
-        return new WP_Error('sync_stopped_finalization_pending', __('Synchronization stop finalization remains pending.', 'nmkr-connect'));
+        if (is_array($prepared)) break;
+
+        // Do not return a retained Stop owner to a consumed one-shot worker
+        // without an executable resume event. Keep the exact worker as the
+        // recovery executor while the dependency is unavailable, but stop
+        // immediately if ownership has moved to a successor.
+        $owner = nmkr_get_sync_owner();
+        if (!is_array($owner) || !hash_equals((string) ($owner['run_id'] ?? ''), (string) $run_id)
+            || ($owner['mode'] ?? '') !== 'direct' || ($owner['state'] ?? '') !== 'stop_requested'
+            || (int) ($owner['sync_stats_id'] ?? 0) !== (int) $sync_stats_id) {
+            return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this worker.', 'nmkr-connect'));
+        }
     }
     $finalizing = nmkr_transition_sync_owner($run_id, 'stop_requested', 'finalizing', $sync_stats_id);
     if (!nmkr_sync_owner_transition_succeeded($finalizing)) return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this worker.', 'nmkr-connect'));
