@@ -83,6 +83,9 @@ function nmkr_end_performance_tracking($tracking_data) {
     $performance_data = [
         'operation' => $tracking_data['operation'],
         'duration' => round($duration, 2),
+        // Keep the display-facing duration stable while exposing the exact
+        // elapsed value to internal metric recorders.
+        'duration_unrounded' => $duration,
         'total_duration' => round($total_duration, 2),
         'memory_used' => round(($end_memory - $tracking_data['start_memory']) / 1024 / 1024, 2),
         'timestamp' => nmkr_get_timestamp(),

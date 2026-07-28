@@ -143,7 +143,7 @@ function nmkr_store_project_exact($project_data) {
     
     // End performance tracking
     $performance = nmkr_end_performance_tracking($tracking);
-    nmkr_record_database_operation('project', $performance['duration']);
+    nmkr_record_database_operation('project', $performance['duration_unrounded']);
     
     return array('action' => $action);
 }
@@ -266,7 +266,7 @@ function nmkr_store_token_exact($token_data, $project_uid) {
     
     // End performance tracking
     $performance = nmkr_end_performance_tracking($tracking);
-    nmkr_record_database_operation('token', $performance['duration']);
+    nmkr_record_database_operation('token', $performance['duration_unrounded']);
     
     // Update sync heartbeat to indicate backend activity
     nmkr_update_sync_heartbeat();
@@ -342,7 +342,7 @@ function nmkr_store_token_details_exact($token_uid, $token_details) {
 
     // End performance tracking
     $performance = nmkr_end_performance_tracking($tracking);
-    nmkr_record_database_operation('token_details', $performance['duration']);
+    nmkr_record_database_operation('token_details', $performance['duration_unrounded']);
     
     // Update sync heartbeat to indicate backend activity
     nmkr_update_sync_heartbeat();
