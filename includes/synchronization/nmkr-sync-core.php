@@ -1331,9 +1331,22 @@ function nmkr_sync_data($run_id = '') {
             }
             throw new Exception('Synchronization owner changed before finalization');
         }
-        $terminal = nmkr_sync_data_complete(true, '', $prepared, false, true);
-        if (!is_array($terminal) || !in_array($terminal['status'] ?? '', array('completed', 'success'), true)) {
+        $prepared_outcome = nmkr_normalize_sync_terminal_outcome($prepared['outcome'] ?? false);
+        if ($prepared_outcome === false) {
+            throw new Exception('Synchronization finalization prepared an invalid outcome');
+        }
+        $terminal = nmkr_sync_data_complete(
+            $prepared_outcome === 'completed',
+            $prepared_outcome === 'failed' ? __('Synchronization completed without valid final metrics evidence.', 'nmkr-connect') : '',
+            $prepared,
+            false,
+            true
+        );
+        if (!is_array($terminal) || ($terminal['status'] ?? '') !== $prepared_outcome) {
             throw new Exception('Canonical synchronization finalization failed');
+        }
+        if ($prepared_outcome !== 'completed') {
+            return nmkr_direct_sync_terminal_result($prepared_outcome, $run_id, $sync_stats_id, $sync_log);
         }
 
         // Log comprehensive final summary

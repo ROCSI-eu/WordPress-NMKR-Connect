@@ -737,7 +737,12 @@ if (!function_exists('nmkr_sync_finalization_checkpoint')) {
  * @return array|false The final sync status or false on error
  */
 function nmkr_sync_data_complete($success = true, $error_message = '', $final = array(), $is_resume = false, $prepared = false) {
-    $outcome = (!$success && is_array($final) && ($final['outcome'] ?? '') === 'stopped') ? 'stopped' : ($success ? 'completed' : 'failed');
+    // A prepared record has already normalized and durably persisted the
+    // authoritative outcome. The boolean remains only a compatibility adapter
+    // for callers that have not prepared their finalization input yet.
+    $outcome = $prepared && is_array($final)
+        ? ($final['outcome'] ?? false)
+        : ((!$success && is_array($final) && ($final['outcome'] ?? '') === 'stopped') ? 'stopped' : ($success ? 'completed' : 'failed'));
     $outcome = nmkr_normalize_sync_terminal_outcome($outcome);
     if ($outcome === false) return false;
     // $success remains a compatibility adapter for legacy/batch callers. The
