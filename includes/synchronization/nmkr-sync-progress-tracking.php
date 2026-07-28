@@ -980,6 +980,7 @@ function nmkr_sync_data_complete($success = true, $error_message = '', $final = 
         }
         if ($outcome === 'failed' && !empty($error_message)) {
             $terminal['error_code'] = 'sync_failed';
+            $terminal['error_message'] = nmkr_bound_sync_finalization_error_message($error_message);
         }
         if (!nmkr_save_sync_data($terminal)) {
             if ($success && is_array($resume_record)) {

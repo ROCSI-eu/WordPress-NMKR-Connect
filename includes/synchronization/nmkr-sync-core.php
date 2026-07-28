@@ -86,7 +86,14 @@ function nmkr_handle_sync_worker_halt($halt, $run_id, $sync_stats_id, $counters 
     }
     // The exact Stop owner remains recoverable until its complete handoff has
     // been saved, read back, and given an executable retry event.
-    $prepared = nmkr_prepare_sync_finalization($sync_stats_id, $final, $sync_data);
+    $prepared = false;
+    // The direct worker is the only guaranteed executor at this point. Retry
+    // transient option/readback or cron failures inline before relinquishing
+    // that executor; a successful preparation includes a verified record and
+    // event, so subsequent interruption remains independently recoverable.
+    for ($attempt = 0; $attempt < 3 && !is_array($prepared); $attempt++) {
+        $prepared = nmkr_prepare_sync_finalization($sync_stats_id, $final, $sync_data);
+    }
     if (!is_array($prepared)) {
         return new WP_Error('sync_stopped_finalization_pending', __('Synchronization stop finalization remains pending.', 'nmkr-connect'));
     }
@@ -1082,12 +1089,12 @@ function nmkr_sync_data($run_id = '') {
         try {
             // First, we need to fetch projects to count total steps
             $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'before_projects_request');
-            if (is_wp_error($halt)) return nmkr_handle_sync_worker_halt($halt, $run_id, $sync_stats_id);
+            if (is_wp_error($halt)) return nmkr_handle_direct_worker_error($halt, $run_id, $sync_stats_id);
             $projects = nmkr_connect_fetch_projects(nmkr_build_sync_api_execution_context($run_id, $sync_stats_id, 'initial_projects'));
-            if (nmkr_is_sync_worker_halt_error($projects)) return nmkr_handle_sync_worker_halt($projects, $run_id, $sync_stats_id);
+            if (nmkr_is_sync_worker_halt_error($projects)) return nmkr_handle_direct_worker_error($projects, $run_id, $sync_stats_id);
             if (nmkr_is_fatal_api_error($projects)) return nmkr_handle_direct_worker_error($projects, $run_id, $sync_stats_id);
             $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'after_projects_request');
-            if (is_wp_error($halt)) return nmkr_handle_sync_worker_halt($halt, $run_id, $sync_stats_id);
+            if (is_wp_error($halt)) return nmkr_handle_direct_worker_error($halt, $run_id, $sync_stats_id);
             
             if (is_wp_error($projects)) {
                 throw new Exception('Failed to fetch projects for step calculation: ' . $projects->get_error_message());
@@ -1241,7 +1248,7 @@ function nmkr_sync_data($run_id = '') {
                 }
             }
             $result = nmkr_sync_token_details($token_uid, $project_uid, $sync_log, $completed_steps, $total_steps, $token, $run_id, $sync_stats_id);
-            if (nmkr_is_sync_worker_halt_error($result)) return nmkr_handle_sync_worker_halt($result, $run_id, $sync_stats_id, array(
+            if (nmkr_is_sync_worker_halt_error($result)) return nmkr_handle_direct_worker_error($result, $run_id, $sync_stats_id, array(
                 'items_processed' => $total_tokens,
                 'items_successful' => $total_successful_tokens,
                 'items_failed' => $total_failed_tokens,
@@ -1306,7 +1313,7 @@ function nmkr_sync_data($run_id = '') {
         
         // The last safe boundary is before any success-only finalization state.
         $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'before_completed_finalization');
-        if (is_wp_error($halt)) return nmkr_handle_sync_worker_halt($halt, $run_id, $sync_stats_id, array(
+        if (is_wp_error($halt)) return nmkr_handle_direct_worker_error($halt, $run_id, $sync_stats_id, array(
             'items_processed' => $total_tokens,
             'items_successful' => $total_successful_tokens,
             'items_failed' => $total_failed_tokens,
