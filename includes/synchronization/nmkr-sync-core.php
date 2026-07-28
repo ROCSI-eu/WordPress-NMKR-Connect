@@ -1453,7 +1453,13 @@ function nmkr_sync_data($run_id = '') {
         // A Stop can win while an API request is in flight and that request
         // returns an ordinary error. Finalize that exact owner as stopped
         // before generic failure cleanup can clear its canonical state.
-        $stopped = nmkr_finalize_stop_winning_worker_failure($run_id, $sync_stats_id);
+        $stopped = nmkr_finalize_stop_winning_worker_failure($run_id, $sync_stats_id, array(
+            'items_processed' => isset($total_tokens) ? $total_tokens : 0,
+            'items_successful' => isset($total_successful_tokens) ? $total_successful_tokens : 0,
+            'items_failed' => isset($total_failed_tokens) ? $total_failed_tokens : 0,
+            'items_skipped' => isset($total_skipped_tokens) ? $total_skipped_tokens : 0,
+            'token_details_synced' => isset($token_details_synced) ? $token_details_synced : 0,
+        ));
         if ($stopped !== false) return $stopped;
 
         // Durable success evidence makes this a resumable finalization, not a
