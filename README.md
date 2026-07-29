@@ -72,7 +72,7 @@ If you have obtained a packaged ZIP that includes `vendor/`, use **WordPress Adm
 1. Install and activate the plugin.
 2. Open **NMKR Connect → Settings**, enter the NMKR API key, review the synchronization settings, and save.
 3. Open the NMKR Connect dashboard and start synchronization. Follow its progress and final result; do not close or restart a run merely because a large collection takes time.
-4. Add a Free shortcode such as `[nmkr-grid]` or `[nmkr-token-list]` to a WordPress page. Use a project UID when a specific synchronized project should be fixed.
+4. Add a Free shortcode such as `[nmkr-grid]` or `[nmkr-token-list]` to a WordPress page. Use a project UID when a specific synchronized project should be displayed.
 
 Treat the NMKR API key, GA4 API secret, license details, WordPress credentials, and other environment values as secrets. Do not put them in content, source control, screenshots, or support logs.
 
