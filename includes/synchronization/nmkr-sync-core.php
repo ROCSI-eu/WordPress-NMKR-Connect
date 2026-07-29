@@ -116,6 +116,36 @@ function nmkr_handle_sync_worker_halt($halt, $run_id, $sync_stats_id, $counters 
     $finalizing = nmkr_transition_sync_owner($run_id, 'stop_requested', 'finalizing', $sync_stats_id);
     if (!nmkr_sync_owner_transition_succeeded($finalizing)) return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this worker.', 'nmkr-connect'));
     $terminal = nmkr_sync_data_complete(false, __('Synchronization stopped by user.', 'nmkr-connect'), $prepared, $inline_only, true);
+    while ($inline_only && !is_array($terminal)) {
+        // A durable exact handoff may have been established by a partial
+        // finalizer attempt. It is then safe for this consumed worker to yield
+        // execution to that independently executable callback.
+        if (nmkr_sync_finalization_handoff_pending($run_id, $sync_stats_id)
+            && nmkr_sync_owner_matches($run_id, 'finalizing', $sync_stats_id)) {
+            break;
+        }
+
+        $owner = nmkr_get_sync_owner();
+        if (!is_array($owner) || !hash_equals((string) ($owner['run_id'] ?? ''), (string) $run_id)
+            || ($owner['mode'] ?? '') !== 'direct' || ($owner['state'] ?? '') !== 'finalizing'
+            || (int) ($owner['sync_stats_id'] ?? 0) !== (int) $sync_stats_id) {
+            $sync_data = nmkr_get_sync_data();
+            if ($owner === false && is_array($sync_data)
+                && (string) ($sync_data['run_id'] ?? '') === (string) $run_id
+                && (int) ($sync_data['sync_stats_id'] ?? 0) === (int) $sync_stats_id
+                && ($sync_data['status'] ?? '') === 'stopped'
+                && nmkr_verify_sync_terminal_result($sync_data, 'stopped')) {
+                return $sync_data;
+            }
+            return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this worker.', 'nmkr-connect'));
+        }
+
+        // Persistent infrastructure failure must not create a tight retry
+        // loop. Keep the exact worker executing the handoff, but yield between
+        // attempts until terminal state or a verified callback exists.
+        usleep(100000);
+        $terminal = nmkr_sync_data_complete(false, __('Synchronization stopped by user.', 'nmkr-connect'), $prepared, true, true);
+    }
     return is_array($terminal) ? $terminal : new WP_Error('sync_stopped_finalization_pending', __('Synchronization stop finalization remains pending.', 'nmkr-connect'));
 }
 
