@@ -115,8 +115,8 @@ function nmkr_get_active_sync_metrics() {
     // Default metrics - ensure we always have values 
     $default_response = array(
         'progress' => ($progress !== false) ? $progress : 0,
-        'average_response_time' => '0.00s',
-        'response_time_class' => 'status-excellent',
+        'average_response_time' => '—',
+        'response_time_class' => 'status-neutral',
         'api_requests' => '0',
         'memory_usage' => '0.00MB',
         'memory_class' => 'status-excellent'
@@ -128,9 +128,8 @@ function nmkr_get_active_sync_metrics() {
     }
     
     // Format average response time
-    $avg_response_time = isset($current_metrics['average_response_time']) ? $current_metrics['average_response_time'] : 0;
-    $formatted_avg_response_time = $avg_response_time > 0 ? 
-        number_format($avg_response_time, 2) . 's' : '0.00s';
+    $avg_response_time = array_key_exists('average_response_time', $current_metrics) ? $current_metrics['average_response_time'] : null;
+    $formatted_avg_response_time = $avg_response_time !== null ? number_format((float) $avg_response_time, 2) . 's' : '—';
     
     // Format API requests
     $api_requests = isset($current_metrics['api_requests']) ? $current_metrics['api_requests'] : 0;
@@ -141,7 +140,7 @@ function nmkr_get_active_sync_metrics() {
     $formatted_memory_usage = $memory_usage > 0 ? $memory_usage . 'MB' : '0.00MB';
     
     // Get color classes
-    $response_time_class = nmkr_get_response_time_color_class($avg_response_time);
+    $response_time_class = $avg_response_time === null ? 'status-neutral' : nmkr_get_response_time_color_class($avg_response_time);
     $memory_class = nmkr_get_memory_color_class($memory_usage);
     
     // Return formatted and color-coded metrics

@@ -900,6 +900,16 @@ function nmkr_detect_and_recover_stale_sync() {
     $raw_owner = get_option('nmkr_sync_owner', false);
     if ($raw_owner !== false) {
         $owner = is_array($raw_owner) ? $raw_owner : false;
+        $exact_stopped_recovery = $owner && ($owner['mode'] ?? '') === 'direct'
+            && ($owner['state'] ?? '') === 'stop_requested'
+            && is_array($sync_data)
+            && (string) ($owner['run_id'] ?? '') === (string) ($sync_data['run_id'] ?? '')
+            && (int) ($owner['sync_stats_id'] ?? 0) === (int) ($sync_data['sync_stats_id'] ?? 0)
+            && function_exists('nmkr_resume_stopped_sync_recovery');
+        if ($exact_stopped_recovery) {
+            $recovered = nmkr_resume_stopped_sync_recovery((string) $owner['run_id'], (int) $owner['sync_stats_id']);
+            return array('stale'=>true,'recovered'=>is_array($recovered) && ($recovered['status'] ?? '') === 'stopped','owner_preserved'=>nmkr_get_sync_owner() !== false,'grace'=>$grace,'heartbeat_age'=>$heartbeat_age,'last_update'=>$last_update);
+        }
         $exact_finalizing = $owner && ($owner['mode'] ?? '') === 'direct'
             && ($owner['state'] ?? '') === 'finalizing'
             && is_array($sync_data) && ($sync_data['status'] ?? '') === 'finalizing'

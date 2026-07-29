@@ -213,12 +213,12 @@ function nmkr_get_sync_statistics_ajax() {
                 
                 // Performance metrics (existing, enhanced)
                 'total_api_time' => $performance_data['total_api_time'] ?? 0,
-                'average_response_time' => $performance_data['average_time'] ?? 0,
+                'average_response_time' => array_key_exists('average_time', $performance_data) ? $performance_data['average_time'] : null,
                 'api_requests' => $performance_data['request_count'] ?? 0,
                 'memory_usage' => $performance_data['memory_used'] ?? 0,
                 
                 // Add formatting and styling classes
-                'response_time_class' => nmkr_get_response_time_color_class($performance_data['average_time'] ?? 0),
+                'response_time_class' => array_key_exists('average_time', $performance_data) && $performance_data['average_time'] !== null ? nmkr_get_response_time_color_class($performance_data['average_time']) : 'status-neutral',
                 'memory_class' => nmkr_get_memory_color_class($performance_data['memory_used'] ?? 0)
             );
             
@@ -249,7 +249,7 @@ function nmkr_get_sync_statistics_ajax() {
                 'total_sync_duration' => 0,
                 // Performance metrics
                 'total_api_time' => 0,
-                'average_response_time' => 0,
+                'average_response_time' => null,
                 'api_requests' => 0,
                 'memory_usage' => 0,
                 // Styling classes

@@ -205,6 +205,19 @@ function nmkr_sync_progress_handler() {
     if ( ! current_user_can( 'nmkr_view_dashboard' ) ) {
         wp_send_json_error( array( 'message' => __( 'Forbidden', 'nmkr-connect' ) ), 403 );
     }
+
+    // Polling is an independently executable recovery trigger for an exact
+    // stopped handoff whose dedicated resume option/event could not be
+    // established by the consumed worker. Each request performs one bounded
+    // attempt and leaves the durable pre-finalizing record intact on failure.
+    $recovery_owner = nmkr_get_sync_owner();
+    if (is_array($recovery_owner) && ($recovery_owner['mode'] ?? '') === 'direct'
+        && ($recovery_owner['state'] ?? '') === 'stop_requested') {
+        nmkr_resume_stopped_sync_recovery(
+            (string) ($recovery_owner['run_id'] ?? ''),
+            (int) ($recovery_owner['sync_stats_id'] ?? 0)
+        );
+    }
     
     nmkr_log_ui_status('AJAX HANDLER: nmkr_sync_progress_handler called by process ' . nmkr_safe_getpid(), 'debug');
     
@@ -256,7 +269,7 @@ function nmkr_sync_progress_handler() {
             $current_stats = get_transient('nmkr_current_sync_stats_live');
             if (($current_stats === false || $current_stats === null)) {
                 $current_stats = [
-                    'average_time'   => 0,
+                    'average_time'   => null,
                     'request_count'  => 0,
                     'memory_used'    => 0,
                     'total_duration' => 0,
@@ -273,7 +286,7 @@ function nmkr_sync_progress_handler() {
                         $current_stats['total_duration'] = isset($forced_stats['total_duration']) ? $forced_stats['total_duration'] : $current_stats['total_duration'];
                         $current_stats['request_count']  = isset($forced_stats['request_count']) ? (int) $forced_stats['request_count'] : $current_stats['request_count'];
                         $current_stats['memory_used']    = isset($forced_stats['memory_used']) ? (float) $forced_stats['memory_used'] : $current_stats['memory_used'];
-                        $current_stats['average_time']   = isset($forced_stats['average_time']) ? (float) $forced_stats['average_time'] : $current_stats['average_time'];
+                        $current_stats['average_time']   = array_key_exists('average_time', $forced_stats) && $forced_stats['average_time'] !== null ? (float) $forced_stats['average_time'] : null;
                         $current_stats['total_api_time'] = isset($forced_stats['total_api_time']) ? (float) $forced_stats['total_api_time'] : $current_stats['total_api_time'];
                         $current_stats['total_projects']  = isset($forced_stats['total_projects']) ? (int) $forced_stats['total_projects'] : ($current_stats['total_projects'] ?? 0);
                         $current_stats['total_tokens']    = isset($forced_stats['total_tokens']) ? (int) $forced_stats['total_tokens'] : ($current_stats['total_tokens'] ?? 0);
@@ -645,7 +658,7 @@ function nmkr_sync_progress_handler() {
 
     // Always include live metrics in heartbeat payload using already-fetched transient only
     // (keep handler lightweight; no additional DB reads here)
-    $avg_seconds = isset($current_stats['average_time']) ? (float) $current_stats['average_time'] : 0.0;
+    $avg_seconds = array_key_exists('average_time', $current_stats) && $current_stats['average_time'] !== null ? (float) $current_stats['average_time'] : null;
     $mem_mb      = isset($current_stats['memory_used']) ? (float) $current_stats['memory_used'] : 0.0;
     $response_data['live_metrics'] = array(
         'total_projects'        => isset($current_stats['total_projects']) ? (int) $current_stats['total_projects'] : 0,
@@ -656,7 +669,7 @@ function nmkr_sync_progress_handler() {
         'api_requests'          => isset($current_stats['request_count']) ? (int) $current_stats['request_count'] : 0,
         'memory_usage'          => $mem_mb,
         // optional duplicates for legacy/interop without breaking existing keys
-        'avg_api_ms'            => (int) round($avg_seconds * 1000),
+        'avg_api_ms'            => $avg_seconds === null ? null : (int) round($avg_seconds * 1000),
         'memory_bytes'          => (int) round($mem_mb * 1024 * 1024),
         'updated_at'            => isset($current_stats['updated_at']) ? (int) $current_stats['updated_at'] : time(),
     );
@@ -705,7 +718,13 @@ function nmkr_stop_sync_handler() {
         $result = nmkr_request_exact_sync_stop($run_id, 'user_requested');
         if (is_wp_error($result)) wp_send_json_error(array('message' => $result->get_error_message(), 'error_code' => $result->get_error_code()), 409);
         if ($result === true) wp_send_json_success(array('run_id' => $run_id, 'owner_state' => 'released', 'completed' => true, 'terminal_outcome' => 'cancelled'));
-        if (is_array($result) && ($result['state'] ?? '') === 'stop_requested') wp_send_json_success(array('run_id' => $run_id, 'owner_state' => 'stop_requested', 'stop_pending' => true, 'completed' => false));
+        if (is_array($result) && ($result['state'] ?? '') === 'stop_requested') {
+            $recovered = nmkr_resume_stopped_sync_recovery($run_id, (int) ($result['sync_stats_id'] ?? ($owner['sync_stats_id'] ?? 0)));
+            if (is_array($recovered) && ($recovered['status'] ?? '') === 'stopped') {
+                wp_send_json_success(array('run_id' => $run_id, 'owner_state' => 'released', 'completed' => true, 'terminal_outcome' => 'stopped'));
+            }
+            wp_send_json_success(array('run_id' => $run_id, 'owner_state' => 'stop_requested', 'stop_pending' => true, 'completed' => false));
+        }
         wp_send_json_error(array('message' => __('Synchronization ownership no longer matches this run.', 'nmkr-connect'), 'error_code' => 'sync_owner_mismatch'), 409);
     }
     if (is_array($owner)) {

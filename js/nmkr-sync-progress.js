@@ -1053,7 +1053,7 @@ jQuery(document).ready(function($) {
                 total_sync_duration: 0,
                 // Performance metrics
                 total_api_time: 0,
-                average_response_time: 0,
+                average_response_time: null,
                 api_requests: 0,
                 memory_usage: 0
             };
@@ -1084,7 +1084,7 @@ jQuery(document).ready(function($) {
             }
             
             // Update performance metrics (existing, enhanced)
-            if (performanceData.average_time !== undefined) {
+            if (performanceData.average_time !== undefined && performanceData.average_time !== null) {
                 const avgTime = safeNumber(performanceData.average_time);
                 const formattedAvgTime = formatAverageResponseTime(avgTime);
                 const colorClass = getResponseTimeColorClass(avgTime);
@@ -1129,11 +1129,8 @@ jQuery(document).ready(function($) {
                     } else if ($this.hasClass('total-api-time-active')) {
                         $this.text('0.00s');
                     } else if ($this.hasClass('avg-response-time')) {
-                        $this.text('0.00ms');
-                        updateColorClass($this, 'status-excellent');
-                        if (metricsToStore.average_response_time === 0) {
-                            metricsToStore.average_response_time = 0.01; // Minimal default value
-                        }
+                        $this.text('—');
+                        updateColorClass($this, 'status-neutral');
                     } else if ($this.hasClass('memory-usage')) {
                         $this.text('0.00MB');
                         updateColorClass($this, 'status-excellent');
