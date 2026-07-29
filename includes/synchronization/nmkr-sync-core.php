@@ -87,13 +87,35 @@ function nmkr_handle_sync_worker_halt($halt, $run_id, $sync_stats_id, $counters 
     // Keep a second, canonical copy of the stopped handoff. Unlike the
     // finalization resume option, this remains visible to Stop re-entry and
     // progress/stale recovery when that dedicated option cannot be written.
-    $sync_data['stopped_recovery'] = array_merge($final, array('attempt' => 0));
-    if (!nmkr_save_sync_data($sync_data)) {
-        return new WP_Error('sync_stopped_recovery_persistence_failed', __('Synchronization stop recovery could not be persisted.', 'nmkr-connect'));
-    }
+    $stopped_recovery = array_merge($final, array('attempt' => 0));
+    $sync_data['stopped_recovery'] = $stopped_recovery;
+    nmkr_save_sync_data($sync_data);
     $sync_data = nmkr_get_sync_data();
-    if (!is_array($sync_data)
-        || !nmkr_is_valid_sync_finalization_record($sync_data['stopped_recovery'] ?? false, $run_id, $sync_stats_id)) {
+    $recovery_persisted = is_array($sync_data)
+        && isset($sync_data['stopped_recovery'])
+        && $sync_data['stopped_recovery'] === $stopped_recovery
+        && nmkr_is_valid_sync_finalization_record($sync_data['stopped_recovery'], $run_id, $sync_stats_id);
+
+    // update_option() also returns false for an unchanged value. Treat only an
+    // exact authoritative readback disagreement as failure, and give a genuine
+    // first-write failure one bounded ownership-safe reconstruction attempt.
+    if (!$recovery_persisted) {
+        $owner = nmkr_get_sync_owner();
+        if (!is_array($owner) || !hash_equals((string) ($owner['run_id'] ?? ''), (string) $run_id)
+            || ($owner['mode'] ?? '') !== 'direct' || ($owner['state'] ?? '') !== 'stop_requested'
+            || (int) ($owner['sync_stats_id'] ?? 0) !== (int) $sync_stats_id) {
+            return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this worker.', 'nmkr-connect'));
+        }
+        nmkr_save_sync_data(array_merge(is_array($sync_data) ? $sync_data : array(), array(
+            'stopped_recovery' => $stopped_recovery,
+        )));
+        $sync_data = nmkr_get_sync_data();
+        $recovery_persisted = is_array($sync_data)
+            && isset($sync_data['stopped_recovery'])
+            && $sync_data['stopped_recovery'] === $stopped_recovery
+            && nmkr_is_valid_sync_finalization_record($sync_data['stopped_recovery'], $run_id, $sync_stats_id);
+    }
+    if (!$recovery_persisted) {
         return new WP_Error('sync_stopped_recovery_persistence_failed', __('Synchronization stop recovery could not be verified.', 'nmkr-connect'));
     }
     // The exact Stop owner remains recoverable until its complete handoff has
