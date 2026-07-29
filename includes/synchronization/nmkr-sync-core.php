@@ -87,18 +87,16 @@ function nmkr_handle_sync_worker_halt($halt, $run_id, $sync_stats_id, $counters 
     // The exact Stop owner remains recoverable until its complete handoff has
     // been saved, read back, and given an executable retry event.
     $prepared = false;
-    // The direct worker is the only guaranteed executor at this point. Keep
-    // retrying option/readback or cron failures inline before relinquishing
-    // that executor; a successful preparation includes a verified record and
-    // event, so subsequent interruption remains independently recoverable.
-    while (!is_array($prepared)) {
+    // Give a transient option/readback or cron failure one bounded retry. If
+    // recovery infrastructure remains unavailable, the authoritative worker
+    // completes the stopped outcome inline instead of busy-spinning or
+    // returning an orphaned stop_requested owner.
+    for ($attempt = 0; $attempt < 2 && !is_array($prepared); $attempt++) {
         $prepared = nmkr_prepare_sync_finalization($sync_stats_id, $final, $sync_data);
-        if (is_array($prepared)) break;
+        if (is_array($prepared)) {
+            break;
+        }
 
-        // Do not return a retained Stop owner to a consumed one-shot worker
-        // without an executable resume event. Keep the exact worker as the
-        // recovery executor while the dependency is unavailable, but stop
-        // immediately if ownership has moved to a successor.
         $owner = nmkr_get_sync_owner();
         if (!is_array($owner) || !hash_equals((string) ($owner['run_id'] ?? ''), (string) $run_id)
             || ($owner['mode'] ?? '') !== 'direct' || ($owner['state'] ?? '') !== 'stop_requested'
@@ -106,9 +104,18 @@ function nmkr_handle_sync_worker_halt($halt, $run_id, $sync_stats_id, $counters 
             return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this worker.', 'nmkr-connect'));
         }
     }
+
+    // A prepared handoff has a verified exact callback. When preparation is
+    // persistently unavailable, use the same complete record in memory and
+    // perform canonical stopped finalization in this invocation. Passing the
+    // record as resumed avoids requiring the unavailable handoff a second time.
+    $inline_only = !is_array($prepared);
+    if ($inline_only) {
+        $prepared = array_merge($final, array('attempt' => 0));
+    }
     $finalizing = nmkr_transition_sync_owner($run_id, 'stop_requested', 'finalizing', $sync_stats_id);
     if (!nmkr_sync_owner_transition_succeeded($finalizing)) return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this worker.', 'nmkr-connect'));
-    $terminal = nmkr_sync_data_complete(false, __('Synchronization stopped by user.', 'nmkr-connect'), $prepared, false, true);
+    $terminal = nmkr_sync_data_complete(false, __('Synchronization stopped by user.', 'nmkr-connect'), $prepared, $inline_only, true);
     return is_array($terminal) ? $terminal : new WP_Error('sync_stopped_finalization_pending', __('Synchronization stop finalization remains pending.', 'nmkr-connect'));
 }
 
