@@ -54,6 +54,24 @@ function nmkr_is_fatal_api_error($value) {
         && $value->get_error_code() === 'nmkr_api_metric_evidence_persistence_failure';
 }
 
+/** Return true for token database failures that make a partial run unsafe. */
+function nmkr_is_fatal_token_persistence_error($value) {
+    return is_wp_error($value) && in_array($value->get_error_code(), array(
+        'nmkr_token_existence_query_failed',
+        'nmkr_token_write_failed',
+        'nmkr_token_details_existence_query_failed',
+        'nmkr_token_details_write_failed',
+    ), true);
+}
+
+/** Scale completed project writes into their bounded direct-worker phase. */
+function nmkr_project_phase_progress($processed, $project_total, $progress_start, $progress_end) {
+    if ((int) $project_total <= 0) return (float) $progress_start;
+    $progress = (float) $progress_start
+        + (((int) $processed / (int) $project_total) * ((float) $progress_end - (float) $progress_start));
+    return min((float) $progress_end, $progress);
+}
+
 /** Build the execution context consumed by interruptible API throttling. */
 function nmkr_build_sync_api_execution_context($run_id, $sync_stats_id, $request_phase) {
     if ($run_id === '') return array();
@@ -389,7 +407,7 @@ function nmkr_count_sync_steps($projects, $run_id = '', $sync_stats_id = 0) {
  * @param int $total_steps Total number of sync steps
  * @return array Array of project UIDs on success, empty array on failure
  */
-function nmkr_sync_projects(&$sync_log, &$completed_steps, $total_steps, $run_id = '', $sync_stats_id = 0, $projects = null) {
+function nmkr_sync_projects(&$sync_log, &$completed_steps, $total_steps, $run_id = '', $sync_stats_id = 0, $projects = null, $progress_start = null, $progress_end = null) {
     try {
         $sync_log[] = 'Starting project synchronization';
         
@@ -475,7 +493,16 @@ function nmkr_sync_projects(&$sync_log, &$completed_steps, $total_steps, $run_id
         update_option('nmkr_sync_current_count', $completed_steps);
         
         // Initialize progress with global total steps
-        nmkr_update_sync_progress($completed_steps, $total_steps, 'Starting project synchronization');
+        $report_project_progress = function ($processed, $message) use ($completed_steps, $total_steps, $progress_start, $progress_end, $valid_projects) {
+            if ($progress_start !== null && $progress_end !== null) {
+                $progress = nmkr_project_phase_progress($processed, count($valid_projects), $progress_start, $progress_end);
+                nmkr_update_sync_progress((int) floor(min((float) $progress_end, $progress)), 100, $message);
+                return;
+            }
+            nmkr_update_sync_progress($completed_steps + $processed, $total_steps, $message);
+        };
+
+        $report_project_progress(0, 'Starting project synchronization');
         
         $project_count = 0;
         $successful_projects = 0;
@@ -487,7 +514,7 @@ function nmkr_sync_projects(&$sync_log, &$completed_steps, $total_steps, $run_id
             $project_uid = isset($project['uid']) ? $project['uid'] : 
                           (isset($project['uid']) ? $project['uid'] : null);
             
-            nmkr_update_sync_progress($completed_steps, $total_steps, '🗂️ Processing Project: ' . $project_name);
+            $report_project_progress($project_count, '🗂️ Processing Project: ' . $project_name);
             
             // Validate project UID
             if (!$project_uid) {
@@ -1171,7 +1198,7 @@ function nmkr_sync_data($run_id = '') {
         }
 
         $completed_steps = 5;
-        $project_uids = nmkr_sync_projects($sync_log, $completed_steps, 100, $run_id, $sync_stats_id, $projects);
+        $project_uids = nmkr_sync_projects($sync_log, $completed_steps, 100, $run_id, $sync_stats_id, $projects, 5, 15);
         unset($projects);
         if (is_wp_error($project_uids)) return nmkr_handle_direct_worker_error($project_uids, $run_id, $sync_stats_id);
         if (empty($project_uids)) throw new Exception(__('No projects synchronized successfully.', 'nmkr-connect'));
@@ -1204,7 +1231,7 @@ function nmkr_sync_data($run_id = '') {
         $process_token = function ($token_uid, $project_uid, $token, $page_number) use (&$sync_log, &$completed_steps, &$total_tokens, &$token_details_synced, &$total_successful_tokens, &$total_failed_tokens, &$total_skipped_tokens, &$successful_details, &$failed_details, &$skipped_details, $run_id, $sync_stats_id) {
             $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'before_stream_token_processing'); if (is_wp_error($halt)) return $halt;
             $result = nmkr_sync_token_details($token_uid, $project_uid, $sync_log, $completed_steps, 100, $token, $run_id, $sync_stats_id);
-            if (nmkr_is_sync_worker_halt_error($result) || nmkr_is_fatal_api_error($result)) return $result;
+            if (nmkr_is_sync_worker_halt_error($result) || nmkr_is_fatal_api_error($result) || nmkr_is_fatal_token_persistence_error($result)) return $result;
             $total_tokens++;
             if ($result === true) { $successful_details++; $total_successful_tokens++; $token_details_synced++; }
             elseif (is_wp_error($result) && $result->get_error_code() === 'validation_failure') { $skipped_details++; $total_skipped_tokens++; }

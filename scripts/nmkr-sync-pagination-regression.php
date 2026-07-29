@@ -11,6 +11,17 @@ function is_wp_error($value) { return $value instanceof WP_Error; }
 function __($value) { return $value; }
 require dirname(__DIR__) . '/includes/synchronization/nmkr-sync-pagination.php';
 function assert_true($condition, $message) { if (!$condition) { fwrite(STDERR, "FAIL: $message\n"); exit(1); } }
+function load_core_helper($source, $name) {
+    $start = strpos($source, 'function ' . $name . '(');
+    $next = strpos($source, "\nfunction ", $start + 1);
+    $comment = strpos($source, "\n/**", $start + 1);
+    $ends = array_filter(array($next, $comment), function ($value) { return $value !== false; });
+    if ($start === false) { assert_true(false, 'production helper ' . $name . ' is available'); }
+    eval(substr($source, $start, min($ends) - $start));
+}
+$core_source = file_get_contents(dirname(__DIR__) . '/includes/synchronization/nmkr-sync-core.php');
+load_core_helper($core_source, 'nmkr_is_fatal_token_persistence_error');
+load_core_helper($core_source, 'nmkr_project_phase_progress');
 function token($uid) { return array('uid' => $uid); }
 function run_pages($projects, $pages, $max = 2000, $stop = null) {
     $calls = array(); $details = array(); $progress = array(); $checkpoints = array();
@@ -47,4 +58,26 @@ list($stopped_after, $after_calls, $after_details) = run_pages(array('p'), array
 assert_true(is_wp_error($stopped_after) && count($after_calls) === 1 && $after_details === array(), 'stop after response prevents processing');
 list($detail_stop, $detail_calls, $detail_details) = run_pages(array('p'), array('p'=>array(1=>array(token('a'),token('b')))), 2000, 'detail:a');
 assert_true(is_wp_error($detail_stop) && $detail_calls === array('p:1') && $detail_details === array('a'), 'stop during detail prevents later work');
+$fatal_calls = array();
+$fatal_pages = array();
+$fatal_result = nmkr_stream_token_pages(
+    array('p1', 'p2'),
+    function ($project, $page) use (&$fatal_pages) { $fatal_pages[] = "$project:$page"; return array(token('fatal'), token('later')); },
+    function ($uid) use (&$fatal_calls) {
+        $fatal_calls[] = $uid;
+        $result = new WP_Error('nmkr_token_details_write_failed', 'Synthetic database persistence failure.');
+        return nmkr_is_fatal_token_persistence_error($result) ? $result : true;
+    },
+    function () { return true; }
+);
+assert_true(is_wp_error($fatal_result) && $fatal_result->get_error_code() === 'nmkr_token_details_write_failed'
+    && $fatal_calls === array('fatal') && $fatal_pages === array('p1:1'),
+    'fatal token persistence failure stops later token, page, and project work');
+$large_project_progress = array();
+for ($processed = 0; $processed <= 500; $processed++) {
+    $large_project_progress[] = nmkr_project_phase_progress($processed, 500, 5, 15);
+}
+assert_true(min($large_project_progress) >= 5 && max($large_project_progress) === 15.0
+    && max(array_slice($large_project_progress, 0, -1)) < 15 && max($large_project_progress) < 100,
+    '500 project writes remain within 5-15 and cannot reach terminal progress');
 echo "Pagination regression passed.\n";
