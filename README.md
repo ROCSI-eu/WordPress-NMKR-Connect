@@ -56,6 +56,14 @@
 3. **Live updates**: The dashboard polls a progress endpoint; the progress bar and **Active Sync Metrics** update during the run.  
 4. **Present**: Use the plugin’s templates/shortcodes/blocks (depending on your theme setup) to display NFTs.
 
+Synchronization traverses numbered token pages until an empty terminal page is
+received. While pages are being discovered, dashboard progress is monotonic but
+provisional because the authoritative token total is not yet known. Duplicate
+token identifiers are processed once and final totals count unique identifiers.
+For safety, synchronization fails explicitly on malformed, repeated, or
+non-progressing pages and when the plugin's configurable 2,000-page-per-project
+ceiling is exhausted. That ceiling is a plugin safety policy, not an NMKR limit.
+
 ---
 
 ## Requirements
