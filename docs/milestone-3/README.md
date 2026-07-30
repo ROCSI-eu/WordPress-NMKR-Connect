@@ -24,6 +24,7 @@ Use only these statuses: **Not started**, **Planned**, **Implemented, validation
 - [Evidence register](evidence-register.md) — the ledger of tooling foundations and, later, executed evidence.
 - [Testing plan](testing-plan.md) — adjustable execution boundaries and the minimum test record.
 - [User guide](../user-guide.md) and [troubleshooting guide](../troubleshooting.md) — current documentation foundations for M3-16 and M3-18.
+- [Developer guide](../developer-guide.md) — current implementation documentation foundation for M3-17; an exact-commit maintainer/reproducibility review is still required before validation.
 - This landing page defines the shared vocabulary and publication boundary.
 
 Reports should be added only when real results exist, then linked from the matrix and register. An adjustable final set may contain concise functionality, usability, performance/load, cross-chain, and security summaries plus reviewer-environment instructions. Subjects may be combined where one reproducible report serves several rows; no empty reports are needed.

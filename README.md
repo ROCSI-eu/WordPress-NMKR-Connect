@@ -22,6 +22,7 @@ NMKR Connect is supported by [Cardano Project Catalyst Fund 13](https://mileston
 - [Requirements](#requirements)
 - [Installation and first use](#installation-and-first-use)
 - [User guide](docs/user-guide.md)
+- [Developer guide](docs/developer-guide.md)
 - [Shortcodes and plans](#shortcodes-and-plans)
 - [Roles and access](#roles-and-access)
 - [Analytics and privacy](#analytics-and-privacy)
@@ -73,7 +74,7 @@ If you have obtained a packaged ZIP that includes `vendor/`, use **WordPress Adm
 ### First-use flow
 
 1. Install and activate the plugin.
-2. Open **NMKR Connect → Settings**, enter the NMKR API key, review the synchronization settings, and save.
+2. Open **Settings → NMKR Connect**, enter the NMKR API key, review the synchronization settings, and save.
 3. Open the NMKR Connect dashboard and start synchronization. Follow its progress and final result; do not close or restart a run merely because a large collection takes time.
 4. Add a Free shortcode such as `[nmkr-grid]` or `[nmkr-token-list]` to a WordPress page. Use a project UID when a specific synchronized project should be displayed.
 
@@ -124,6 +125,8 @@ The implementation uses concrete WordPress controls, including plugin-specific c
 These controls are not an absolute security guarantee. Additional security hardening, WordPress security validation, load/API behaviour testing, and cross-chain verification remain part of the ongoing Milestone 3 work. Keep WordPress and dependencies maintained, grant minimal access, use HTTPS, protect credentials, and validate the plugin in a staging environment before production use.
 
 ## Development and testing
+
+See the **[developer guide](docs/developer-guide.md)** for setup, architecture, data flows, security boundaries, check selection, and contribution safety.
 
 Install Node dependencies with `npm ci`. The public-safe validation entry point is:
 
