@@ -45,5 +45,8 @@ php scripts/nmkr-database-write-regression.php
 printf '\n== HTTP and metric correctness regression ==\n'
 php scripts/nmkr-http-metrics-regression.php
 
+printf '\n== Streaming synchronization pagination regression ==\n'
+php scripts/nmkr-sync-pagination-regression.php
+
 printf '\n== Public-safe PHP 7.4 compatibility guard ==\n'
 npm run test:php74

@@ -135,6 +135,12 @@ It performs Bash syntax checks, Playwright test discovery, synthetic preflight/r
 
 Public CI runs `npm ci` and `npm run test:public` with PHP 7.4. It uses no WordPress or deployment credentials, does not deploy, and does not upload private Playwright reports, screenshots, traces, videos, VM logs, or other private artifacts. Its checks are limited to public-safe discovery, syntax, compatibility, and synthetic regression work.
 
+### Synchronization pagination and progress safety
+
+Token traversal requests sequential numbered pages, beginning with page 1 and using a page size of 50. A valid empty page ends traversal; a partial page does not. Within a synchronization run, each unique token UID is processed once, and final token totals count unique UIDs rather than duplicate records.
+
+Progress during token discovery is provisional and remains below 100%; only canonical completed finalization reports 100%. Malformed pages or records, repeated non-empty pages, pages that make no UID progress, conflicting project ownership for a UID, and exhaustion of the safety ceiling all fail explicitly rather than implying successful completion. The configurable default ceiling of 2,000 pages per project is a plugin safety policy, not a documented NMKR service limit.
+
 Detailed procedures and safety boundaries are maintained in:
 
 - [Phase 1 smoke testing](docs/testing-phase-1.md)

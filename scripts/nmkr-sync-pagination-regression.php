@@ -1,0 +1,166 @@
+<?php
+/* Public-safe behavioral regression for production pagination policy. */
+define('ABSPATH', __DIR__ . '/');
+class WP_Error {
+    private $code; private $message;
+    public function __construct($code, $message) { $this->code = $code; $this->message = $message; }
+    public function get_error_code() { return $this->code; }
+    public function get_error_message() { return $this->message; }
+}
+function is_wp_error($value) { return $value instanceof WP_Error; }
+function __($value) { return $value; }
+require dirname(__DIR__) . '/includes/synchronization/nmkr-sync-pagination.php';
+function assert_true($condition, $message) { if (!$condition) { fwrite(STDERR, "FAIL: $message\n"); exit(1); } }
+function load_core_helper($source, $name) {
+    $start = strpos($source, 'function ' . $name . '(');
+    $next = strpos($source, "\nfunction ", $start + 1);
+    $comment = strpos($source, "\n/**", $start + 1);
+    $ends = array_filter(array($next, $comment), function ($value) { return $value !== false; });
+    if ($start === false) { assert_true(false, 'production helper ' . $name . ' is available'); }
+    eval(substr($source, $start, min($ends) - $start));
+}
+$core_source = file_get_contents(dirname(__DIR__) . '/includes/synchronization/nmkr-sync-core.php');
+load_core_helper($core_source, 'nmkr_is_fatal_token_persistence_error');
+load_core_helper($core_source, 'nmkr_account_fatal_token_persistence_attempt');
+load_core_helper($core_source, 'nmkr_project_phase_progress');
+function token($uid) { return array('uid' => $uid); }
+function run_pages($projects, $pages, $max = 2000, $stop = null) {
+    $calls = array(); $details = array(); $progress = array(); $checkpoints = array();
+    $fetch = function ($project, $page) use (&$calls, $pages) { $calls[] = "$project:$page"; return $pages[$project][$page] ?? array(); };
+    $process = function ($uid, $project) use (&$details, $stop) { $details[] = $uid; return $stop === "detail:$uid" ? new WP_Error('sync_stop_requested', 'stop') : true; };
+    $checkpoint = function ($phase, $project, $page) use (&$checkpoints, $stop) { $key = "$phase:$project:$page"; $checkpoints[] = $key; return $stop === $key ? new WP_Error('sync_stop_requested', 'stop') : true; };
+    $report = function ($pi, $pc, $page, $unique, $terminal) use (&$progress) { $progress[] = array($pi, $page, $unique, $terminal); };
+    return array(nmkr_stream_token_pages($projects, $fetch, $process, $checkpoint, $report, $max), $calls, $details, $progress, $checkpoints);
+}
+list($result, $calls, $details, $progress) = run_pages(array('p1'), array('p1' => array(1 => array(token('a'), token('b')), 2 => array(token('b'), token('c')), 3 => array())));
+assert_true(!is_wp_error($result) && $result['total_tokens'] === 3, 'multi-page unique total');
+assert_true($calls === array('p1:1','p1:2','p1:3'), 'each numbered page and terminal empty page dispatched once');
+assert_true($details === array('a','b','c'), 'one detail dispatch per unique UID');
+assert_true(end($progress)[3] === true, 'project slice completes only on empty page');
+assert_true(count($progress) === 3, 'progress reports once per processed page, including the terminal page');
+$many_tokens = array();
+for ($i = 0; $i < 100; $i++) $many_tokens[] = token('token_' . $i);
+list($many_result, , , $many_progress) = run_pages(array('p'), array('p' => array(1 => $many_tokens, 2 => array())));
+assert_true($many_result['total_tokens'] === 100 && count($many_progress) === 2,
+    'progress update count scales with pages rather than token count');
+list($partial, $partial_calls) = run_pages(array('p'), array('p' => array(1 => array(token('a')), 2 => array(token('b')), 3 => array())));
+assert_true(!is_wp_error($partial) && $partial_calls === array('p:1','p:2','p:3'), 'partial pages are not terminal');
+list($empty, $empty_calls, $empty_details) = run_pages(array('p'), array('p' => array(1 => array())));
+assert_true($empty['total_tokens'] === 0 && $empty_calls === array('p:1') && $empty_details === array(), 'empty first page is terminal');
+list($conflict) = run_pages(array('p1','p2'), array('p1'=>array(1=>array(token('x')),2=>array()), 'p2'=>array(1=>array(token('x')))));
+assert_true(is_wp_error($conflict) && $conflict->get_error_code() === 'nmkr_token_project_conflict', 'conflicting ownership fails');
+list($repeat) = run_pages(array('p'), array('p'=>array(1=>array(token('a')),2=>array(token('a')))));
+assert_true(is_wp_error($repeat) && $repeat->get_error_code() === 'nmkr_token_page_repeated', 'duplicate complete page fails');
+list($no_progress) = run_pages(array('p'), array('p'=>array(1=>array(token('a'),token('b')),2=>array(token('a')))));
+assert_true(is_wp_error($no_progress) && in_array($no_progress->get_error_code(), array('nmkr_token_page_repeated','nmkr_token_page_no_progress'), true), 'non-progress page fails');
+foreach (array(array('bad'), array(array()), array(array('uid'=>'bad uid'))) as $bad) {
+    list($malformed) = run_pages(array('p'), array('p'=>array(1=>$bad)));
+    assert_true(is_wp_error($malformed) && strpos($malformed->get_error_code(), 'malformed') !== false, 'malformed page or record fails');
+}
+$malformed_identifiers = array(array(), new stdClass(), true, false, 123, 1.5, null);
+foreach (array('uid', 'token_uid') as $identifier_key) {
+    foreach ($malformed_identifiers as $malformed_identifier) {
+        list($malformed, , $malformed_details) = run_pages(array('p'), array('p'=>array(1=>array(array($identifier_key=>$malformed_identifier)))));
+        assert_true(is_wp_error($malformed) && $malformed->get_error_code() === 'nmkr_token_page_malformed_record'
+            && $malformed_details === array(), 'non-string ' . $identifier_key . ' fails before token detail processing');
+    }
+    foreach (array(' token-a', 'token-a ', "\ttoken-a", "token-a\n") as $padded_identifier) {
+        list($malformed, , $malformed_details) = run_pages(array('p'), array('p'=>array(1=>array(array($identifier_key=>$padded_identifier)))));
+        assert_true(is_wp_error($malformed) && $malformed->get_error_code() === 'nmkr_token_page_malformed_record'
+            && $malformed_details === array(), 'whitespace-padded ' . $identifier_key . ' fails before token detail processing');
+    }
+}
+list($limit) = run_pages(array('p'), array('p'=>array(1=>array(token('a')),2=>array(token('b')))), 1);
+assert_true(is_wp_error($limit) && $limit->get_error_code() === 'nmkr_token_page_limit', 'page limit exhaustion fails');
+list($stopped, $stopped_calls) = run_pages(array('p'), array('p'=>array(1=>array(token('a')))), 2000, 'before_page_request:p:1');
+assert_true(is_wp_error($stopped) && $stopped_calls === array(), 'stop before page prevents dispatch');
+list($stopped_after, $after_calls, $after_details) = run_pages(array('p'), array('p'=>array(1=>array(token('a')))), 2000, 'after_page_request:p:1');
+assert_true(is_wp_error($stopped_after) && count($after_calls) === 1 && $after_details === array(), 'stop after response prevents processing');
+$evidence_pages = array(); $evidence_details = array(); $evidence_checkpoints = array();
+$evidence_failure = nmkr_stream_token_pages(
+    array('p1', 'p2'),
+    function ($project, $page) use (&$evidence_pages) { $evidence_pages[] = "$project:$page"; return new WP_Error('nmkr_api_metric_evidence_persistence_failure', 'evidence'); },
+    function ($uid) use (&$evidence_details) { $evidence_details[] = $uid; return true; },
+    function ($phase) use (&$evidence_checkpoints) { $evidence_checkpoints[] = $phase; return $phase === 'after_page_request' ? new WP_Error('sync_checkpoint_persistence_failure', 'checkpoint') : true; }
+);
+assert_true(is_wp_error($evidence_failure) && $evidence_failure->get_error_code() === 'nmkr_api_metric_evidence_persistence_failure'
+    && $evidence_pages === array('p1:1') && $evidence_details === array()
+    && $evidence_checkpoints === array('before_page_request', 'after_page_request'),
+    'API evidence failure survives a later checkpoint failure and prevents all later page and token work');
+$stop_wins_evidence = nmkr_stream_token_pages(
+    array('p'),
+    function () { return new WP_Error('nmkr_api_metric_evidence_persistence_failure', 'evidence'); },
+    function () { assert_true(false, 'exact Stop prevents token processing'); },
+    function ($phase) { return $phase === 'after_page_request' ? new WP_Error('sync_stop_requested', 'stop') : true; }
+);
+assert_true(is_wp_error($stop_wins_evidence) && $stop_wins_evidence->get_error_code() === 'sync_stop_requested',
+    'exact Stop retains precedence over an API evidence failure');
+$owner_stop_wins = nmkr_stream_token_pages(
+    array('p'),
+    function () { return new WP_Error('nmkr_api_metric_evidence_persistence_failure', 'evidence'); },
+    function () { assert_true(false, 'authoritative owner Stop prevents token processing'); },
+    function ($phase) { return $phase === 'after_page_request' ? new WP_Error('sync_checkpoint_persistence_failure', 'checkpoint') : true; },
+    null,
+    2000,
+    function () { return true; }
+);
+assert_true(is_wp_error($owner_stop_wins) && $owner_stop_wins->get_error_code() === 'sync_stop_requested',
+    'exact stop_requested owner retains precedence over page evidence and checkpoint persistence failure');
+$page_stop_wins = nmkr_stream_token_pages(
+    array('p'),
+    function () { return new WP_Error('sync_stop_requested', 'stop'); },
+    function () { assert_true(false, 'page Stop prevents token processing'); },
+    function ($phase) { return $phase === 'after_page_request' ? new WP_Error('sync_checkpoint_lock_failed', 'checkpoint') : true; }
+);
+assert_true(is_wp_error($page_stop_wins) && $page_stop_wins->get_error_code() === 'sync_stop_requested',
+    'page Stop retains precedence over a later checkpoint error');
+list($detail_stop, $detail_calls, $detail_details) = run_pages(array('p'), array('p'=>array(1=>array(token('a'),token('b')))), 2000, 'detail:a');
+assert_true(is_wp_error($detail_stop) && $detail_calls === array('p:1') && $detail_details === array('a'), 'stop during detail prevents later work');
+$fatal_calls = array();
+$fatal_pages = array();
+$fatal_result = nmkr_stream_token_pages(
+    array('p1', 'p2'),
+    function ($project, $page) use (&$fatal_pages) { $fatal_pages[] = "$project:$page"; return array(token('fatal'), token('later')); },
+    function ($uid) use (&$fatal_calls) {
+        $fatal_calls[] = $uid;
+        $result = new WP_Error('nmkr_token_details_write_failed', 'Synthetic database persistence failure.');
+        return nmkr_is_fatal_token_persistence_error($result) ? $result : true;
+    },
+    function () { return true; }
+);
+assert_true(is_wp_error($fatal_result) && $fatal_result->get_error_code() === 'nmkr_token_details_write_failed'
+    && $fatal_calls === array('fatal') && $fatal_pages === array('p1:1'),
+    'fatal token persistence failure stops later token, page, and project work');
+$attempted = 0; $attempt_failed = 0; $detail_failed = 0;
+nmkr_account_fatal_token_persistence_attempt($attempted, $attempt_failed, $detail_failed);
+assert_true($attempted === 1 && $attempt_failed === 1 && $detail_failed === 1,
+    'a first fatal persistence attempt produces truthful processed and failed counters');
+$fatal_branch = substr($core_source, strpos($core_source, 'if (nmkr_is_fatal_token_persistence_error($result))'), 600);
+assert_true(strpos($fatal_branch, 'nmkr_account_fatal_token_persistence_attempt') !== false
+    && strpos($fatal_branch, 'return $result;') !== false,
+    'production fatal routing accounts for the attempt before propagation');
+assert_true(strpos($fatal_branch, 'nmkr_is_sync_worker_halt_error') === false,
+    'Stop precedence remains separate and does not count an unattempted token');
+$large_project_progress = array();
+for ($processed = 0; $processed <= 500; $processed++) {
+    $large_project_progress[] = nmkr_project_phase_progress($processed, 500, 5, 15);
+}
+assert_true(min($large_project_progress) >= 5 && max($large_project_progress) === 15.0
+    && max(array_slice($large_project_progress, 0, -1)) < 15 && max($large_project_progress) < 100,
+    '500 project writes remain within 5-15 and cannot reach terminal progress');
+$project_handoff = strpos($core_source, '$project_uids = nmkr_sync_projects(');
+$token_detail_handoff = strpos($core_source, '$result = nmkr_sync_token_details(', $project_handoff);
+$direct_worker_handoff = substr($core_source, $project_handoff, $token_detail_handoff - $project_handoff);
+assert_true($project_handoff !== false && $token_detail_handoff !== false
+    && preg_match('/nmkr_update_sync_progress\(15, 100,[^;]+;\s*\/\/[\s\S]+?\$completed_steps = 15;/', $direct_worker_handoff) === 1,
+    'production direct worker resets the raw project counter to the bounded token-stage baseline before first token detail');
+assert_true(strpos($core_source, '$sync_stats_id, false);') !== false,
+    'direct streaming suppresses legacy per-token detail progress while compatibility defaults remain enabled');
+for ($projects = 1; $projects <= 500; $projects++) {
+    for ($page = 1; $page <= 50; $page++) {
+        $slice = 80 / $projects;
+        $percent = min(94, 15 + (($projects - 1) * $slice) + ($slice * min(0.9, $page / ($page + 1))));
+        assert_true((int) floor($percent) <= 99, 'all traversal progress remains below canonical finalization');
+    }
+}
+echo "Pagination regression passed.\n";

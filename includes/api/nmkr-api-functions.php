@@ -203,14 +203,28 @@ function nmkr_connect_fetch_projects($context = array()) {
     return nmkr_sync_http_json_execute('projects', NMKR_API_URL . '/ListProjects', nmkr_sync_api_args($key, 30), 'nmkr_sync_list_shape', $context);
 }
 
-// Compatibility page-one adapter; pagination remains deferred.
+// Compatibility page-one adapter.
 function nmkr_connect_fetch_nfts($project_id, $context = array()) {
     return nmkr_connect_fetch_nfts_by_project($project_id, $context);
 }
 
 function nmkr_connect_fetch_nfts_by_project($project_uid, $context = array()) {
+    return nmkr_connect_fetch_nfts_page($project_uid, 50, 1, $context);
+}
+
+/** Fetch one numbered token page. The 2,000-page ceiling is enforced by the caller. */
+function nmkr_connect_fetch_nfts_page($project_uid, $page_size, $page_number, $context = array()) {
+    $project_uid = (string) $project_uid;
+    $page_size = (int) $page_size;
+    $page_number = (int) $page_number;
+    if ($project_uid === '' || strlen($project_uid) > 200 || preg_match('/^[A-Za-z0-9_-]+$/', $project_uid) !== 1) {
+        return new WP_Error('nmkr_token_page_invalid_project', __('The token page project identifier is invalid.', 'nmkr-connect'));
+    }
+    if ($page_size !== 50 || $page_number < 1) {
+        return new WP_Error('nmkr_token_page_invalid_paging', __('The token page request parameters are invalid.', 'nmkr-connect'));
+    }
     $key = nmkr_sync_api_key(); if ($key === '') return new WP_Error('api_key_not_set', 'API key not set');
-    return nmkr_sync_http_json_execute('token_list', NMKR_API_URL . '/GetNfts/' . rawurlencode($project_uid) . '/all/50/1', nmkr_sync_api_args($key, 45), 'nmkr_sync_list_shape', $context);
+    return nmkr_sync_http_json_execute('token_list', NMKR_API_URL . '/GetNfts/' . rawurlencode($project_uid) . '/all/' . $page_size . '/' . $page_number, nmkr_sync_api_args($key, 45), 'nmkr_sync_list_shape', $context);
 }
 
 function nmkr_connect_fetch_nft_details($token_uid, $context = array()) {

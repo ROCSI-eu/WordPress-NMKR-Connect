@@ -330,7 +330,7 @@ jQuery(document).ready(function($) {
             
             // Update current item status  
             if (current_item) {
-              $('#status-message').html('<div class="status-header">' + current_item + '</div>');
+              $('#status-message').empty().append($('<div>', { class: 'status-header' }).text(current_item));
             }
             
             // Update live metrics if available
