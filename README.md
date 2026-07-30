@@ -21,12 +21,14 @@ NMKR Connect is supported by [Cardano Project Catalyst Fund 13](https://mileston
 - [Current functionality](#current-functionality)
 - [Requirements](#requirements)
 - [Installation and first use](#installation-and-first-use)
+- [User guide](docs/user-guide.md)
 - [Shortcodes and plans](#shortcodes-and-plans)
 - [Roles and access](#roles-and-access)
 - [Analytics and privacy](#analytics-and-privacy)
 - [Security approach](#security-approach)
 - [Development and testing](#development-and-testing)
 - [Troubleshooting](#troubleshooting)
+- [Troubleshooting guide](docs/troubleshooting.md)
 - [Project layout](#project-layout)
 - [Contributing](#contributing)
 - [License and acknowledgements](#license-and-acknowledgements)
@@ -36,6 +38,7 @@ NMKR Connect is supported by [Cardano Project Catalyst Fund 13](https://mileston
 - Retrieves Cardano and Solana project and token data through the NMKR API.
 - Stores projects, tokens, token details, synchronization history and metrics, and optional engagement analytics in local WordPress database tables.
 - Provides run-scoped synchronization with start and stop controls, progress reporting, terminal finalization, durable run ownership, and stale/interrupted-state recovery behaviour.
+- Streams sequential token pages of 50, deduplicates token UIDs within each run, reconciles unique totals near completion, and reserves 100% for canonical completed finalization.
 - Shows live metrics for the active run and historical synchronization statistics, including processed-item, API timing, request, duration, and memory information.
 - Provides responsive grid, token-list, carousel, single-token, and single-project displays through the five registered shortcodes documented below.
 - Separates Free displays (grid and token list) from Premium displays (carousel, single token, and single project) through Freemius plan checks.
@@ -75,6 +78,8 @@ If you have obtained a packaged ZIP that includes `vendor/`, use **WordPress Adm
 4. Add a Free shortcode such as `[nmkr-grid]` or `[nmkr-token-list]` to a WordPress page. Use a project UID when a specific synchronized project should be displayed.
 
 Treat the NMKR API key, GA4 API secret, license details, WordPress credentials, and other environment values as secrets. Do not put them in content, source control, screenshots, or support logs.
+
+For complete installation, configuration, synchronization, shortcode, role, analytics, update, and deletion guidance, see the **[NMKR Connect user guide](docs/user-guide.md)**.
 
 ## Shortcodes and plans
 
@@ -154,6 +159,8 @@ Detailed procedures and safety boundaries are maintained in:
 - [Phase 16B.2 run-scoped synchronization checks](docs/testing-phase-16b2.md)
 
 ## Troubleshooting
+
+For symptom-based, read-only-first checks and a public-safe escalation template, see the **[NMKR Connect troubleshooting guide](docs/troubleshooting.md)**.
 
 Begin with read-only checks:
 
