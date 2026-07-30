@@ -15,6 +15,8 @@
     "test:e2e:projects": "node scripts/nmkr-playwright.js tests/e2e/nmkr-projects.regression.spec.ts",
     "test:e2e:shortcodes": "node scripts/nmkr-playwright.js tests/e2e/nmkr-shortcodes.regression.spec.ts",
     "test:e2e:analytics": "node scripts/nmkr-playwright.js tests/e2e/nmkr-analytics.regression.spec.ts",
+    "test:e2e:ajax-security": "node scripts/nmkr-playwright.js tests/e2e/nmkr-ajax-security.regression.spec.ts",
+    "test:ajax-security": "bash scripts/nmkr-ajax-security-test-runner.sh",
     "test:e2e:sync-state": "node scripts/nmkr-playwright.js tests/e2e/nmkr-sync-state.regression.spec.ts",
     "test:e2e:sync-run-authority": "node scripts/nmkr-playwright.js tests/e2e/nmkr-sync-run-authority.regression.spec.ts",
     "test:wpcli:db-state": "bash scripts/nmkr-wpcli-db-state.sh",

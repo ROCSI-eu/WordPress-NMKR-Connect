@@ -30,6 +30,9 @@ bash scripts/nmkr-real-sync-phase16a-regression.sh
 printf '\n== Canonical synchronization terminalization regression ==\n'
 bash scripts/nmkr-sync-terminalization-regression.sh
 
+printf '\n== Privileged AJAX guard regression ==\n'
+php scripts/nmkr-ajax-guard-regression.php
+
 printf '\n== In-place run_id schema upgrade regression ==\n'
 bash scripts/nmkr-schema-upgrade-regression.sh
 
