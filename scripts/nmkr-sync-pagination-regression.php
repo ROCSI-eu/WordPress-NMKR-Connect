@@ -80,4 +80,10 @@ for ($processed = 0; $processed <= 500; $processed++) {
 assert_true(min($large_project_progress) >= 5 && max($large_project_progress) === 15.0
     && max(array_slice($large_project_progress, 0, -1)) < 15 && max($large_project_progress) < 100,
     '500 project writes remain within 5-15 and cannot reach terminal progress');
+$project_handoff = strpos($core_source, '$project_uids = nmkr_sync_projects(');
+$token_detail_handoff = strpos($core_source, '$result = nmkr_sync_token_details(', $project_handoff);
+$direct_worker_handoff = substr($core_source, $project_handoff, $token_detail_handoff - $project_handoff);
+assert_true($project_handoff !== false && $token_detail_handoff !== false
+    && preg_match('/nmkr_update_sync_progress\(15, 100,[^;]+;\s*\/\/[\s\S]+?\$completed_steps = 15;/', $direct_worker_handoff) === 1,
+    'production direct worker resets the raw project counter to the bounded token-stage baseline before first token detail');
 echo "Pagination regression passed.\n";

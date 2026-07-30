@@ -1204,6 +1204,12 @@ function nmkr_sync_data($run_id = '') {
         if (empty($project_uids)) throw new Exception(__('No projects synchronized successfully.', 'nmkr-connect'));
         nmkr_update_sync_progress(15, 100, __('Discovering token pages', 'nmkr-connect'));
 
+        // nmkr_sync_projects() retains its legacy raw item counter for older
+        // callers. The direct worker must start streaming from its bounded
+        // phase baseline so the first token detail cannot report 100% merely
+        // because the account contains many projects.
+        $completed_steps = 15;
+
         $total_projects = count($project_uids);
         $total_tokens = 0;
         $token_details_synced = 0;
