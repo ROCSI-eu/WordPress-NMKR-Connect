@@ -23,13 +23,16 @@ Use only these statuses: **Not started**, **Planned**, **Implemented, validation
 - [Traceability matrix](traceability-matrix.md) — one primary row for each contractual subject, its minimum credible evidence, and dependencies.
 - [Evidence register](evidence-register.md) — the ledger of tooling foundations and, later, executed evidence.
 - [Testing plan](testing-plan.md) — adjustable execution boundaries and the minimum test record.
+- [User guide](../user-guide.md) and [troubleshooting guide](../troubleshooting.md) — current documentation foundations for M3-16 and M3-18.
 - This landing page defines the shared vocabulary and publication boundary.
 
 Reports should be added only when real results exist, then linked from the matrix and register. An adjustable final set may contain concise functionality, usability, performance/load, cross-chain, and security summaries plus reviewer-environment instructions. Subjects may be combined where one reproducible report serves several rows; no empty reports are needed.
 
-## Parallel synchronization work
+## Current synchronization foundation
 
-PR #56, **“Stream synchronization pagination, progress, and final metrics,”** is open from baseline `aef735064c1aefd83d8cd816e58e9fdd60600c6b` with the supplied head `12d6a4f56f5577a9d877ec7c8a4275a5830f10e4`. It is neither merged nor runtime-validated by this workspace. Evidence involving traversal beyond the first token page, representative high token volume, run-scoped deduplication, unique final totals, provisional progress, pagination failures, volume metrics, or related cross-chain volume claims remains pending PR #56 **and** subsequent private validation. This documentation does not copy or reimplement that work.
+PR #56, **“Stream synchronization pagination, progress, and final metrics,”** merged into main as `3c61a928e5ae9c9459b9c108f1187bc6ca742afc` (final PR head `12d6a4f56f5577a9d877ec7c8a4275a5830f10e4`). The project owner confirms exact-head private pre-merge and merged-main private post-merge operational validation. No private location, output, or infrastructure detail is published here.
+
+The merged implementation establishes streaming numbered-page traversal, run-scoped UID deduplication, provisional bounded progress, authoritative unique final totals, pagination safety failures, and canonical final metrics as current foundations. That operational validation is not contractual evidence for bounded/heavier load, API response below one second, NFT display load below two seconds, uptime above 99.9% over a disclosed period, or representative heavier cross-chain performance. Those measurements and reviewer-visible reports remain required; Milestone 3 is not claimed complete.
 
 ## Public and private boundary
 

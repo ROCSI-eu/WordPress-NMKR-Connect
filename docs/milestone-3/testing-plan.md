@@ -41,13 +41,13 @@ Use a short neutral task script for representative setup, synchronization status
 
 Before measurement, define the operation, metric, normal/load profile, dataset scale, cache state, client/network conditions, observation window, warm-up/repetition approach, and acceptable errors. Report measured values and distribution/summary rather than only “fast.” Keep the method adjustable but evaluate the fixed contractual thresholds explicitly.
 
-Use bounded stepped load in an authorized non-production environment. Set concurrency/rate ceilings, resource and error monitoring, stop thresholds, cooldown, and recovery/final-state checks. Do not extrapolate unlimited scale from a small test. Volume synchronization and related cross-chain claims remain pending PR #56 merge and private validation.
+Use bounded stepped load in an authorized non-production environment. Set concurrency/rate ceilings, resource and error monitoring, stop thresholds, cooldown, and recovery/final-state checks. Do not extrapolate unlimited scale from a small test. Streaming numbered-page traversal, run-scoped deduplication, bounded provisional progress, and canonical final metrics are current implementation foundations. Their operational validation does not replace separately measured bounded load, latency, uptime, or heavier cross-chain evidence.
 
 For uptime, define what endpoint and response qualify as available, probe interval/location class, observation start/end, planned-maintenance treatment, calculation, missing-data handling, and incidents. Choose a defensible period appropriate to submission evidence; this plan does not invent an excessive mandatory duration. State whether the above-99.9% target was met during that disclosed period.
 
 ### Chain-specific synchronization
 
-Register Cardano and Solana executions separately, with chain, dataset scope, terminal state, integrity checks, API timing, cleanup, and limitations. Only after both exist may a combined comparison reference them. A single synchronization does not prove heavier traffic, uptime, or full cross-chain performance. Beyond-first-page traversal, representative high token volume, run-scoped deduplication, unique final totals, provisional progress, pagination failure handling, volume metrics, and related cross-chain volume claims are pending PR #56 merge and private validation.
+Register Cardano and Solana executions separately, with chain, dataset scope, terminal state, integrity checks, API timing, cleanup, and limitations. Only after both exist may a combined comparison reference them. A single synchronization does not prove heavier traffic, uptime, or full cross-chain performance. Streaming traversal, run-scoped deduplication, unique final totals, provisional progress, pagination failure handling, and final metrics are current implementation foundations. Register separate measured evidence for each chain and for representative high volume or heavier cross-chain traffic; the foundation alone does not validate those contractual claims.
 
 ### Security and negative paths
 
@@ -69,7 +69,7 @@ Provide reviewers a limited, temporary, controlled environment only when ready. 
 
 ## Stop conditions
 
-Stop and preserve the current state safely when authorization or commit identity is uncertain; secrets/private data could be exposed; the target is production or outside scope; error/latency/resource thresholds are exceeded; cleanup/recovery fails; unexpected destructive behavior occurs; API limits or upstream instability make the result misleading; or PR #56-dependent coverage is attempted before merge and private validation. Record the interruption and limitation rather than forcing a pass.
+Stop and preserve the current state safely when authorization or commit identity is uncertain; secrets/private data could be exposed; the target is production or outside scope; error/latency/resource thresholds are exceeded; cleanup/recovery fails; unexpected destructive behavior occurs; API limits or upstream instability make the result misleading. Record the interruption and limitation rather than forcing a pass.
 
 ## Delivery and follow-up
 
