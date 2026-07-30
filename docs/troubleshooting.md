@@ -22,7 +22,7 @@ For **any advanced recovery**, first confirm the exact environment, make and ver
 - **Escalation information:** exact source commit, build command, package source, and the missing relative path only.
 - **Actions to avoid:** do not assemble vendor piecemeal, copy dependencies from an unrelated release, or publish private paths/environment files.
 
-## 2. Settings access or save failure
+## 3. Settings access or save failure
 
 - **Symptom:** **Settings → NMKR Connect** is absent/denied or values do not save.
 - **Likely causes:** missing `nmkr_manage_settings`, expired session/settings nonce, security middleware, invalid values being clamped/rejected, or a persistence failure.
@@ -31,7 +31,7 @@ For **any advanced recovery**, first confirm the exact environment, make and ver
 - **Escalation information:** affected field (never its secret value), role, response status, and sanitized message.
 - **Actions to avoid:** do not share a nonce/API secret, bypass capability checks, grant full Administrator merely as a workaround, or edit options directly.
 
-## 3. NMKR API configuration missing, rejected, or unavailable
+## 4. NMKR API configuration missing, rejected, or unavailable
 
 - **Symptom:** Dashboard says no API key/disconnected, requests are rejected, or synchronization cannot retrieve projects.
 - **Likely causes:** empty/revoked/wrong key, account access limits, temporary NMKR/network failure, DNS/TLS/firewall issue, or rate limiting.
@@ -40,7 +40,7 @@ For **any advanced recovery**, first confirm the exact environment, make and ver
 - **Escalation information:** time window, sanitized status/error, whether all or one operation fails, and terminal state.
 - **Actions to avoid:** never paste the key into a URL, CLI history, issue, screenshot, log, or connectivity tester.
 
-## 4. Synchronization cannot start
+## 5. Synchronization cannot start
 
 - **Symptom:** Start is denied, says a run is active, or returns an AJAX error.
 - **Likely causes:** no `nmkr_manage_sync`, missing/invalid nonce, missing API setup, an existing run owner, stale state under guarded recovery, blocked `admin-ajax.php`, or persistence failure.
@@ -49,16 +49,16 @@ For **any advanced recovery**, first confirm the exact environment, make and ver
 - **Escalation information:** start time, active/idle indication, response status, run terminal state, and sanitized error code.
 - **Actions to avoid:** do not clear owner/status options, trigger parallel requests, or directly invoke worker endpoints.
 
-## 5. Synchronization appears stalled or polling/network errors occur
+## 6. Synchronization appears stalled or polling/network errors occur
 
 - **Symptom:** progress changes slowly/stops, “recoverable” polling errors appear, or the browser increases time between checks.
 - **Likely causes:** ongoing paged traversal/detail work, provisional totals, browser/network interruption, adaptive polling backoff, upstream throttling, or a worker/persistence failure.
 - **Safe checks:** note status/current item/last visible change; check `admin-ajax.php` requests and browser console; keep in mind progress is provisional and below 100% until finalization; check whether history reaches a terminal state.
-- **Corrective action:** keep one Dashboard session, restore connectivity, allow configured backoff/recovery, and wait for a terminal result. If the error limit is reached, preserve the failure text and resolve its cause before a new run.
+- **Corrective action:** keep one Dashboard session, restore connectivity, allow automatic retry with exponential backoff capped near 30 seconds, and wait for a terminal result. **Maximum Error Count** is retained/sanitized but does not currently stop transient progress-poll retries. Stop remains available to an authorized user for the trusted active run.
 - **Escalation information:** approximate duration, polling HTTP status pattern, last progress/status, whether Stop was requested, and terminal result.
 - **Actions to avoid:** do not refresh/start repeatedly, assume a provisional percentage is a total, terminate PHP/database processes, or clear state.
 
-## 6. Cooperative Stop and stopped final state
+## 7. Cooperative Stop and stopped final state
 
 - **Symptom:** Stop does not look instantaneous, or the result is **stopped** rather than **completed**.
 - **Likely causes:** Stop is run-scoped and cooperative; the worker must reach a checkpoint and finalize counters/state.
@@ -67,16 +67,16 @@ For **any advanced recovery**, first confirm the exact environment, make and ver
 - **Escalation information:** whether Stop was acknowledged, time to terminal state, final counters/status, and cleanup verification.
 - **Actions to avoid:** do not start a successor run while stopping, repeatedly submit Stop, or manually rewrite history/owner state.
 
-## Recoverable polling/network errors
+## 8. Recoverable polling/network errors
 
 - **Symptom:** one or more progress polls fail and the delay increases, but the run has not reported a terminal failure.
 - **Likely causes:** short browser/network interruption, temporary `admin-ajax.php` or upstream unavailability, or adaptive polling backoff.
 - **Safe checks:** record sanitized HTTP status classes and confirm whether a later poll succeeds; distinguish browser polling from the server worker's terminal state.
-- **Corrective action:** restore connectivity and allow automatic retry within **Maximum Error Count**; if it exhausts the limit, preserve the message and resolve the network cause before reloading status.
+- **Corrective action:** restore connectivity and allow automatic retries. Retriable progress-poll failures continue with exponential backoff capped near 30 seconds; **Maximum Error Count** is a retained/sanitized setting, not the current transient poll termination limit. An authorized user may still request Stop for the trusted active run.
 - **Escalation information:** browser/version, status sequence, configured interval/error-limit values, and eventual terminal state.
 - **Actions to avoid:** do not interpret one failed poll as permission to clear the run or start another, and do not publish request cookies/nonces.
 
-## 7. Pagination safety failure
+## 9. Pagination safety failure
 
 - **Symptom:** synchronization fails with malformed page/record, repeated page, no UID progress, conflicting ownership, or page-limit/safety wording.
 - **Likely causes:** unexpected upstream payload, identical non-empty responses, duplicate-only continuation, inconsistent token/project association, or excessive traversal.
@@ -85,7 +85,7 @@ For **any advanced recovery**, first confirm the exact environment, make and ver
 - **Escalation information:** exact commit, sanitized safety error, synthetic description of response shape, repeatability, and finalization outcome.
 - **Actions to avoid:** do not raise/remove the safety ceiling casually, patch payload validation, publish API responses, or claim completion despite failure.
 
-## 8. Persistence/database failure
+## 10. Persistence/database failure
 
 - **Symptom:** project/token writes, checkpoints, history, metrics, or finalization report a persistence failure.
 - **Likely causes:** database outage, insufficient database privileges/storage, schema mismatch after update, lock contention, or write error.
@@ -94,7 +94,7 @@ For **any advanced recovery**, first confirm the exact environment, make and ver
 - **Escalation information:** operation category, exact commit/version, update history, terminal/cleanup state, and sanitized error.
 - **Actions to avoid:** do not run ad-hoc SQL, drop/recreate tables, delete rows/options, or publish a database dump.
 
-## 9. Projects or tokens absent after synchronization
+## 11. Projects or tokens absent after synchronization
 
 - **Symptom:** **NFT Projects** is empty, a project/token is missing, or counts differ from expectation.
 - **Likely causes:** key/account cannot see it, run failed/stopped, upstream omitted data, token was malformed/deduplicated, wrong UID, or stale page/cache.
@@ -103,7 +103,7 @@ For **any advanced recovery**, first confirm the exact environment, make and ver
 - **Escalation information:** chain class, synthetic dataset description, expected versus observed counts, final status, and sanitized message.
 - **Actions to avoid:** do not insert/edit project or token rows, publish real UIDs, or equate a stopped/failed run with complete data.
 
-## 10. Shortcode empty, unavailable, or Premium-restricted
+## 12. Shortcode empty, unavailable, or Premium-restricted
 
 - **Symptom:** blank/error message, “not found,” no selector/data, or “This feature requires the Premium plan.”
 - **Likely causes:** misspelled shortcode/registered attribute, unsynchronized UID/data, omitted UID with no fallback project/buyable token, `allow_user_select="0"`, Premium shortcode on Free plan, or theme/script conflict.
@@ -112,7 +112,7 @@ For **any advanced recovery**, first confirm the exact environment, make and ver
 - **Escalation information:** shortcode with fake identifiers, plan class (Free/Premium only), browser/theme class, console error text sanitized, and expected/actual result.
 - **Actions to avoid:** do not invent query/chain/limit attributes, expose real UIDs/licence data, bypass plan checks, or edit shortcode PHP.
 
-## Free/Premium restriction
+## 13. Free/Premium restriction
 
 - **Symptom:** carousel, single-token, or single-project output shows the Premium-required message while grid/list works.
 - **Likely causes:** expected plan gating, inactive/unrecognized Premium entitlement, or the wrong installation/account context.
@@ -121,7 +121,7 @@ For **any advanced recovery**, first confirm the exact environment, make and ver
 - **Escalation information:** plugin commit/release, shortcode name, expected plan class, and sanitized message.
 - **Actions to avoid:** do not share licence information, alter plan checks, or copy Premium code/files between installations.
 
-## 11. Role or capability denial
+## 14. Role or capability denial
 
 - **Symptom:** menu/page/action is missing or Access denied appears.
 - **Likely causes:** intended least-privilege boundary, custom role missing a specific NMKR capability, or stale login session.
@@ -130,7 +130,7 @@ For **any advanced recovery**, first confirm the exact environment, make and ver
 - **Escalation information:** role name, requested page/action, capability present/absent (not user identity), and sanitized denial.
 - **Actions to avoid:** do not bypass capability/nonces or grant Administrator solely to hide a denial.
 
-## 12. Analytics not recording
+## 15. Analytics not recording
 
 - **Symptom:** Analytics remains empty or GA4 events do not arrive.
 - **Likely causes:** mode Off/wrong destination, logged-in tracking off, consent required but not signalled, sampling, invalid/missing GA4 fields, endpoint blocked, deduplication/rate limiting, or retention purge.
@@ -139,7 +139,7 @@ For **any advanced recovery**, first confirm the exact environment, make and ver
 - **Escalation information:** mode, user login/consent state class, affected shortcode/event class, response status, and sanitized error.
 - **Actions to avoid:** never share GA4 secret, disable consent to force a test, publish visitor/customer data, or delete analytics rows.
 
-## 13. `admin-ajax.php`, JavaScript, CDN, proxy, or security interference
+## 16. `admin-ajax.php`, JavaScript, CDN, proxy, or security interference
 
 - **Symptom:** buttons/status/selectors/analytics fail, requests are 403/404/5xx, stale, or cached; console errors appear.
 - **Likely causes:** expired nonce, cached admin/AJAX response, WAF/security rule, JS aggregation/order conflict, blocked cookies, or network outage.
@@ -148,7 +148,7 @@ For **any advanced recovery**, first confirm the exact environment, make and ver
 - **Escalation information:** browser class/version, response status/action class, relevant sanitized console text, integrations involved, and reproducible steps.
 - **Actions to avoid:** do not publish nonces/cookies/private URLs/IPs, broadly disable protection in production, or make multiple untracked changes.
 
-## 14. Debug logging and sanitized diagnostics
+## 17. Debug logging and sanitized diagnostics
 
 - **Symptom:** too little information, excessive logs, or concern that diagnostics contain sensitive data.
 - **Likely causes:** debug master/destination/category disabled, throttling, retention, WordPress debug configuration, or overly broad debugging.
@@ -157,7 +157,7 @@ For **any advanced recovery**, first confirm the exact environment, make and ver
 - **Escalation information:** category, time window, sanitized error text, and whether debugging was disabled afterward.
 - **Actions to avoid:** do not post raw logs, assume universal redaction, leave verbose logging enabled, or upload traces/screenshots/videos without manual sanitization.
 
-## Safe escalation checklist
+## 18. Safe escalation checklist
 
 Before escalating, confirm the environment and commit, reproduce with the least privilege, record whether synchronization was active and its terminal state, finish cleanup/final-state verification, replace every real project/token identifier with a fake one, and manually sanitize the report.
 

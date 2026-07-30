@@ -22,7 +22,7 @@ Install the resulting directory under `wp-content/plugins/`, or create a ZIP con
 
 Activation creates or upgrades the plugin tables, installs NMKR roles/capabilities, supplies defaults, attempts safe stale-synchronization recovery, and schedules analytics retention maintenance. Test activation on staging first and make a verified backup before an update.
 
-Deactivation clears volatile synchronization state but is not uninstall. Deleting the plugin through WordPress invokes the registered uninstall routine: project, token, token-detail, synchronization-history, and synchronization-metrics tables and plugin options/transients are removed. The analytics table is removed only when **Remove Data on Uninstall** was selected before deletion. Treat deletion as destructive and verify backups and retention requirements first.
+Deactivation clears volatile synchronization state but is not uninstall. Deleting the plugin through WordPress invokes `nmkr_connect_uninstall()`, which drops the `nmkr_projects`, `nmkr_tokens`, `nmkr_token_details`, `nmkr_sync_stats`, and `nmkr_sync_metrics` tables. It also deletes only its fixed option/site-option whitelist (`nmkr_api_key`, `nmkr_last_sync_time`, `nmkr_sync_status`, `nmkr_connect_options`, the four `nmkr_*_logs` keys, the listed synchronization status/progress/count/error/time/owner/result/recovery keys, and the schema-version and schema-upgrade-lock keys) and fixed transient/site-transient whitelist (`nmkr_sync_in_progress`, `nmkr_last_sync_error`, `nmkr_current_sync_stats_live`, `nmkr_current_sync_stats_summary`, `nmkr_stop_sync_requested`, `nmkr_sync_batch_state`, and `nmkr_api_connection_status`). The `nmkr_analytics` table is dropped only when **Remove Data on Uninstall** was selected before deletion. This is not a guarantee that roles/capabilities, scheduled hooks, dynamic finalization keys, other plugin-owned state, or every option or transient is removed. Deletion is destructive: make and verify a backup and confirm retention requirements before proceeding.
 
 ## Administration pages and access
 
@@ -55,7 +55,7 @@ Only a user with `nmkr_manage_settings` can open or save **Settings → NMKR Con
 - **Maximum Polling Interval (ms)** — polling ceiling, sanitized to 1,000–30,000 ms.
 - **Interval Increase Factor** — backoff growth, sanitized to 1.1–3.0.
 - **Interval Decrease Factor** — recovery adjustment, sanitized to 0.1–0.9.
-- **Maximum Error Count** — recoverable polling-error limit, sanitized to 1–10.
+- **Maximum Error Count** — retained and sanitized to 1–10, but the current browser progress poller does not use it as the transient polling-failure termination limit.
 
 The direct synchronization token-page size is fixed by the current implementation at 50; it is not a user setting and is separate from Batch Size.
 
@@ -82,7 +82,7 @@ When consent is required, collection waits for the plugin consent signal. The si
 
 1. Save a valid API key and open **NMKR Connect → Dashboard**.
 2. Start synchronization only when no run is active. The plugin uses run-scoped ownership so another start cannot simply take over an active run.
-3. Keep the Dashboard available to observe status. Temporary polling/network errors cause browser polling to back off and recover up to the configured error limit; they do not necessarily mean the worker failed.
+3. Keep the Dashboard available to observe status. Temporary polling/network errors cause the browser to continue retrying with exponential backoff capped near 30 seconds; they do not necessarily mean the worker failed. **Maximum Error Count** does not currently terminate these retries.
 4. If necessary, choose **Stop** once. Stop is cooperative and applies only to that run: the worker observes the request at safe checkpoints, records a stopped terminal result, and finalizes state. Do not repeatedly start another run while Stop is settling.
 5. Read the final result and history. A failed or stopped run is not completed; address the reported cause before retrying. Stale/interrupted state has guarded recovery paths, but state-changing recovery belongs in the [troubleshooting guide](troubleshooting.md).
 
