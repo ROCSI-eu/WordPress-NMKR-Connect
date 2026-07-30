@@ -27,7 +27,13 @@ function nmkr_stream_token_pages($project_uids, $fetch_page, $process_token, $ch
             if ($page_number > $max_pages) return new WP_Error('nmkr_token_page_limit', __('Token pagination reached the plugin safety limit before an empty terminal page.', 'nmkr-connect'));
             $halt = call_user_func($checkpoint, 'before_page_request', $project_uid, $page_number); if (is_wp_error($halt)) return $halt;
             $page = call_user_func($fetch_page, $project_uid, $page_number);
-            $halt = call_user_func($checkpoint, 'after_page_request', $project_uid, $page_number); if (is_wp_error($halt)) return $halt;
+            $halt = call_user_func($checkpoint, 'after_page_request', $project_uid, $page_number);
+            // An exact Stop observed after dispatch always wins. Otherwise retain
+            // attempt-evidence failures so the worker routes them to canonical
+            // failed finalization instead of replacing them with a checkpoint error.
+            if (is_wp_error($halt) && $halt->get_error_code() === 'sync_stop_requested') return $halt;
+            if (is_wp_error($page) && $page->get_error_code() === 'nmkr_api_metric_evidence_persistence_failure') return $page;
+            if (is_wp_error($halt)) return $halt;
             if (is_wp_error($page)) return $page;
             if (!is_array($page) || (!empty($page) && array_keys($page) !== range(0, count($page) - 1))) {
                 return new WP_Error('nmkr_token_page_malformed_shape', __('A token page had an invalid top-level shape.', 'nmkr-connect'));
@@ -41,7 +47,9 @@ function nmkr_stream_token_pages($project_uids, $fetch_page, $process_token, $ch
             $uids = array();
             foreach ($page as $token) {
                 if (!is_array($token)) return new WP_Error('nmkr_token_page_malformed_record', __('A token page contained an invalid token record.', 'nmkr-connect'));
-                $uid = isset($token['uid']) ? trim((string) $token['uid']) : (isset($token['token_uid']) ? trim((string) $token['token_uid']) : '');
+                $raw_uid = array_key_exists('uid', $token) ? $token['uid'] : (array_key_exists('token_uid', $token) ? $token['token_uid'] : null);
+                if (!is_string($raw_uid)) return new WP_Error('nmkr_token_page_malformed_record', __('A token page contained an invalid token identifier.', 'nmkr-connect'));
+                $uid = trim($raw_uid);
                 if ($uid === '' || strlen($uid) > 200 || preg_match('/^[A-Za-z0-9_-]+$/', $uid) !== 1) return new WP_Error('nmkr_token_page_malformed_record', __('A token page contained an invalid token identifier.', 'nmkr-connect'));
                 $uids[] = $uid;
             }

@@ -57,12 +57,39 @@ foreach (array(array('bad'), array(array()), array(array('uid'=>'bad uid'))) as 
     list($malformed) = run_pages(array('p'), array('p'=>array(1=>$bad)));
     assert_true(is_wp_error($malformed) && strpos($malformed->get_error_code(), 'malformed') !== false, 'malformed page or record fails');
 }
+$malformed_identifiers = array(array(), new stdClass(), true, false, 123, 1.5, null);
+foreach (array('uid', 'token_uid') as $identifier_key) {
+    foreach ($malformed_identifiers as $malformed_identifier) {
+        list($malformed, , $malformed_details) = run_pages(array('p'), array('p'=>array(1=>array(array($identifier_key=>$malformed_identifier)))));
+        assert_true(is_wp_error($malformed) && $malformed->get_error_code() === 'nmkr_token_page_malformed_record'
+            && $malformed_details === array(), 'non-string ' . $identifier_key . ' fails before token detail processing');
+    }
+}
 list($limit) = run_pages(array('p'), array('p'=>array(1=>array(token('a')),2=>array(token('b')))), 1);
 assert_true(is_wp_error($limit) && $limit->get_error_code() === 'nmkr_token_page_limit', 'page limit exhaustion fails');
 list($stopped, $stopped_calls) = run_pages(array('p'), array('p'=>array(1=>array(token('a')))), 2000, 'before_page_request:p:1');
 assert_true(is_wp_error($stopped) && $stopped_calls === array(), 'stop before page prevents dispatch');
 list($stopped_after, $after_calls, $after_details) = run_pages(array('p'), array('p'=>array(1=>array(token('a')))), 2000, 'after_page_request:p:1');
 assert_true(is_wp_error($stopped_after) && count($after_calls) === 1 && $after_details === array(), 'stop after response prevents processing');
+$evidence_pages = array(); $evidence_details = array(); $evidence_checkpoints = array();
+$evidence_failure = nmkr_stream_token_pages(
+    array('p1', 'p2'),
+    function ($project, $page) use (&$evidence_pages) { $evidence_pages[] = "$project:$page"; return new WP_Error('nmkr_api_metric_evidence_persistence_failure', 'evidence'); },
+    function ($uid) use (&$evidence_details) { $evidence_details[] = $uid; return true; },
+    function ($phase) use (&$evidence_checkpoints) { $evidence_checkpoints[] = $phase; return $phase === 'after_page_request' ? new WP_Error('sync_checkpoint_persistence_failure', 'checkpoint') : true; }
+);
+assert_true(is_wp_error($evidence_failure) && $evidence_failure->get_error_code() === 'nmkr_api_metric_evidence_persistence_failure'
+    && $evidence_pages === array('p1:1') && $evidence_details === array()
+    && $evidence_checkpoints === array('before_page_request', 'after_page_request'),
+    'API evidence failure survives a later checkpoint failure and prevents all later page and token work');
+$stop_wins_evidence = nmkr_stream_token_pages(
+    array('p'),
+    function () { return new WP_Error('nmkr_api_metric_evidence_persistence_failure', 'evidence'); },
+    function () { assert_true(false, 'exact Stop prevents token processing'); },
+    function ($phase) { return $phase === 'after_page_request' ? new WP_Error('sync_stop_requested', 'stop') : true; }
+);
+assert_true(is_wp_error($stop_wins_evidence) && $stop_wins_evidence->get_error_code() === 'sync_stop_requested',
+    'exact Stop retains precedence over an API evidence failure');
 list($detail_stop, $detail_calls, $detail_details) = run_pages(array('p'), array('p'=>array(1=>array(token('a'),token('b')))), 2000, 'detail:a');
 assert_true(is_wp_error($detail_stop) && $detail_calls === array('p:1') && $detail_details === array('a'), 'stop during detail prevents later work');
 $fatal_calls = array();
