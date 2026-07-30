@@ -1,4 +1,42 @@
 <?php
+/** Normalize an API blockchain value into meaningful, ordered chain names. */
+function nmkr_normalize_project_blockchains($value) {
+    $values = is_array($value) ? $value : array($value);
+    $normalized = array();
+    $seen = array();
+    foreach ($values as $chain) {
+        if (!is_scalar($chain) || is_bool($chain)) continue;
+        $chain = trim(sanitize_text_field((string) $chain));
+        if ($chain === '') continue;
+        $key = strtolower($chain);
+        if ($key === 'cardano') $chain = 'Cardano';
+        elseif ($key === 'solana') $chain = 'Solana';
+        $key = strtolower($chain);
+        if (isset($seen[$key])) continue;
+        $seen[$key] = true;
+        $normalized[] = $chain;
+    }
+    return $normalized;
+}
+
+/** Serialize the authoritative blockchain collection as a JSON array. */
+function nmkr_serialize_project_blockchains($value) {
+    $json = wp_json_encode(nmkr_normalize_project_blockchains($value));
+    return is_string($json) ? $json : '[]';
+}
+
+/** Normalize the undocumented Solana project details without scalar coercion warnings. */
+function nmkr_normalize_solana_project_details($value) {
+    if ($value === null || $value === '') return '';
+    if (is_array($value) || is_object($value)) {
+        $json = wp_json_encode($value);
+        return is_string($json) ? $json : '';
+    }
+    if (is_bool($value)) return $value ? '1' : '0';
+    if (is_int($value) || is_float($value)) return (string) $value;
+    if (is_string($value)) return sanitize_textarea_field($value);
+    return '';
+}
 // Function to store project data
 function nmkr_store_project_exact($project_data) {
     global $wpdb;
@@ -35,7 +73,8 @@ function nmkr_store_project_exact($project_data) {
     // Create a unique hash for the project data
     $hash = nmkr_generate_project_hash($project_data);
     
-    // Prepare data for insert/update
+    // Prepare data for insert/update.
+    $normalized_blockchains = nmkr_normalize_project_blockchains(isset($project_data['blockchains']) ? $project_data['blockchains'] : null);
     $data = array(
         'project_id' => isset($project_data['id']) ? sanitize_text_field($project_data['id']) : '',
         'project_uid' => sanitize_text_field($project_data['uid']),
@@ -72,8 +111,9 @@ function nmkr_store_project_exact($project_data) {
         'twitter_handle' => isset($project_data['twitterHandle']) ? sanitize_text_field($project_data['twitterHandle']) : '',
         'nmkr_account_options' => isset($project_data['nmkrAccountOptions']) ? sanitize_text_field($project_data['nmkrAccountOptions']) : '',
         'crossmint_collection_id' => isset($project_data['crossmintCollectiondId']) ? sanitize_text_field($project_data['crossmintCollectiondId']) : '',
-        'blockchain' => isset($project_data['blockchains']) && is_array($project_data['blockchains']) ? sanitize_text_field($project_data['blockchains'][0] ?? '') : '',
-        'solana_project_details' => isset($project_data['solanaProjectDetails']) ? sanitize_textarea_field($project_data['solanaProjectDetails']) : '',
+        'blockchain' => count($normalized_blockchains) === 1 ? $normalized_blockchains[0] : '',
+        'blockchains' => nmkr_serialize_project_blockchains($normalized_blockchains),
+        'solana_project_details' => nmkr_normalize_solana_project_details(isset($project_data['solanaProjectDetails']) ? $project_data['solanaProjectDetails'] : null),
         'hash' => $hash
     );
     
@@ -88,8 +128,9 @@ function nmkr_store_project_exact($project_data) {
     }
     
     if ($existing_project) {
-        // Update existing project if hash is different
-        if ($existing_project->hash !== $hash) {
+        // The collection comparison also repairs rows conservatively backfilled from legacy data.
+        $stored_blockchains = isset($existing_project->blockchains) ? (string) $existing_project->blockchains : '';
+        if ($existing_project->hash !== $hash || $stored_blockchains !== $data['blockchains']) {
             // Only update updated_at if data actually changed
             $data['updated_at'] = nmkr_get_timestamp();
             $data['synced_at'] = nmkr_get_timestamp();
@@ -198,6 +239,8 @@ function nmkr_store_token_exact($token_data, $project_uid) {
             $write_result = $wpdb->update(
                 $table_name,
                 array(
+                    'token_id' => $token_data['id'],
+                    'project_uid' => $project_uid,
                     'token_name' => $token_data['name'],
                     'display_name' => isset($token_data['displayName']) ? $token_data['displayName'] : '',
                     'detail_data' => isset($token_data['detailData']) ? $token_data['detailData'] : '',
@@ -222,10 +265,14 @@ function nmkr_store_token_exact($token_data, $project_uid) {
             );
             $action = $write_result === 0 ? 'unchanged' : 'updated';
         } else {
-            // Update synced_at even if data hasn't changed
+            // Ownership is contextual and is not included in the API payload hash.
             $write_result = $wpdb->update(
                 $table_name,
-                array('synced_at' => nmkr_get_timestamp()),
+                array(
+                    'token_id' => $token_data['id'],
+                    'project_uid' => $project_uid,
+                    'synced_at' => nmkr_get_timestamp()
+                ),
                 array('token_uid' => $token_data['uid'])
             );
             $action = 'unchanged';
