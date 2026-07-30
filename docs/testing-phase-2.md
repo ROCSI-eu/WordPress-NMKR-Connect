@@ -34,7 +34,7 @@ The run directory also serves as the private parent for a fresh wrapper-owned au
 
 The default profile accepts these preparation controls:
 
-- `NMKR_PHASE2_SKIP_DEPLOY=false`; otherwise `NMKR_DEPLOY_COMMAND` is required and executed without printing the command value.
+- `NMKR_PHASE2_SKIP_DEPLOY=false` by default. When it is `false`, `NMKR_DEPLOY_COMMAND` is required and executed without printing the command value; set it to `true` to skip deployment.
 - `NMKR_PHASE2_INSTALL_DEPS=auto`, which runs `npm ci` only when `node_modules` is absent. `true` always installs and `false` skips installation.
 - `NMKR_PHASE2_INSTALL_BROWSER=false`; set it to `true` to run `npx playwright install chromium`.
 - `RUN_REAL_SYNC=false` and `PW_SAVE_ARTIFACTS=false`.

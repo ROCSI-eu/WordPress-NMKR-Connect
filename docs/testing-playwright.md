@@ -96,7 +96,7 @@ Authentication state is sensitive session material. Browser execution must stay 
 ## Troubleshooting: start with non-mutating checks
 
 1. Confirm the checkout and dependencies without contacting WordPress: `git status --short`, `npm ci`, then `npm run test:e2e -- --list --reporter=list`.
-2. Confirm Chromium is installed with a discovery command first; install it with `npx playwright install chromium` if the browser executable is absent.
+2. Use discovery to validate the Playwright configuration and test discovery; it does not launch Chromium. If private browser execution reports a missing browser, run `npx playwright install chromium`. The Phase 2 `existing-readonly` preflight separately performs an explicit Chromium launch probe.
 3. Check that required variable names are populated without printing their values. Confirm the target is the intended private WordPress test environment before browser execution.
 4. Verify the configured WordPress and NMKR admin paths by read-only navigation. Do not begin by saving settings, clearing logs, selecting customer data, or starting synchronization.
 5. Run one targeted Playwright spec to isolate a UI failure. Keep `PW_SAVE_ARTIFACTS=false` initially.
