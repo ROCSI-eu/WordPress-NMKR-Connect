@@ -1,82 +1,59 @@
-# WordPress NMKR Connect 🔌
+# WordPress NMKR Connect
 
-**Display and manage Cardano & Solana NFTs in WordPress — powered by the NMKR API.**
+NMKR Connect is an open-source WordPress plugin for synchronizing Cardano and Solana NFT project and token data through the NMKR API and presenting that data with shortcodes. The project is under active development; current work is focused on testing, security validation, and documentation.
 
-> NMKR Connect lets WordPress sites sync, store, and present NFTs with a simple admin UI and a resilient background synchronization flow.
+## Catalyst delivery status
 
----
+NMKR Connect is supported by [Cardano Project Catalyst Fund 13](https://milestones.projectcatalyst.io/projects/1300195).
 
-## Table of Contents
-- [WordPress NMKR Connect 🔌](#wordpress-nmkr-connect-)
-  - [Table of Contents](#table-of-contents)
-  - [What is NMKR Connect?](#what-is-nmkr-connect)
-  - [Features](#features)
-  - [How it works](#how-it-works)
-  - [Requirements](#requirements)
-  - [Installation](#installation)
-    - [From source (with Composer)](#from-source-with-composer)
-    - [From a ZIP](#from-a-zip)
-  - [Configuration](#configuration)
-  - [Usage](#usage)
-  - [Synchronization UX](#synchronization-ux)
-  - [Troubleshooting](#troubleshooting)
-    - [“The dashboard shows a sync in progress after reinstall”](#the-dashboard-shows-a-sync-in-progress-after-reinstall)
-    - [“Progress stays at 0% then jumps to 100%”](#progress-stays-at-0-then-jumps-to-100)
-    - [“Active metrics don’t update”](#active-metrics-dont-update)
-    - [“Stop doesn’t stop” (or UI doesn’t refresh after stop)](#stop-doesnt-stop-or-ui-doesnt-refresh-after-stop)
-    - [Clean-state checklist](#clean-state-checklist)
-  - [Security \& Privacy](#security--privacy)
-  - [Development](#development)
-    - [Project layout (high level)](#project-layout-high-level)
-    - [Local setup](#local-setup)
-  - [License](#license)
-  - [Acknowledgments](#acknowledgments)
-  - [Licensing \& Updates (open-source + commercial support)](#licensing--updates-open-source--commercial-support)
+| Delivery stage | Status | Scope summary |
+| --- | --- | --- |
+| Milestone 1 | Delivered | Core plugin and NMKR API integration; local project/token tables; administration dashboard; synchronization progress, errors, and logging; Cardano and Solana compatibility; basic responsive NFT display |
+| Milestone 2 | Delivered | Grid, list, carousel, single-token, and single-project shortcodes; Free/Premium differentiation; role-based access; synchronization and engagement analytics; admin and responsive shortcode improvements; Cardano and Solana feature testing |
+| Milestone 3 | In progress | Comprehensive functionality, usability, performance, load, API-behaviour, and cross-chain testing; security hardening and WordPress security validation; expanded testing, user, and developer documentation |
+| Milestone 4 | Planned | Relevant security audits; expanded user manuals, developer guides, FAQ, and troubleshooting content |
+| Final milestone | Planned | Community outreach and adoption; reporting and close-out; maintenance and handover; WordPress Plugin Directory submission; early post-launch fixes and support |
 
----
+“Delivered” describes the implementation delivery status used by this project; it does not assert formal Catalyst approval.
 
-## What is NMKR Connect?
-**NMKR Connect** integrates WordPress with the **NMKR** platform so site owners can bring **Cardano** and **Solana** NFTs into their websites. It handles synchronization, local storage, and rendering, so non-technical users can publish NFT content with minimal friction.
+## Contents
 
----
+- [Current functionality](#current-functionality)
+- [Requirements](#requirements)
+- [Installation and first use](#installation-and-first-use)
+- [Shortcodes and plans](#shortcodes-and-plans)
+- [Roles and access](#roles-and-access)
+- [Analytics and privacy](#analytics-and-privacy)
+- [Security approach](#security-approach)
+- [Development and testing](#development-and-testing)
+- [Troubleshooting](#troubleshooting)
+- [Project layout](#project-layout)
+- [Contributing](#contributing)
+- [License and acknowledgements](#license-and-acknowledgements)
 
-## Features
-- **Multi-chain support**: Cardano and Solana out of the box.  
-- **Sync & display**: Pull NFTs via NMKR and render them in WordPress with a responsive UI.  
-- **Admin dashboard**: Start/stop syncs, view progress, and inspect live metrics during long runs.  
-- **Resilient polling**: Front-end polling with backoff to keep the UI responsive through temporary errors.  
-- **Cache-safe AJAX**: Admin-AJAX calls include cache-busting and no-cache headers to avoid stale responses.  
-- **Extensible**: Clean structure to add new chains, layouts, and filters over time.
+## Current functionality
 
----
+- Retrieves Cardano and Solana project and token data through the NMKR API.
+- Stores projects, tokens, token details, synchronization history and metrics, and optional engagement analytics in local WordPress database tables.
+- Provides run-scoped synchronization with start and stop controls, progress reporting, terminal finalization, durable run ownership, and stale/interrupted-state recovery behaviour.
+- Shows live metrics for the active run and historical synchronization statistics, including processed-item, API timing, request, duration, and memory information.
+- Provides responsive grid, token-list, carousel, single-token, and single-project displays through the five registered shortcodes documented below.
+- Separates Free displays (grid and token list) from Premium displays (carousel, single token, and single project) through Freemius plan checks.
+- Provides an administrative dashboard, project browser, shortcode reference, settings, analytics dashboard, and capability-based access for Administrators and the NMKR roles.
+- Records shortcode view and click engagement in the plugin database, sends it to GA4, does both, or disables collection, according to site configuration.
 
-## How it works
-1. **Configure** NMKR credentials in the plugin settings.  
-2. **Synchronize**: A background job iterates through collections/items from NMKR and persists normalized data to WordPress.  
-3. **Live updates**: The dashboard polls a progress endpoint; the progress bar and **Active Sync Metrics** update during the run.  
-4. **Present**: Use the plugin’s templates/shortcodes/blocks (depending on your theme setup) to display NFTs.
-
-Synchronization traverses numbered token pages until an empty terminal page is
-received. While pages are being discovered, dashboard progress is monotonic but
-provisional because the authoritative token total is not yet known. Duplicate
-token identifiers are processed once and final totals count unique identifiers.
-For safety, synchronization fails explicitly on malformed, repeated, or
-non-progressing pages and when the plugin's configurable 2,000-page-per-project
-ceiling is exhausted. That ceiling is a plugin safety policy, not an NMKR limit.
-
----
+There are currently no registered Gutenberg blocks, Elementor widgets, or separate front-end template system in this repository.
 
 ## Requirements
-- **WordPress 5.8+** (latest stable recommended)  
-- **PHP 7.4+** (8.1+ recommended)  
-- **NMKR API key** with access to the projects you want to sync
 
----
+- WordPress 5.8 or later (the latest stable release is recommended)
+- PHP 7.4 or later
+- An NMKR API key with access to the projects to be synchronized
+- Composer when building the plugin from source
 
-## Installation
+## Installation and first use
 
-### From source (with Composer)
-If you’re cloning the repository to build the plugin yourself, install PHP dependencies:
+### Build from source
 
 ```bash
 git clone https://github.com/ROCSI-eu/WordPress-NMKR-Connect.git
@@ -84,202 +61,129 @@ cd WordPress-NMKR-Connect
 composer install --no-dev --prefer-dist
 ```
 
-This fetches the plugin’s PHP dependencies into `vendor/`.  
-> `vendor/` is not committed to the repo. Release ZIPs already include `vendor/`, so Composer is only required when building from source.
+Place or symlink the resulting directory under `wp-content/plugins/`, then activate **NMKR Connect** in **WordPress Admin → Plugins**. Composer installs the runtime dependencies in `vendor/`; those dependencies must be present in any packaged plugin directory or ZIP.
 
-Now place the plugin folder under `wp-content/plugins/` (or symlink it), then activate it in **WP Admin → Plugins**.
+### Install a packaged ZIP
 
-> Optional: If you have a license key (to enable in-dashboard updates/support), you can enter it later in **NMKR Connect → Settings → License**. The plugin also works without a key—you’ll just update manually.
+If you have obtained a packaged ZIP that includes `vendor/`, use **WordPress Admin → Plugins → Add New → Upload Plugin**, select the file, and activate it. This repository does not promise that a prebuilt release artifact is available for every revision.
 
-### From a ZIP
-1. In WordPress: **Plugins → Add New → Upload Plugin**  
-2. Select the release ZIP (already bundled with `vendor/`) and **Activate**.
+### First-use flow
 
-## Configuration
-1. In **WP Admin**, open **NMKR Connect → Settings**.
-2. Paste your **NMKR API key** and configure any sync/scoping options you need (e.g., projects/collections, limits).
-3. *(Optional)* Enter your **license key** under **NMKR Connect → Settings → License** to enable in-dashboard updates and support.
-4. Click **Save changes**.
+1. Install and activate the plugin.
+2. Open **NMKR Connect → Settings**, enter the NMKR API key, review the synchronization settings, and save.
+3. Open the NMKR Connect dashboard and start synchronization. Follow its progress and final result; do not close or restart a run merely because a large collection takes time.
+4. Add a Free shortcode such as `[nmkr-grid]` or `[nmkr-token-list]` to a WordPress page. Use a project UID when a specific synchronized project should be displayed.
 
-> **Tip:** If you use multiple environments (local/staging/production), keep distinct API keys and scopes per site. Treat keys as secrets and restrict admin access.
+Treat the NMKR API key, GA4 API secret, license details, WordPress credentials, and other environment values as secrets. Do not put them in content, source control, screenshots, or support logs.
 
-## Usage
-- **Start a sync** from the NMKR Connect dashboard. The UI shows:
-  - Current status (initializing, running, finalizing)
-  - A progress bar
-  - **Active Sync Metrics** (items processed, timing, memory, etc.)
-- **Display NFTs** using the plugin’s provided UI components (shortcodes/blocks/templates depending on your theme). Refer to in-plugin hints/tooltips for usage examples.
+## Shortcodes and plans
 
-## Synchronization UX
-- **Resilience**: The UI continues polling even if a request hiccups; temporary network/server errors are retried with backoff.
-- **Stop safely**: You can request a stop; the job will finalize gracefully and the UI will refresh its “Past” section at completion.
-- **Fresh stats**: The dashboard uses cache-busting/no-cache headers to avoid stale progress/metrics.
-- **Auto-resume**: Reloading the page during an active sync will re-attach to the current run and continue live updates.
+Only the following shortcode attributes are registered by the current implementations. When an optional UID is omitted, the shortcode resolves a suitable synchronized project or token. For project-based displays, `allow_user_select="1"` (the default) enables the project selector; set it to `"0"` to hide the selector.
+
+| Shortcode | Purpose | Plan availability | Principal UID/filter parameter |
+| --- | --- | --- | --- |
+| `[nmkr-grid]` | Responsive token grid for a project | Free | `project_uid`; `allow_user_select` |
+| `[nmkr-token-list]` | Searchable/filterable token table for a project | Free | `project_uid`; `allow_user_select` |
+| `[nmkr-carousel]` | Carousel presentation of project tokens | Premium | `project_uid`; `allow_user_select` |
+| `[nmkr-token]` | One token and its details | Premium | `token_uid` |
+| `[nmkr-project]` | One project and its token information | Premium | `project_uid`; `allow_user_select` |
+
+Example:
+
+```text
+[nmkr-grid project_uid="your-project-uid" allow_user_select="0"]
+```
+
+Free/Premium availability describes the current shortcode gates. Freemius supplies plan/licensing integration; it does not change the MIT licence that applies to this repository.
+
+## Roles and access
+
+Access is based on plugin-specific WordPress capabilities rather than role-name checks alone.
+
+- **Administrator** receives all NMKR capabilities, including dashboard, projects, shortcodes, analytics, settings, and synchronization management.
+- **NMKR Admin** receives full plugin access and can view the dashboard and other plugin pages, change settings, and start or stop synchronization. It does not implicitly receive unrelated site-wide Administrator permissions.
+- **NMKR Marketing** has read/marketing access to Projects, Shortcodes, and Analytics. It cannot access the synchronization dashboard, change plugin settings, or manage synchronization.
+
+Assign roles according to least privilege and restrict access to users who need the corresponding data and controls.
+
+## Analytics and privacy
+
+The analytics dashboard reports views, clicks, click-through rate, time-series data, top projects, top tokens, and a shortcode breakdown. Dashboard requests support preset or custom date ranges and shortcode, project UID, and token UID filters; tables also support the implemented search, sorting, and pagination controls. Filtered time-series, top-project, top-token, and shortcode-breakdown results can be exported as CSV or JSON.
+
+Analytics modes are **Off**, local custom analytics only, GA4 only, or both. Settings also cover local-data retention, sampling, logged-in-user tracking, and whether explicit consent is required. When consent is required, front-end collection waits for the plugin's consent signal. GA4 uses a server-side Measurement Protocol request when a Measurement ID and API secret are configured. Site operators remain responsible for choosing settings, notices, consent handling, and retention appropriate to their users and applicable law.
+
+## Security approach
+
+The implementation uses concrete WordPress controls, including plugin-specific capability checks, nonces on privileged requests, input sanitization and allow-list validation, escaped output, prepared dynamic SQL, and no-cache headers on sensitive AJAX responses. Analytics applies UID/event validation, sampling, deduplication and rate limiting; logging helpers redact or avoid secret material in supported paths.
+
+These controls are not an absolute security guarantee. Additional security hardening, WordPress security validation, load/API behaviour testing, and cross-chain verification remain part of the ongoing Milestone 3 work. Keep WordPress and dependencies maintained, grant minimal access, use HTTPS, protect credentials, and validate the plugin in a staging environment before production use.
+
+## Development and testing
+
+Install Node dependencies with `npm ci`. The public-safe validation entry point is:
+
+```bash
+npm run test:public
+```
+
+It performs Bash syntax checks, Playwright test discovery, synthetic preflight/runner and synchronization regressions, database-write and HTTP/metric regressions, and the PHP 7.4 syntax/compatibility guard. The repository also contains:
+
+- Playwright suites for read-only admin smoke coverage and locally stubbed UI/regression scenarios.
+- WP-CLI smoke checks and read-only database-state/schema/integrity checks for a deployed test WordPress installation.
+- Private-environment Phase 2 orchestration for browser, WP-CLI, deployment/readiness, and database validation.
+- Guarded preflight and controlled real-sync tooling for an explicitly authorized private development environment. Do not run a real synchronization as part of ordinary public validation.
+
+Public CI runs `npm ci` and `npm run test:public` with PHP 7.4. It uses no WordPress or deployment credentials, does not deploy, and does not upload private Playwright reports, screenshots, traces, videos, VM logs, or other private artifacts. Its checks are limited to public-safe discovery, syntax, compatibility, and synthetic regression work.
+
+Detailed procedures and safety boundaries are maintained in:
+
+- [Phase 1 smoke testing](docs/testing-phase-1.md)
+- [Phase 2 private VM runner](docs/testing-phase-2.md)
+- [Phase 3 Playwright regression coverage](docs/testing-phase-3.md)
+- [Phase 4 public CI](docs/testing-phase-4.md)
+- [Phase 5 PHP 7.4 compatibility](docs/testing-phase-5.md)
+- [Phase 8 WP-CLI database-state validation](docs/testing-phase-8.md)
+- [Phase 15 controlled-sync preflight](docs/testing-phase-15.md)
+- [Phase 16A controlled real-sync harness](docs/testing-phase-16a.md)
+- [Phase 16B.2 run-scoped synchronization checks](docs/testing-phase-16b2.md)
 
 ## Troubleshooting
 
-### “The dashboard shows a sync in progress after reinstall”
-A stale option/transient may exist. If you’re comfortable with WP-CLI:
+Begin with read-only checks:
 
-```bash
-# Inspect likely options/transients (read-only)
-wp option list --search=nmkr_sync --field=option_name
-wp transient list | grep -E 'nmkr|wp_nmkr'
+1. Review the dashboard status, progress, active metrics, final result, and historical statistics.
+2. Confirm the NMKR API key is configured without displaying or copying its value.
+3. In browser developer tools, check for failed `wp-admin/admin-ajax.php` requests and JavaScript console errors. Ensure a proxy or CDN does not cache WordPress admin/AJAX responses.
+4. If WordPress debug logging is deliberately enabled on a non-production site, inspect relevant entries and redact secrets before sharing anything.
+5. Maintainers can run the documented [WP-CLI smoke checks](docs/testing-phase-1.md) and [read-only database-state validation](docs/testing-phase-8.md) in an appropriate private environment.
 
-# (Advanced) Clear specific markers once you’ve reviewed them
-# Only delete keys you recognize; back up first.
-wp option delete nmkr_sync_last_result
-wp option delete nmkr_sync_last_recovery_at
-```
+Do not casually delete options, transients, rows, or tables to clear a status. Any state-changing WP-CLI/database command is an **advanced recovery action**: first make and verify a backup, identify the exact key or row, confirm that no synchronization is active, and follow the relevant testing/recovery documentation. If the issue persists, report the WordPress/PHP versions, reproducible steps, public-safe error text, and redacted diagnostics.
 
-### “Progress stays at 0% then jumps to 100%”
-- Reload the dashboard to re-attach to the active sync (auto-resume should kick in).
-- Ensure **/wp-admin/admin-ajax.php** is **not cached** by your CDN/host (bypass or add a page rule).
-- Open DevTools → **Network** and confirm periodic 200 responses for polling endpoints with JSON containing `progress`.
-- If behind a proxy/CDN, clear browser and edge caches for admin paths.
+## Project layout
 
-### “Active metrics don’t update”
-- Verify polling calls aren’t blocked or cached (look for proper `Cache-Control: no-store` and a cache-buster query param).
-- Check hosting for output buffering on long-running requests.
-- Confirm no JavaScript errors in **Console**; fix any that halt updates.
-
-### “Stop doesn’t stop” (or UI doesn’t refresh after stop)
-- Click **Stop** once and wait a few seconds; the job finalizes gracefully before the UI refreshes.
-- Check **Network** for the stop request response and subsequent polls.
-- Review `wp-content/debug.log` for finalization messages if debugging is enabled.
-
-### Clean-state checklist
-1. Deactivate and delete the plugin from **WP Admin → Plugins**.  
-2. (Optional) Review and delete known NMKR options/transients with WP-CLI (see commands above).  
-3. Reinstall from a release ZIP (includes `vendor/`) or rebuild from source (`composer install --no-dev --prefer-dist`).  
-4. Re-enter configuration and run a fresh sync.
-
-## Security & Privacy
-- All privileged actions are protected with **capability checks** and **nonces**.
-- All input is **sanitized** and all output **escaped** following WordPress best practices.
-- API and license keys are stored in WordPress options—treat them as **secrets** and restrict admin access.
-- Admin-AJAX endpoints send **no-cache** headers to minimize leakage of sensitive, ephemeral data.
-- Optional telemetry (if enabled) is **opt-in** and designed to be minimal and privacy-respecting.
-
-## Development
-
-### Project layout (high level)
-- `includes/` — PHP modules (synchronization engine, AJAX handlers, admin pages)
-- `js/` — Admin dashboard scripts (polling, progress bar, live metrics)
-- `assets/` — Images/styles used by the admin UI
-- `templates/` — Optional render templates for front-end display
-- `languages/` — Translations (.po/.mo)
-- `uninstall.php` — Cleanup routine
-- `README.md`, `LICENSE.txt` — Docs and license
-
-### Local setup
-1. Clone the repo into your WordPress install:
-   ```bash
-   git clone https://github.com/ROCSI-eu/WordPress-NMKR-Connect.git
-   cd WordPress-NMKR-Connect
-   composer install --prefer-dist
-
-2. Place/symlink the folder to `wp-content/plugins/`.
-3. Activate in **WP Admin → Plugins**.
-4. Configure API credentials in **NMKR Connect → Settings**.
-
-> Release ZIPs already include `vendor/`. Composer is only required when building from source.
-
-### Coding standards & guardrails
-- Follow **WordPress PHP coding standards**; keep code **i18n-ready**.
-- **Never** commit secrets; strip keys/tokens from logs and examples.
-- **Sanitize all input**, **escape all output**; use `$wpdb->prepare()` for SQL.
-- All privileged AJAX/actions must have **capability checks** and **nonces**.
-- Respect plugin invariants/constants (e.g., transient TTLs, helper wrappers); avoid raw `getmypid()` in live paths.
-- Admin JS should be enqueued with `ver=<filemtime>`; all admin-AJAX calls include a cache-buster (e.g., `_=Date.now()`).
-- Do **not** edit `vendor/` or third-party code; patch via wrappers/filters.
-
-### Testing
-- **Manual**
-  - Start a sync and watch **DevTools → Network** for steady polling and backoff (200s with JSON `progress`).
-  - Confirm **no-cache** headers and cache-buster query params on admin-AJAX.
-  - Stop a sync and verify graceful finalization and UI refresh of the Past panel.
-- **Logs**
-  - Enable `WP_DEBUG_LOG` and review `wp-content/debug.log` for progress/finalization messages.
-- **Clean state (optional)**
-  - Deactivate/delete the plugin, then review and (carefully) clear known NMKR options/transients with WP-CLI as needed.
-- **Packaging a release**
-  ```bash
-  composer install --no-dev --prefer-dist
-  # zip the plugin folder excluding .git, node_modules (if any), and other dev files
+- `nmkr-connect.php` — plugin bootstrap plus activation, deactivation, and registered uninstall callbacks
+- `includes/api/` — NMKR API client and request helpers
+- `includes/database/` — schema and persistence functions
+- `includes/synchronization/` — run lifecycle, batching, progress, metrics, errors, and recovery
+- `includes/shortcodes/` — the five front-end shortcode implementations
+- `includes/pages/` — dashboard, projects, settings, shortcode reference, and analytics administration pages
+- `includes/roles/` — NMKR roles and capabilities
+- `includes/analytics/` — analytics endpoint and retention scheduling
+- `js/` and `css/` — front-end and administration assets
+- `tests/e2e/` — Playwright suites and helpers
+- `scripts/` — public-safe, private-environment, WP-CLI, and controlled-sync validation tooling
+- `docs/` — focused testing and validation guides
+- `.github/workflows/` — public CI workflow
 
 ## Contributing
 
-We welcome issues and pull requests — thanks for helping improve NMKR Connect!
+Issues and focused pull requests are welcome. Do not commit API keys, credentials, populated environment files, private URLs, logs, screenshots, traces, videos, reports, or VM artifacts. For code changes, run `npm run test:public` and the relevant private-environment suites where applicable, explain the test boundary, and keep unrelated refactoring out of the change.
 
-### Before you file an issue
-- **Search existing issues** to avoid duplicates.
-- Include environment details: WordPress + PHP versions, hosting/CDN, browser.
-- Add **repro steps**, expected vs. actual behavior, and any **logs/screenshots/Network traces**.
+## License and acknowledgements
 
-### Branch & commit conventions
-- Fork and create a topic branch:
-  - `feat/<short-topic>`, `fix/<short-topic>`, `docs/<short-topic>`
-- Use clear, focused commits (Conventional Commits encouraged):
-  - `feat(sync): add near-completion hint to progress payload`
-  - `fix(ui): resume polling after transient 5xx`
-  - `docs(readme): clarify Composer vs release ZIP`
-- Avoid unrelated refactors in the same PR.
+Released under the **MIT License**. See [`LICENSE.txt`](LICENSE.txt) for details. Copyright ROCSI.eu (Romanian Cyber Space Initiative).
 
-### Pull request checklist
-- **Summary & rationale** of the change.
-- **Acceptance criteria** and **test plan** (manual steps + expected outcomes).
-- **Screenshots/logs** for UI or sync behavior changes.
-- Note **risk/rollout** and any **migration/cleanup** steps.
-- ✅ Follows WordPress coding standards; code is i18n-ready.  
-- ✅ No secrets in diffs; keys/tokens removed from examples/logs.  
-- ✅ All privileged AJAX/actions have **cap checks** + **nonces**.  
-- ✅ **Sanitize input**, **escape output**; use `$wpdb->prepare()` for SQL.  
-- ✅ Admin JS enqueued with `ver=<filemtime>`; admin-AJAX calls include cache-buster (`_=`).  
-- ✅ **Do not** edit `vendor/` or third-party code — patch via wrappers/hooks/filters.
-
-### Local dev quickstart
-```bash
-git clone https://github.com/ROCSI-eu/WordPress-NMKR-Connect.git
-cd WordPress-NMKR-Connect
-composer install --prefer-dist
-```
-Symlink or copy to wp-content/plugins
-Activate in WP Admin → Plugins, configure NMKR Connect → Settings, and enable WP_DEBUG_LOG during testing.
-Tip: For larger or risky changes, open a draft PR early to discuss approach and reduce rework.
-
-## License
-Released under the **MIT License**. See [`LICENSE.txt`](LICENSE.txt) for details.  
-© ROCSI.eu (Romanian Cyber Space Initiative).
-
-## Acknowledgments
 - Built by **Mihai Bărbulescu / ROCSI.eu (Romanian Cyber Space Initiative)** to advance open Web3 tooling.
-- Supported by **Cardano Project Catalyst (Fund 13)** — see the project page on the Catalyst Milestones site:  
-  https://milestones.projectcatalyst.io/projects/1300195
-- Thanks to the **NMKR** ecosystem and community contributors for feedback and testing.
-- Appreciation to early adopters for invaluable bug reports and UX suggestions that shaped the sync flow.
-
-## Licensing & Updates (open-source + commercial support)
-This project is released under **MIT**. You can use and modify the code freely.
-
-To help fund ongoing development, we provide optional **license keys** that enable:
-- In-dashboard **update delivery** for new releases
-- Access to **support** and (if offered) **pro/early** features
-- Access to a wide range of **NFT collection display shortcodes/blocks** for front-end use in the **Gutenberg** block editor and as **Elementor** widgets/elements
-- Optional, privacy-respecting **telemetry** to improve stability (opt-in only)
-
-**Using the plugin without a key**  
-The plugin works without a license key; you’ll just manage updates manually (e.g., by installing release ZIPs).
-
-**Where to enter a license key**  
-Go to **WP Admin → NMKR Connect → Settings → License** and follow the activation prompts. You can deactivate/reactivate as needed.
-
-**Building from source**  
-When building from source, run `composer install --no-dev --prefer-dist` to install the licensing client into `vendor/` so your packaged ZIP includes all dependencies.
-
-**Advanced/CI**  
-For automated deployments, you can predefine environment variables or `wp-config.php` constants to streamline activation per environment (e.g., staging vs. production).
-
-## Testing
-
-Phase 1 smoke testing for deployed WordPress development or staging sites is documented in [`docs/testing-phase-1.md`](docs/testing-phase-1.md). The tests use VM-local environment variables and avoid committing secrets or wp-admin artifacts.
+- Supported by **Cardano Project Catalyst Fund 13**; see the [project milestone page](https://milestones.projectcatalyst.io/projects/1300195).
+- Thanks to the **NMKR ecosystem**, community contributors, testers, and early adopters.
+- Freemius provides the current Free/Premium plan and licensing integration; grid and token-list displays are Free, while carousel, single-token, and single-project displays require Premium access.
