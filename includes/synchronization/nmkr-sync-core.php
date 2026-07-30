@@ -64,6 +64,13 @@ function nmkr_is_fatal_token_persistence_error($value) {
     ), true);
 }
 
+/** Account for a token whose persistence was attempted before a fatal error. */
+function nmkr_account_fatal_token_persistence_attempt(&$total_tokens, &$total_failed_tokens, &$failed_details) {
+    $total_tokens++;
+    $total_failed_tokens++;
+    $failed_details++;
+}
+
 /** Scale completed project writes into their bounded direct-worker phase. */
 function nmkr_project_phase_progress($processed, $project_total, $progress_start, $progress_end) {
     if ((int) $project_total <= 0) return (float) $progress_start;
@@ -849,9 +856,9 @@ function nmkr_sync_tokens($project_uid, $tokens_data, &$sync_log, &$completed_st
  * @param int $total_steps Total number of sync steps
  * @return true|WP_Error True on success, WP_Error on failure or validation issues
  */
-function nmkr_sync_token_details($token_uid, $project_uid, &$sync_log, &$completed_steps, $total_steps, $token = null, $run_id = '', $sync_stats_id = 0) {
+function nmkr_sync_token_details($token_uid, $project_uid, &$sync_log, &$completed_steps, $total_steps, $token = null, $run_id = '', $sync_stats_id = 0, $report_progress = true) {
     try {
-        nmkr_update_sync_progress($completed_steps, $total_steps, 'Fetching details for token: ' . $token_uid);
+        if ($report_progress) nmkr_update_sync_progress($completed_steps, $total_steps, 'Fetching details for token: ' . $token_uid);
         
         // Fetch token details from API
         try {
@@ -944,7 +951,7 @@ function nmkr_sync_token_details($token_uid, $project_uid, &$sync_log, &$complet
             if (is_wp_error($store_result)) return $store_result;
             
             $sync_log[] = 'SUCCESS: Stored details for token UID: ' . $token_uid;
-            nmkr_update_sync_progress($completed_steps, $total_steps, 'Processing token details - Token: ' . $token_uid);
+            if ($report_progress) nmkr_update_sync_progress($completed_steps, $total_steps, 'Processing token details - Token: ' . $token_uid);
             return true;
         } catch (Exception $e) {
             $error_message = 'Failed to store details for token ' . $token_uid . ': ' . $e->getMessage();
@@ -1236,8 +1243,17 @@ function nmkr_sync_data($run_id = '') {
         };
         $process_token = function ($token_uid, $project_uid, $token, $page_number) use (&$sync_log, &$completed_steps, &$total_tokens, &$token_details_synced, &$total_successful_tokens, &$total_failed_tokens, &$total_skipped_tokens, &$successful_details, &$failed_details, &$skipped_details, $run_id, $sync_stats_id) {
             $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'before_stream_token_processing'); if (is_wp_error($halt)) return $halt;
-            $result = nmkr_sync_token_details($token_uid, $project_uid, $sync_log, $completed_steps, 100, $token, $run_id, $sync_stats_id);
-            if (nmkr_is_sync_worker_halt_error($result) || nmkr_is_fatal_api_error($result) || nmkr_is_fatal_token_persistence_error($result)) return $result;
+            // Page-boundary reporting owns durable progress in the direct
+            // streaming path; compatibility callers retain detail progress.
+            $result = nmkr_sync_token_details($token_uid, $project_uid, $sync_log, $completed_steps, 100, $token, $run_id, $sync_stats_id, false);
+            if (nmkr_is_sync_worker_halt_error($result) || nmkr_is_fatal_api_error($result)) return $result;
+            if (nmkr_is_fatal_token_persistence_error($result)) {
+                // Persistence was attempted for this token. Count that attempt
+                // before canonical failed finalization, but never count a Stop
+                // or another error returned before token persistence began.
+                nmkr_account_fatal_token_persistence_attempt($total_tokens, $total_failed_tokens, $failed_details);
+                return $result;
+            }
             $total_tokens++;
             if ($result === true) { $successful_details++; $total_successful_tokens++; $token_details_synced++; }
             elseif (is_wp_error($result) && $result->get_error_code() === 'validation_failure') { $skipped_details++; $total_skipped_tokens++; }

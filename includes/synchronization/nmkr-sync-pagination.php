@@ -61,10 +61,12 @@ function nmkr_stream_token_pages($project_uids, $fetch_page, $process_token, $ch
                 $result = call_user_func($process_token, $uid, $project_uid, $token, $page_number);
                 if (is_wp_error($result)) return $result;
                 $unique_count++;
-                if (is_callable($progress)) call_user_func($progress, $project_index, $project_count, $page_number, $unique_count, false);
             }
             if ($new_on_page === 0) return new WP_Error('nmkr_token_page_no_progress', __('A non-empty token page contained no new token identifiers.', 'nmkr-connect'));
             $halt = call_user_func($checkpoint, 'after_page_processing', $project_uid, $page_number); if (is_wp_error($halt)) return $halt;
+            // Durable progress is intentionally reported at page boundaries,
+            // not for every token persisted within the page.
+            if (is_callable($progress)) call_user_func($progress, $project_index, $project_count, $page_number, $unique_count, false);
             unset($page);
             $page_number++;
         }
