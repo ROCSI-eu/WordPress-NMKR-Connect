@@ -1,6 +1,10 @@
-# Phase 3 Playwright regression coverage
+# Phase 3 Playwright regression coverage (historical implementation record)
 
-Phase 3 adds safe Playwright regression checks for the NMKR Connect WordPress admin pages. These tests verify page structure and important controls without mutating WordPress options, starting synchronization, clearing logs, or exposing private configuration.
+> **Current guidance:** See [`testing-playwright.md`](testing-playwright.md) for setup, the complete command list, current coverage, authentication handling, and troubleshooting. This document preserves the detailed Phase 3 implementation and safety boundaries.
+
+Phase 3 introduced the settings, dashboard-structure, projects, shortcodes, and analytics page regressions. These specs verify page structure and important controls without mutating WordPress options, starting synchronization, clearing logs, or exposing private configuration.
+
+Later phases added the synchronization-state, synchronization-resilience, synchronization-final-state, and run-authority Playwright specs now present in the default suite. Their current scope and targeted npm commands are summarized in the [Playwright testing guide](testing-playwright.md); they are not Phase 3 coverage.
 
 ## Settings-page regression
 
@@ -195,21 +199,17 @@ npm run test:e2e:analytics -- --list
 npm run test:e2e:analytics
 ```
 
-Direct targeted Playwright scripts do not automatically load `NMKR_PHASE2_ENV_FILE`. For direct targeted runs on the VM, source the private environment first, then run the targeted script:
+Direct targeted Playwright scripts load the ignored `.env.tests` file by default. When `NMKR_PHASE2_ENV_FILE` is explicitly set, Playwright loads that file instead and does not fall back to `.env.tests`. For a targeted private-VM run, select the external environment file without printing or sourcing its contents:
 
 ```bash
-set -a
-source "$HOME/.config/nmkr-connect/phase2.env"
-set +a
-
-npm run test:e2e:analytics
+NMKR_PHASE2_ENV_FILE=/path/to/private/phase2.env npm run test:e2e:analytics
 ```
 
 Because the Phase 2 runner executes `npm run test:e2e`, the Phase 3 regressions are automatically included in Phase 2 VM validation. Full Phase 2 validation should continue to use:
 
 ```bash
-NMKR_PHASE2_ENV_FILE="$HOME/.config/nmkr-connect/phase2.env" \
-NMKR_PHASE2_LOG_DIR="$HOME/.local/state/nmkr-connect-phase2" \
+NMKR_PHASE2_ENV_FILE=/path/to/private/phase2.env \
+NMKR_PHASE2_LOG_DIR=/path/to/private/state \
 npm run test:phase2
 ```
 
