@@ -11,7 +11,7 @@ if (!defined('NMKR_SYNC_MAX_TOKEN_PAGES_PER_PROJECT')) define('NMKR_SYNC_MAX_TOK
  *
  * Callbacks make this policy deterministic and public-safe to regression test.
  */
-function nmkr_stream_token_pages($project_uids, $fetch_page, $process_token, $checkpoint, $progress = null, $max_pages = NMKR_SYNC_MAX_TOKEN_PAGES_PER_PROJECT) {
+function nmkr_stream_token_pages($project_uids, $fetch_page, $process_token, $checkpoint, $progress = null, $max_pages = NMKR_SYNC_MAX_TOKEN_PAGES_PER_PROJECT, $authoritative_stop = null) {
     if (!is_array($project_uids) || !is_callable($fetch_page) || !is_callable($process_token) || !is_callable($checkpoint)) {
         return new WP_Error('nmkr_token_page_invalid_configuration', __('Token pagination could not be configured.', 'nmkr-connect'));
     }
@@ -28,10 +28,15 @@ function nmkr_stream_token_pages($project_uids, $fetch_page, $process_token, $ch
             $halt = call_user_func($checkpoint, 'before_page_request', $project_uid, $page_number); if (is_wp_error($halt)) return $halt;
             $page = call_user_func($fetch_page, $project_uid, $page_number);
             $halt = call_user_func($checkpoint, 'after_page_request', $project_uid, $page_number);
-            // An exact Stop observed after dispatch always wins. Otherwise retain
+            // An exact Stop observed during dispatch, at the checkpoint, or in
+            // the authoritative run owner always wins. Otherwise retain
             // attempt-evidence failures so the worker routes them to canonical
             // failed finalization instead of replacing them with a checkpoint error.
+            if (is_wp_error($page) && $page->get_error_code() === 'sync_stop_requested') return $page;
             if (is_wp_error($halt) && $halt->get_error_code() === 'sync_stop_requested') return $halt;
+            if (is_callable($authoritative_stop) && call_user_func($authoritative_stop)) {
+                return new WP_Error('sync_stop_requested', __('Synchronization stop was requested.', 'nmkr-connect'));
+            }
             if (is_wp_error($page) && $page->get_error_code() === 'nmkr_api_metric_evidence_persistence_failure') return $page;
             if (is_wp_error($halt)) return $halt;
             if (is_wp_error($page)) return $page;
@@ -50,7 +55,7 @@ function nmkr_stream_token_pages($project_uids, $fetch_page, $process_token, $ch
                 $raw_uid = array_key_exists('uid', $token) ? $token['uid'] : (array_key_exists('token_uid', $token) ? $token['token_uid'] : null);
                 if (!is_string($raw_uid)) return new WP_Error('nmkr_token_page_malformed_record', __('A token page contained an invalid token identifier.', 'nmkr-connect'));
                 $uid = trim($raw_uid);
-                if ($uid === '' || strlen($uid) > 200 || preg_match('/^[A-Za-z0-9_-]+$/', $uid) !== 1) return new WP_Error('nmkr_token_page_malformed_record', __('A token page contained an invalid token identifier.', 'nmkr-connect'));
+                if ($uid !== $raw_uid || $uid === '' || strlen($uid) > 200 || preg_match('/^[A-Za-z0-9_-]+$/', $uid) !== 1) return new WP_Error('nmkr_token_page_malformed_record', __('A token page contained an invalid token identifier.', 'nmkr-connect'));
                 $uids[] = $uid;
             }
             $signature_uids = array_values(array_unique($uids)); sort($signature_uids, SORT_STRING);

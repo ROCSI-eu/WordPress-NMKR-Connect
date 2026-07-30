@@ -1262,7 +1262,10 @@ function nmkr_sync_data($run_id = '') {
             $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'after_stream_token_processing'); if (is_wp_error($halt)) return $halt;
             return true;
         };
-        $stream_result = nmkr_stream_token_pages($project_uids, $fetch_page, $process_token, $checkpoint, $progress);
+        $authoritative_stop = function () use ($run_id, $sync_stats_id) {
+            return nmkr_sync_owner_matches($run_id, 'stop_requested', $sync_stats_id);
+        };
+        $stream_result = nmkr_stream_token_pages($project_uids, $fetch_page, $process_token, $checkpoint, $progress, NMKR_SYNC_MAX_TOKEN_PAGES_PER_PROJECT, $authoritative_stop);
         if (is_wp_error($stream_result)) return nmkr_handle_direct_worker_error($stream_result, $run_id, $sync_stats_id, array(
             'items_processed' => $total_tokens, 'items_successful' => $total_successful_tokens,
             'items_failed' => $total_failed_tokens, 'items_skipped' => $total_skipped_tokens,

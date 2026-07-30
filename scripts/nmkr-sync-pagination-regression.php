@@ -64,6 +64,11 @@ foreach (array('uid', 'token_uid') as $identifier_key) {
         assert_true(is_wp_error($malformed) && $malformed->get_error_code() === 'nmkr_token_page_malformed_record'
             && $malformed_details === array(), 'non-string ' . $identifier_key . ' fails before token detail processing');
     }
+    foreach (array(' token-a', 'token-a ', "\ttoken-a", "token-a\n") as $padded_identifier) {
+        list($malformed, , $malformed_details) = run_pages(array('p'), array('p'=>array(1=>array(array($identifier_key=>$padded_identifier)))));
+        assert_true(is_wp_error($malformed) && $malformed->get_error_code() === 'nmkr_token_page_malformed_record'
+            && $malformed_details === array(), 'whitespace-padded ' . $identifier_key . ' fails before token detail processing');
+    }
 }
 list($limit) = run_pages(array('p'), array('p'=>array(1=>array(token('a')),2=>array(token('b')))), 1);
 assert_true(is_wp_error($limit) && $limit->get_error_code() === 'nmkr_token_page_limit', 'page limit exhaustion fails');
@@ -90,6 +95,25 @@ $stop_wins_evidence = nmkr_stream_token_pages(
 );
 assert_true(is_wp_error($stop_wins_evidence) && $stop_wins_evidence->get_error_code() === 'sync_stop_requested',
     'exact Stop retains precedence over an API evidence failure');
+$owner_stop_wins = nmkr_stream_token_pages(
+    array('p'),
+    function () { return new WP_Error('nmkr_api_metric_evidence_persistence_failure', 'evidence'); },
+    function () { assert_true(false, 'authoritative owner Stop prevents token processing'); },
+    function ($phase) { return $phase === 'after_page_request' ? new WP_Error('sync_checkpoint_persistence_failure', 'checkpoint') : true; },
+    null,
+    2000,
+    function () { return true; }
+);
+assert_true(is_wp_error($owner_stop_wins) && $owner_stop_wins->get_error_code() === 'sync_stop_requested',
+    'exact stop_requested owner retains precedence over page evidence and checkpoint persistence failure');
+$page_stop_wins = nmkr_stream_token_pages(
+    array('p'),
+    function () { return new WP_Error('sync_stop_requested', 'stop'); },
+    function () { assert_true(false, 'page Stop prevents token processing'); },
+    function ($phase) { return $phase === 'after_page_request' ? new WP_Error('sync_checkpoint_lock_failed', 'checkpoint') : true; }
+);
+assert_true(is_wp_error($page_stop_wins) && $page_stop_wins->get_error_code() === 'sync_stop_requested',
+    'page Stop retains precedence over a later checkpoint error');
 list($detail_stop, $detail_calls, $detail_details) = run_pages(array('p'), array('p'=>array(1=>array(token('a'),token('b')))), 2000, 'detail:a');
 assert_true(is_wp_error($detail_stop) && $detail_calls === array('p:1') && $detail_details === array('a'), 'stop during detail prevents later work');
 $fatal_calls = array();
