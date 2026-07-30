@@ -1,98 +1,48 @@
-# Phase 1 Automated Testing Proof of Concept
+# Phase 1 automated testing proof of concept (historical)
 
-Phase 1 provides a small, VM-local smoke-test workflow for the NMKR Connect WordPress plugin.
-It is intended to prove that Playwright and WP-CLI can quickly verify a prepared WordPress test site without mutating plugin runtime behavior.
+> **Historical implementation record.** Phase 1 established the original VM-local Playwright smoke test and WP-CLI checks. Deeper Playwright coverage now exists, and [`testing-playwright.md`](testing-playwright.md) is the authoritative operational guide.
 
-## Purpose
+## Original purpose
 
-Use these checks before deeper automated coverage exists.
-They confirm that a known local WordPress install can load the plugin admin screens and expose the expected safe controls.
-They also create a Playwright HTML report that can be shared without screenshots, traces, videos, logs, or secrets.
+Phase 1 proved that Playwright and WP-CLI could quickly verify a prepared WordPress test site without changing plugin runtime behavior. Its browser spec confirms that an administrator can authenticate, that the plugin is active, that the dashboard and settings pages load, and that basic safe controls are present. Its WP-CLI checks confirm WordPress/plugin availability, required tables, selected database-state relationships, and the absence of fresh matching errors in a bounded log tail.
 
-## What Phase 1 Checks
+At the time, this was intentionally a small smoke-test workflow. The repository now also contains focused settings, dashboard, projects, shortcodes, analytics, synchronization-state, synchronization-resilience, synchronization-final-state, and run-authority specs. Those later specs do not turn the suite into comprehensive product coverage.
 
-- WordPress admin login works with credentials supplied through environment variables.
-- The WordPress admin area loads after login.
-- The NMKR Connect plugin appears active in the plugin list.
-- The NMKR dashboard page loads.
-- The NMKR settings page loads.
-- The API key field exists and is non-empty when configured, without printing the value.
-- A sync profile control exists.
-- WP-CLI can confirm that WordPress is installed.
-- WP-CLI can confirm that the plugin is active.
-- WP-CLI can confirm that required NMKR tables exist.
-- WP-CLI can compare the latest sync timestamp option with metrics when metrics exist.
-- WP-CLI can scan recent debug log tails for fresh PHP or plugin errors without dumping full logs.
+## Phase 1 boundaries that still apply
 
-## What Phase 1 Does Not Check
+- The smoke spec does not perform a real NMKR synchronization or require live NMKR API calls.
+- It does not verify Cardano transaction data, mutate WordPress options or database tables, or clear/rotate logs.
+- Screenshots, traces, and videos are disabled by default.
+- These checks do not replace unit, integration, server-side, or broader end-to-end coverage.
+- Credentials, URLs, API keys, environment files, logs, reports, and browser artifacts from a private environment must not be committed or published.
 
-- It does not perform a real NMKR API sync by default.
-- It does not require live NMKR API calls.
-- It does not verify Cardano transaction data.
-- It does not mutate WordPress options.
-- It does not mutate database tables.
-- It does not clear or rotate logs.
-- It does not collect screenshots, videos, or traces by default.
-- It does not replace dedicated unit, integration, or end-to-end test coverage.
+## Current setup and execution
 
-## Public-Safety Notes
-
-This repository is public and open source.
-Do not commit real credentials, private URLs, API keys, backup metadata, screenshots, traces, videos, or private server logs.
-Keep secrets in the VM-local `.env.tests` file only.
-Use blank placeholders in examples and redact operational output before sharing it.
-
-## Install Dependencies
-
-From the repository root, install Node dependencies and the Chromium browser used by Phase 1:
+Use the lockfile for repeatable dependency installation:
 
 ```bash
-npm install
+npm ci
 npx playwright install chromium
 ```
 
-## Configure VM-Local Environment
-
-Copy the example file and edit the VM-local copy:
+For a private VM, copy `.env.tests.example` to the ignored `.env.tests` file and supply private values locally. Keep `RUN_REAL_SYNC=false` and `PW_SAVE_ARTIFACTS=false` for ordinary execution.
 
 ```bash
 cp .env.tests.example .env.tests
 $EDITOR .env.tests
 ```
 
-Set the following values for your local WordPress VM only:
-
-```bash
-WP_BASE_URL=https://example.test
-WP_ADMIN_USER=
-WP_ADMIN_PASSWORD=
-WP_PATH=/path/to/wordpress
-```
-
-Leave `RUN_REAL_SYNC=false` for Phase 1 unless you are intentionally testing real sync behavior in a private environment.
-Leave `PW_SAVE_ARTIFACTS=false` unless you need local debugging artifacts.
-Do not commit `.env.tests`.
-
-## Run the Playwright Smoke Test
-
-Run the Phase 1 browser smoke test:
+`npm run test:e2e` no longer means only the original Phase 1 smoke spec. It runs the **current default Playwright suite**, including authentication setup/cleanup and all implemented specs:
 
 ```bash
 npm run test:e2e
 ```
 
-Open the HTML report after a run:
+For current targeted commands, environment handling, and troubleshooting, use the [Playwright testing guide](testing-playwright.md).
 
-```bash
-npm run test:e2e:report
-```
+## Historical WP-CLI component
 
-The report is written to `playwright-report/` and test output is written to `test-results/`.
-Both directories are ignored so local artifacts do not get committed.
-
-## Run the WP-CLI Smoke Script
-
-Run the read-only WP-CLI checks against the same VM-local WordPress install:
+The read-only WP-CLI smoke script remains available against a prepared private WordPress test environment:
 
 ```bash
 WP_PATH=/path/to/wordpress \
@@ -103,23 +53,10 @@ NMKR_DEBUG_LOG_LOOKBACK_MINUTES=30 \
 bash scripts/nmkr-wpcli-smoke.sh
 ```
 
-The script prints status messages only.
-It does not print API keys or full logs.
-It fails fast if required checks are not satisfied.
+Use only generic placeholders in shared material. Review any failure details locally and redact sensitive context rather than sharing raw logs.
 
-## HTML Report Usage
+## Reports and troubleshooting
 
-Use the HTML report as a quick demo artifact for Phase 1.
-Before sharing any report, verify that it does not contain secrets or private operational details.
-By default screenshots, videos, and traces are disabled.
-If you enable artifacts locally with `PW_SAVE_ARTIFACTS=true`, do not commit or publish them.
+`npm run test:e2e:report` opens an already-generated HTML report. Although screenshots, traces, and videos are off by default, an HTML report from authenticated private-environment execution can still contain private URLs, test names, errors, and operational context. Treat it as private diagnostic output; do not assume it is safe to share or publish.
 
-## Troubleshooting
-
-- If Playwright cannot log in, verify `WP_BASE_URL`, `WP_ADMIN_USER`, and `WP_ADMIN_PASSWORD` in `.env.tests`.
-- If the plugin row is missing, confirm the plugin is installed and active in the VM.
-- If settings controls are missing, confirm the configured admin paths match the plugin pages in that WordPress install.
-- If WP-CLI cannot find WordPress, set `WP_PATH` to the WordPress document root.
-- If table checks fail, confirm that the plugin has been activated and initialized in the VM.
-- If debug-log checks fail, inspect the VM-local `debug.log` manually and redact details before sharing.
-- If you need screenshots, traces, or videos for local debugging, set `PW_SAVE_ARTIFACTS=true` and keep artifacts private.
+Begin troubleshooting with non-mutating checks: discover tests with `npm run test:e2e -- --list --reporter=list`, verify required variable names without printing their values, confirm the intended private target, and then run the smallest relevant targeted spec. If WP-CLI fails, confirm `WP_PATH`, plugin activation, and initialization locally without dumping database contents or full logs.
