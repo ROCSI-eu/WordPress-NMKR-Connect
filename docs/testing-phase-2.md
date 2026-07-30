@@ -1,157 +1,86 @@
-# Phase 2 VM test runner
+# Phase 2 private VM test runner
 
-Phase 2 adds a VM-local orchestration runner around the existing Phase 1 automated checks. It is intended for maintainers who validate a deployed WordPress NMKR Connect installation from a private, user-owned checkout.
+Phase 2 orchestrates validation of a deployed NMKR Connect installation from a private, user-owned checkout. For Playwright-only guidance and the current coverage map, see [`testing-playwright.md`](testing-playwright.md).
 
-The runner does not change plugin runtime behavior. It coordinates deployment, dependency and browser setup, a WordPress readiness gate, Playwright admin smoke checks, WP-CLI smoke checks, and WP-CLI database-state validation, then writes detailed output to private local files while printing only a concise public-safe summary.
+The runner combines optional deployment, dependency/browser preparation, WordPress readiness, the complete Playwright suite, WP-CLI smoke checks, and WP-CLI database-state checks. It does not change the implementations of those checks, and real NMKR synchronization remains outside this workflow.
 
-## Public-safety rules
+## Private inputs and external state
 
-Do not commit or paste secrets, API keys, WordPress admin passwords, Basic Auth credentials, private token URLs, private screenshots, traces, videos, `.env.tests`, private environment files, private VM output, or sensitive logs.
-
-The Phase 2 runner captures command output in a private run directory and never tails logs automatically. If a step fails, it prints only the failed step, the private local log path, and one diagnostic command for local use.
-
-## Recommended VM layout
-
-Run Phase 2 from a user-owned checkout, for example:
+Provide `WP_BASE_URL`, `WP_ADMIN_USER`, `WP_ADMIN_PASSWORD`, and `WP_PATH` through an owner-private environment file outside both the repository and WordPress root. Use `NMKR_PHASE2_ENV_FILE` to select it explicitly:
 
 ```bash
-~/src/WordPress-NMKR-Connect
+NMKR_PHASE2_ENV_FILE=/path/to/private/phase2.env npm run test:phase2
 ```
 
-Do not run dependency installation from the webserver-owned deployed plugin directory. The runner may need to run `npm ci`; if dependencies are needed and the checkout is not writable, it fails with guidance to use a user-owned checkout.
+Never commit or print the populated file. The checkout-local `.env.tests` fallback is supported, but an external file is preferred because it establishes a clearer private-input boundary.
 
-## Private env file setup
+Private output defaults to `${XDG_STATE_HOME}/nmkr-connect`, or `${HOME}/.local/state/nmkr-connect` when `XDG_STATE_HOME` is unset. `NMKR_PHASE2_LOG_DIR` may select another owner-private external state directory. The runner rejects a private root located under the repository, the WordPress root, or the repository's Playwright output trees; do not configure private run output anywhere beneath the checkout or deployed web root.
 
-Recommended Linux/private-VM layout: create `$HOME/.config/nmkr-connect` with owner-only permissions, store `phase2.env` there owned by the invoking user with mode `600`, and make the ignored checkout `.env.tests` a symlink to it. Verify the link resolves to the intended external file. No populated env file belongs in Git or in the deployed plugin directory. Systems without safe symlink support should use `NMKR_PHASE2_ENV_FILE`; it remains fully supported.
+The root and its `runs` directory must be real, owner-controlled directories rather than symlinks, and must not be group- or world-writable. The runner creates them with restrictive permissions where needed. Each invocation creates:
 
-Use placeholders like this and replace values only on your VM:
-
-```bash
-WP_BASE_URL=https://example.test
-WP_ADMIN_USER=wordpress-admin-user
-WP_ADMIN_PASSWORD=wordpress-admin-password
-WP_PATH=/path/to/wordpress
-
-NMKR_PHASE2_SKIP_DEPLOY=true
-NMKR_PHASE2_INSTALL_DEPS=false
-NMKR_PHASE2_INSTALL_BROWSER=false
+```text
+<external-state-root>/
+└── runs/
+    └── <YYYYmmddTHHMMSSZ>-<pid>/
+        ├── preflight.log
+        ├── step-specific private logs
+        ├── playwright-report/
+        └── test-results/
 ```
 
-Never commit the populated file.
+The run directory also serves as the private parent for a fresh wrapper-owned authentication-state directory. File presence varies with the stages executed and their outcome.
 
-## Required variables
+## General profile
 
-After loading the private env file, these variables must be non-empty:
+The default profile accepts these preparation controls:
 
-- `WP_BASE_URL`
-- `WP_ADMIN_USER`
-- `WP_ADMIN_PASSWORD`
-- `WP_PATH`
+- `NMKR_PHASE2_SKIP_DEPLOY=false`; otherwise `NMKR_DEPLOY_COMMAND` is required and executed without printing the command value.
+- `NMKR_PHASE2_INSTALL_DEPS=auto`, which runs `npm ci` only when `node_modules` is absent. `true` always installs and `false` skips installation.
+- `NMKR_PHASE2_INSTALL_BROWSER=false`; set it to `true` to run `npx playwright install chromium`.
+- `RUN_REAL_SYNC=false` and `PW_SAVE_ARTIFACTS=false`.
+- Readiness defaults of 120 seconds overall, 5 seconds between attempts, and 10 seconds per HTTP request; the corresponding `NMKR_PHASE2_WP_READY_*` values must be positive integers.
 
-## Optional variables
+Run dependency installation from a writable, user-owned checkout, not the deployed webserver-owned plugin directory. The runner requires its command-line prerequisites, and `WP_CLI_BIN` must resolve when specified as a simple command name.
 
-The runner supplies safe defaults when these are unset:
+Stages run in this order:
 
-- `RUN_REAL_SYNC=false`
-- `PW_SAVE_ARTIFACTS=false`
-- `WP_CLI_BIN=wp`
-- `NMKR_PLUGIN_SLUG=nmkr-connect/nmkr-connect.php`
-- `NMKR_DEBUG_LOG_RELATIVE_PATH=wp-content/debug.log`
-- `NMKR_DEBUG_LOG_LOOKBACK_MINUTES=30`
-- `NMKR_PHASE2_INSTALL_DEPS=auto`
-- `NMKR_PHASE2_INSTALL_BROWSER=false`
-- `NMKR_PHASE2_WP_READY_TIMEOUT_SECONDS=120`
-- `NMKR_PHASE2_WP_READY_INTERVAL_SECONDS=5`
-- `NMKR_PHASE2_WP_READY_HTTP_TIMEOUT_SECONDS=10`
-- `NMKR_PHASE2_LOG_DIR=$XDG_STATE_HOME/nmkr-connect` (or `$HOME/.local/state/nmkr-connect`; it must be outside the checkout and WordPress root)
+1. Deployment, unless skipped.
+2. Dependency installation, when selected or needed.
+3. Chromium installation, when selected.
+4. WordPress readiness.
+5. The complete Playwright suite.
+6. WP-CLI smoke checks.
+7. WP-CLI database-state checks.
 
-`NMKR_PHASE2_INSTALL_DEPS` accepts `auto`, `true`, or `false`. `auto` runs `npm ci` only when `node_modules` is missing.
+The readiness gate checks `WP_PATH/.maintenance` without removing it and requests the private site's login page until it receives an HTTP 200 response containing the login-form marker and no recognized maintenance response. It does not retry the whole Playwright suite.
 
-`NMKR_PHASE2_INSTALL_BROWSER=true` runs `npx playwright install chromium`; otherwise browser installation is skipped.
+## `existing-readonly` profile
 
-The WordPress readiness timeout, retry interval, and per-request HTTP timeout can be tuned with the `NMKR_PHASE2_WP_READY_*` variables. They must be positive integers.
-
-## Running Phase 2
-
-From the user-owned checkout:
+Use `existing-readonly` to validate an already deployed exact commit without runner-driven deployment or installation:
 
 ```bash
-NMKR_PHASE2_ENV_FILE=/path/to/private-phase2.env npm run test:phase2
-```
-
-The npm script runs:
-
-```bash
-bash scripts/nmkr-phase2-test-runner.sh
-```
-
-### Existing deployed commit (readonly)
-
-`existing-readonly` is for validating an already deployed exact commit. The caller-selected profile is captured before the private env file is sourced; a conflicting file profile is rejected. After sourcing, readonly authority overrides mutable values: deployment, dependency/browser installation, real synchronization, and browser artifacts are disabled, and any deploy command is ignored. A full SHA is deliberately required from the maintainer and is not derived by the command.
-
-```bash
-NMKR_PHASE2_ENV_FILE="$HOME/.config/nmkr-connect/phase2.env" \
-NMKR_PHASE2_EXPECTED_SOURCE_SHA=<40-character-commit-sha> \
+NMKR_PHASE2_ENV_FILE=/path/to/private/phase2.env \
+NMKR_PHASE2_EXPECTED_SOURCE_SHA=<40-character-reviewed-sha> \
 npm run test:phase2:existing-readonly
 ```
 
-Use the same placeholder form for exact-main, pre-merge, and post-merge checks after supplying the reviewed 40-character SHA. Stop before live validation if the profile, booleans, source/deployed worktree integrity, Node dependencies, or Chromium prerequisite fails.
+The profile requires a maintainer-supplied full 40-character SHA. It verifies that checkout `HEAD` equals that exact SHA and that the source worktree is clean. It forces deployment, dependency installation, Chromium installation, real synchronization, and artifact retention off, and discards any deploy command. A caller-selected profile cannot be replaced by a conflicting value from the environment file.
 
-The runner performs these validation stages in order:
+Because installation is prohibited in this profile, the Node dependencies and a launchable Playwright Chromium must already be present; preflight checks both before browser execution. Prepare them before switching to the exact clean commit if necessary.
 
-1. Deployment, unless `NMKR_PHASE2_SKIP_DEPLOY=true`.
-2. Dependency installation, when enabled or needed.
-3. Browser installation, when enabled.
-4. WordPress readiness gate.
-5. Playwright admin smoke checks.
-6. WP-CLI smoke checks.
-7. WP-CLI database-state validation via `scripts/nmkr-wpcli-db-state.sh`.
+Source integrity is reported as `PASS` only after the exact-SHA and clean-worktree checks pass. If `NMKR_DEPLOYED_PLUGIN_PATH` is provided, the runner also requires that path to be a Git worktree at the same exact SHA with a clean worktree and reports deployed integrity as `PASS`. If no deployed path is provided, deployed integrity remains `SKIPPED`; the runner does not infer equivalence.
 
-## WordPress readiness gate
+`existing-readonly` prevents runner-driven deployment and package/browser installation. The Playwright suite still authenticates and executes browser behavior, and the orchestration still runs readiness and WP-CLI/database-state checks, so use only a private test environment prepared for those checks.
 
-Before Playwright starts, the runner checks that WordPress is ready to serve the admin login page. The `wordpress-ready` gate runs after deployment, dependency setup, and optional browser installation, and before the Playwright suite.
+## Authentication and output handling
 
-The readiness gate detects temporary WordPress maintenance mode by checking for `WP_PATH/.maintenance` and known maintenance-page text from `wp-login.php`. It also verifies that `wp-login.php` returns HTTP 200 and contains the login form marker. If WordPress is still in maintenance mode or not ready, the runner waits and retries until the configured timeout, then fails the `wordpress-ready` step instead of reporting a misleading Playwright regression.
+Phase 2 redirects `PLAYWRIGHT_HTML_REPORT` and `PLAYWRIGHT_TEST_OUTPUT_DIR` into the private run directory and supplies that directory as `NMKR_AUTH_STATE_ROOT`. The Playwright wrapper creates a unique owner-only child directory and normally removes it after the run. The authentication cleanup project removes the state file as well. The runner records authentication-state cleanup as `MANAGED_BY_WRAPPER`; `NMKR_RETAIN_AUTH_STATE=true` changes the summary to `RETAINED` and is appropriate only for exceptional private diagnostics.
 
-The gate writes detailed diagnostics to `wordpress-ready.log` in the private run directory. Public console output remains concise and safe: it does not print private URLs, response bodies, cookies, nonces, secrets, screenshots, traces, videos, or private logs.
+Treat authentication state, HTML reports, screenshots, traces, videos, logs, response material, nonces, credentials, URLs, and environment files as private. Screenshots, traces, and videos remain off unless explicitly enabled outside the readonly profile. Do not upload run directories or paste their contents into public issues or pull requests.
 
-The readiness gate only detects and waits for `.maintenance`; it does not remove `.maintenance`. It also does not retry the full Playwright suite. Bad credentials and real UI regressions still fail in Playwright.
+## Success summary
 
-## Deployment wiring
-
-When `NMKR_PHASE2_SKIP_DEPLOY` is not `true`, the runner requires `NMKR_DEPLOY_COMMAND` and runs it with:
-
-```bash
-bash -lc "$NMKR_DEPLOY_COMMAND"
-```
-
-The command value is never printed. Deploy output is written only to the private deploy log.
-
-To skip deployment:
-
-```bash
-NMKR_PHASE2_SKIP_DEPLOY=true npm run test:phase2
-```
-
-## Private logs and reports
-
-By default, private logs and reports are stored under:
-
-```text
-an owner-private external state directory: `runs/<YYYYmmddTHHMMSSZ>-<pid>/`
-```
-
-The runner sets Playwright paths inside the private run directory:
-
-- `PLAYWRIGHT_HTML_REPORT=<run-dir>/playwright-report`
-- `PLAYWRIGHT_TEST_OUTPUT_DIR=<run-dir>/test-results`
-- `NMKR_AUTH_STATE_ROOT=<private-run-dir>` (the Playwright wrapper creates a fresh private child directory and its `auth-state.json` itself)
-
-Authentication state is sensitive session material. It is mode-restricted where supported, is not printed, reported, committed, or uploaded, and is removed after each run (including ordinary interruption). The Playwright wrapper creates and owns a fresh private child directory for every invocation; callers can provide only its private parent through `NMKR_AUTH_STATE_ROOT`, not an exact state file. Direct Playwright runs use a wrapper-created temporary root. `NMKR_RETAIN_AUTH_STATE=true` is private-diagnostics-only and should be avoided.
-
-## Expected success summary shape
-
-A successful run prints a concise summary like:
+A successful general run prints these current fields (individual status values depend on the selected options):
 
 ```text
 Phase 2 summary
@@ -162,27 +91,17 @@ Phase 2 summary
   playwright: PASS
   wpcli: PASS
   db-state: PASS
+  profile: general
+  source-integrity: SKIPPED
+  deployed-integrity: SKIPPED
+  readonly-policy: SKIPPED
+  authentication-state-cleanup: MANAGED_BY_WRAPPER
   result: PASS
   commit: abc1234
-  private run dir: /path/to/checkout/.phase2-private/runs/20260708T120000Z-12345
 ```
 
-## Failure handling
+The console does **not** print the private run-directory path. On failure it adds `failed step` and `private diagnostics: available locally`; inspect the appropriate step log directly inside the external state directory. Begin with non-mutating checks and do not copy private diagnostics into a public channel.
 
-On failure, the runner exits non-zero and prints the failed step, the private log path, and one local diagnostic command, for example:
+## Safety boundary
 
-```text
-  failed step: playwright
-  private log: /path/to/private/playwright.log
-  next diagnostic command: less /path/to/private/playwright.log
-```
-
-Review the private log locally. Do not paste sensitive log contents into public issues or pull requests.
-
-## Real NMKR sync note
-
-Real NMKR sync remains disabled by default with `RUN_REAL_SYNC=false`. The current Playwright smoke test does not implement real NMKR sync even if `RUN_REAL_SYNC=true`.
-
-## Do not commit private artifacts
-
-Do not commit `.env.tests`, private env files, `.phase2-private/`, Playwright reports, traces, screenshots, videos, logs, or VM output.
+Keep `RUN_REAL_SYNC=false`. Neither the Playwright route simulations nor Phase 2 orchestration executes a real NMKR synchronization. Do not commit `.env.tests`, populated environment files, private state directories, reports, test output, authentication state, screenshots, traces, videos, or logs.
