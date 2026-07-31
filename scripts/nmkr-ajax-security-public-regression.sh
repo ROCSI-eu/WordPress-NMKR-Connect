@@ -7,10 +7,10 @@ fail(){ echo 'AJAX security harness regression: FAIL' >&2; exit 1; }
 # Keep these source checks narrow: they prevent a future edit from silently restoring
 # Playwright's repository-local defaults or cleanup-before-reap signal ordering.
 for name in PLAYWRIGHT_HTML_REPORT PLAYWRIGHT_TEST_OUTPUT_DIR NMKR_AUTH_STATE_ROOT; do
-  rg -Fq "export ${name}=\"\$RUN_DIR/" "$RUNNER" || fail
+  grep -Fq -- "export ${name}=\"\$RUN_DIR/" "$RUNNER" || fail
 done
-rg -q 'reap_active; .*rm -rf' "$RUNNER" || fail
-rg -q 'kill -TERM -- "-\$ACTIVE_PGID"' "$RUNNER" || fail
+grep -Eq -- 'reap_active; .*rm -rf' "$RUNNER" || fail
+grep -Fq -- 'kill -TERM -- "-$ACTIVE_PGID"' "$RUNNER" || fail
 
 private="$(mktemp -d)"; chmod 700 "$private"
 trap 'rm -rf -- "$private"' EXIT
