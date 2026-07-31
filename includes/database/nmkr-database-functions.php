@@ -245,12 +245,15 @@ function nmkr_store_token_exact($token_data, $project_uid) {
         } else {
             // Identity and ownership are contextual and are not included in the API payload hash.
             $context_changed = (string) $existing_token->token_id !== (string) $token_data['id'] || (string) $existing_token->project_uid !== (string) $project_uid;
-            $context_data = array(
-                'token_id' => $token_data['id'],
-                'project_uid' => $project_uid,
-                'synced_at' => nmkr_get_timestamp()
-            );
-            if ($context_changed) $context_data['updated_at'] = nmkr_get_timestamp();
+            $context_data = array('synced_at' => nmkr_get_timestamp());
+            if ($context_changed) {
+                $context_data = array(
+                    'token_id' => $token_data['id'],
+                    'project_uid' => $project_uid,
+                    'updated_at' => nmkr_get_timestamp(),
+                    'synced_at' => nmkr_get_timestamp()
+                );
+            }
             $write_result = $wpdb->update(
                 $table_name,
                 $context_data,
