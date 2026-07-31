@@ -10,6 +10,10 @@ test.skip(!restrictedContract && !targeted, 'Private restricted-account contract
 if (targeted && !restrictedContract) failure('ajax_security_environment_missing');
 
 const required = (name: string): string => process.env[name] || failure('ajax_security_environment_missing');
+const globalSecrets = (): string[] => [
+  required('WP_ADMIN_PASSWORD'), required('NMKR_MARKETING_PASSWORD'),
+];
+const loadedSecrets = new Set<string>();
 const urlFor = (base: string, path: string) => new URL(path, base.endsWith('/') ? base : `${base}/`).toString();
 
 async function blockAutomaticAjax(context: BrowserContext): Promise<string[]> {
@@ -46,7 +50,9 @@ async function post(context: BrowserContext, ajaxUrl: string, fields: Record<str
   const response = await context.request.post(ajaxUrl, { form: fields, failOnStatusCode: false });
   const text = await response.text(); let parsed: unknown; let json = false;
   try { parsed = JSON.parse(text); json = true; } catch { parsed = undefined; }
-  if (secrets.some(secret => secret && text.includes(secret))) failure('ajax_security_secret_echoed');
+  const suppliedNonces = Object.entries(fields).filter(([key]) => key.toLowerCase().includes('nonce')).map(([, value]) => value);
+  const protectedValues = new Set([...globalSecrets(), ...loadedSecrets, ...suppliedNonces, ...secrets]);
+  if ([...protectedValues].some(secret => secret && text.includes(secret))) failure('ajax_security_secret_echoed');
   const success = Boolean(json && parsed && typeof parsed === 'object' && (parsed as {success?:unknown}).success === true);
   return { json, success, status: response.status(), data: parsed, text };
 }
@@ -61,13 +67,17 @@ function deniedNonceOrAnonymous(r: Classified) {
 function deniedCapability(r: Classified) {
   safe(r); if (r.status !== 403 || r.success) failure('ajax_security_capability_denial_invalid');
 }
-function deniedInput(r: Classified) {
-  safe(r); if (r.success || ![400, 403].includes(r.status)) failure('ajax_security_input_denial_invalid');
+function deniedMalformedStop(r: Classified) {
+  safe(r);
+  const code = r.json && r.data && typeof r.data === 'object'
+    ? (r.data as {data?:{error_code?:unknown}}).data?.error_code : undefined;
+  if (r.status !== 409 || r.success || code !== 'sync_owner_mismatch') failure('ajax_security_input_denial_invalid');
 }
 
 test('@negative privileged AJAX rejects anonymous, nonce, capability, and malformed Stop requests', async ({ browser, page, context }) => {
   const adminLedger = await blockAutomaticAjax(context);
   const admin = await runtime(page);
+  loadedSecrets.add(admin.syncNonce); loadedSecrets.add(admin.dashboardNonce);
   const anonymous = await browser.newContext({ storageState: undefined });
   try {
     for (const action of ['nmkr_start_sync','nmkr_check_api_status','nmkr_analytics_kpis']) deniedNonceOrAnonymous(await post(anonymous, admin.ajaxUrl, { action }));
@@ -78,11 +88,12 @@ test('@negative privileged AJAX rejects anonymous, nonce, capability, and malfor
   const restrictedLogin = await login(browser, required('NMKR_MARKETING_USER'), required('NMKR_MARKETING_PASSWORD'));
   try {
     const rp = await restrictedLogin.context.newPage(); const rr = await runtime(rp, process.env.NMKR_MARKETING_PATH);
-    for (const [action, nonce] of [['nmkr_start_sync',rr.syncNonce],['nmkr_sync_progress',rr.syncNonce],['nmkr_check_api_status',rr.dashboardNonce]]) {
-      deniedCapability(await post(restrictedLogin.context, rr.ajaxUrl, { action, nonce }, [rr.syncNonce, rr.dashboardNonce, required('NMKR_MARKETING_PASSWORD')]));
+    loadedSecrets.add(rr.syncNonce); loadedSecrets.add(rr.dashboardNonce);
+    for (const [action, nonce, run_id] of [['nmkr_start_sync',rr.syncNonce,''],['nmkr_sync_progress',rr.syncNonce,''],['nmkr_check_api_status',rr.dashboardNonce,''],['nmkr_stop_sync',rr.syncNonce,'restricted-malformed-run-id']]) {
+      deniedCapability(await post(restrictedLogin.context, rr.ajaxUrl, { action, nonce, ...(run_id ? { run_id } : {}) }));
     }
   } finally { await restrictedLogin.context.close(); }
-  deniedInput(await post(context, admin.ajaxUrl, { action:'nmkr_stop_sync', nonce:admin.syncNonce, run_id:'not-a-valid-run-id' }, [admin.syncNonce]));
+  deniedMalformedStop(await post(context, admin.ajaxUrl, { action:'nmkr_stop_sync', nonce:admin.syncNonce, run_id:'not-a-valid-run-id' }));
   expect([...adminLedger, ...restrictedLogin.ledger], 'ajax_security_automatic_ajax_ledger').not.toContain('allowed-automatic-ajax');
 });
 
@@ -91,11 +102,13 @@ test('@authorized bounded authorized analytics and synchronization-health shapes
   const restrictedLogin = await login(browser, required('NMKR_MARKETING_USER'), required('NMKR_MARKETING_PASSWORD'));
   try {
     const rp = await restrictedLogin.context.newPage(); const rr = await runtime(rp, process.env.NMKR_MARKETING_PATH);
+    loadedSecrets.add(rr.syncNonce); loadedSecrets.add(rr.dashboardNonce);
     const k = await post(restrictedLogin.context, rr.ajaxUrl, { action:'nmkr_analytics_kpis', nonce:rr.dashboardNonce, range:'24h', bucket:'hour', shortcode_type:'grid', project_uid:'synthetic', token_uid:'synthetic' }, [rr.dashboardNonce, required('NMKR_MARKETING_PASSWORD')]); safe(k);
     if (!k.success || !k.json || !k.data || typeof k.data !== 'object') failure('ajax_security_response_shape_invalid');
     const d = (k.data as {data?:Record<string,unknown>}).data; if (!d || !['number','string'].includes(typeof d.views) || !['number','string'].includes(typeof d.clicks) || !['number','string'].includes(typeof d.ctr)) failure('ajax_security_response_shape_invalid');
   } finally { await restrictedLogin.context.close(); }
   const ar = await runtime(page);
+  loadedSecrets.add(ar.syncNonce); loadedSecrets.add(ar.dashboardNonce);
   const h = await post(context, ar.ajaxUrl, { action:'nmkr_check_sync_health', nonce:ar.syncNonce }, [ar.syncNonce, required('WP_ADMIN_PASSWORD')]); safe(h);
   if (!h.success || !h.json || !h.data || typeof h.data !== 'object') failure('ajax_security_response_shape_invalid');
   const hd = (h.data as {data?:Record<string,unknown>}).data;

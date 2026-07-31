@@ -15,10 +15,30 @@ outside(){ local child="$1" parent="$2"; [[ "$child" != "$parent" && "$child" !=
 for excluded in "$ROOT" "$WP_ROOT" "$ROOT/playwright-report" "$ROOT/test-results"; do outside "$PRIVATE_ROOT" "$excluded" && outside "$excluded" "$PRIVATE_ROOT" || fail private-root; done
 RUN_DIR="$(mktemp -d "$PRIVATE_ROOT/ajax-security.XXXXXXXX")" || fail private-root
 LOG="$RUN_DIR/private.log"; : >"$LOG"; chmod 600 "$LOG"
-cleanup(){ local status=$?; trap - EXIT INT TERM; [[ -n "${RUN_DIR:-}" && -d "$RUN_DIR" ]] && rm -rf -- "$RUN_DIR"; exit "$status"; }
-signal(){ local code="$1"; trap - EXIT INT TERM; [[ -n "${RUN_DIR:-}" && -d "$RUN_DIR" ]] && rm -rf -- "$RUN_DIR"; exit "$code"; }
+export PLAYWRIGHT_HTML_REPORT="$RUN_DIR/playwright-report"
+export PLAYWRIGHT_TEST_OUTPUT_DIR="$RUN_DIR/test-results"
+export NMKR_AUTH_STATE_ROOT="$RUN_DIR/auth-state"
+ACTIVE_PID=""; ACTIVE_PGID=""
+reap_active(){
+  [[ -n "$ACTIVE_PID" ]] || return 0
+  if kill -0 "$ACTIVE_PID" 2>/dev/null; then
+    kill -TERM -- "-$ACTIVE_PGID" 2>/dev/null || kill -TERM "$ACTIVE_PID" 2>/dev/null || true
+    for _ in {1..50}; do kill -0 "$ACTIVE_PID" 2>/dev/null || break; sleep 0.1; done
+    kill -KILL -- "-$ACTIVE_PGID" 2>/dev/null || true
+  fi
+  wait "$ACTIVE_PID" 2>/dev/null || true
+  ACTIVE_PID=""; ACTIVE_PGID=""
+}
+cleanup(){ local status=$?; trap - EXIT INT TERM; reap_active; [[ -n "${RUN_DIR:-}" && -d "$RUN_DIR" ]] && rm -rf -- "$RUN_DIR"; exit "$status"; }
+signal(){ local code="$1"; trap - INT TERM; reap_active; [[ -n "${RUN_DIR:-}" && -d "$RUN_DIR" ]] && rm -rf -- "$RUN_DIR"; trap - EXIT; exit "$code"; }
 trap cleanup EXIT; trap 'signal 130' INT; trap 'signal 143' TERM
-run(){ local stage="$1"; shift; "$@" >>"$LOG" 2>&1 || fail "$stage"; }
+run(){
+  local stage="$1" status; shift
+  setsid "$@" >>"$LOG" 2>&1 & ACTIVE_PID=$!; ACTIVE_PGID=$ACTIVE_PID
+  set +e; wait "$ACTIVE_PID"; status=$?; set -e
+  ACTIVE_PID=""; ACTIVE_PGID=""
+  [[ "$status" -eq 0 ]] || fail "$stage"
+}
 [[ "$(git -C "$ROOT" rev-parse HEAD 2>/dev/null)" == "$NMKR_AJAX_SECURITY_EXPECTED_SOURCE_SHA" && -z "$(git -C "$ROOT" status --porcelain 2>/dev/null)" ]] || fail source
 [[ "$(git -C "$DEPLOYED" rev-parse HEAD 2>/dev/null)" == "$NMKR_AJAX_SECURITY_EXPECTED_SOURCE_SHA" && -z "$(git -C "$DEPLOYED" status --porcelain 2>/dev/null)" ]] || fail deployed-source
 command -v "$WP_CLI_BIN" >/dev/null 2>&1 || fail wordpress

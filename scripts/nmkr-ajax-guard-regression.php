@@ -41,7 +41,9 @@ require __DIR__.'/../includes/pages/analytics/nmkr-analytics-ajax.php';
 
 function nmkr_test($name, $handler, $nonce, $caps, $expected, $forbidden) {
     $GLOBALS['nmkr_calls']=array(); $GLOBALS['nmkr_nonce_ok']=$nonce; $GLOBALS['nmkr_caps']=$caps;
-    $_POST=array('nonce'=>'synthetic'); $_REQUEST=$_POST; $_SERVER['REQUEST_METHOD']='POST';
+    $_POST=array('nonce'=>'synthetic');
+    if ($name === 'stop_cap') $_POST['run_id']='restricted-malformed-run-id';
+    $_REQUEST=$_POST; $_SERVER['REQUEST_METHOD']='POST';
     try { call_user_func($handler); throw new Exception('no_termination'); } catch (NmkrAjaxTermination $e) { $kind=$e->kind; $status=$e->status; }
     foreach ($expected as $call) if (!in_array($call,$GLOBALS['nmkr_calls'],true)) throw new Exception($name.'_expected_guard_missing');
     foreach ($forbidden as $call) if (in_array($call,$GLOBALS['nmkr_calls'],true)) throw new Exception($name.'_downstream_reached');
@@ -52,6 +54,7 @@ try {
     nmkr_test('start_nonce','nmkr_start_sync_handler',false,array(),array('nonce:nmkr_sync_nonce:nonce'),array('cap:nmkr_manage_sync','admission','option','transient','cron'));
     nmkr_test('start_cap','nmkr_start_sync_handler',true,array(),array('cap:nmkr_manage_sync'),array('admission','option','option-write','transient','transient-write','cron'));
     nmkr_test('progress_cap','nmkr_sync_progress_handler',true,array(),array('cap:nmkr_view_dashboard'),array('owner','option','transient'));
+    nmkr_test('stop_cap','nmkr_stop_sync_handler',true,array(),array('cap:nmkr_manage_sync'),array('owner','option','option-write','transient','transient-write','cron'));
     nmkr_test('api_nonce','nmkr_check_api_status',false,array(),array('nonce:nmkr_dashboard_nonce:nonce'),array('cap:nmkr_view_dashboard','option','api'));
     nmkr_test('api_cap','nmkr_check_api_status',true,array(),array('cap:nmkr_view_dashboard'),array('option','api'));
     nmkr_test('logs_nonce','nmkr_clear_all_logs_ajax',false,array(),array('nonce:nmkr_clear_logs_nonce:nonce'),array('cap:nmkr_manage_sync','option-write'));
