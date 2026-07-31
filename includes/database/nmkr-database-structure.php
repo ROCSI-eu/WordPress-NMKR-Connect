@@ -11,6 +11,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+require_once dirname(__DIR__) . '/helpers/nmkr-project-normalization.php';
+
 
 /** Current version for NMKR-owned database schema, independent of plugin version. */
 define('NMKR_CONNECT_SCHEMA_VERSION', '2');
@@ -190,9 +192,9 @@ function nmkr_connect_upgrade_project_blockchains_schema() {
     $rows = $wpdb->get_results("SELECT id, blockchain FROM $table WHERE (blockchains IS NULL OR blockchains = '') AND blockchain IS NOT NULL AND blockchain <> ''", ARRAY_A);
     if ($rows === null || !empty($wpdb->last_error)) return false;
     foreach ($rows as $row) {
-        $chain = trim((string) $row['blockchain']);
-        if ($chain === '') continue;
-        $json = wp_json_encode(array($chain));
+        $chains = nmkr_normalize_project_blockchains($row['blockchain']);
+        if (empty($chains)) continue;
+        $json = wp_json_encode($chains);
         if (!is_string($json)) return false;
         $updated = $wpdb->query($wpdb->prepare("UPDATE $table SET blockchains = %s WHERE id = %d AND (blockchains IS NULL OR blockchains = '')", $json, (int) $row['id']));
         if ($updated === false || !empty($wpdb->last_error)) return false;

@@ -1,29 +1,5 @@
 <?php
-/** Normalize an API blockchain value into meaningful, ordered chain names. */
-function nmkr_normalize_project_blockchains($value) {
-    $values = is_array($value) ? $value : array($value);
-    $normalized = array();
-    $seen = array();
-    foreach ($values as $chain) {
-        if (!is_scalar($chain) || is_bool($chain)) continue;
-        $chain = trim(sanitize_text_field((string) $chain));
-        if ($chain === '') continue;
-        $key = strtolower($chain);
-        if ($key === 'cardano') $chain = 'Cardano';
-        elseif ($key === 'solana') $chain = 'Solana';
-        $key = strtolower($chain);
-        if (isset($seen[$key])) continue;
-        $seen[$key] = true;
-        $normalized[] = $chain;
-    }
-    return $normalized;
-}
-
-/** Serialize the authoritative blockchain collection as a JSON array. */
-function nmkr_serialize_project_blockchains($value) {
-    $json = wp_json_encode(nmkr_normalize_project_blockchains($value));
-    return is_string($json) ? $json : '[]';
-}
+require_once dirname(__DIR__) . '/helpers/nmkr-project-normalization.php';
 
 /** Normalize the undocumented Solana project details without scalar coercion warnings. */
 function nmkr_normalize_solana_project_details($value) {
@@ -128,9 +104,11 @@ function nmkr_store_project_exact($project_data) {
     }
     
     if ($existing_project) {
-        // The collection comparison also repairs rows conservatively backfilled from legacy data.
+        // Compare every derived value so same-hash synchronization repairs legacy rows.
         $stored_blockchains = isset($existing_project->blockchains) ? (string) $existing_project->blockchains : '';
-        if ($existing_project->hash !== $hash || $stored_blockchains !== $data['blockchains']) {
+        $stored_blockchain = isset($existing_project->blockchain) ? (string) $existing_project->blockchain : '';
+        $stored_solana_details = isset($existing_project->solana_project_details) ? (string) $existing_project->solana_project_details : '';
+        if ($existing_project->hash !== $hash || $stored_blockchain !== $data['blockchain'] || $stored_blockchains !== $data['blockchains'] || $stored_solana_details !== $data['solana_project_details']) {
             // Only update updated_at if data actually changed
             $data['updated_at'] = nmkr_get_timestamp();
             $data['synced_at'] = nmkr_get_timestamp();
@@ -265,17 +243,20 @@ function nmkr_store_token_exact($token_data, $project_uid) {
             );
             $action = $write_result === 0 ? 'unchanged' : 'updated';
         } else {
-            // Ownership is contextual and is not included in the API payload hash.
+            // Identity and ownership are contextual and are not included in the API payload hash.
+            $context_changed = (string) $existing_token->token_id !== (string) $token_data['id'] || (string) $existing_token->project_uid !== (string) $project_uid;
+            $context_data = array(
+                'token_id' => $token_data['id'],
+                'project_uid' => $project_uid,
+                'synced_at' => nmkr_get_timestamp()
+            );
+            if ($context_changed) $context_data['updated_at'] = nmkr_get_timestamp();
             $write_result = $wpdb->update(
                 $table_name,
-                array(
-                    'token_id' => $token_data['id'],
-                    'project_uid' => $project_uid,
-                    'synced_at' => nmkr_get_timestamp()
-                ),
+                $context_data,
                 array('token_uid' => $token_data['uid'])
             );
-            $action = 'unchanged';
+            $action = $context_changed ? 'updated' : 'unchanged';
         }
     } else {
         // Insert new token
