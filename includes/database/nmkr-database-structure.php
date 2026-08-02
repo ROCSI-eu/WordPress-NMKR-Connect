@@ -11,9 +11,11 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+require_once dirname(__DIR__) . '/helpers/nmkr-project-normalization.php';
+
 
 /** Current version for NMKR-owned database schema, independent of plugin version. */
-define('NMKR_CONNECT_SCHEMA_VERSION', '1');
+define('NMKR_CONNECT_SCHEMA_VERSION', '2');
 define('NMKR_CONNECT_SCHEMA_VERSION_OPTION', 'nmkr_connect_schema_version');
 define('NMKR_CONNECT_SCHEMA_UPGRADE_LOCK_OPTION', 'nmkr_connect_schema_upgrade_lock');
 define('NMKR_CONNECT_SCHEMA_UPGRADE_LOCK_TTL', 300);
@@ -169,6 +171,37 @@ function nmkr_connect_upgrade_sync_stats_schema() {
     return nmkr_connect_verify_sync_stats_schema();
 }
 
+/** Return whether the authoritative project blockchain collection column exists. */
+function nmkr_connect_project_blockchains_column_exists() {
+    global $wpdb;
+    $table = $wpdb->prefix . 'nmkr_projects';
+    foreach ((array) $wpdb->get_results("SHOW COLUMNS FROM $table", ARRAY_A) as $column) {
+        if (isset($column['Field']) && $column['Field'] === 'blockchains') return strtolower(trim((string) $column['Type'])) === 'longtext';
+    }
+    return false;
+}
+
+/** Add, verify, and conservatively backfill the project blockchain collection. */
+function nmkr_connect_upgrade_project_blockchains_schema() {
+    global $wpdb;
+    $table = $wpdb->prefix . 'nmkr_projects';
+    if (!nmkr_connect_project_blockchains_column_exists()) {
+        $altered = $wpdb->query("ALTER TABLE $table ADD COLUMN blockchains longtext NULL AFTER blockchain");
+        if ($altered === false || !empty($wpdb->last_error) || !nmkr_connect_project_blockchains_column_exists()) return false;
+    }
+    $rows = $wpdb->get_results("SELECT id, blockchain FROM $table WHERE (blockchains IS NULL OR blockchains = '') AND blockchain IS NOT NULL AND blockchain <> ''", ARRAY_A);
+    if ($rows === null || !empty($wpdb->last_error)) return false;
+    foreach ($rows as $row) {
+        $chains = nmkr_normalize_project_blockchains($row['blockchain']);
+        if (empty($chains)) continue;
+        $json = wp_json_encode($chains);
+        if (!is_string($json)) return false;
+        $updated = $wpdb->query($wpdb->prepare("UPDATE $table SET blockchains = %s WHERE id = %d AND (blockchains IS NULL OR blockchains = '')", $json, (int) $row['id']));
+        if ($updated === false || !empty($wpdb->last_error)) return false;
+    }
+    return nmkr_connect_project_blockchains_column_exists();
+}
+
 /** Perform the one-time normal-load schema upgrade and record only verified success. */
 function nmkr_connect_maybe_upgrade_schema() {
     if (nmkr_connect_schema_version_is_current_or_newer(get_option(NMKR_CONNECT_SCHEMA_VERSION_OPTION, ''))) return true;
@@ -176,7 +209,7 @@ function nmkr_connect_maybe_upgrade_schema() {
     if (!$token) return false;
     try {
         if (nmkr_connect_schema_version_is_current_or_newer(get_option(NMKR_CONNECT_SCHEMA_VERSION_OPTION, ''))) return true;
-        if (!nmkr_connect_upgrade_sync_stats_schema()) return false;
+        if (!nmkr_connect_upgrade_sync_stats_schema() || !nmkr_connect_upgrade_project_blockchains_schema()) return false;
         return update_option(NMKR_CONNECT_SCHEMA_VERSION_OPTION, NMKR_CONNECT_SCHEMA_VERSION, false) || get_option(NMKR_CONNECT_SCHEMA_VERSION_OPTION, '') === NMKR_CONNECT_SCHEMA_VERSION;
     } finally {
         nmkr_connect_release_schema_upgrade_lock($token);
@@ -234,6 +267,7 @@ function nmkr_connect_create_tables() {
         synced_at datetime DEFAULT CURRENT_TIMESTAMP,
         hash VARCHAR(255) DEFAULT NULL,
         blockchain varchar(255),
+        blockchains longtext,
         solana_project_details text,
         PRIMARY KEY (id),
         UNIQUE KEY project_uid (project_uid),
