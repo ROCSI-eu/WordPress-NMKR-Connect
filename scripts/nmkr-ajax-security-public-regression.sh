@@ -9,6 +9,12 @@ fail(){ echo 'AJAX security harness regression: FAIL' >&2; exit 1; }
 for name in PLAYWRIGHT_HTML_REPORT PLAYWRIGHT_TEST_OUTPUT_DIR NMKR_AUTH_STATE_ROOT; do
   grep -Fq -- "export ${name}=\"\$RUN_DIR/" "$RUNNER" || fail
 done
+grep -Fq -- 'mkdir -m 700 -- "$NMKR_AUTH_STATE_ROOT" || fail auth-state' "$RUNNER" || fail
+grep -Fq -- '[[ -d "$NMKR_AUTH_STATE_ROOT" && ! -L "$NMKR_AUTH_STATE_ROOT" ]] || fail auth-state' "$RUNNER" || fail
+grep -Fq -- '[[ "$(stat -c '\''%a'\'' "$NMKR_AUTH_STATE_ROOT" 2>/dev/null)" == 700 ]] || fail auth-state' "$RUNNER" || fail
+auth_prepare_line="$(grep -nF -- 'mkdir -m 700 -- "$NMKR_AUTH_STATE_ROOT"' "$RUNNER" | cut -d: -f1)"
+playwright_line="$(grep -nF -- 'run negative npm --prefix "$ROOT" run test:e2e:ajax-security' "$RUNNER" | cut -d: -f1)"
+[[ "$auth_prepare_line" =~ ^[0-9]+$ && "$playwright_line" =~ ^[0-9]+$ && "$auth_prepare_line" -lt "$playwright_line" ]] || fail
 grep -Eq -- 'reap_active; .*rm -rf' "$RUNNER" || fail
 grep -Fq -- 'kill -TERM -- "-$ACTIVE_PGID"' "$RUNNER" || fail
 

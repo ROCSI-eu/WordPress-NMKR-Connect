@@ -18,6 +18,9 @@ LOG="$RUN_DIR/private.log"; : >"$LOG"; chmod 600 "$LOG"
 export PLAYWRIGHT_HTML_REPORT="$RUN_DIR/playwright-report"
 export PLAYWRIGHT_TEST_OUTPUT_DIR="$RUN_DIR/test-results"
 export NMKR_AUTH_STATE_ROOT="$RUN_DIR/auth-state"
+mkdir -m 700 -- "$NMKR_AUTH_STATE_ROOT" || fail auth-state
+[[ -d "$NMKR_AUTH_STATE_ROOT" && ! -L "$NMKR_AUTH_STATE_ROOT" ]] || fail auth-state
+[[ "$(stat -c '%a' "$NMKR_AUTH_STATE_ROOT" 2>/dev/null)" == 700 ]] || fail auth-state
 ACTIVE_PID=""; ACTIVE_PGID=""
 reap_active(){
   [[ -n "$ACTIVE_PID" ]] || return 0
