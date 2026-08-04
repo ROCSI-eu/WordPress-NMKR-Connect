@@ -39,6 +39,9 @@ bash scripts/nmkr-ajax-security-public-regression.sh
 printf '\n== AJAX security idle-state regression ==\n'
 bash scripts/nmkr-ajax-security-idle-regression.sh
 
+printf '\n== Debug-log lookback regression ==\n'
+bash scripts/nmkr-debug-log-regression.sh
+
 printf '\n== In-place run_id schema upgrade regression ==\n'
 bash scripts/nmkr-schema-upgrade-regression.sh
 
