@@ -32,7 +32,7 @@ $EDITOR .env.tests
 
 The required browser-execution values are `WP_BASE_URL`, `WP_ADMIN_USER`, and `WP_ADMIN_PASSWORD`. Phase 2 additionally requires `WP_PATH`. Keep `RUN_REAL_SYNC=false` and `PW_SAVE_ARTIFACTS=false` for ordinary runs. Optional page-path variables in the example file allow a private environment to override repository defaults.
 
-An explicit `NMKR_PHASE2_ENV_FILE` is loaded by the Playwright configuration when present. Use it for Phase 2 as documented in [the Phase 2 guide](testing-phase-2.md); do not place a populated environment file in the repository or WordPress root.
+An explicit `NMKR_PHASE2_ENV_FILE` is loaded by the Playwright configuration when present. Use it for Phase 2 as documented in [the Phase 2 guide](testing-phase-2.md); do not place a populated environment file in the repository or WordPress root. The private AJAX-security wrapper is intentionally export-only: `npm run test:ajax-security` does **not** source `.env.tests` or `NMKR_PHASE2_ENV_FILE` before its preflight. Export the required variables in the current shell, or load an approved private environment into that shell, before invoking the wrapper.
 
 ## Current commands
 
@@ -98,6 +98,8 @@ Exact-head private execution is:
 ```bash
 npm run test:ajax-security
 ```
+
+This wrapper is fail-closed and export-only: it does not read `.env.tests`, does not source the file named by `NMKR_PHASE2_ENV_FILE`, and performs preflight only against variables already present in its process environment. Maintainers must export the private values first, or source an approved private environment into the current shell, using only private local procedures.
 
 It additionally requires `NMKR_PRIVATE_RUN_ROOT` to name an existing owner-only (0700), non-symlink directory outside the checkout, WordPress root, and public Playwright output trees. `NMKR_DEPLOYED_PLUGIN_PATH` must safely resolve to the active plugin directory in a clean Git worktree at `NMKR_AJAX_SECURITY_EXPECTED_SOURCE_SHA`; inability to prove that deployed identity fails closed before browser execution. Console output uses generic stage names and the private log/run directory is removed deterministically on exit or signal.
 

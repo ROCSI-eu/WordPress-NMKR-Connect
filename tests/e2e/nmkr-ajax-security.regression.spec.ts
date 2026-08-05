@@ -89,7 +89,7 @@ test('@negative privileged AJAX rejects anonymous, nonce, capability, and malfor
   try {
     const rp = await restrictedLogin.context.newPage(); const rr = await runtime(rp, process.env.NMKR_MARKETING_PATH);
     loadedSecrets.add(rr.syncNonce); loadedSecrets.add(rr.dashboardNonce);
-    for (const [action, nonce, run_id] of [['nmkr_start_sync',rr.syncNonce,''],['nmkr_sync_progress',rr.syncNonce,''],['nmkr_check_api_status',rr.dashboardNonce,''],['nmkr_stop_sync',rr.syncNonce,'restricted-malformed-run-id']]) {
+    for (const [action, nonce, run_id] of [['nmkr_start_sync',rr.syncNonce,''],['nmkr_sync_progress',rr.syncNonce,''],['nmkr_check_sync_health',rr.syncNonce,''],['nmkr_check_api_status',rr.dashboardNonce,''],['nmkr_stop_sync',rr.syncNonce,'restricted-malformed-run-id']]) {
       deniedCapability(await post(restrictedLogin.context, rr.ajaxUrl, { action, nonce, ...(run_id ? { run_id } : {}) }));
     }
   } finally { await restrictedLogin.context.close(); }
