@@ -18,6 +18,42 @@ playwright_line="$(grep -nF -- 'run negative npm --prefix "$ROOT" run test:e2e:a
 grep -Eq -- 'reap_active; .*rm -rf' "$RUNNER" || fail
 grep -Fq -- 'kill -TERM -- "-$ACTIVE_PGID"' "$RUNNER" || fail
 
+# Exercise the ignored-runtime gate with an expected generated layout and a
+# deterministic Composer stand-in. The same gate must reject changed package
+# content without printing filenames or fixture paths.
+integrity_root="$(mktemp -d)"
+mkdir -p "$integrity_root/plugin/vendor/composer" "$integrity_root/plugin/vendor/freemius/wordpress-sdk/includes" "$integrity_root/bin"
+printf '/vendor/\n' >"$integrity_root/plugin/.gitignore"
+printf '{}\n' >"$integrity_root/plugin/composer.json"
+printf '{}\n' >"$integrity_root/plugin/composer.lock"
+printf 'expected\n' >"$integrity_root/plugin/vendor/autoload.php"
+printf 'expected\n' >"$integrity_root/plugin/vendor/composer/installed.php"
+printf 'expected\n' >"$integrity_root/plugin/vendor/freemius/wordpress-sdk/start.php"
+printf 'expected\n' >"$integrity_root/plugin/vendor/freemius/wordpress-sdk/includes/class-freemius.php"
+git -C "$integrity_root/plugin" init -q
+git -C "$integrity_root/plugin" add .gitignore composer.json composer.lock
+cat >"$integrity_root/bin/composer" <<'SH'
+#!/usr/bin/env bash
+set -e
+root="${1#--working-dir=}"
+case " $* " in
+  *' install '*)
+    mkdir -p "$root/vendor/composer" "$root/vendor/freemius/wordpress-sdk/includes"
+    printf 'expected\n' >"$root/vendor/autoload.php"
+    printf 'expected\n' >"$root/vendor/composer/installed.php"
+    printf 'expected\n' >"$root/vendor/freemius/wordpress-sdk/start.php"
+    printf 'expected\n' >"$root/vendor/freemius/wordpress-sdk/includes/class-freemius.php"
+    ;;
+esac
+SH
+chmod 700 "$integrity_root/bin/composer"
+integrity_output="$(PATH="$integrity_root/bin:$PATH" bash "$ROOT/scripts/nmkr-ajax-runtime-integrity.sh" "$integrity_root/plugin" 2>&1)" || fail
+[[ -z "$integrity_output" ]] || fail
+printf 'modified\n' >"$integrity_root/plugin/vendor/freemius/wordpress-sdk/start.php"
+if integrity_output="$(PATH="$integrity_root/bin:$PATH" bash "$ROOT/scripts/nmkr-ajax-runtime-integrity.sh" "$integrity_root/plugin" 2>&1)"; then fail; fi
+[[ -z "$integrity_output" ]] || fail
+rm -rf -- "$integrity_root"
+
 private="$(mktemp -d)"; chmod 700 "$private"
 trap 'rm -rf -- "$private"' EXIT
 export PLAYWRIGHT_HTML_REPORT="$private/report" PLAYWRIGHT_TEST_OUTPUT_DIR="$private/results" NMKR_AUTH_STATE_ROOT="$private/auth"

@@ -44,6 +44,7 @@ run(){
 }
 [[ "$(git -C "$ROOT" rev-parse HEAD 2>/dev/null)" == "$NMKR_AJAX_SECURITY_EXPECTED_SOURCE_SHA" && -z "$(git -C "$ROOT" status --porcelain 2>/dev/null)" ]] || fail source
 [[ "$(git -C "$DEPLOYED" rev-parse HEAD 2>/dev/null)" == "$NMKR_AJAX_SECURITY_EXPECTED_SOURCE_SHA" && -z "$(git -C "$DEPLOYED" status --porcelain 2>/dev/null)" ]] || fail deployed-source
+run deployed-runtime "$ROOT/scripts/nmkr-ajax-runtime-integrity.sh" "$DEPLOYED"
 command -v "$WP_CLI_BIN" >/dev/null 2>&1 || fail wordpress
 run wordpress "$WP_CLI_BIN" --path="$WP_ROOT" core is-installed --quiet
 run wordpress "$WP_CLI_BIN" --path="$WP_ROOT" plugin is-active "${NMKR_PLUGIN_SLUG:-nmkr-connect/nmkr-connect.php}"

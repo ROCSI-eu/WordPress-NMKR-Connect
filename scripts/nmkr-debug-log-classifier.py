@@ -8,9 +8,6 @@ import datetime as dt
 import os
 import re
 import sys
-from collections import deque
-
-
 ERROR_PATTERN = re.compile(
     r"PHP (?:Fatal error|Parse error|Warning|Notice)|NMKR.*(?:Fatal|Error|Exception)",
     re.IGNORECASE,
@@ -47,8 +44,7 @@ def has_failing_match(path: str, lookback_minutes: int, now: dt.datetime) -> boo
         os.stat(path, follow_symlinks=False).st_mtime, dt.timezone.utc
     ) >= cutoff
 
-    with open(path, "r", encoding="utf-8", errors="replace") as log_file:
-        lines = deque(log_file, maxlen=300)
+    lines = tail_lines(path, 300)
 
     for line in lines:
         if ERROR_PATTERN.search(line) is None:
@@ -60,6 +56,30 @@ def has_failing_match(path: str, lookback_minutes: int, now: dt.datetime) -> boo
         elif timestamp >= cutoff:
             return True
     return False
+
+
+def tail_lines(path: str, limit: int) -> list[str]:
+    """Read at most the final ``limit`` newline-delimited logical lines."""
+    with open(path, "rb") as log_file:
+        log_file.seek(0, os.SEEK_END)
+        position = log_file.tell()
+        chunks: list[bytes] = []
+        newline_count = 0
+        trailing_newline = False
+        while position > 0 and newline_count <= limit:
+            size = min(8192, position)
+            position -= size
+            log_file.seek(position)
+            chunk = log_file.read(size)
+            chunks.append(chunk)
+            newline_count += chunk.count(b"\n")
+            if len(chunks) == 1:
+                trailing_newline = chunk.endswith(b"\n")
+
+    raw_lines = b"".join(reversed(chunks)).splitlines(keepends=True)
+    if trailing_newline and raw_lines and raw_lines[-1] == b"":
+        raw_lines.pop()
+    return [line.decode("utf-8", "replace") for line in raw_lines[-limit:]]
 
 
 def main() -> int:

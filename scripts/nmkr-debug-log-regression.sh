@@ -47,4 +47,12 @@ run_case 1 "$FIXTURE_ROOT/nmkr.log"
 printf 'PHP Notice: SYNTHETIC_PRIVATE_MARKER_UNCLASSIFIED\n' >"$FIXTURE_ROOT/unclassified.log"
 run_case 1 "$FIXTURE_ROOT/unclassified.log"
 
+printf '[%s] PHP Warning: SYNTHETIC_PRIVATE_MARKER_OUTSIDE_TAIL\n' "$fresh" >"$FIXTURE_ROOT/tail.log"
+for i in $(seq 1 300); do printf '[%s] benign tail entry %s\n' "$fresh" "$i"; done >>"$FIXTURE_ROOT/tail.log"
+run_case 0 "$FIXTURE_ROOT/tail.log"
+
+for i in $(seq 1 300); do printf '[%s] benign prefix entry %s\n' "$fresh" "$i"; done >"$FIXTURE_ROOT/tail-match.log"
+printf '[%s] PHP Warning: SYNTHETIC_PRIVATE_MARKER_INSIDE_TAIL\n' "$fresh" >>"$FIXTURE_ROOT/tail-match.log"
+run_case 1 "$FIXTURE_ROOT/tail-match.log"
+
 printf 'debug-log-regression: PASS\n'
