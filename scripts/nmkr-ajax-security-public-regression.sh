@@ -22,14 +22,15 @@ grep -Fq -- 'kill -TERM -- "-$ACTIVE_PGID"' "$RUNNER" || fail
 # deterministic Composer stand-in. The same gate must reject changed package
 # content without printing filenames or fixture paths.
 integrity_root="$(mktemp -d)"
-mkdir -p "$integrity_root/plugin/vendor/composer" "$integrity_root/plugin/vendor/freemius/wordpress-sdk/includes" "$integrity_root/bin"
-printf '/vendor/\n' >"$integrity_root/plugin/.gitignore"
+mkdir -p "$integrity_root/plugin/vendor/composer" "$integrity_root/plugin/vendor/freemius/wordpress-sdk/includes" "$integrity_root/plugin/node_modules/example" "$integrity_root/bin"
+printf '/vendor/\n/node_modules/\n' >"$integrity_root/plugin/.gitignore"
 printf '{}\n' >"$integrity_root/plugin/composer.json"
 printf '{}\n' >"$integrity_root/plugin/composer.lock"
 printf 'expected\n' >"$integrity_root/plugin/vendor/autoload.php"
 printf 'expected\n' >"$integrity_root/plugin/vendor/composer/installed.php"
 printf 'expected\n' >"$integrity_root/plugin/vendor/freemius/wordpress-sdk/start.php"
 printf 'expected\n' >"$integrity_root/plugin/vendor/freemius/wordpress-sdk/includes/class-freemius.php"
+printf 'test-only\n' >"$integrity_root/plugin/node_modules/example/index.js"
 git -C "$integrity_root/plugin" init -q
 git -C "$integrity_root/plugin" add .gitignore composer.json composer.lock
 cat >"$integrity_root/bin/composer" <<'SH'

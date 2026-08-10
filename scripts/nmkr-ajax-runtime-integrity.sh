@@ -8,7 +8,7 @@ private="$(mktemp -d)" || exit 1
 chmod 700 "$private" || exit 1
 ignored="$private/ignored"
 trap 'rm -rf -- "$private"' EXIT
-git -C "$ROOT" ls-files --others --ignored --exclude-standard -z >"$ignored" 2>/dev/null || exit 1
+git -C "$ROOT" ls-files --others --ignored --exclude-standard -z -- vendor >"$ignored" 2>/dev/null || exit 1
 
 python3 - "$ROOT" "$ignored" <<'PY'
 import os
