@@ -74,6 +74,15 @@ sed -i 's/expected-reference/stale-reference/' "$integrity_root/plugin/vendor/co
 if integrity_output="$(PATH="$integrity_root/bin:$PATH" bash "$ROOT/scripts/nmkr-ajax-runtime-integrity.sh" "$integrity_root/plugin" 2>&1)"; then fail; fi
 [[ -z "$integrity_output" ]] || fail
 sed -i 's/stale-reference/expected-reference/' "$integrity_root/plugin/vendor/composer/installed.php"
+sed -i 's/version'"'"' => '"'"'2.12.2.0/version'"'"' => '"'"'2.11.0.0/' "$integrity_root/plugin/vendor/composer/installed.php"
+if integrity_output="$(PATH="$integrity_root/bin:$PATH" bash "$ROOT/scripts/nmkr-ajax-runtime-integrity.sh" "$integrity_root/plugin" 2>&1)"; then fail; fi
+[[ -z "$integrity_output" ]] || fail
+sed -i 's/version'"'"' => '"'"'2.11.0.0/version'"'"' => '"'"'2.12.2.0/' "$integrity_root/plugin/vendor/composer/installed.php"
+marker="$integrity_root/installed-side-effect"
+sed -i "s#<?php return#<?php file_put_contents('$marker', 'executed'); return#" "$integrity_root/plugin/vendor/composer/installed.php"
+if integrity_output="$(PATH="$integrity_root/bin:$PATH" bash "$ROOT/scripts/nmkr-ajax-runtime-integrity.sh" "$integrity_root/plugin" 2>&1)"; then fail; fi
+[[ -z "$integrity_output" && ! -e "$marker" ]] || fail
+sed -i "s#<?php file_put_contents('$marker', 'executed'); return#<?php return#" "$integrity_root/plugin/vendor/composer/installed.php"
 printf 'unexpected\n' >"$integrity_root/plugin/vendor/unexpected.php"
 if integrity_output="$(PATH="$integrity_root/bin:$PATH" bash "$ROOT/scripts/nmkr-ajax-runtime-integrity.sh" "$integrity_root/plugin" 2>&1)"; then fail; fi
 [[ -z "$integrity_output" ]] || fail

@@ -82,31 +82,154 @@ if inventory(sys.argv[1]) != inventory(sys.argv[2]):
 PY
 
 # Composer embeds the root checkout and absolute package install locations in
-# installed.php. Compare that one generated file semantically, while keeping
-# every non-location dependency field (including versions and references)
-# significant. All other runtime files are compared byte-for-byte above.
-php -r '
-function normalized_installed($path) {
-    $installed = require $path;
-    if (!is_array($installed) || !isset($installed["versions"]) || !is_array($installed["versions"])) {
-        exit(1);
+# installed.php. Parse that generated data without executing either copy, then
+# compare it while keeping every non-location dependency field (including
+# versions and references) significant. All other files are byte-compared above.
+cat >"$private/compare-installed.php" <<'PHP'
+<?php
+final class InstalledParser {
+    private $tokens;
+    private $position = 0;
+
+    public function __construct($source) {
+        $raw = token_get_all($source);
+        $this->tokens = array_values(array_filter($raw, static function ($token) {
+            return !is_array($token) || !in_array($token[0], array(T_OPEN_TAG, T_WHITESPACE, T_COMMENT, T_DOC_COMMENT), true);
+        }));
     }
-    $versions = $installed["versions"];
-    unset($versions["nmkr/nmkr-connect"]);
+
+    public function parse() {
+        $this->take(T_RETURN);
+        $value = $this->value();
+        $this->take(';');
+        if ($this->position !== count($this->tokens)) {
+            throw new RuntimeException('unexpected content');
+        }
+        return $value;
+    }
+
+    private function take($expected) {
+        if (!isset($this->tokens[$this->position])) {
+            throw new RuntimeException('unexpected end');
+        }
+        $token = $this->tokens[$this->position++];
+        $actual = is_array($token) ? $token[0] : $token;
+        if ($actual !== $expected) {
+            throw new RuntimeException('unexpected token');
+        }
+        return is_array($token) ? $token[1] : $token;
+    }
+
+    private function peek($expected) {
+        if (!isset($this->tokens[$this->position])) {
+            return false;
+        }
+        $token = $this->tokens[$this->position];
+        return (is_array($token) ? $token[0] : $token) === $expected;
+    }
+
+    private function stringValue() {
+        $literal = $this->take(T_CONSTANT_ENCAPSED_STRING);
+        if (strlen($literal) < 2 || $literal[0] !== "'" || substr($literal, -1) !== "'") {
+            throw new RuntimeException('unsupported string');
+        }
+        return preg_replace_callback('/\\\\([\\\\\'])/', static function ($match) {
+            return $match[1];
+        }, substr($literal, 1, -1));
+    }
+
+    private function value() {
+        if ($this->peek(T_ARRAY)) {
+            $this->take(T_ARRAY);
+            $this->take('(');
+            return $this->arrayValue(')');
+        }
+        if ($this->peek('[')) {
+            $this->take('[');
+            return $this->arrayValue(']');
+        }
+        if ($this->peek(T_CONSTANT_ENCAPSED_STRING)) {
+            return $this->stringValue();
+        }
+        if ($this->peek(T_LNUMBER)) {
+            $number = $this->take(T_LNUMBER);
+            if (!preg_match('/^(0|[1-9][0-9]*)$/', $number)) {
+                throw new RuntimeException('unsupported number');
+            }
+            return (int) $number;
+        }
+        if ($this->peek(T_DIR)) {
+            $this->take(T_DIR);
+            $this->take('.');
+            return '__composer_dir__' . $this->stringValue();
+        }
+        if ($this->peek(T_STRING)) {
+            $constant = strtolower($this->take(T_STRING));
+            if ($constant === 'true') return true;
+            if ($constant === 'false') return false;
+            if ($constant === 'null') return null;
+        }
+        throw new RuntimeException('unsupported value');
+    }
+
+    private function arrayValue($close) {
+        $result = array();
+        $nextIndex = 0;
+        while (!$this->peek($close)) {
+            $first = $this->value();
+            if ($this->peek(T_DOUBLE_ARROW)) {
+                $this->take(T_DOUBLE_ARROW);
+                if (!is_string($first) && !is_int($first)) {
+                    throw new RuntimeException('unsupported key');
+                }
+                $key = $first;
+                $value = $this->value();
+            } else {
+                $key = $nextIndex;
+                $value = $first;
+            }
+            if (array_key_exists($key, $result)) {
+                throw new RuntimeException('duplicate key');
+            }
+            $result[$key] = $value;
+            if (is_int($key) && $key >= $nextIndex) $nextIndex = $key + 1;
+            if ($this->peek(',')) {
+                $this->take(',');
+                continue;
+            }
+            if (!$this->peek($close)) throw new RuntimeException('missing separator');
+        }
+        $this->take($close);
+        return $result;
+    }
+}
+
+function normalized_installed($path) {
+    $source = file_get_contents($path);
+    if ($source === false) throw new RuntimeException('unreadable input');
+    $installed = (new InstalledParser($source))->parse();
+    if (!is_array($installed) || array_keys($installed) !== array('root', 'versions') ||
+        !is_array($installed['root']) || !isset($installed['root']['name']) ||
+        $installed['root']['name'] !== 'nmkr/nmkr-connect' ||
+        !is_array($installed['versions']) || !isset($installed['versions']['nmkr/nmkr-connect'])) {
+        throw new RuntimeException('unexpected structure');
+    }
+    $versions = $installed['versions'];
+    unset($versions['nmkr/nmkr-connect']);
     foreach ($versions as $package => &$metadata) {
-        if (!is_string($package) || !is_array($metadata)) {
-            exit(1);
-        }
-        if (array_key_exists("install_path", $metadata)) {
-            $metadata["install_path"] = "__normalized_install_path__";
-        }
+        if (!is_string($package) || !is_array($metadata)) throw new RuntimeException('unexpected package');
+        if (array_key_exists('install_path', $metadata)) $metadata['install_path'] = '__normalized_install_path__';
         ksort($metadata);
     }
     unset($metadata);
     ksort($versions);
     return $versions;
 }
-if (normalized_installed($argv[1]) !== normalized_installed($argv[2])) {
+
+try {
+    if (normalized_installed($argv[1]) !== normalized_installed($argv[2])) exit(1);
+} catch (Throwable $error) {
     exit(1);
 }
-' "$ROOT/vendor/composer/installed.php" "$private/vendor/composer/installed.php" >/dev/null 2>&1
+PHP
+php "$private/compare-installed.php" "$ROOT/vendor/composer/installed.php" "$private/vendor/composer/installed.php" >/dev/null 2>&1
