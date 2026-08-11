@@ -204,7 +204,35 @@ final class InstalledParser {
     }
 }
 
-function normalized_installed($path) {
+function canonical_install_path($value, $vendorRoot) {
+    $prefix = '__composer_dir__';
+    if (!is_string($value) || strncmp($value, $prefix . '/', strlen($prefix) + 1) !== 0 ||
+        strpos($value, "\\0") !== false || strpos($value, '\\') !== false) {
+        throw new RuntimeException('unsupported install path');
+    }
+    $relative = substr($value, strlen($prefix) + 1);
+    if ($relative === '' || strpos($relative, '//') !== false) {
+        throw new RuntimeException('malformed install path');
+    }
+    $parts = array('composer');
+    foreach (explode('/', $relative) as $part) {
+        if ($part === '' || $part === '.') continue;
+        if ($part === '..') {
+            if (count($parts) === 0) throw new RuntimeException('install path escape');
+            array_pop($parts);
+            continue;
+        }
+        if ($part === '.' || $part === '..') throw new RuntimeException('malformed install path');
+        $parts[] = $part;
+    }
+    if (!$parts) throw new RuntimeException('invalid install destination');
+    $destination = implode('/', $parts);
+    $resolved = $vendorRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $destination);
+    if (!is_dir($resolved) || is_link($resolved)) throw new RuntimeException('missing install destination');
+    return $destination;
+}
+
+function normalized_installed($path, $vendorRoot) {
     $source = file_get_contents($path);
     if ($source === false) throw new RuntimeException('unreadable input');
     $installed = (new InstalledParser($source))->parse();
@@ -218,7 +246,11 @@ function normalized_installed($path) {
     unset($versions['nmkr/nmkr-connect']);
     foreach ($versions as $package => &$metadata) {
         if (!is_string($package) || !is_array($metadata)) throw new RuntimeException('unexpected package');
-        if (array_key_exists('install_path', $metadata)) $metadata['install_path'] = '__normalized_install_path__';
+        if (!array_key_exists('install_path', $metadata)) throw new RuntimeException('missing install path');
+        $metadata['install_path'] = canonical_install_path($metadata['install_path'], $vendorRoot);
+        if ($package === 'freemius/wordpress-sdk' && $metadata['install_path'] !== 'freemius/wordpress-sdk') {
+            throw new RuntimeException('unexpected Freemius install destination');
+        }
         ksort($metadata);
     }
     unset($metadata);
@@ -227,9 +259,9 @@ function normalized_installed($path) {
 }
 
 try {
-    if (normalized_installed($argv[1]) !== normalized_installed($argv[2])) exit(1);
+    if (normalized_installed($argv[1], $argv[3]) !== normalized_installed($argv[2], $argv[4])) exit(1);
 } catch (Throwable $error) {
     exit(1);
 }
 PHP
-php "$private/compare-installed.php" "$ROOT/vendor/composer/installed.php" "$private/vendor/composer/installed.php" >/dev/null 2>&1
+php "$private/compare-installed.php" "$ROOT/vendor/composer/installed.php" "$private/vendor/composer/installed.php" "$ROOT/vendor" "$private/vendor" >/dev/null 2>&1

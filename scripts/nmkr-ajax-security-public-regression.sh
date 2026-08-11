@@ -54,7 +54,7 @@ case " $* " in
   'root' => array('name' => 'nmkr/nmkr-connect', 'pretty_version' => 'reconstructed-root', 'reference' => 'different-vcs-context'),
   'versions' => array(
     'nmkr/nmkr-connect' => array('pretty_version' => 'reconstructed-root', 'version' => 'dev-main', 'reference' => 'different-vcs-context', 'type' => 'wordpress-plugin', 'install_path' => __DIR__ . '/different-root'),
-    'freemius/wordpress-sdk' => array('pretty_version' => '2.12.2', 'version' => '2.12.2.0', 'reference' => 'expected-reference', 'type' => 'library', 'install_path' => __DIR__ . '/different-location', 'dev_requirement' => false),
+    'freemius/wordpress-sdk' => array('pretty_version' => '2.12.2', 'version' => '2.12.2.0', 'reference' => 'expected-reference', 'type' => 'library', 'install_path' => __DIR__ . '/../freemius/wordpress-sdk', 'dev_requirement' => false),
   ),
 );
 PHP
@@ -78,6 +78,10 @@ sed -i 's/version'"'"' => '"'"'2.12.2.0/version'"'"' => '"'"'2.11.0.0/' "$integr
 if integrity_output="$(PATH="$integrity_root/bin:$PATH" bash "$ROOT/scripts/nmkr-ajax-runtime-integrity.sh" "$integrity_root/plugin" 2>&1)"; then fail; fi
 [[ -z "$integrity_output" ]] || fail
 sed -i 's/version'"'"' => '"'"'2.11.0.0/version'"'"' => '"'"'2.12.2.0/' "$integrity_root/plugin/vendor/composer/installed.php"
+sed -i "s#__DIR__ . '/../freemius/wordpress-sdk'#__DIR__ . '/../freemius/missing-sdk'#" "$integrity_root/plugin/vendor/composer/installed.php"
+if integrity_output="$(PATH="$integrity_root/bin:$PATH" bash "$ROOT/scripts/nmkr-ajax-runtime-integrity.sh" "$integrity_root/plugin" 2>&1)"; then fail; fi
+[[ -z "$integrity_output" ]] || fail
+sed -i "s#__DIR__ . '/../freemius/missing-sdk'#__DIR__ . '/../freemius/wordpress-sdk'#" "$integrity_root/plugin/vendor/composer/installed.php"
 marker="$integrity_root/installed-side-effect"
 sed -i "s#<?php return#<?php file_put_contents('$marker', 'executed'); return#" "$integrity_root/plugin/vendor/composer/installed.php"
 if integrity_output="$(PATH="$integrity_root/bin:$PATH" bash "$ROOT/scripts/nmkr-ajax-runtime-integrity.sh" "$integrity_root/plugin" 2>&1)"; then fail; fi
