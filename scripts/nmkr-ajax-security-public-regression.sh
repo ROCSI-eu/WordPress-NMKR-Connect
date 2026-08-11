@@ -66,6 +66,10 @@ SH
 chmod 700 "$integrity_root/bin/composer"
 integrity_output="$(PATH="$integrity_root/bin:$PATH" bash "$ROOT/scripts/nmkr-ajax-runtime-integrity.sh" "$integrity_root/plugin" 2>&1)" || fail
 [[ -z "$integrity_output" ]] || fail
+sed -i "s#__DIR__ . '/../freemius/wordpress-sdk'#__DIR__ . '/../missing/../freemius/wordpress-sdk'#" "$integrity_root/plugin/vendor/composer/installed.php"
+if integrity_output="$(PATH="$integrity_root/bin:$PATH" bash "$ROOT/scripts/nmkr-ajax-runtime-integrity.sh" "$integrity_root/plugin" 2>&1)"; then fail; fi
+[[ -z "$integrity_output" ]] || fail
+sed -i "s#__DIR__ . '/../missing/../freemius/wordpress-sdk'#__DIR__ . '/../freemius/wordpress-sdk'#" "$integrity_root/plugin/vendor/composer/installed.php"
 printf 'modified\n' >"$integrity_root/plugin/vendor/freemius/wordpress-sdk/start.php"
 if integrity_output="$(PATH="$integrity_root/bin:$PATH" bash "$ROOT/scripts/nmkr-ajax-runtime-integrity.sh" "$integrity_root/plugin" 2>&1)"; then fail; fi
 [[ -z "$integrity_output" ]] || fail

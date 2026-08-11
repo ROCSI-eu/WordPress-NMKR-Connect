@@ -214,21 +214,22 @@ function canonical_install_path($value, $vendorRoot) {
     if ($relative === '' || strpos($relative, '//') !== false) {
         throw new RuntimeException('malformed install path');
     }
-    $parts = array('composer');
-    foreach (explode('/', $relative) as $part) {
-        if ($part === '' || $part === '.') continue;
-        if ($part === '..') {
-            if (count($parts) === 0) throw new RuntimeException('install path escape');
-            array_pop($parts);
-            continue;
-        }
-        if ($part === '.' || $part === '..') throw new RuntimeException('malformed install path');
-        $parts[] = $part;
+    $realVendorRoot = realpath($vendorRoot);
+    if ($realVendorRoot === false || !is_dir($realVendorRoot)) {
+        throw new RuntimeException('invalid vendor root');
     }
-    if (!$parts) throw new RuntimeException('invalid install destination');
-    $destination = implode('/', $parts);
-    $resolved = $vendorRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $destination);
-    if (!is_dir($resolved) || is_link($resolved)) throw new RuntimeException('missing install destination');
+    $candidate = $realVendorRoot . DIRECTORY_SEPARATOR . 'composer' . DIRECTORY_SEPARATOR .
+        str_replace('/', DIRECTORY_SEPARATOR, $relative);
+    $resolved = realpath($candidate);
+    if ($resolved === false || !is_dir($resolved)) {
+        throw new RuntimeException('unresolvable install path');
+    }
+    $vendorPrefix = rtrim($realVendorRoot, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+    if (strncmp($resolved, $vendorPrefix, strlen($vendorPrefix)) !== 0) {
+        throw new RuntimeException('install path escape');
+    }
+    $destination = str_replace(DIRECTORY_SEPARATOR, '/', substr($resolved, strlen($vendorPrefix)));
+    if ($destination === '') throw new RuntimeException('invalid install destination');
     return $destination;
 }
 
