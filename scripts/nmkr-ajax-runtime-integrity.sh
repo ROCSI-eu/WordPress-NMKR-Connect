@@ -68,6 +68,8 @@ def inventory(root):
             if os.path.islink(path) or not os.path.isfile(path):
                 raise SystemExit(1)
             relative = os.path.relpath(path, root).replace(os.sep, "/")
+            if relative == "composer/installed.php":
+                continue
             digest = hashlib.sha256()
             with open(path, "rb") as handle:
                 for chunk in iter(lambda: handle.read(1024 * 1024), b""):
@@ -78,3 +80,33 @@ def inventory(root):
 if inventory(sys.argv[1]) != inventory(sys.argv[2]):
     raise SystemExit(1)
 PY
+
+# Composer embeds the root checkout and absolute package install locations in
+# installed.php. Compare that one generated file semantically, while keeping
+# every non-location dependency field (including versions and references)
+# significant. All other runtime files are compared byte-for-byte above.
+php -r '
+function normalized_installed($path) {
+    $installed = require $path;
+    if (!is_array($installed) || !isset($installed["versions"]) || !is_array($installed["versions"])) {
+        exit(1);
+    }
+    $versions = $installed["versions"];
+    unset($versions["nmkr/nmkr-connect"]);
+    foreach ($versions as $package => &$metadata) {
+        if (!is_string($package) || !is_array($metadata)) {
+            exit(1);
+        }
+        if (array_key_exists("install_path", $metadata)) {
+            $metadata["install_path"] = "__normalized_install_path__";
+        }
+        ksort($metadata);
+    }
+    unset($metadata);
+    ksort($versions);
+    return $versions;
+}
+if (normalized_installed($argv[1]) !== normalized_installed($argv[2])) {
+    exit(1);
+}
+' "$ROOT/vendor/composer/installed.php" "$private/vendor/composer/installed.php" >/dev/null 2>&1
