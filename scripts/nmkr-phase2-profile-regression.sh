@@ -240,7 +240,7 @@ cp -a "$ROOT/." "$target_fixture/"
 git -C "$target_fixture" config user.email public@example.invalid
 git -C "$target_fixture" config user.name PublicTest
 git -C "$target_fixture" add AGENTS.md docs package.json scripts
-git -C "$target_fixture" commit -q -m 'synthetic targeted profile fixture'
+git -C "$target_fixture" commit --allow-empty -q -m 'synthetic targeted profile fixture'
 target_sha="$(git -C "$target_fixture" rev-parse HEAD)"
 target_bin="$tmp_dir/target-bin"; mkdir -p "$target_bin"
 cat >"$target_bin/node" <<'EOF_NODE'
