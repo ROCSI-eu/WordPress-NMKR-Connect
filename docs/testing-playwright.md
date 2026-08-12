@@ -32,7 +32,7 @@ $EDITOR .env.tests
 
 The required browser-execution values are `WP_BASE_URL`, `WP_ADMIN_USER`, and `WP_ADMIN_PASSWORD`. Phase 2 additionally requires `WP_PATH`. Keep `RUN_REAL_SYNC=false` and `PW_SAVE_ARTIFACTS=false` for ordinary runs. Optional page-path variables in the example file allow a private environment to override repository defaults.
 
-An explicit `NMKR_PHASE2_ENV_FILE` is loaded by the Playwright configuration when present. Use it for Phase 2 as documented in [the Phase 2 guide](testing-phase-2.md); do not place a populated environment file in the repository or WordPress root.
+An explicit `NMKR_PHASE2_ENV_FILE` is loaded by the Playwright configuration when present. Use it for Phase 2 as documented in [the Phase 2 guide](testing-phase-2.md); do not place a populated environment file in the repository or WordPress root. The private AJAX-security wrapper is intentionally export-only: `npm run test:ajax-security` does **not** source `.env.tests` or `NMKR_PHASE2_ENV_FILE` before its preflight. Export the required variables in the current shell, or load an approved private environment into that shell, before invoking the wrapper.
 
 ## Current commands
 
@@ -40,12 +40,14 @@ The following are the exact Playwright scripts exposed by `package.json`:
 
 | Command | Scope |
 | --- | --- |
-| `npm run test:e2e` | Current default suite: every implemented Playwright spec, plus authentication setup and cleanup projects. |
+| `npm run test:e2e` | Current default suite, plus authentication setup and cleanup. The private AJAX-security spec skips as a whole when its restricted-account contract is absent. |
 | `npm run test:e2e:settings` | `nmkr-settings.regression.spec.ts` |
 | `npm run test:e2e:dashboard` | `nmkr-dashboard.regression.spec.ts` |
 | `npm run test:e2e:projects` | `nmkr-projects.regression.spec.ts` |
 | `npm run test:e2e:shortcodes` | `nmkr-shortcodes.regression.spec.ts` |
 | `npm run test:e2e:analytics` | `nmkr-analytics.regression.spec.ts` |
+| `npm run test:e2e:ajax-security` | Live privileged-AJAX security specification (targetable with `--grep @negative` or `--grep @authorized`). |
+| `npm run test:ajax-security` | Private exact-head Playwright/WP-CLI wrapper; it requires (and never skips) the restricted-account contract. |
 | `npm run test:e2e:sync-state` | `nmkr-sync-state.regression.spec.ts` |
 | `npm run test:e2e:sync-resilience` | `nmkr-sync-resilience.regression.spec.ts` |
 | `npm run test:e2e:sync-final-state` | `nmkr-sync-final-state.regression.spec.ts` |
@@ -71,12 +73,35 @@ These commands only discover tests. Removing `--list` performs browser execution
 | Projects | `nmkr-projects.regression.spec.ts` | Default no-project-selected selector state and surrounding page structure. | Structural/read-only with locally fulfilled guards for unexpected actions. |
 | Shortcodes | `nmkr-shortcodes.regression.spec.ts` | Shortcode reference page structure and implemented shortcode headings. | Structural/read-only with locally fulfilled guards for unexpected actions. |
 | Analytics | `nmkr-analytics.regression.spec.ts` | Analytics shell and runtime control/container presence when that UI is enabled. | Structural/read-only; expected page-load analytics AJAX is locally fulfilled with empty data and guarded actions are intercepted. |
+| Privileged AJAX security | `nmkr-ajax-security.regression.spec.ts` | Anonymous, missing/invalid nonce, restricted-role capability, malformed exact-run Stop, authorized analytics, and sync-health boundaries. | Live WordPress AJAX; `@negative` requests require exact state equality, then `@authorized` checks permit only bounded read-oriented cache/diagnostic effects. |
 | Synchronization state | `nmkr-sync-state.regression.spec.ts` | Dashboard transitions for controlled active and completed synchronization responses. | Locally stubbed AJAX lifecycle simulation. |
 | Synchronization resilience | `nmkr-sync-resilience.regression.spec.ts` | Dashboard polling UI reactions to controlled retriable and security-error responses. | Locally stubbed AJAX lifecycle simulation. |
 | Synchronization final states | `nmkr-sync-final-state.regression.spec.ts` | Dashboard UI reactions to controlled stopped, incomplete-marker, and payload-error final-state sequences. | Locally stubbed AJAX lifecycle simulation. |
 | Run authority | `nmkr-sync-run-authority.regression.spec.ts` | Run-scoped dashboard control authority across controlled response sequences. | Locally stubbed AJAX lifecycle simulation. |
 
 Locally fulfilled AJAX responses are browser-route fixtures. They exercise client-side behavior using controlled responses and prevent the intercepted request from reaching WordPress. They **do not execute a real NMKR synchronization**, prove the server-side synchronization path, or validate live NMKR API results. Some unrelated requests may be allowed to continue; the private test site remains a required boundary.
+
+The public deterministic `scripts/nmkr-ajax-guard-regression.php` instead loads current PHP handlers into minimal synthetic WordPress stubs, proving guard order and authenticated-only registration without WordPress, credentials, or network access. The private `npm run test:ajax-security` wrapper executes the live boundary. Its prepared restricted account must contain synthetic data only, have exactly the `nmkr-marketing` role and `nmkr_view_analytics`, and lack both `nmkr_view_dashboard` and `nmkr_manage_sync`; the runner never creates, changes, or deletes users. Credentials must remain private.
+
+The wrapper runs `@negative` first and requires its secret-free plugin-state digests to be identical. Only afterward does `@authorized` exercise aggregate analytics for NMKR Marketing and administrator sync-health response shapes; a separate synchronization-only signature proves owner, lifecycle, cron, history, and metrics state did not change while allowing bounded analytics-cache or diagnostic-log effects. Browser routing is installed before NMKR page navigation and blocks every automatic `admin-ajax.php` request; only the explicitly issued API-request-context test calls can reach WordPress. Neither group executes a valid Start request, a real synchronization, a worker, or an intentional NMKR request. The deliberately public `nmkr_analytics_event` ingestion endpoint is explicitly outside this privileged-AJAX suite.
+
+Ordinary `npm run test:e2e` and Phase 2 environments need only the administrator contract: if both restricted-account variables are absent, this private spec is reported as skipped rather than failing discovery or execution. The targeted wrapper exports a fail-closed requirement flag and validates both restricted credentials, so `npm run test:ajax-security` cannot weaken or skip that contract.
+
+Public discovery remains discovery only, including the targeted command:
+
+```bash
+npm run test:e2e:ajax-security -- --list --reporter=list
+```
+
+Exact-head private execution is:
+
+```bash
+npm run test:ajax-security
+```
+
+This wrapper is fail-closed and export-only: it does not read `.env.tests`, does not source the file named by `NMKR_PHASE2_ENV_FILE`, and performs preflight only against variables already present in its process environment. Maintainers must export the private values first, or source an approved private environment into the current shell, using only private local procedures.
+
+It additionally requires `NMKR_PRIVATE_RUN_ROOT` to name an existing owner-only (0700), non-symlink directory outside the checkout, WordPress root, and public Playwright output trees. `NMKR_DEPLOYED_PLUGIN_PATH` must safely resolve to the active plugin directory in a clean Git worktree at `NMKR_AJAX_SECURITY_EXPECTED_SOURCE_SHA`; inability to prove that deployed identity fails closed before browser execution. Console output uses generic stage names and the private log/run directory is removed deterministically on exit or signal.
 
 ## Authentication and private-environment boundary
 

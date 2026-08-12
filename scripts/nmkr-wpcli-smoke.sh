@@ -6,6 +6,7 @@ WP_CLI_BIN="${WP_CLI_BIN:-wp}"
 NMKR_PLUGIN_SLUG="${NMKR_PLUGIN_SLUG:-nmkr-connect/nmkr-connect.php}"
 NMKR_DEBUG_LOG_RELATIVE_PATH="${NMKR_DEBUG_LOG_RELATIVE_PATH:-wp-content/debug.log}"
 NMKR_DEBUG_LOG_LOOKBACK_MINUTES="${NMKR_DEBUG_LOG_LOOKBACK_MINUTES:-30}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 info() {
   printf 'INFO: %s\n' "$*"
@@ -79,19 +80,15 @@ suspicious_completed="$(wp_cli db query "SELECT COUNT(*) FROM ${sync_stats_table
 (( suspicious_completed == 0 )) || fail "Completed sync rows contain suspicious values."
 
 info "Checking debug.log for fresh PHP or NMKR plugin errors without printing full logs."
+[[ "$NMKR_DEBUG_LOG_LOOKBACK_MINUTES" =~ ^[1-9][0-9]{0,8}$ ]] || fail "Debug-log lookback must be a positive integer."
 log_path="${WP_PATH:+${WP_PATH%/}/}${NMKR_DEBUG_LOG_RELATIVE_PATH}"
 if [[ -f "$log_path" ]]; then
-  now_epoch="$(date +%s)"
-  log_epoch="$(stat -c %Y "$log_path" 2>/dev/null || stat -f %m "$log_path")"
-  age_seconds=$(( now_epoch - log_epoch ))
-  lookback_seconds=$(( NMKR_DEBUG_LOG_LOOKBACK_MINUTES * 60 ))
-
-  if (( age_seconds <= lookback_seconds )); then
-    if tail -n 300 "$log_path" | grep -Eiq 'PHP (Fatal error|Parse error|Warning|Notice)|NMKR.*(Fatal|Error|Exception)'; then
-      fail "Fresh debug.log entries contain PHP or NMKR plugin errors. Review the VM-local log manually."
-    fi
+  if python3 "$SCRIPT_DIR/nmkr-debug-log-classifier.py" "$log_path" "$NMKR_DEBUG_LOG_LOOKBACK_MINUTES"; then
+    :
   else
-    info "debug.log is older than the configured lookback window."
+    classifier_status=$?
+    (( classifier_status == 1 )) || fail "Could not classify debug.log entries safely."
+    fail "Fresh or timestamp-unclassified debug.log entries contain PHP or NMKR plugin errors. Review the VM-local log manually."
   fi
 else
   info "debug.log was not found; skipping log scan."
