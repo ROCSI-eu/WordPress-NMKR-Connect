@@ -461,8 +461,8 @@ else
 fi
 
 if [[ "$NMKR_PHASE2_RUNTIME_INTEGRITY" == "true" ]]; then
-  [[ -n "${NMKR_DEPLOYED_PLUGIN_PATH:-}" ]] || { printf 'Runtime integrity requires deployed plugin path.\n' >"$RUN_DIR/runtime-integrity.log"; fail_step "runtime-integrity" "$RUN_DIR/runtime-integrity.log" 1; }
   RUNTIME_INTEGRITY_STATUS="FAIL"
+  [[ -n "${NMKR_DEPLOYED_PLUGIN_PATH:-}" ]] || { printf 'Runtime integrity requires deployed plugin path.\n' >"$RUN_DIR/runtime-integrity.log"; fail_step "runtime-integrity" "$RUN_DIR/runtime-integrity.log" 1; }
   run_external "$REPO_ROOT/scripts/nmkr-ajax-runtime-integrity.sh" "$NMKR_DEPLOYED_PLUGIN_PATH" >"$RUN_DIR/runtime-integrity.log" 2>&1 || fail_step "runtime-integrity" "$RUN_DIR/runtime-integrity.log" 1
   RUNTIME_INTEGRITY_STATUS="PASS"
 fi
