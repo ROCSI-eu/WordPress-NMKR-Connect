@@ -79,13 +79,14 @@ Use this profile for an ordinary exact-head runtime change that needs one affect
 ```bash
 NMKR_PHASE2_ENV_FILE=/path/to/private/phase2.env \
 NMKR_PHASE2_EXPECTED_SOURCE_SHA=<40-character-reviewed-sha> \
+NMKR_DEPLOYED_PLUGIN_PATH=/path/to/deployed/plugin-worktree \
 NMKR_PHASE2_TARGET_SUITE=settings \
 npm run test:phase2:targeted-readonly
 ```
 
 The internal allowlist is `settings`, `dashboard`, `projects`, `shortcodes`, `analytics`, `ajax-security`, `sync-state`, `sync-run-authority`, `sync-resilience`, and `sync-final-state`. Unknown values fail closed; values are mapped to existing `test:e2e:*` package scripts and are never executed as caller-provided commands. Caller-selected profile and suite values cannot be replaced by the private environment file.
 
-This profile enforces the same exact source SHA, clean source, optional exact/clean deployed worktree, no-install, no-deploy, no-real-sync, and no-artifact rules as `existing-readonly`. It runs readiness, only the selected Playwright suite, and WP-CLI smoke; DB-state is intentionally skipped. Both readonly profiles perform one final source/deployed SHA and cleanliness recheck. Set `NMKR_PHASE2_RUNTIME_INTEGRITY=true` to run the existing Composer/vendor integrity gate once; this requires `NMKR_DEPLOYED_PLUGIN_PATH`.
+This profile requires `NMKR_DEPLOYED_PLUGIN_PATH` and enforces the same exact source SHA, clean source, exact/clean deployed worktree, no-install, no-deploy, no-real-sync, and no-artifact rules as `existing-readonly`. It runs readiness, only the selected Playwright suite, and WP-CLI smoke; DB-state is intentionally skipped. Both readonly profiles perform one final source/deployed SHA and cleanliness recheck. Set `NMKR_PHASE2_RUNTIME_INTEGRITY=true` to run the existing Composer/vendor integrity gate once.
 
 ## Authentication and output handling
 

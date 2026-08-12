@@ -15,6 +15,7 @@ RUN_REAL_SYNC="${RUN_REAL_SYNC:-false}"
 PW_SAVE_ARTIFACTS="${PW_SAVE_ARTIFACTS:-false}"
 CALLER_PROFILE="${NMKR_PHASE2_PROFILE:-}"
 CALLER_TARGET_SUITE="${NMKR_PHASE2_TARGET_SUITE:-}"
+CALLER_RUNTIME_INTEGRITY="${NMKR_PHASE2_RUNTIME_INTEGRITY:-}"
 WP_CLI_BIN="${WP_CLI_BIN:-wp}"
 NMKR_PLUGIN_SLUG="${NMKR_PLUGIN_SLUG:-nmkr-connect/nmkr-connect.php}"
 NMKR_DEBUG_LOG_RELATIVE_PATH="${NMKR_DEBUG_LOG_RELATIVE_PATH:-wp-content/debug.log}"
@@ -362,6 +363,9 @@ fi
 if [[ -n "$CALLER_TARGET_SUITE" && "$CALLER_TARGET_SUITE" != "$NMKR_PHASE2_TARGET_SUITE" ]]; then
   printf 'Phase 2 target suite conflict.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1
 fi
+if [[ -n "$CALLER_RUNTIME_INTEGRITY" && "$CALLER_RUNTIME_INTEGRITY" != "$NMKR_PHASE2_RUNTIME_INTEGRITY" ]]; then
+  printf 'Phase 2 runtime integrity conflict.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1
+fi
 case "$NMKR_PHASE2_PROFILE" in ''|existing-readonly|targeted-readonly) ;; *) printf 'Unknown Phase 2 profile.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1 ;; esac
 for boolean in RUN_REAL_SYNC PW_SAVE_ARTIFACTS NMKR_PHASE2_INSTALL_BROWSER NMKR_PHASE2_SKIP_DEPLOY NMKR_PHASE2_RUNTIME_INTEGRITY NMKR_RETAIN_AUTH_STATE; do validate_boolean "$boolean" "${!boolean}"; done
 
@@ -386,6 +390,9 @@ if [[ "$NMKR_PHASE2_PROFILE" == "existing-readonly" || "$NMKR_PHASE2_PROFILE" ==
   [[ "$(git -C "$REPO_ROOT" rev-parse HEAD)" == "$NMKR_PHASE2_EXPECTED_SOURCE_SHA" ]] || { printf 'Source SHA mismatch.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; }
   [[ -z "$(git -C "$REPO_ROOT" status --porcelain)" ]] || { printf 'Source worktree is dirty.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; }
   SOURCE_INTEGRITY="PASS"
+  if [[ "$NMKR_PHASE2_PROFILE" == "targeted-readonly" && -z "${NMKR_DEPLOYED_PLUGIN_PATH:-}" ]]; then
+    printf 'Targeted readonly requires deployed plugin path.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1
+  fi
   if [[ -n "${NMKR_DEPLOYED_PLUGIN_PATH:-}" ]]; then
     DEPLOYED_INTEGRITY="FAIL"
     git -C "$NMKR_DEPLOYED_PLUGIN_PATH" rev-parse --is-inside-work-tree >/dev/null 2>&1 && [[ "$(git -C "$NMKR_DEPLOYED_PLUGIN_PATH" rev-parse HEAD)" == "$NMKR_PHASE2_EXPECTED_SOURCE_SHA" ]] && [[ -z "$(git -C "$NMKR_DEPLOYED_PLUGIN_PATH" status --porcelain)" ]] || { printf 'Deployed worktree integrity check failed.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; }
@@ -393,12 +400,6 @@ if [[ "$NMKR_PHASE2_PROFILE" == "existing-readonly" || "$NMKR_PHASE2_PROFILE" ==
   fi
   run_external node -e "require('@playwright/test')" >/dev/null 2>&1 || { printf 'Required Node dependencies are unavailable.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; }
   run_external node -e "const { chromium }=require('@playwright/test'); (async()=>{const b=await chromium.launch({headless:true}); await b.close();})().catch(()=>process.exit(1))" >/dev/null 2>&1 || { printf 'Configured Chromium is unavailable.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; }
-  if [[ "$NMKR_PHASE2_RUNTIME_INTEGRITY" == "true" ]]; then
-    [[ -n "${NMKR_DEPLOYED_PLUGIN_PATH:-}" ]] || { printf 'Runtime integrity requires deployed plugin path.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; }
-    RUNTIME_INTEGRITY_STATUS="FAIL"
-    run_external "$REPO_ROOT/scripts/nmkr-ajax-runtime-integrity.sh" "$NMKR_DEPLOYED_PLUGIN_PATH" >"$RUN_DIR/runtime-integrity.log" 2>&1 || fail_step "runtime-integrity" "$RUN_DIR/runtime-integrity.log" 1
-    RUNTIME_INTEGRITY_STATUS="PASS"
-  fi
 fi
 
 case "$NMKR_PHASE2_INSTALL_DEPS" in
@@ -457,6 +458,13 @@ if [[ "$NMKR_PHASE2_INSTALL_BROWSER" == "true" ]]; then
   fi
 else
   BROWSER_STATUS="SKIPPED"
+fi
+
+if [[ "$NMKR_PHASE2_RUNTIME_INTEGRITY" == "true" ]]; then
+  [[ -n "${NMKR_DEPLOYED_PLUGIN_PATH:-}" ]] || { printf 'Runtime integrity requires deployed plugin path.\n' >"$RUN_DIR/runtime-integrity.log"; fail_step "runtime-integrity" "$RUN_DIR/runtime-integrity.log" 1; }
+  RUNTIME_INTEGRITY_STATUS="FAIL"
+  run_external "$REPO_ROOT/scripts/nmkr-ajax-runtime-integrity.sh" "$NMKR_DEPLOYED_PLUGIN_PATH" >"$RUN_DIR/runtime-integrity.log" 2>&1 || fail_step "runtime-integrity" "$RUN_DIR/runtime-integrity.log" 1
+  RUNTIME_INTEGRITY_STATUS="PASS"
 fi
 
 WORDPRESS_READY_STATUS="FAIL"

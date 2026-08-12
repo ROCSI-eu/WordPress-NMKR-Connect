@@ -166,6 +166,8 @@ printf 'NMKR_PHASE2_PROFILE=\nNMKR_DEPLOY_COMMAND="touch %s/marker"\nNMKR_PHASE2
 expect_fail 'Phase 2 profile conflict.' NMKR_PHASE2_PROFILE=existing-readonly NMKR_PHASE2_ENV_FILE="$tmp_dir/env"
 test ! -e "$tmp_dir/marker"
 printf 'NMKR_PHASE2_PROFILE=general\n' >"$tmp_dir/env"; expect_fail 'Phase 2 profile conflict.' NMKR_PHASE2_PROFILE=existing-readonly NMKR_PHASE2_ENV_FILE="$tmp_dir/env"
+# Caller-selected runtime integrity cannot be downgraded by a sourced file.
+printf 'NMKR_PHASE2_RUNTIME_INTEGRITY=false\n' >"$tmp_dir/env"; expect_fail 'Phase 2 runtime integrity conflict.' NMKR_PHASE2_RUNTIME_INTEGRITY=true NMKR_PHASE2_ENV_FILE="$tmp_dir/env"
 printf 'NMKR_PHASE2_SKIP_DEPLOY=true\n' >"$tmp_dir/env"; expect_fail 'Expected source SHA is invalid.' NMKR_PHASE2_PROFILE=existing-readonly NMKR_PHASE2_ENV_FILE="$tmp_dir/env" NMKR_PHASE2_EXPECTED_SOURCE_SHA=invalid
 printf 'NMKR_PHASE2_PROFILE=existing-readonly\n' >"$tmp_dir/env"; expect_fail 'Expected source SHA is invalid.' NMKR_PHASE2_ENV_FILE="$tmp_dir/env" NMKR_PHASE2_EXPECTED_SOURCE_SHA=invalid
 # A sourced env file cannot clear the runner's selected-file identity before
@@ -277,13 +279,33 @@ chmod 700 "$target_bin/node" "$target_bin/npm" "$target_bin/wp" "$target_bin/cur
 target_private="$tmp_dir/target-private"; mkdir -m700 "$target_private"
 target_env="$tmp_dir/target.env"; : >"$target_env"; chmod 600 "$target_env"
 target_log="$tmp_dir/target-calls"
-target_base=(env -i PATH="$target_bin:$safe_path" HOME="$synthetic_home" TMPDIR="$synthetic_tmp" TARGET_CALL_LOG="$target_log" TARGET_REPO="$target_fixture" WP_BASE_URL=http://invalid.test WP_ADMIN_USER=placeholder WP_ADMIN_PASSWORD=placeholder WP_CLI_BIN="$target_bin/wp" WP_PATH="$tmp_dir/wp" NMKR_PHASE2_LOG_DIR="$target_private" NMKR_PHASE2_ENV_FILE="$target_env" NMKR_PHASE2_PROFILE=targeted-readonly NMKR_PHASE2_TARGET_SUITE=settings NMKR_PHASE2_EXPECTED_SOURCE_SHA="$target_sha" NMKR_PHASE2_INSTALL_DEPS=false NMKR_PHASE2_INSTALL_BROWSER=false NMKR_PHASE2_SKIP_DEPLOY=true RUN_REAL_SYNC=false PW_SAVE_ARTIFACTS=false NMKR_RETAIN_AUTH_STATE=false)
+target_base=(env -i PATH="$target_bin:$safe_path" HOME="$synthetic_home" TMPDIR="$synthetic_tmp" TARGET_CALL_LOG="$target_log" TARGET_REPO="$target_fixture" WP_BASE_URL=http://invalid.test WP_ADMIN_USER=placeholder WP_ADMIN_PASSWORD=placeholder WP_CLI_BIN="$target_bin/wp" WP_PATH="$tmp_dir/wp" NMKR_PHASE2_LOG_DIR="$target_private" NMKR_PHASE2_ENV_FILE="$target_env" NMKR_PHASE2_PROFILE=targeted-readonly NMKR_PHASE2_TARGET_SUITE=settings NMKR_PHASE2_EXPECTED_SOURCE_SHA="$target_sha" NMKR_DEPLOYED_PLUGIN_PATH="$target_fixture" NMKR_PHASE2_INSTALL_DEPS=false NMKR_PHASE2_INSTALL_BROWSER=false NMKR_PHASE2_SKIP_DEPLOY=true RUN_REAL_SYNC=false PW_SAVE_ARTIFACTS=false NMKR_RETAIN_AUTH_STATE=false)
 "${target_base[@]}" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/target-success.output"
 grep -Fx 'run test:e2e:settings' "$target_log" >/dev/null
 ! grep -Fx 'run test:e2e' "$target_log" >/dev/null
 grep -F 'targeted-suite: settings' "$tmp_dir/target-success.output" >/dev/null
 grep -F 'db-state: SKIPPED' "$tmp_dir/target-success.output" >/dev/null
+grep -F 'source-integrity: PASS' "$tmp_dir/target-success.output" >/dev/null
+grep -F 'deployed-integrity: PASS' "$tmp_dir/target-success.output" >/dev/null
 grep -F 'final-integrity: PASS' "$tmp_dir/target-success.output" >/dev/null
+
+# Targeted readonly requires deployment identity, while existing readonly keeps
+# accepting an omitted deployed path. General runtime integrity runs only after
+# deployment and fails closed rather than reaching functional validation.
+if "${target_base[@]/NMKR_DEPLOYED_PLUGIN_PATH=$target_fixture/NMKR_DEPLOYED_PLUGIN_PATH=}" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/target-missing-deployed.output" 2>&1; then exit 1; fi
+grep -F 'failed step: preflight' "$tmp_dir/target-missing-deployed.output" >/dev/null
+
+: >"$target_log"
+if "${target_base[@]/NMKR_PHASE2_PROFILE=targeted-readonly/NMKR_PHASE2_PROFILE=existing-readonly}" NMKR_DEPLOYED_PLUGIN_PATH= NMKR_PHASE2_TARGET_SUITE= bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/existing-compatible.output" 2>&1; then exit 1; fi
+grep -Fx 'run test:e2e' "$target_log" >/dev/null
+grep -F 'failed step: wpcli-db-state' "$tmp_dir/existing-compatible.output" >/dev/null
+grep -F 'deployed-integrity: SKIPPED' "$tmp_dir/existing-compatible.output" >/dev/null
+
+general_deploy_marker="$tmp_dir/general-deployed"
+if "${target_base[@]/NMKR_PHASE2_PROFILE=targeted-readonly/NMKR_PHASE2_PROFILE=}" NMKR_DEPLOYED_PLUGIN_PATH= NMKR_PHASE2_TARGET_SUITE= NMKR_PHASE2_RUNTIME_INTEGRITY=true NMKR_PHASE2_SKIP_DEPLOY=false NMKR_DEPLOY_COMMAND="touch '$general_deploy_marker'" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/general-runtime.output" 2>&1; then exit 1; fi
+test -e "$general_deploy_marker"
+grep -F 'failed step: runtime-integrity' "$tmp_dir/general-runtime.output" >/dev/null
+grep -F 'runtime-integrity: SKIPPED' "$tmp_dir/general-runtime.output" >/dev/null && exit 1
 
 printf 'NMKR_PHASE2_TARGET_SUITE=dashboard\n' >"$target_env"
 if "${target_base[@]}" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/target-conflict.output" 2>&1; then exit 1; fi

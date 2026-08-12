@@ -21,10 +21,10 @@ The specialized `npm run test:ajax-security` runner remains the preferred one-co
 
 - `npm run test:phase2` preserves the general deploy-and-full-validation workflow.
 - `npm run test:phase2:existing-readonly` validates an existing exact deployment with full Playwright, WP-CLI smoke, and DB-state checks.
-- `NMKR_PHASE2_TARGET_SUITE=<allowlisted-suite> npm run test:phase2:targeted-readonly` validates an existing exact deployment with readiness, one targeted Playwright suite, and WP-CLI smoke; DB-state is intentionally skipped.
+- `NMKR_DEPLOYED_PLUGIN_PATH=/path/to/deployed/plugin-worktree NMKR_PHASE2_TARGET_SUITE=<allowlisted-suite> npm run test:phase2:targeted-readonly` validates an existing exact deployment with readiness, one targeted Playwright suite, and WP-CLI smoke; DB-state is intentionally skipped.
 - Set `NMKR_PHASE2_RUNTIME_INTEGRITY=true` only when the profile must verify Composer/runtime deployment integrity. A deployed plugin path is then mandatory, and the gate runs once.
 
-Readonly profiles require `NMKR_PHASE2_EXPECTED_SOURCE_SHA` as a full 40-character reviewed SHA, require a clean source worktree, and verify a supplied deployed plugin worktree at that same SHA. They repeat source/deployed SHA and cleanliness checks after successful validation.
+Readonly profiles require `NMKR_PHASE2_EXPECTED_SOURCE_SHA` as a full 40-character reviewed SHA and a clean source worktree. `targeted-readonly` also requires a deployed plugin worktree at that same SHA with a clean tracked state; `existing-readonly` continues to verify it when supplied. They repeat source/deployed SHA and cleanliness checks after successful validation.
 
 ## Blockers and investigation
 
