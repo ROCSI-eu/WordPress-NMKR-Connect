@@ -339,6 +339,14 @@ git_head_and_clean() {
   if ! status="$(git -C "$worktree" status --porcelain 2>/dev/null)" || [[ -n "$status" ]]; then
     return 1
   fi
+  # status intentionally honors index hints that can hide modified tracked
+  # bytes. Exact-head validation must reject either hint rather than trust it.
+  if ! git -C "$worktree" ls-files -v -z 2>/dev/null |
+    while IFS= read -r -d '' index_entry; do
+      [[ "${index_entry:0:1}" != S && "${index_entry:0:1}" != [a-z] ]] || exit 1
+    done; then
+    return 1
+  fi
 }
 bind_active_plugin_to_deployed_worktree() {
   local deployed_root git_root expected_file active_file active_file_output wp_cli_args
@@ -498,6 +506,9 @@ fi
 if [[ "$NMKR_PHASE2_RUNTIME_INTEGRITY" == "true" ]]; then
   RUNTIME_INTEGRITY_STATUS="FAIL"
   [[ -n "${NMKR_DEPLOYED_PLUGIN_PATH:-}" ]] || { printf 'Runtime integrity requires deployed plugin path.\n' >"$RUN_DIR/runtime-integrity.log"; fail_step "runtime-integrity" "$RUN_DIR/runtime-integrity.log" 1; }
+  if [[ "$NMKR_PHASE2_PROFILE" != "targeted-readonly" ]]; then
+    bind_active_plugin_to_deployed_worktree || { printf 'Active plugin deployment binding failed.\n' >"$RUN_DIR/runtime-integrity.log"; fail_step "runtime-integrity" "$RUN_DIR/runtime-integrity.log" 1; }
+  fi
   run_external "$REPO_ROOT/scripts/nmkr-ajax-runtime-integrity.sh" "$NMKR_DEPLOYED_PLUGIN_PATH" >"$RUN_DIR/runtime-integrity.log" 2>&1 || fail_step "runtime-integrity" "$RUN_DIR/runtime-integrity.log" 1
   RUNTIME_INTEGRITY_STATUS="PASS"
 fi
