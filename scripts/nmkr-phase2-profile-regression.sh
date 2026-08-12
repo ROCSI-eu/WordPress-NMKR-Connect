@@ -232,6 +232,71 @@ fi
 grep -F -- 'ERROR: Phase 2 private run directory is unsafe.' "$tmp_dir/runs-file.output" >/dev/null
 rm -f "$tmp_dir/private/runs"; mkdir -p "$tmp_dir/private/runs"; chmod 700 "$tmp_dir/private/runs"
 
+rm -f "$checkout_collision"
+# Targeted readonly selection is allowlisted, cannot be replaced by the env file,
+# invokes only the selected package script, skips DB state, and rechecks integrity.
+target_fixture="$tmp_dir/target-fixture"
+cp -a "$ROOT/." "$target_fixture/"
+git -C "$target_fixture" config user.email public@example.invalid
+git -C "$target_fixture" config user.name PublicTest
+git -C "$target_fixture" add AGENTS.md docs package.json scripts
+git -C "$target_fixture" commit -q -m 'synthetic targeted profile fixture'
+target_sha="$(git -C "$target_fixture" rev-parse HEAD)"
+target_bin="$tmp_dir/target-bin"; mkdir -p "$target_bin"
+cat >"$target_bin/node" <<'EOF_NODE'
+#!/usr/bin/env bash
+exit 0
+EOF_NODE
+cat >"$target_bin/npm" <<'EOF_NPM'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >>"$TARGET_CALL_LOG"
+if [[ "${TARGET_DIRTY_AFTER_PLAYWRIGHT:-false}" == true && "$*" == 'run test:e2e:settings' ]]; then
+  printf '\nsynthetic-dirty\n' >>"$TARGET_REPO/README.md"
+fi
+exit 0
+EOF_NPM
+cat >"$target_bin/wp" <<'EOF_WP'
+#!/usr/bin/env bash
+case "$*" in
+  *'db prefix'*) printf 'wp_\n' ;;
+  *'SHOW TABLES LIKE'*) printf '%s\n' "$*" | sed -n "s/.*SHOW TABLES LIKE '\([^']*\)'.*/\1/p" ;;
+  *'option get nmkr_api_key'*) printf '"synthetic"\n' ;;
+  *'SELECT COUNT(*)'*) printf '0\n' ;;
+  *) : ;;
+esac
+EOF_WP
+cat >"$target_bin/curl" <<'EOF_CURL'
+#!/usr/bin/env bash
+while (($#)); do
+  if [[ "$1" == -o ]]; then shift; printf '<input id="user_login">' >"$1"; fi
+  shift
+done
+printf '200'
+EOF_CURL
+chmod 700 "$target_bin/node" "$target_bin/npm" "$target_bin/wp" "$target_bin/curl"
+target_private="$tmp_dir/target-private"; mkdir -m700 "$target_private"
+target_env="$tmp_dir/target.env"; : >"$target_env"; chmod 600 "$target_env"
+target_log="$tmp_dir/target-calls"
+target_base=(env -i PATH="$target_bin:$safe_path" HOME="$synthetic_home" TMPDIR="$synthetic_tmp" TARGET_CALL_LOG="$target_log" TARGET_REPO="$target_fixture" WP_BASE_URL=http://invalid.test WP_ADMIN_USER=placeholder WP_ADMIN_PASSWORD=placeholder WP_CLI_BIN="$target_bin/wp" WP_PATH="$tmp_dir/wp" NMKR_PHASE2_LOG_DIR="$target_private" NMKR_PHASE2_ENV_FILE="$target_env" NMKR_PHASE2_PROFILE=targeted-readonly NMKR_PHASE2_TARGET_SUITE=settings NMKR_PHASE2_EXPECTED_SOURCE_SHA="$target_sha" NMKR_PHASE2_INSTALL_DEPS=false NMKR_PHASE2_INSTALL_BROWSER=false NMKR_PHASE2_SKIP_DEPLOY=true RUN_REAL_SYNC=false PW_SAVE_ARTIFACTS=false NMKR_RETAIN_AUTH_STATE=false)
+"${target_base[@]}" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/target-success.output"
+grep -Fx 'run test:e2e:settings' "$target_log" >/dev/null
+! grep -Fx 'run test:e2e' "$target_log" >/dev/null
+grep -F 'targeted-suite: settings' "$tmp_dir/target-success.output" >/dev/null
+grep -F 'db-state: SKIPPED' "$tmp_dir/target-success.output" >/dev/null
+grep -F 'final-integrity: PASS' "$tmp_dir/target-success.output" >/dev/null
+
+printf 'NMKR_PHASE2_TARGET_SUITE=dashboard\n' >"$target_env"
+if "${target_base[@]}" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/target-conflict.output" 2>&1; then exit 1; fi
+grep -F 'failed step: preflight' "$tmp_dir/target-conflict.output" >/dev/null
+: >"$target_env"
+if "${target_base[@]/NMKR_PHASE2_TARGET_SUITE=settings/NMKR_PHASE2_TARGET_SUITE=unknown}" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/target-unknown.output" 2>&1; then exit 1; fi
+grep -F 'failed step: preflight' "$tmp_dir/target-unknown.output" >/dev/null
+
+: >"$target_log"
+if "${target_base[@]}" TARGET_DIRTY_AFTER_PLAYWRIGHT=true bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/target-dirty.output" 2>&1; then exit 1; fi
+grep -F 'failed step: final-integrity' "$tmp_dir/target-dirty.output" >/dev/null
+git -C "$target_fixture" checkout -q -- README.md
+
 # Signals must stop a dedicated process group before deployment can complete or readiness begins.
 mkdir -p "$tmp_dir/bin"
 cat >"$tmp_dir/long-child.sh" <<'EOF_CHILD'

@@ -14,6 +14,7 @@ fi
 RUN_REAL_SYNC="${RUN_REAL_SYNC:-false}"
 PW_SAVE_ARTIFACTS="${PW_SAVE_ARTIFACTS:-false}"
 CALLER_PROFILE="${NMKR_PHASE2_PROFILE:-}"
+CALLER_TARGET_SUITE="${NMKR_PHASE2_TARGET_SUITE:-}"
 WP_CLI_BIN="${WP_CLI_BIN:-wp}"
 NMKR_PLUGIN_SLUG="${NMKR_PLUGIN_SLUG:-nmkr-connect/nmkr-connect.php}"
 NMKR_DEBUG_LOG_RELATIVE_PATH="${NMKR_DEBUG_LOG_RELATIVE_PATH:-wp-content/debug.log}"
@@ -21,6 +22,7 @@ NMKR_DEBUG_LOG_LOOKBACK_MINUTES="${NMKR_DEBUG_LOG_LOOKBACK_MINUTES:-30}"
 NMKR_PHASE2_INSTALL_DEPS="${NMKR_PHASE2_INSTALL_DEPS:-auto}"
 NMKR_PHASE2_INSTALL_BROWSER="${NMKR_PHASE2_INSTALL_BROWSER:-false}"
 NMKR_PHASE2_SKIP_DEPLOY="${NMKR_PHASE2_SKIP_DEPLOY:-false}"
+NMKR_PHASE2_RUNTIME_INTEGRITY="${NMKR_PHASE2_RUNTIME_INTEGRITY:-false}"
 NMKR_PHASE2_WP_READY_TIMEOUT_SECONDS="${NMKR_PHASE2_WP_READY_TIMEOUT_SECONDS:-120}"
 NMKR_PHASE2_WP_READY_INTERVAL_SECONDS="${NMKR_PHASE2_WP_READY_INTERVAL_SECONDS:-5}"
 NMKR_PHASE2_WP_READY_HTTP_TIMEOUT_SECONDS="${NMKR_PHASE2_WP_READY_HTTP_TIMEOUT_SECONDS:-10}"
@@ -63,6 +65,8 @@ NMKR_PHASE2_WP_READY_TIMEOUT_SECONDS="${NMKR_PHASE2_WP_READY_TIMEOUT_SECONDS:-12
 NMKR_PHASE2_WP_READY_INTERVAL_SECONDS="${NMKR_PHASE2_WP_READY_INTERVAL_SECONDS:-5}"
 NMKR_PHASE2_WP_READY_HTTP_TIMEOUT_SECONDS="${NMKR_PHASE2_WP_READY_HTTP_TIMEOUT_SECONDS:-10}"
 NMKR_PHASE2_PROFILE="${NMKR_PHASE2_PROFILE:-}"
+NMKR_PHASE2_TARGET_SUITE="${NMKR_PHASE2_TARGET_SUITE:-}"
+NMKR_PHASE2_RUNTIME_INTEGRITY="${NMKR_PHASE2_RUNTIME_INTEGRITY:-false}"
 NMKR_RETAIN_AUTH_STATE="${NMKR_RETAIN_AUTH_STATE:-false}"
 
 validate_boolean() {
@@ -77,6 +81,9 @@ WORDPRESS_READY_STATUS="SKIPPED"
 PLAYWRIGHT_STATUS="SKIPPED"
 WPCLI_STATUS="SKIPPED"
 DBSTATE_STATUS="SKIPPED"
+RUNTIME_INTEGRITY_STATUS="SKIPPED"
+FINAL_INTEGRITY="SKIPPED"
+SELECTED_SUITE="full"
 FAILED_STEP=""
 FAILED_LOG=""
 EXIT_CODE=0
@@ -97,6 +104,9 @@ print_summary() {
   printf '  playwright: %s\n' "$PLAYWRIGHT_STATUS"
   printf '  wpcli: %s\n' "$WPCLI_STATUS"
   printf '  db-state: %s\n' "$DBSTATE_STATUS"
+  printf '  targeted-suite: %s\n' "$SELECTED_SUITE"
+  printf '  runtime-integrity: %s\n' "$RUNTIME_INTEGRITY_STATUS"
+  printf '  final-integrity: %s\n' "$FINAL_INTEGRITY"
   printf '  profile: %s\n' "${NMKR_PHASE2_PROFILE:-general}"
   printf '  source-integrity: %s\n' "${SOURCE_INTEGRITY:-SKIPPED}"
   printf '  deployed-integrity: %s\n' "${DEPLOYED_INTEGRITY:-SKIPPED}"
@@ -349,10 +359,23 @@ validate_positive_integer "NMKR_PHASE2_WP_READY_HTTP_TIMEOUT_SECONDS" "$NMKR_PHA
 if [[ -n "$CALLER_PROFILE" && "$CALLER_PROFILE" != "$NMKR_PHASE2_PROFILE" ]]; then
   printf 'Phase 2 profile conflict.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1
 fi
-case "$NMKR_PHASE2_PROFILE" in ''|existing-readonly) ;; *) printf 'Unknown Phase 2 profile.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1 ;; esac
-for boolean in RUN_REAL_SYNC PW_SAVE_ARTIFACTS NMKR_PHASE2_INSTALL_BROWSER NMKR_PHASE2_SKIP_DEPLOY NMKR_RETAIN_AUTH_STATE; do validate_boolean "$boolean" "${!boolean}"; done
+if [[ -n "$CALLER_TARGET_SUITE" && "$CALLER_TARGET_SUITE" != "$NMKR_PHASE2_TARGET_SUITE" ]]; then
+  printf 'Phase 2 target suite conflict.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1
+fi
+case "$NMKR_PHASE2_PROFILE" in ''|existing-readonly|targeted-readonly) ;; *) printf 'Unknown Phase 2 profile.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1 ;; esac
+for boolean in RUN_REAL_SYNC PW_SAVE_ARTIFACTS NMKR_PHASE2_INSTALL_BROWSER NMKR_PHASE2_SKIP_DEPLOY NMKR_PHASE2_RUNTIME_INTEGRITY NMKR_RETAIN_AUTH_STATE; do validate_boolean "$boolean" "${!boolean}"; done
 
-if [[ "$NMKR_PHASE2_PROFILE" == "existing-readonly" ]]; then
+case "$NMKR_PHASE2_TARGET_SUITE" in
+  settings|dashboard|projects|shortcodes|analytics|ajax-security|sync-state|sync-run-authority|sync-resilience|sync-final-state) ;;
+  '') [[ "$NMKR_PHASE2_PROFILE" != "targeted-readonly" ]] || { printf 'Target suite is required.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; } ;;
+  *) printf 'Unknown target suite.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1 ;;
+esac
+if [[ "$NMKR_PHASE2_PROFILE" != "targeted-readonly" && -n "$NMKR_PHASE2_TARGET_SUITE" ]]; then
+  printf 'Target suite requires targeted-readonly profile.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1
+fi
+[[ "$NMKR_PHASE2_PROFILE" != "targeted-readonly" ]] || SELECTED_SUITE="$NMKR_PHASE2_TARGET_SUITE"
+
+if [[ "$NMKR_PHASE2_PROFILE" == "existing-readonly" || "$NMKR_PHASE2_PROFILE" == "targeted-readonly" ]]; then
   READONLY_POLICY="ENFORCED"; SOURCE_INTEGRITY="FAIL"; DEPLOYED_INTEGRITY="SKIPPED"
   readonly_overrides=false
   for boolean in RUN_REAL_SYNC PW_SAVE_ARTIFACTS NMKR_PHASE2_SKIP_DEPLOY NMKR_PHASE2_INSTALL_BROWSER; do [[ "${!boolean}" != "false" || "$boolean" == NMKR_PHASE2_SKIP_DEPLOY ]] && readonly_overrides=true; done
@@ -370,6 +393,12 @@ if [[ "$NMKR_PHASE2_PROFILE" == "existing-readonly" ]]; then
   fi
   run_external node -e "require('@playwright/test')" >/dev/null 2>&1 || { printf 'Required Node dependencies are unavailable.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; }
   run_external node -e "const { chromium }=require('@playwright/test'); (async()=>{const b=await chromium.launch({headless:true}); await b.close();})().catch(()=>process.exit(1))" >/dev/null 2>&1 || { printf 'Configured Chromium is unavailable.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; }
+  if [[ "$NMKR_PHASE2_RUNTIME_INTEGRITY" == "true" ]]; then
+    [[ -n "${NMKR_DEPLOYED_PLUGIN_PATH:-}" ]] || { printf 'Runtime integrity requires deployed plugin path.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; }
+    RUNTIME_INTEGRITY_STATUS="FAIL"
+    run_external "$REPO_ROOT/scripts/nmkr-ajax-runtime-integrity.sh" "$NMKR_DEPLOYED_PLUGIN_PATH" >"$RUN_DIR/runtime-integrity.log" 2>&1 || fail_step "runtime-integrity" "$RUN_DIR/runtime-integrity.log" 1
+    RUNTIME_INTEGRITY_STATUS="PASS"
+  fi
 fi
 
 case "$NMKR_PHASE2_INSTALL_DEPS" in
@@ -439,7 +468,12 @@ export NMKR_AUTH_STATE_ROOT="$RUN_DIR"
 unset NMKR_AUTH_STATE_DIR NMKR_AUTH_STATE_PATH NMKR_AUTH_STATE_OWNER_TOKEN
 
 PLAYWRIGHT_STATUS="FAIL"
-if run_external npm run test:e2e >"$RUN_DIR/playwright.log" 2>&1; then
+if [[ "$NMKR_PHASE2_PROFILE" == "targeted-readonly" ]]; then
+  playwright_command=(npm run "test:e2e:$NMKR_PHASE2_TARGET_SUITE")
+else
+  playwright_command=(npm run test:e2e)
+fi
+if run_external "${playwright_command[@]}" >"$RUN_DIR/playwright.log" 2>&1; then
   PLAYWRIGHT_STATUS="PASS"
 else
   fail_step "playwright" "$RUN_DIR/playwright.log" 4
@@ -452,11 +486,24 @@ else
   fail_step "wpcli" "$RUN_DIR/wpcli.log" 5
 fi
 
-DBSTATE_STATUS="FAIL"
-if run_external bash scripts/nmkr-wpcli-db-state.sh >"$RUN_DIR/wpcli-db-state.log" 2>&1; then
-  DBSTATE_STATUS="PASS"
+if [[ "$NMKR_PHASE2_PROFILE" == "targeted-readonly" ]]; then
+  DBSTATE_STATUS="SKIPPED"
 else
-  fail_step "wpcli-db-state" "$RUN_DIR/wpcli-db-state.log" 6
+  DBSTATE_STATUS="FAIL"
+  if run_external bash scripts/nmkr-wpcli-db-state.sh >"$RUN_DIR/wpcli-db-state.log" 2>&1; then
+    DBSTATE_STATUS="PASS"
+  else
+    fail_step "wpcli-db-state" "$RUN_DIR/wpcli-db-state.log" 6
+  fi
+fi
+
+if [[ "$NMKR_PHASE2_PROFILE" == "existing-readonly" || "$NMKR_PHASE2_PROFILE" == "targeted-readonly" ]]; then
+  FINAL_INTEGRITY="FAIL"
+  [[ "$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null)" == "$NMKR_PHASE2_EXPECTED_SOURCE_SHA" && -z "$(git -C "$REPO_ROOT" status --porcelain 2>/dev/null)" ]] || fail_step "final-integrity" "$RUN_DIR/preflight.log" 1
+  if [[ -n "${NMKR_DEPLOYED_PLUGIN_PATH:-}" ]]; then
+    [[ "$(git -C "$NMKR_DEPLOYED_PLUGIN_PATH" rev-parse HEAD 2>/dev/null)" == "$NMKR_PHASE2_EXPECTED_SOURCE_SHA" && -z "$(git -C "$NMKR_DEPLOYED_PLUGIN_PATH" status --porcelain 2>/dev/null)" ]] || fail_step "final-integrity" "$RUN_DIR/preflight.log" 1
+  fi
+  FINAL_INTEGRITY="PASS"
 fi
 
 EXIT_CODE=0

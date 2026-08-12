@@ -1,6 +1,6 @@
 # Playwright testing guide
 
-This is the authoritative operational overview of the repository's Playwright suite. The numbered phase documents remain implementation records and contain the detailed safety rationale for the coverage introduced at each stage.
+The [validation policy](validation-policy.md) determines when to run targeted or full private coverage. This is the authoritative operational overview of the repository's Playwright suite. The numbered phase documents remain implementation records and contain the detailed safety rationale for the coverage introduced at each stage.
 
 ## Purpose and architecture
 
