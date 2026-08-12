@@ -244,7 +244,23 @@ git -C "$target_fixture" config user.name PublicTest
 git -C "$target_fixture" add AGENTS.md docs package.json scripts
 git -C "$target_fixture" commit --allow-empty -q -m 'synthetic targeted profile fixture'
 target_sha="$(git -C "$target_fixture" rev-parse HEAD)"
+deployed_fixture="$tmp_dir/deployed-fixture"
+cp -a "$target_fixture/." "$deployed_fixture/"
 target_bin="$tmp_dir/target-bin"; mkdir -p "$target_bin"
+real_git="$(command -v git)"
+cat >"$target_bin/git" <<'EOF_GIT'
+#!/usr/bin/env bash
+worktree=
+args=("$@")
+if [[ "${1:-}" == -C ]]; then worktree="$2"; shift 2; fi
+if [[ "${1:-}" == status && -n "${FAIL_GIT_STATUS_PATH:-}" && "$worktree" == "$FAIL_GIT_STATUS_PATH" ]]; then
+  counter="${GIT_STATUS_COUNTER_DIR}/$(printf '%s' "$worktree" | sed 's/[^A-Za-z0-9]/_/g')"
+  count=0; [[ ! -f "$counter" ]] || read -r count <"$counter"
+  count=$((count + 1)); printf '%s\n' "$count" >"$counter"
+  [[ "$count" != "${FAIL_GIT_STATUS_CALL:-1}" ]] || exit 73
+fi
+exec "$REAL_GIT" "${args[@]}"
+EOF_GIT
 cat >"$target_bin/node" <<'EOF_NODE'
 #!/usr/bin/env bash
 exit 0
@@ -260,6 +276,13 @@ EOF_NPM
 cat >"$target_bin/wp" <<'EOF_WP'
 #!/usr/bin/env bash
 case "$*" in
+  *' eval '*)
+    case "${TARGET_ACTIVE_PLUGIN_MODE:-valid}" in
+      valid) printf '%s' "$TARGET_ACTIVE_PLUGIN_FILE" ;;
+      malformed) printf 'not-an-absolute-plugin-path' ;;
+      failure) exit 1 ;;
+    esac
+    ;;
   *'db prefix'*) printf 'wp_\n' ;;
   *'SHOW TABLES LIKE'*) printf '%s\n' "$*" | sed -n "s/.*SHOW TABLES LIKE '\([^']*\)'.*/\1/p" ;;
   *'option get nmkr_api_key'*) printf '"synthetic"\n' ;;
@@ -275,11 +298,12 @@ while (($#)); do
 done
 printf '200'
 EOF_CURL
-chmod 700 "$target_bin/node" "$target_bin/npm" "$target_bin/wp" "$target_bin/curl"
+chmod 700 "$target_bin/git" "$target_bin/node" "$target_bin/npm" "$target_bin/wp" "$target_bin/curl"
 target_private="$tmp_dir/target-private"; mkdir -m700 "$target_private"
 target_env="$tmp_dir/target.env"; : >"$target_env"; chmod 600 "$target_env"
 target_log="$tmp_dir/target-calls"
-target_base=(env -i PATH="$target_bin:$safe_path" HOME="$synthetic_home" TMPDIR="$synthetic_tmp" TARGET_CALL_LOG="$target_log" TARGET_REPO="$target_fixture" WP_BASE_URL=http://invalid.test WP_ADMIN_USER=placeholder WP_ADMIN_PASSWORD=placeholder WP_CLI_BIN="$target_bin/wp" WP_PATH="$tmp_dir/wp" NMKR_PHASE2_LOG_DIR="$target_private" NMKR_PHASE2_ENV_FILE="$target_env" NMKR_PHASE2_PROFILE=targeted-readonly NMKR_PHASE2_TARGET_SUITE=settings NMKR_PHASE2_EXPECTED_SOURCE_SHA="$target_sha" NMKR_DEPLOYED_PLUGIN_PATH="$target_fixture" NMKR_PHASE2_INSTALL_DEPS=false NMKR_PHASE2_INSTALL_BROWSER=false NMKR_PHASE2_SKIP_DEPLOY=true RUN_REAL_SYNC=false PW_SAVE_ARTIFACTS=false NMKR_RETAIN_AUTH_STATE=false)
+git_counter_dir="$tmp_dir/git-status-counters"; mkdir "$git_counter_dir"
+target_base=(env -i PATH="$target_bin:$safe_path" HOME="$synthetic_home" TMPDIR="$synthetic_tmp" REAL_GIT="$real_git" TARGET_CALL_LOG="$target_log" TARGET_REPO="$target_fixture" TARGET_ACTIVE_PLUGIN_FILE="$deployed_fixture/nmkr-connect.php" GIT_STATUS_COUNTER_DIR="$git_counter_dir" WP_BASE_URL=http://invalid.test WP_ADMIN_USER=placeholder WP_ADMIN_PASSWORD=placeholder WP_CLI_BIN="$target_bin/wp" WP_PATH="$tmp_dir/wp" NMKR_PLUGIN_SLUG=nmkr-connect.php NMKR_PHASE2_LOG_DIR="$target_private" NMKR_PHASE2_ENV_FILE="$target_env" NMKR_PHASE2_PROFILE=targeted-readonly NMKR_PHASE2_TARGET_SUITE=settings NMKR_PHASE2_EXPECTED_SOURCE_SHA="$target_sha" NMKR_DEPLOYED_PLUGIN_PATH="$deployed_fixture" NMKR_PHASE2_INSTALL_DEPS=false NMKR_PHASE2_INSTALL_BROWSER=false NMKR_PHASE2_SKIP_DEPLOY=true RUN_REAL_SYNC=false PW_SAVE_ARTIFACTS=false NMKR_RETAIN_AUTH_STATE=false)
 "${target_base[@]}" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/target-success.output"
 grep -Fx 'run test:e2e:settings' "$target_log" >/dev/null
 ! grep -Fx 'run test:e2e' "$target_log" >/dev/null
@@ -292,7 +316,7 @@ grep -F 'final-integrity: PASS' "$tmp_dir/target-success.output" >/dev/null
 # Targeted readonly requires deployment identity, while existing readonly keeps
 # accepting an omitted deployed path. General runtime integrity runs only after
 # deployment and fails closed rather than reaching functional validation.
-if "${target_base[@]/NMKR_DEPLOYED_PLUGIN_PATH=$target_fixture/NMKR_DEPLOYED_PLUGIN_PATH=}" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/target-missing-deployed.output" 2>&1; then exit 1; fi
+if "${target_base[@]/NMKR_DEPLOYED_PLUGIN_PATH=$deployed_fixture/NMKR_DEPLOYED_PLUGIN_PATH=}" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/target-missing-deployed.output" 2>&1; then exit 1; fi
 grep -F 'failed step: preflight' "$tmp_dir/target-missing-deployed.output" >/dev/null
 
 : >"$target_log"
@@ -300,6 +324,34 @@ if "${target_base[@]/NMKR_PHASE2_PROFILE=targeted-readonly/NMKR_PHASE2_PROFILE=e
 grep -Fx 'run test:e2e' "$target_log" >/dev/null
 grep -F 'failed step: wpcli-db-state' "$tmp_dir/existing-compatible.output" >/dev/null
 grep -F 'deployed-integrity: SKIPPED' "$tmp_dir/existing-compatible.output" >/dev/null
+
+# A clean clone is insufficient unless the selected WordPress installation's
+# active plugin resolves canonically to that deployed worktree.
+if "${target_base[@]}" TARGET_ACTIVE_PLUGIN_FILE="$target_fixture/nmkr-connect.php" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/target-binding-mismatch.output" 2>&1; then exit 1; fi
+grep -F 'failed step: preflight' "$tmp_dir/target-binding-mismatch.output" >/dev/null
+! grep -F "$target_fixture" "$tmp_dir/target-binding-mismatch.output" >/dev/null
+for mode in failure malformed; do
+  if "${target_base[@]}" TARGET_ACTIVE_PLUGIN_MODE="$mode" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/target-binding-$mode.output" 2>&1; then exit 1; fi
+  grep -F 'failed step: preflight' "$tmp_dir/target-binding-$mode.output" >/dev/null
+  ! grep -F "$deployed_fixture" "$tmp_dir/target-binding-$mode.output" >/dev/null
+done
+
+# Every initial and final source/deployed status boundary fails closed when
+# Git itself cannot establish cleanliness.
+assert_git_status_failure() {
+  local worktree="$1" call="$2" label="$3"
+  rm -f "$git_counter_dir"/*
+  if "${target_base[@]}" FAIL_GIT_STATUS_PATH="$worktree" FAIL_GIT_STATUS_CALL="$call" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/git-status-$label.output" 2>&1; then exit 1; fi
+  if [[ "$call" == 1 ]]; then
+    grep -F 'failed step: preflight' "$tmp_dir/git-status-$label.output" >/dev/null
+  else
+    grep -F 'failed step: final-integrity' "$tmp_dir/git-status-$label.output" >/dev/null
+  fi
+}
+assert_git_status_failure "$target_fixture" 1 initial-source
+assert_git_status_failure "$deployed_fixture" 1 initial-deployed
+assert_git_status_failure "$target_fixture" 2 final-source
+assert_git_status_failure "$deployed_fixture" 2 final-deployed
 
 general_deploy_marker="$tmp_dir/general-deployed"
 if "${target_base[@]/NMKR_PHASE2_PROFILE=targeted-readonly/NMKR_PHASE2_PROFILE=}" NMKR_DEPLOYED_PLUGIN_PATH= NMKR_PHASE2_TARGET_SUITE= NMKR_PHASE2_RUNTIME_INTEGRITY=true NMKR_PHASE2_SKIP_DEPLOY=false NMKR_DEPLOY_COMMAND="touch '$general_deploy_marker'" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/general-runtime.output" 2>&1; then exit 1; fi

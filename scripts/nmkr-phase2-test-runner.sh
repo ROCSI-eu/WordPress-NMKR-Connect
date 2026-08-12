@@ -331,6 +331,39 @@ run_external() {
   ACTIVE_CHILD_PID=""
   return "$status"
 }
+git_head_and_clean() {
+  local worktree="$1" expected_sha="$2" head status
+  if ! head="$(git -C "$worktree" rev-parse HEAD 2>/dev/null)" || [[ "$head" != "$expected_sha" ]]; then
+    return 1
+  fi
+  if ! status="$(git -C "$worktree" status --porcelain 2>/dev/null)" || [[ -n "$status" ]]; then
+    return 1
+  fi
+}
+bind_active_plugin_to_deployed_worktree() {
+  local deployed_root git_root expected_file active_file active_file_output wp_cli_args
+  [[ "$NMKR_PLUGIN_SLUG" != /* && "$NMKR_PLUGIN_SLUG" != *//* && "$NMKR_PLUGIN_SLUG" != ../* && "$NMKR_PLUGIN_SLUG" != */../* && "$NMKR_PLUGIN_SLUG" != */.. && "$NMKR_PLUGIN_SLUG" != ./* && "$NMKR_PLUGIN_SLUG" != */./* ]] || return 1
+  [[ ! -L "$NMKR_DEPLOYED_PLUGIN_PATH" ]] || return 1
+  deployed_root="$(realpath -e -- "$NMKR_DEPLOYED_PLUGIN_PATH" 2>/dev/null)" || return 1
+  [[ -d "$deployed_root" ]] || return 1
+  git_root="$(git -C "$deployed_root" rev-parse --show-toplevel 2>/dev/null)" || return 1
+  git_root="$(realpath -e -- "$git_root" 2>/dev/null)" || return 1
+  [[ "$git_root" == "$deployed_root" ]] || return 1
+  expected_file="$deployed_root/${NMKR_PLUGIN_SLUG##*/}"
+  [[ -f "$expected_file" && ! -L "$expected_file" ]] || return 1
+  [[ "$(realpath -e -- "$expected_file" 2>/dev/null)" == "$expected_file" ]] || return 1
+  wp_cli_args=("$WP_CLI_BIN")
+  [[ -z "$WP_PATH" ]] || wp_cli_args+=("--path=$WP_PATH")
+  wp_cli_args+=(eval 'require_once ABSPATH . "wp-admin/includes/plugin.php"; $slug = getenv("NMKR_PLUGIN_SLUG"); if (!is_string($slug) || $slug === "" || validate_file($slug) !== 0 || !is_plugin_active($slug)) { exit(1); } $file = realpath(WP_PLUGIN_DIR . "/" . $slug); if ($file === false || !is_file($file)) { exit(1); } echo $file;')
+  active_file_output="$RUN_DIR/active-plugin-path.tmp"
+  if ! run_external "${wp_cli_args[@]}" >"$active_file_output" 2>/dev/null; then
+    rm -f "$active_file_output"
+    return 1
+  fi
+  active_file="$(cat "$active_file_output")" || { rm -f "$active_file_output"; return 1; }
+  rm -f "$active_file_output"
+  [[ "$active_file" == "$expected_file" ]]
+}
 terminate_active_child() {
   local pid="$ACTIVE_CHILD_PID" attempts=0
   [[ -n "$pid" ]] || return 0
@@ -387,16 +420,18 @@ if [[ "$NMKR_PHASE2_PROFILE" == "existing-readonly" || "$NMKR_PHASE2_PROFILE" ==
   RUN_REAL_SYNC=false; PW_SAVE_ARTIFACTS=false; NMKR_PHASE2_SKIP_DEPLOY=true; NMKR_PHASE2_INSTALL_DEPS=false; NMKR_PHASE2_INSTALL_BROWSER=false; unset NMKR_DEPLOY_COMMAND
   [[ "$readonly_overrides" == true ]] && printf 'INFO: readonly overrides present.\n'
   [[ "${NMKR_PHASE2_EXPECTED_SOURCE_SHA:-}" =~ ^[0-9a-fA-F]{40}$ ]] || { printf 'Expected source SHA is invalid.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; }
-  [[ "$(git -C "$REPO_ROOT" rev-parse HEAD)" == "$NMKR_PHASE2_EXPECTED_SOURCE_SHA" ]] || { printf 'Source SHA mismatch.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; }
-  [[ -z "$(git -C "$REPO_ROOT" status --porcelain)" ]] || { printf 'Source worktree is dirty.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; }
+  git_head_and_clean "$REPO_ROOT" "$NMKR_PHASE2_EXPECTED_SOURCE_SHA" || { printf 'Source worktree integrity check failed.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; }
   SOURCE_INTEGRITY="PASS"
   if [[ "$NMKR_PHASE2_PROFILE" == "targeted-readonly" && -z "${NMKR_DEPLOYED_PLUGIN_PATH:-}" ]]; then
     printf 'Targeted readonly requires deployed plugin path.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1
   fi
   if [[ -n "${NMKR_DEPLOYED_PLUGIN_PATH:-}" ]]; then
     DEPLOYED_INTEGRITY="FAIL"
-    git -C "$NMKR_DEPLOYED_PLUGIN_PATH" rev-parse --is-inside-work-tree >/dev/null 2>&1 && [[ "$(git -C "$NMKR_DEPLOYED_PLUGIN_PATH" rev-parse HEAD)" == "$NMKR_PHASE2_EXPECTED_SOURCE_SHA" ]] && [[ -z "$(git -C "$NMKR_DEPLOYED_PLUGIN_PATH" status --porcelain)" ]] || { printf 'Deployed worktree integrity check failed.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; }
+    git_head_and_clean "$NMKR_DEPLOYED_PLUGIN_PATH" "$NMKR_PHASE2_EXPECTED_SOURCE_SHA" || { printf 'Deployed worktree integrity check failed.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; }
     DEPLOYED_INTEGRITY="PASS"
+  fi
+  if [[ "$NMKR_PHASE2_PROFILE" == "targeted-readonly" ]]; then
+    bind_active_plugin_to_deployed_worktree || { printf 'Active plugin deployment binding failed.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; }
   fi
   run_external node -e "require('@playwright/test')" >/dev/null 2>&1 || { printf 'Required Node dependencies are unavailable.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; }
   run_external node -e "const { chromium }=require('@playwright/test'); (async()=>{const b=await chromium.launch({headless:true}); await b.close();})().catch(()=>process.exit(1))" >/dev/null 2>&1 || { printf 'Configured Chromium is unavailable.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; }
@@ -507,9 +542,9 @@ fi
 
 if [[ "$NMKR_PHASE2_PROFILE" == "existing-readonly" || "$NMKR_PHASE2_PROFILE" == "targeted-readonly" ]]; then
   FINAL_INTEGRITY="FAIL"
-  [[ "$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null)" == "$NMKR_PHASE2_EXPECTED_SOURCE_SHA" && -z "$(git -C "$REPO_ROOT" status --porcelain 2>/dev/null)" ]] || fail_step "final-integrity" "$RUN_DIR/preflight.log" 1
+  git_head_and_clean "$REPO_ROOT" "$NMKR_PHASE2_EXPECTED_SOURCE_SHA" || fail_step "final-integrity" "$RUN_DIR/preflight.log" 1
   if [[ -n "${NMKR_DEPLOYED_PLUGIN_PATH:-}" ]]; then
-    [[ "$(git -C "$NMKR_DEPLOYED_PLUGIN_PATH" rev-parse HEAD 2>/dev/null)" == "$NMKR_PHASE2_EXPECTED_SOURCE_SHA" && -z "$(git -C "$NMKR_DEPLOYED_PLUGIN_PATH" status --porcelain 2>/dev/null)" ]] || fail_step "final-integrity" "$RUN_DIR/preflight.log" 1
+    git_head_and_clean "$NMKR_DEPLOYED_PLUGIN_PATH" "$NMKR_PHASE2_EXPECTED_SOURCE_SHA" || fail_step "final-integrity" "$RUN_DIR/preflight.log" 1
   fi
   FINAL_INTEGRITY="PASS"
 fi
