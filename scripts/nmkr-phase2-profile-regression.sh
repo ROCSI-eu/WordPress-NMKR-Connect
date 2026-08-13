@@ -400,11 +400,19 @@ grep -F 'safety RUN_REAL_SYNC=false PW_SAVE_ARTIFACTS=false' "$target_log" >/dev
 : >"$target_env"
 
 # Attempts to assign the protected internal namespace fail closed while the
-# private file is sourced, before deployment or functional validation.
+# private file is sourced, before deployment or functional validation, without
+# exposing any part of the private source diagnostic.
 printf 'CLI_STAGE=post-merge\n' >"$target_env"
 protected_state_count="$tmp_dir/protected-state-deploy-count"
-if "${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE NMKR_DEPLOY_COMMAND="printf 'call\\n' >>'$protected_state_count'" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${operator_target_args[@]}" >/dev/null 2>&1; then exit 1; fi
+protected_output="$tmp_dir/protected-state.output"
+: >"$target_log"
+if "${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE NMKR_DEPLOY_COMMAND="printf 'call\\n' >>'$protected_state_count'" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${operator_target_args[@]}" >"$protected_output" 2>&1; then exit 1; fi
 test ! -e "$protected_state_count"
+grep -Fx 'ERROR: Phase 2 private configuration could not be loaded.' "$protected_output" >/dev/null
+! grep -F "$target_env" "$protected_output" >/dev/null
+! grep -F "$(basename "$target_env")" "$protected_output" >/dev/null
+! grep -E 'line [0-9]+|CLI_STAGE=|readonly variable' "$protected_output" >/dev/null
+! grep -E '^run test:e2e|wp .*nmkr-wpcli-(smoke|db-state)' "$target_log" >/dev/null
 : >"$target_env"
 
 deploy_count="$tmp_dir/operator-deploy-count"
@@ -447,6 +455,25 @@ git -C "$deployed_fixture" reset --hard -q "$merged_sha"
 post_args=(--stage post-merge --class test-tooling --profile targeted-readonly --reviewed-sha "$target_sha" --deployed-sha "$merged_sha" --target-suite settings --deploy-mode skip --runtime-integrity false)
 "${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${post_args[@]}" >"$tmp_dir/operator-post.output"
 grep -F 'reviewed-tree-equivalence: PASS' "$tmp_dir/operator-post.output" >/dev/null
+# Tree equivalence is established only between the two exact commit identities.
+# A matching raw tree or another non-commit object fails before functional work
+# and must never be summarized as reviewed-tree equivalence PASS.
+matching_tree="$(git -C "$target_fixture" rev-parse "$target_sha^{tree}")"
+noncommit_blob="$(git -C "$target_fixture" rev-parse "$target_sha:README.md")"
+for identity_case in reviewed-tree deployed-blob; do
+  invalid_args=("${post_args[@]}")
+  if [[ "$identity_case" == reviewed-tree ]]; then
+    invalid_args=("${invalid_args[@]/$target_sha/$matching_tree}")
+  else
+    invalid_args=("${invalid_args[@]/$merged_sha/$noncommit_blob}")
+  fi
+  : >"$target_log"
+  invalid_output="$tmp_dir/operator-post-$identity_case.output"
+  if "${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${invalid_args[@]}" >"$invalid_output" 2>&1; then exit 1; fi
+  grep -F 'reviewed-tree-equivalence: NOT_ESTABLISHED' "$invalid_output" >/dev/null
+  ! grep -F 'reviewed-tree-equivalence: PASS' "$invalid_output" >/dev/null
+  ! grep -E '^run test:e2e|wp .*nmkr-wpcli-(smoke|db-state)' "$target_log" >/dev/null
+done
 missing_sha=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 if "${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${post_args[@]/$target_sha/$missing_sha}" >/dev/null 2>&1; then exit 1; fi
 printf '\nchanged-tree\n' >>"$target_fixture/README.md"

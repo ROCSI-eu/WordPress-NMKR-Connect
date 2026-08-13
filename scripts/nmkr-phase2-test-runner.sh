@@ -101,10 +101,39 @@ if [[ -n "$ENV_FILE" ]]; then
     printf 'ERROR: Phase 2 env file could not be resolved.\n' >&2
     exit 1
   fi
+  SOURCE_DIAGNOSTICS=""
+  cleanup_source_diagnostics() {
+    [[ -z "$SOURCE_DIAGNOSTICS" ]] || rm -f -- "$SOURCE_DIAGNOSTICS"
+  }
+  source_boundary_signal() {
+    cleanup_source_diagnostics
+    trap - EXIT INT TERM
+    exit "$1"
+  }
+  source_umask="$(umask)"
+  umask 077
+  if ! SOURCE_DIAGNOSTICS="$(mktemp "${TMPDIR:-/tmp}/nmkr-phase2-source.XXXXXX" 2>/dev/null)"; then
+    umask "$source_umask"
+    printf 'ERROR: Phase 2 private configuration could not be loaded.\n' >&2
+    exit 1
+  fi
+  umask "$source_umask"
+  trap cleanup_source_diagnostics EXIT
+  trap 'source_boundary_signal 130' INT
+  trap 'source_boundary_signal 143' TERM
   set -a
   # shellcheck source=/dev/null
-  source "$SELECTED_ENV_FILE"
+  source_status=0
+  source "$SELECTED_ENV_FILE" >"$SOURCE_DIAGNOSTICS" 2>&1 || source_status=$?
   set +a
+  if [[ "$source_status" -ne 0 || -s "$SOURCE_DIAGNOSTICS" ]]; then
+    cleanup_source_diagnostics
+    trap - EXIT INT TERM
+    printf 'ERROR: Phase 2 private configuration could not be loaded.\n' >&2
+    exit 1
+  fi
+  cleanup_source_diagnostics
+  trap - EXIT INT TERM
   export NMKR_PHASE2_ENV_FILE="$SELECTED_ENV_FILE"
 fi
 
@@ -523,8 +552,13 @@ if [[ "$NMKR_PHASE2_PROFILE" == "existing-readonly" || "$NMKR_PHASE2_PROFILE" ==
       [[ "$CLI_REVIEWED_SHA" == "$CLI_DEPLOYED_SHA" ]] || { printf 'Pre-merge reviewed/deployed identity mismatch.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; }
       EXPECTED_SOURCE_SHA="$CLI_REVIEWED_SHA"; TREE_EQUIVALENCE="NOT_APPLICABLE"
     else
-      reviewed_tree="$(git -C "$REPO_ROOT" rev-parse "$CLI_REVIEWED_SHA^{tree}" 2>/dev/null || true)"
-      deployed_tree="$(git -C "$REPO_ROOT" rev-parse "$CLI_DEPLOYED_SHA^{tree}" 2>/dev/null || true)"
+      reviewed_commit="$(git -C "$REPO_ROOT" rev-parse --verify "$CLI_REVIEWED_SHA^{commit}" 2>/dev/null || true)"
+      deployed_commit="$(git -C "$REPO_ROOT" rev-parse --verify "$CLI_DEPLOYED_SHA^{commit}" 2>/dev/null || true)"
+      reviewed_tree=""; deployed_tree=""
+      if [[ "$reviewed_commit" == "$CLI_REVIEWED_SHA" && "$deployed_commit" == "$CLI_DEPLOYED_SHA" ]]; then
+        reviewed_tree="$(git -C "$REPO_ROOT" rev-parse --verify "$reviewed_commit^{tree}" 2>/dev/null || true)"
+        deployed_tree="$(git -C "$REPO_ROOT" rev-parse --verify "$deployed_commit^{tree}" 2>/dev/null || true)"
+      fi
       if [[ -z "$reviewed_tree" || -z "$deployed_tree" || "$reviewed_tree" != "$deployed_tree" ]]; then
         TREE_EQUIVALENCE="NOT_ESTABLISHED"
         printf 'Reviewed/merged equivalence was not established; deeper review and validation are required.\n' >>"$RUN_DIR/preflight.log"
