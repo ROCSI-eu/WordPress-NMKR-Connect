@@ -103,6 +103,7 @@ if [[ -n "$ENV_FILE" ]]; then
   fi
   SOURCE_DRAIN_PID=""
   SOURCE_DRAIN_FD=""
+  SOURCE_PUBLIC_ERR_FD=""
   cleanup_source_diagnostics() {
     if [[ -n "$SOURCE_DRAIN_FD" ]]; then
       eval "exec ${SOURCE_DRAIN_FD}>&-"
@@ -113,6 +114,18 @@ if [[ -n "$ENV_FILE" ]]; then
       wait "$SOURCE_DRAIN_PID" 2>/dev/null || true
       SOURCE_DRAIN_PID=""
     fi
+    if [[ -n "$SOURCE_PUBLIC_ERR_FD" ]]; then
+      eval "exec ${SOURCE_PUBLIC_ERR_FD}>&-"
+      SOURCE_PUBLIC_ERR_FD=""
+    fi
+  }
+  source_load_error() {
+    local status=$?
+    [[ "$status" -ne 0 ]] || status=1
+    trap - ERR EXIT INT TERM
+    printf 'ERROR: Phase 2 private configuration could not be loaded.\n' >&"$SOURCE_ERROR_FD"
+    cleanup_source_diagnostics
+    exit "$status"
   }
   source_boundary_signal() {
     cleanup_source_diagnostics
@@ -133,17 +146,24 @@ if [[ -n "$ENV_FILE" ]]; then
   }
   SOURCE_DRAIN_PID="$SOURCE_OUTPUT_DRAIN_PID"
   SOURCE_DRAIN_FD="${SOURCE_OUTPUT_DRAIN[1]}"
+  exec {SOURCE_PUBLIC_ERR_FD}>&2
+  readonly SOURCE_ERROR_FD="$SOURCE_PUBLIC_ERR_FD"
   set -a
   # shellcheck source=/dev/null
-  source_status=0
-  source "$SELECTED_ENV_FILE" >&"$SOURCE_DRAIN_FD" || source_status=$?
+  # Keep source as a direct command: placing it in a conditional or command
+  # list would suppress errexit for unhandled failures inside the private file.
+  # EXIT also covers fatal shell errors (notably readonly-name assignments)
+  # that terminate Bash without dispatching an ERR trap.
+  trap source_load_error ERR EXIT
+  source "$SELECTED_ENV_FILE" >&"$SOURCE_DRAIN_FD"
+  trap - ERR EXIT
   set +a
   eval "exec ${SOURCE_DRAIN_FD}>&-"
   SOURCE_DRAIN_FD=""
   source_output_status=0
   wait "$SOURCE_DRAIN_PID" || source_output_status=$?
   SOURCE_DRAIN_PID=""
-  if [[ "$source_status" -ne 0 || "$source_output_status" -ne 0 ]]; then
+  if [[ "$source_output_status" -ne 0 ]]; then
     cleanup_source_diagnostics
     trap - EXIT INT TERM
     printf 'ERROR: Phase 2 private configuration could not be loaded.\n' >&2

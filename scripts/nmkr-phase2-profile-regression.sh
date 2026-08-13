@@ -411,6 +411,7 @@ source_failure_env="$tmp_dir/source-failure.env"
 cat >"$source_failure_env" <<EOF_SOURCE_FAILURE
 printf '%s\\n' '$source_secret'
 false
+SOURCE_ASSIGNMENT_AFTER_FAILURE=present
 EOF_SOURCE_FAILURE
 chmod 600 "$source_failure_env"
 source_failure_count="$tmp_dir/source-failure-deploy-count"
@@ -419,8 +420,11 @@ source_failure_output="$tmp_dir/source-failure.output"
 if "${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE TMPDIR="$source_tmp" NMKR_PHASE2_ENV_FILE="$source_failure_env" NMKR_DEPLOY_COMMAND="printf 'call\\n' >>'$source_failure_count'" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${operator_target_args[@]}" >"$source_failure_output" 2>&1; then exit 1; fi
 test ! -e "$source_failure_count"
 grep -Fx 'ERROR: Phase 2 private configuration could not be loaded.' "$source_failure_output" >/dev/null
+test "$(wc -l <"$source_failure_output")" = 1
 ! grep -F "$source_secret" "$source_failure_output" >/dev/null
+! grep -E 'line [0-9]+|false|SOURCE_ASSIGNMENT_AFTER_FAILURE|present' "$source_failure_output" >/dev/null
 ! find "$target_fixture" "$deployed_fixture" "$tmp_dir/wp" "$artifact_fixture" "$source_tmp" -type f -exec grep -Fl -- "$source_secret" {} + | grep . >/dev/null
+! find "$target_fixture" "$deployed_fixture" "$tmp_dir/wp" "$artifact_fixture" "$source_tmp" -type f -exec grep -El -- 'SOURCE_ASSIGNMENT_AFTER_FAILURE|present' {} + | grep . >/dev/null
 test -z "$(find "$source_tmp" -mindepth 1 -print -quit)"
 ! grep -E '^run test:e2e|wp .*nmkr-wpcli-(smoke|db-state)' "$target_log" >/dev/null
 
@@ -438,6 +442,18 @@ grep -Fx 'ERROR: Phase 2 private configuration could not be loaded.' "$protected
 ! grep -F "$(basename "$target_env")" "$protected_output" >/dev/null
 ! grep -E 'line [0-9]+|CLI_STAGE=|readonly variable' "$protected_output" >/dev/null
 ! grep -E '^run test:e2e|wp .*nmkr-wpcli-(smoke|db-state)' "$target_log" >/dev/null
+: >"$target_env"
+
+# Failures explicitly handled by the private configuration retain Bash's
+# normal semantics and do not incorrectly abort an otherwise valid load.
+cat >"$target_env" <<'EOF_HANDLED_SOURCE_FAILURE'
+false || true
+HANDLED_SOURCE_VALUE=present
+EOF_HANDLED_SOURCE_FAILURE
+: >"$target_log"
+"${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${operator_target_args[@]}" >"$tmp_dir/handled-source-failure.output"
+grep -F 'result: PASS' "$tmp_dir/handled-source-failure.output" >/dev/null
+grep -Fx 'run test:e2e:settings' "$target_log" >/dev/null
 : >"$target_env"
 
 deploy_count="$tmp_dir/operator-deploy-count"
