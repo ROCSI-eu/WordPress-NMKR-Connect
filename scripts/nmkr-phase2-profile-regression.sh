@@ -81,6 +81,21 @@ mkdir -p "$synthetic_home" "$synthetic_tmp"
 chmod 700 "$synthetic_home" "$synthetic_tmp"
 base=(env -i PATH="$safe_path" HOME="$synthetic_home" TMPDIR="$synthetic_tmp" WP_BASE_URL=http://invalid.test WP_ADMIN_USER=placeholder WP_ADMIN_PASSWORD=placeholder WP_CLI_BIN=true WP_PATH="$tmp_dir/wp" NMKR_PHASE2_LOG_DIR="$tmp_dir/private" NMKR_PHASE2_ENV_FILE="$synthetic_env" NMKR_PHASE2_PROFILE= RUN_REAL_SYNC=false PW_SAVE_ARTIFACTS=false NMKR_RETAIN_AUTH_STATE=false NMKR_PHASE2_INSTALL_DEPS=false NMKR_PHASE2_INSTALL_BROWSER=false NMKR_PHASE2_SKIP_DEPLOY=true)
 
+# Operator syntax is fail-closed before private preflight. Docs/metadata is a
+# public-CI-only class and must reject before even sourcing a configured file.
+operator_sha=0123456789abcdef0123456789abcdef01234567
+operator_args=(--stage pre-merge --class test-tooling --profile targeted-readonly --reviewed-sha "$operator_sha" --deployed-sha "$operator_sha" --target-suite settings --deploy-mode skip --runtime-integrity false)
+for bad_args in '--unknown value' '--stage' '--stage pre-merge --stage pre-merge' '--stage invalid'; do
+  read -r -a bad <<<"$bad_args"
+  if env -i PATH="$safe_path" HOME="$synthetic_home" bash "$runner" "${bad[@]}" >/dev/null 2>&1; then exit 1; fi
+done
+if env -i PATH="$safe_path" HOME="$synthetic_home" bash "$runner" "${operator_args[@]/test-tooling/high-risk}" >/dev/null 2>&1; then exit 1; fi
+docs_env="$tmp_dir/docs-private.env"
+printf 'touch "%s"\n' "$tmp_dir/docs-env-loaded" >"$docs_env"
+if env -i PATH="$safe_path" HOME="$synthetic_home" NMKR_PHASE2_ENV_FILE="$docs_env" bash "$runner" "${operator_args[@]/test-tooling/docs-metadata}" >"$tmp_dir/docs-rejection.output" 2>&1; then exit 1; fi
+grep -F 'use public CI' "$tmp_dir/docs-rejection.output" >/dev/null
+test ! -e "$tmp_dir/docs-env-loaded"
+
 # Exercise asdf-style shims without requiring asdf in CI. The child starts
 # with only shim entries for Node tools and a minimal fake `asdf which`; the
 # resolver must replace them with the caller's actual executable directories
@@ -330,6 +345,61 @@ grep -F 'db-state: SKIPPED' "$tmp_dir/target-success.output" >/dev/null
 grep -F 'source-integrity: PASS' "$tmp_dir/target-success.output" >/dev/null
 grep -F 'deployed-integrity: PASS' "$tmp_dir/target-success.output" >/dev/null
 grep -F 'final-integrity: PASS' "$tmp_dir/target-success.output" >/dev/null
+
+# Unified operator mode preserves every explicit selection across env sourcing,
+# validates exact pre-merge identity, and keeps deployment invocation opaque.
+operator_target_args=(--stage pre-merge --class test-tooling --profile targeted-readonly --reviewed-sha "$target_sha" --deployed-sha "$target_sha" --target-suite settings --deploy-mode skip --runtime-integrity false)
+: >"$target_log"
+"${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${operator_target_args[@]}" >"$tmp_dir/operator-target.output"
+grep -Fx 'run test:e2e:settings' "$target_log" >/dev/null
+grep -F 'stage: pre-merge' "$tmp_dir/operator-target.output" >/dev/null
+grep -F 'rollback: NOT_ATTEMPTED' "$tmp_dir/operator-target.output" >/dev/null
+
+mismatch_args=(--stage pre-merge --class test-tooling --profile targeted-readonly --reviewed-sha "$target_sha" --deployed-sha 0123456789abcdef0123456789abcdef01234567 --target-suite settings --deploy-mode skip --runtime-integrity false)
+if "${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${mismatch_args[@]}" >/dev/null 2>&1; then exit 1; fi
+
+# Every explicit operator selection conflicts rather than being replaced or
+# downgraded by the sourced environment file.
+operator_env_names=(NMKR_PHASE2_STAGE NMKR_PHASE2_VALIDATION_CLASS NMKR_PHASE2_PROFILE NMKR_PHASE2_REVIEWED_SHA NMKR_PHASE2_DEPLOYED_SHA NMKR_PHASE2_TARGET_SUITE NMKR_PHASE2_DEPLOY_MODE NMKR_PHASE2_RUNTIME_INTEGRITY)
+for env_name in "${operator_env_names[@]}"; do
+  printf '%s=conflict\n' "$env_name" >"$target_env"
+  if "${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${operator_target_args[@]}" >"$tmp_dir/operator-conflict.output" 2>&1; then exit 1; fi
+  grep -F 'operator selection conflicts' "$tmp_dir/operator-conflict.output" >/dev/null
+done
+: >"$target_env"
+
+deploy_count="$tmp_dir/operator-deploy-count"
+deploy_command="printf 'call\\n' >>'$deploy_count'"
+run_args=(--stage pre-merge --class test-tooling --profile targeted-readonly --reviewed-sha "$target_sha" --deployed-sha "$target_sha" --target-suite settings --deploy-mode run --runtime-integrity false)
+: >"$target_log"
+"${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE NMKR_DEPLOY_COMMAND="$deploy_command" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${run_args[@]}" >"$tmp_dir/operator-deploy.output"
+test "$(wc -l <"$deploy_count")" = 1
+grep -F 'deploy: PASS' "$tmp_dir/operator-deploy.output" >/dev/null
+! grep -F "$deploy_command" "$tmp_dir/operator-deploy.output" >/dev/null
+rm -f "$deploy_count"
+"${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE NMKR_DEPLOY_COMMAND="$deploy_command" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${operator_target_args[@]}" >/dev/null
+test ! -e "$deploy_count"
+
+# Post-merge accepts distinct commits only when their source-tree objects are
+# identical; missing reviewed commits and different trees fail closed.
+git -C "$target_fixture" commit --allow-empty -q -m 'synthetic merged equivalent tree'
+merged_sha="$(git -C "$target_fixture" rev-parse HEAD)"
+git -C "$deployed_fixture" fetch -q "$target_fixture" "$merged_sha"
+git -C "$deployed_fixture" reset --hard -q "$merged_sha"
+post_args=(--stage post-merge --class test-tooling --profile targeted-readonly --reviewed-sha "$target_sha" --deployed-sha "$merged_sha" --target-suite settings --deploy-mode skip --runtime-integrity false)
+"${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${post_args[@]}" >"$tmp_dir/operator-post.output"
+grep -F 'reviewed-tree-equivalence: PASS' "$tmp_dir/operator-post.output" >/dev/null
+missing_sha=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+if "${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${post_args[@]/$target_sha/$missing_sha}" >/dev/null 2>&1; then exit 1; fi
+printf '\nchanged-tree\n' >>"$target_fixture/README.md"
+git -C "$target_fixture" add README.md
+git -C "$target_fixture" commit -q -m 'synthetic merged different tree'
+different_sha="$(git -C "$target_fixture" rev-parse HEAD)"
+git -C "$deployed_fixture" fetch -q "$target_fixture" "$different_sha"
+git -C "$deployed_fixture" reset --hard -q "$different_sha"
+if "${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${post_args[@]/$merged_sha/$different_sha}" >/dev/null 2>&1; then exit 1; fi
+git -C "$target_fixture" reset --hard -q "$target_sha"
+git -C "$deployed_fixture" reset --hard -q "$target_sha"
 
 # Targeted readonly requires deployment identity, while existing readonly keeps
 # accepting an omitted deployed path. General runtime integrity runs only after

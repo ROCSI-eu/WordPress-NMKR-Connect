@@ -61,3 +61,20 @@ Use this host-neutral contract for deployment-integrity validation:
 6. Run the runtime-integrity gate once before affected functional validation.
 
 Host-specific paths, domains, credentials, and deployment commands belong only in approved private configuration and must not be committed or printed.
+
+## Unified Phase 2 operator contract
+
+The opt-in operator form is `npm run test:phase2 -- --stage <pre-merge|post-merge> --class <class> --profile <profile> --reviewed-sha <sha> --deployed-sha <sha> --target-suite <suite> --deploy-mode <run|skip> --runtime-integrity <true|false>`. Every selection is explicit; no profile is inferred. The compatibility matrix is:
+
+| Validation class | Operator profile |
+| --- | --- |
+| `docs-metadata` | Not applicable: reject before private inputs and use public CI. |
+| `test-tooling` | Targeted or full readonly only for explicitly required private orchestration/runtime-semantic validation. Public-only tooling remains CI-only. |
+| `ordinary-runtime` | `targeted-readonly` normally; `existing-readonly` only as an explicit escalation. |
+| `high-risk` | `existing-readonly`, including full Playwright, WP-CLI smoke, and DB-state. |
+
+Pre-merge requires reviewed SHA = deployed SHA, source HEAD = reviewed SHA, and deployed HEAD = deployed SHA. Post-merge requires both source and deployed HEAD at the deployed merged-main SHA and identical source-repository Git tree objects for reviewed and deployed commits. Unresolvable or unequal trees invalidate reviewed-tree equivalence and require deeper review/validation.
+
+Deployment `run` verifies source integrity before executing the opaque private command once, then verifies deployed identity, cleanliness, and WordPress active-plugin binding. Deployment `skip` does not execute it and verifies the existing deployment to the same standard. Both choices enter readonly functional validation with real synchronization, artifact saving, dependency installation, and browser installation disabled. Runtime integrity, when selected, runs once before readiness; targeted runs one allowlisted suite and smoke without DB-state, while full runs all Playwright, smoke, and DB-state. Separate source and deployed expectations are checked again at final integrity.
+
+No automatic rollback is attempted. A successful deployment followed by failure is reported publicly as `deploy: PASS`, `result: FAIL`, and `rollback: NOT_ATTEMPTED`; diagnosis and the validated private rollback procedure remain owner responsibilities. Existing environment-only Phase 2 commands remain backward compatible. The specialized restricted-account AJAX security runner stays separate and its credentials are not Phase 2 inputs.

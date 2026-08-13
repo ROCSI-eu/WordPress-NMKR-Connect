@@ -124,3 +124,43 @@ The console does **not** print the private run-directory path. On failure it add
 ## Safety boundary
 
 Keep `RUN_REAL_SYNC=false`. Neither the Playwright route simulations nor Phase 2 orchestration executes a real NMKR synchronization. Do not commit `.env.tests`, populated environment files, private state directories, reports, test output, authentication state, screenshots, traces, videos, or logs.
+
+## Unified pre/post-merge operator workflow
+
+Private operators can select the complete exact-head workflow without rebuilding an environment-variable prefix:
+
+```bash
+npm run test:phase2 -- \
+  --stage pre-merge \
+  --class ordinary-runtime \
+  --profile targeted-readonly \
+  --reviewed-sha <reviewed-40-character-sha> \
+  --deployed-sha <deployed-40-character-sha> \
+  --target-suite <allowlisted-suite> \
+  --deploy-mode skip \
+  --runtime-integrity false
+```
+
+All eight options are required in operator mode. Unknown, duplicate, missing, malformed, or conflicting selections fail closed. The arguments are captured before the owner-private environment file is sourced; that file cannot replace or clear them. Operator mode always forces `RUN_REAL_SYNC=false`, `PW_SAVE_ARTIFACTS=false`, `NMKR_PHASE2_INSTALL_DEPS=false`, and `NMKR_PHASE2_INSTALL_BROWSER=false`.
+
+Use `targeted-readonly` with exactly one existing allowlisted package suite, or `existing-readonly` for full Playwright plus WP-CLI smoke and DB-state. `docs-metadata` is rejected before private inputs are used and belongs in public CI. `test-tooling` is appropriate only for an explicit private run when tooling changes private orchestration or runtime semantics. `ordinary-runtime` normally uses targeted readonly; selecting the full profile is an explicit escalation. `high-risk` requires the full profile. Privileged AJAX authorization validation remains separate under `npm run test:ajax-security`.
+
+For pre-merge validation, the reviewed and deployed SHAs must be equal, and both source and deployed worktrees must be clean at that exact commit. For post-merge validation, source and deployed HEAD must equal the merged/deployed SHA, while Git tree objects for the reviewed and merged commits must be identical. The runner resolves already-local commits only; it does not fetch, switch, or alter branches. Failure to resolve either commit or prove tree equality requires deeper review and validation.
+
+`--deploy-mode run` checks the clean source first, executes the private `NMKR_DEPLOY_COMMAND` exactly once with output captured privately, and then requires exact deployed identity, cleanliness, and active-plugin binding before runtime checks. `--deploy-mode skip` never executes that command and applies the same checks to the existing deployment. The runner does not clone, fetch, check out, copy files, install Composer dependencies, or roll back. If deployment succeeds and a later check fails, the summary reports deployment status and `rollback: NOT_ATTEMPTED`; the validated private rollback procedure remains the operator's responsibility.
+
+A post-merge invocation changes the stage and identities, for example:
+
+```bash
+npm run test:phase2 -- \
+  --stage post-merge \
+  --class high-risk \
+  --profile existing-readonly \
+  --reviewed-sha <reviewed-40-character-sha> \
+  --deployed-sha <merged-main-40-character-sha> \
+  --target-suite <allowlisted-suite> \
+  --deploy-mode run \
+  --runtime-integrity true
+```
+
+The existing environment-only `test:phase2`, `test:phase2:targeted-readonly`, and `test:phase2:existing-readonly` entry points remain supported with their existing semantics.
