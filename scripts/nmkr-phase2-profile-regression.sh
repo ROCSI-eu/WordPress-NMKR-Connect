@@ -166,6 +166,8 @@ printf 'NMKR_PHASE2_PROFILE=\nNMKR_DEPLOY_COMMAND="touch %s/marker"\nNMKR_PHASE2
 expect_fail 'Phase 2 profile conflict.' NMKR_PHASE2_PROFILE=existing-readonly NMKR_PHASE2_ENV_FILE="$tmp_dir/env"
 test ! -e "$tmp_dir/marker"
 printf 'NMKR_PHASE2_PROFILE=general\n' >"$tmp_dir/env"; expect_fail 'Phase 2 profile conflict.' NMKR_PHASE2_PROFILE=existing-readonly NMKR_PHASE2_ENV_FILE="$tmp_dir/env"
+# Caller-selected runtime integrity cannot be downgraded by a sourced file.
+printf 'NMKR_PHASE2_RUNTIME_INTEGRITY=false\n' >"$tmp_dir/env"; expect_fail 'Phase 2 runtime integrity conflict.' NMKR_PHASE2_RUNTIME_INTEGRITY=true NMKR_PHASE2_ENV_FILE="$tmp_dir/env"
 printf 'NMKR_PHASE2_SKIP_DEPLOY=true\n' >"$tmp_dir/env"; expect_fail 'Expected source SHA is invalid.' NMKR_PHASE2_PROFILE=existing-readonly NMKR_PHASE2_ENV_FILE="$tmp_dir/env" NMKR_PHASE2_EXPECTED_SOURCE_SHA=invalid
 printf 'NMKR_PHASE2_PROFILE=existing-readonly\n' >"$tmp_dir/env"; expect_fail 'Expected source SHA is invalid.' NMKR_PHASE2_ENV_FILE="$tmp_dir/env" NMKR_PHASE2_EXPECTED_SOURCE_SHA=invalid
 # A sourced env file cannot clear the runner's selected-file identity before
@@ -231,6 +233,227 @@ if "${base[@]}" NMKR_PHASE2_PROFILE=unknown bash "$runner" >"$tmp_dir/runs-file.
 fi
 grep -F -- 'ERROR: Phase 2 private run directory is unsafe.' "$tmp_dir/runs-file.output" >/dev/null
 rm -f "$tmp_dir/private/runs"; mkdir -p "$tmp_dir/private/runs"; chmod 700 "$tmp_dir/private/runs"
+
+rm -f "$checkout_collision"
+# Targeted readonly selection is allowlisted, cannot be replaced by the env file,
+# invokes only the selected package script, skips DB state, and rechecks integrity.
+target_fixture="$tmp_dir/target-fixture"
+cp -a "$ROOT/." "$target_fixture/"
+git -C "$target_fixture" config user.email public@example.invalid
+git -C "$target_fixture" config user.name PublicTest
+cat >"$target_fixture/scripts/nmkr-ajax-runtime-integrity.sh" <<'EOF_RUNTIME_INTEGRITY'
+#!/usr/bin/env bash
+printf 'runtime-integrity\n' >>"$RUNTIME_INTEGRITY_CALL_LOG"
+EOF_RUNTIME_INTEGRITY
+chmod 700 "$target_fixture/scripts/nmkr-ajax-runtime-integrity.sh"
+git -C "$target_fixture" add AGENTS.md docs package.json scripts
+git -C "$target_fixture" commit --allow-empty -q -m 'synthetic targeted profile fixture'
+target_sha="$(git -C "$target_fixture" rev-parse HEAD)"
+deployed_fixture="$tmp_dir/deployed-fixture"
+cp -a "$target_fixture/." "$deployed_fixture/"
+target_bin="$tmp_dir/target-bin"; mkdir -p "$target_bin"
+real_git="$(command -v git)"
+cat >"$target_bin/git" <<'EOF_GIT'
+#!/usr/bin/env bash
+worktree=
+args=("$@")
+if [[ "${1:-}" == -C ]]; then worktree="$2"; shift 2; fi
+if [[ "${1:-}" == -c && "${2:-}" == core.fileMode=true ]]; then shift 2; fi
+if [[ "${1:-}" == status && -n "${FAIL_GIT_STATUS_PATH:-}" && "$worktree" == "$FAIL_GIT_STATUS_PATH" ]]; then
+  counter="${GIT_STATUS_COUNTER_DIR}/$(printf '%s' "$worktree" | sed 's/[^A-Za-z0-9]/_/g')"
+  count=0; [[ ! -f "$counter" ]] || read -r count <"$counter"
+  count=$((count + 1)); printf '%s\n' "$count" >"$counter"
+  [[ "$count" != "${FAIL_GIT_STATUS_CALL:-1}" ]] || exit 73
+fi
+exec "$REAL_GIT" "${args[@]}"
+EOF_GIT
+cat >"$target_bin/node" <<'EOF_NODE'
+#!/usr/bin/env bash
+exit 0
+EOF_NODE
+cat >"$target_bin/npm" <<'EOF_NPM'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >>"$TARGET_CALL_LOG"
+if [[ "${TARGET_DIRTY_AFTER_PLAYWRIGHT:-false}" == true && "$*" == 'run test:e2e:settings' ]]; then
+  printf '\nsynthetic-dirty\n' >>"$TARGET_REPO/README.md"
+fi
+if [[ -n "${TARGET_HIDDEN_AFTER_PLAYWRIGHT:-}" && "$*" == 'run test:e2e:settings' ]]; then
+  hidden_repo="$TARGET_REPO"
+  [[ "${TARGET_HIDDEN_WORKTREE:-source}" != deployed ]] || hidden_repo="$TARGET_DEPLOYED_REPO"
+  "$REAL_GIT" -C "$hidden_repo" update-index "--$TARGET_HIDDEN_AFTER_PLAYWRIGHT" README.md
+  printf '\nsynthetic-hidden\n' >>"$hidden_repo/README.md"
+fi
+if [[ "${TARGET_MODE_AFTER_PLAYWRIGHT:-false}" == true && "$*" == 'run test:e2e:settings' ]]; then
+  mode_repo="$TARGET_REPO"
+  [[ "${TARGET_MODE_WORKTREE:-source}" != deployed ]] || mode_repo="$TARGET_DEPLOYED_REPO"
+  chmod +x "$mode_repo/README.md"
+fi
+exit 0
+EOF_NPM
+cat >"$target_bin/wp" <<'EOF_WP'
+#!/usr/bin/env bash
+case "$*" in
+  *' eval '*)
+    case "${TARGET_ACTIVE_PLUGIN_MODE:-valid}" in
+      valid) printf '%s' "$TARGET_ACTIVE_PLUGIN_FILE" ;;
+      malformed) printf 'not-an-absolute-plugin-path' ;;
+      failure) exit 1 ;;
+    esac
+    ;;
+  *'db prefix'*) printf 'wp_\n' ;;
+  *'SHOW TABLES LIKE'*) printf '%s\n' "$*" | sed -n "s/.*SHOW TABLES LIKE '\([^']*\)'.*/\1/p" ;;
+  *'option get nmkr_api_key'*) printf '"synthetic"\n' ;;
+  *'SELECT COUNT(*)'*) printf '0\n' ;;
+  *) : ;;
+esac
+EOF_WP
+cat >"$target_bin/curl" <<'EOF_CURL'
+#!/usr/bin/env bash
+while (($#)); do
+  if [[ "$1" == -o ]]; then shift; printf '<input id="user_login">' >"$1"; fi
+  shift
+done
+printf '200'
+EOF_CURL
+chmod 700 "$target_bin/git" "$target_bin/node" "$target_bin/npm" "$target_bin/wp" "$target_bin/curl"
+target_private="$tmp_dir/target-private"; mkdir -m700 "$target_private"
+target_env="$tmp_dir/target.env"; : >"$target_env"; chmod 600 "$target_env"
+target_log="$tmp_dir/target-calls"
+git_counter_dir="$tmp_dir/git-status-counters"; mkdir "$git_counter_dir"
+runtime_integrity_log="$tmp_dir/runtime-integrity-calls"
+target_base=(env -i PATH="$target_bin:$safe_path" HOME="$synthetic_home" TMPDIR="$synthetic_tmp" REAL_GIT="$real_git" TARGET_CALL_LOG="$target_log" TARGET_REPO="$target_fixture" TARGET_DEPLOYED_REPO="$deployed_fixture" TARGET_ACTIVE_PLUGIN_FILE="$deployed_fixture/nmkr-connect.php" RUNTIME_INTEGRITY_CALL_LOG="$runtime_integrity_log" GIT_STATUS_COUNTER_DIR="$git_counter_dir" WP_BASE_URL=http://invalid.test WP_ADMIN_USER=placeholder WP_ADMIN_PASSWORD=placeholder WP_CLI_BIN="$target_bin/wp" WP_PATH="$tmp_dir/wp" NMKR_PLUGIN_SLUG=nmkr-connect.php NMKR_PHASE2_LOG_DIR="$target_private" NMKR_PHASE2_ENV_FILE="$target_env" NMKR_PHASE2_PROFILE=targeted-readonly NMKR_PHASE2_TARGET_SUITE=settings NMKR_PHASE2_EXPECTED_SOURCE_SHA="$target_sha" NMKR_DEPLOYED_PLUGIN_PATH="$deployed_fixture" NMKR_PHASE2_INSTALL_DEPS=false NMKR_PHASE2_INSTALL_BROWSER=false NMKR_PHASE2_SKIP_DEPLOY=true RUN_REAL_SYNC=false PW_SAVE_ARTIFACTS=false NMKR_RETAIN_AUTH_STATE=false)
+"${target_base[@]}" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/target-success.output"
+grep -Fx 'run test:e2e:settings' "$target_log" >/dev/null
+! grep -Fx 'run test:e2e' "$target_log" >/dev/null
+grep -F 'targeted-suite: settings' "$tmp_dir/target-success.output" >/dev/null
+grep -F 'db-state: SKIPPED' "$tmp_dir/target-success.output" >/dev/null
+grep -F 'source-integrity: PASS' "$tmp_dir/target-success.output" >/dev/null
+grep -F 'deployed-integrity: PASS' "$tmp_dir/target-success.output" >/dev/null
+grep -F 'final-integrity: PASS' "$tmp_dir/target-success.output" >/dev/null
+
+# Targeted readonly requires deployment identity, while existing readonly keeps
+# accepting an omitted deployed path. General runtime integrity runs only after
+# deployment and fails closed rather than reaching functional validation.
+if "${target_base[@]/NMKR_DEPLOYED_PLUGIN_PATH=$deployed_fixture/NMKR_DEPLOYED_PLUGIN_PATH=}" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/target-missing-deployed.output" 2>&1; then exit 1; fi
+grep -F 'failed step: preflight' "$tmp_dir/target-missing-deployed.output" >/dev/null
+
+: >"$target_log"
+if "${target_base[@]/NMKR_PHASE2_PROFILE=targeted-readonly/NMKR_PHASE2_PROFILE=existing-readonly}" NMKR_DEPLOYED_PLUGIN_PATH= NMKR_PHASE2_TARGET_SUITE= bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/existing-compatible.output" 2>&1; then exit 1; fi
+grep -Fx 'run test:e2e' "$target_log" >/dev/null
+grep -F 'failed step: wpcli-db-state' "$tmp_dir/existing-compatible.output" >/dev/null
+grep -F 'deployed-integrity: SKIPPED' "$tmp_dir/existing-compatible.output" >/dev/null
+
+# A clean clone is insufficient unless the selected WordPress installation's
+# active plugin resolves canonically to that deployed worktree.
+if "${target_base[@]}" TARGET_ACTIVE_PLUGIN_FILE="$target_fixture/nmkr-connect.php" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/target-binding-mismatch.output" 2>&1; then exit 1; fi
+grep -F 'failed step: preflight' "$tmp_dir/target-binding-mismatch.output" >/dev/null
+! grep -F "$target_fixture" "$tmp_dir/target-binding-mismatch.output" >/dev/null
+for mode in failure malformed; do
+  if "${target_base[@]}" TARGET_ACTIVE_PLUGIN_MODE="$mode" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/target-binding-$mode.output" 2>&1; then exit 1; fi
+  grep -F 'failed step: preflight' "$tmp_dir/target-binding-$mode.output" >/dev/null
+  ! grep -F "$deployed_fixture" "$tmp_dir/target-binding-$mode.output" >/dev/null
+done
+
+# Every initial and final source/deployed status boundary fails closed when
+# Git itself cannot establish cleanliness.
+assert_git_status_failure() {
+  local worktree="$1" call="$2" label="$3"
+  rm -f "$git_counter_dir"/*
+  if "${target_base[@]}" FAIL_GIT_STATUS_PATH="$worktree" FAIL_GIT_STATUS_CALL="$call" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/git-status-$label.output" 2>&1; then exit 1; fi
+  if [[ "$call" == 1 ]]; then
+    grep -F 'failed step: preflight' "$tmp_dir/git-status-$label.output" >/dev/null
+  else
+    grep -F 'failed step: final-integrity' "$tmp_dir/git-status-$label.output" >/dev/null
+  fi
+}
+assert_git_status_failure "$target_fixture" 1 initial-source
+assert_git_status_failure "$deployed_fixture" 1 initial-deployed
+assert_git_status_failure "$target_fixture" 2 final-source
+assert_git_status_failure "$deployed_fixture" 2 final-deployed
+
+# Index hints must not hide changed tracked bytes at either integrity boundary.
+assert_hidden_initial_failure() {
+  local worktree="$1" flag="$2" label="$3"
+  git -C "$worktree" update-index "--$flag" README.md
+  printf '\nsynthetic-hidden\n' >>"$worktree/README.md"
+  if "${target_base[@]}" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/hidden-initial-$label.output" 2>&1; then exit 1; fi
+  grep -F 'failed step: preflight' "$tmp_dir/hidden-initial-$label.output" >/dev/null
+  git -C "$worktree" update-index "--no-$flag" README.md
+  git -C "$worktree" checkout -q -- README.md
+}
+for flag in assume-unchanged skip-worktree; do
+  assert_hidden_initial_failure "$target_fixture" "$flag" "source-$flag"
+  assert_hidden_initial_failure "$deployed_fixture" "$flag" "deployed-$flag"
+  for worktree in source deployed; do
+    if "${target_base[@]}" TARGET_HIDDEN_AFTER_PLAYWRIGHT="$flag" TARGET_HIDDEN_WORKTREE="$worktree" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/hidden-final-$worktree-$flag.output" 2>&1; then exit 1; fi
+    grep -F 'failed step: final-integrity' "$tmp_dir/hidden-final-$worktree-$flag.output" >/dev/null
+    hidden_repo="$target_fixture"; [[ "$worktree" != deployed ]] || hidden_repo="$deployed_fixture"
+    git -C "$hidden_repo" update-index "--no-$flag" README.md
+    git -C "$hidden_repo" checkout -q -- README.md
+  done
+done
+
+# File-mode differences remain visible even when a worktree disables its
+# ordinary file-mode detection, at both initial and final integrity boundaries.
+for worktree in source deployed; do
+  mode_repo="$target_fixture"; [[ "$worktree" != deployed ]] || mode_repo="$deployed_fixture"
+  git -C "$mode_repo" config core.fileMode false
+  chmod +x "$mode_repo/README.md"
+  if "${target_base[@]}" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/mode-initial-$worktree.output" 2>&1; then exit 1; fi
+  grep -F 'failed step: preflight' "$tmp_dir/mode-initial-$worktree.output" >/dev/null
+  chmod -x "$mode_repo/README.md"
+
+  if "${target_base[@]}" TARGET_MODE_AFTER_PLAYWRIGHT=true TARGET_MODE_WORKTREE="$worktree" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/mode-final-$worktree.output" 2>&1; then exit 1; fi
+  grep -F 'failed step: final-integrity' "$tmp_dir/mode-final-$worktree.output" >/dev/null
+  chmod -x "$mode_repo/README.md"
+done
+
+general_deploy_marker="$tmp_dir/general-deployed"
+if "${target_base[@]/NMKR_PHASE2_PROFILE=targeted-readonly/NMKR_PHASE2_PROFILE=}" NMKR_DEPLOYED_PLUGIN_PATH= NMKR_PHASE2_TARGET_SUITE= NMKR_PHASE2_RUNTIME_INTEGRITY=true NMKR_PHASE2_SKIP_DEPLOY=false NMKR_DEPLOY_COMMAND="touch '$general_deploy_marker'" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/general-runtime.output" 2>&1; then exit 1; fi
+test -e "$general_deploy_marker"
+grep -F 'failed step: runtime-integrity' "$tmp_dir/general-runtime.output" >/dev/null
+grep -F 'runtime-integrity: SKIPPED' "$tmp_dir/general-runtime.output" >/dev/null && exit 1
+
+# A nominally successful general deployment cannot validate a clean stale
+# deployed commit, and the runtime-integrity helper must not be invoked.
+git -C "$deployed_fixture" config user.email public@example.invalid
+git -C "$deployed_fixture" config user.name PublicTest
+git -C "$deployed_fixture" commit --allow-empty -q -m 'synthetic stale deployment'
+: >"$runtime_integrity_log"
+stale_deploy_marker="$tmp_dir/general-stale-deployed"
+if "${target_base[@]/NMKR_PHASE2_PROFILE=targeted-readonly/NMKR_PHASE2_PROFILE=}" NMKR_PHASE2_TARGET_SUITE= NMKR_PHASE2_RUNTIME_INTEGRITY=true NMKR_PHASE2_SKIP_DEPLOY=false NMKR_DEPLOY_COMMAND="touch '$stale_deploy_marker'" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/general-stale-runtime.output" 2>&1; then exit 1; fi
+test -e "$stale_deploy_marker"
+grep -F 'failed step: runtime-integrity' "$tmp_dir/general-stale-runtime.output" >/dev/null
+test ! -s "$runtime_integrity_log"
+git -C "$deployed_fixture" reset --hard -q "$target_sha"
+
+# General and existing-readonly runtime integrity bind to the WordPress-active
+# deployment before invoking the helper, and invoke that helper exactly once.
+for profile in general existing-readonly; do
+  : >"$runtime_integrity_log"; : >"$target_log"
+  profile_value=""; suite_value=""
+  [[ "$profile" != existing-readonly ]] || profile_value=existing-readonly
+  if "${target_base[@]/NMKR_PHASE2_PROFILE=targeted-readonly/NMKR_PHASE2_PROFILE=$profile_value}" NMKR_PHASE2_TARGET_SUITE="$suite_value" NMKR_PHASE2_RUNTIME_INTEGRITY=true TARGET_ACTIVE_PLUGIN_FILE="$target_fixture/nmkr-connect.php" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/runtime-binding-mismatch-$profile.output" 2>&1; then exit 1; fi
+  grep -F 'failed step: runtime-integrity' "$tmp_dir/runtime-binding-mismatch-$profile.output" >/dev/null
+  test ! -s "$runtime_integrity_log"
+
+  : >"$runtime_integrity_log"
+  "${target_base[@]/NMKR_PHASE2_PROFILE=targeted-readonly/NMKR_PHASE2_PROFILE=$profile_value}" NMKR_PHASE2_TARGET_SUITE="$suite_value" NMKR_PHASE2_RUNTIME_INTEGRITY=true bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/runtime-binding-match-$profile.output" 2>&1 || true
+  test "$(wc -l <"$runtime_integrity_log")" = 1
+  grep -F 'runtime-integrity: PASS' "$tmp_dir/runtime-binding-match-$profile.output" >/dev/null
+done
+
+printf 'NMKR_PHASE2_TARGET_SUITE=dashboard\n' >"$target_env"
+if "${target_base[@]}" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/target-conflict.output" 2>&1; then exit 1; fi
+grep -F 'failed step: preflight' "$tmp_dir/target-conflict.output" >/dev/null
+: >"$target_env"
+if "${target_base[@]/NMKR_PHASE2_TARGET_SUITE=settings/NMKR_PHASE2_TARGET_SUITE=unknown}" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/target-unknown.output" 2>&1; then exit 1; fi
+grep -F 'failed step: preflight' "$tmp_dir/target-unknown.output" >/dev/null
+
+: >"$target_log"
+if "${target_base[@]}" TARGET_DIRTY_AFTER_PLAYWRIGHT=true bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/target-dirty.output" 2>&1; then exit 1; fi
+grep -F 'failed step: final-integrity' "$tmp_dir/target-dirty.output" >/dev/null
+git -C "$target_fixture" checkout -q -- README.md
 
 # Signals must stop a dedicated process group before deployment can complete or readiness begins.
 mkdir -p "$tmp_dir/bin"

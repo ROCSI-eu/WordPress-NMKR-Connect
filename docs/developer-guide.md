@@ -202,18 +202,7 @@ Public CI does not authenticate to WordPress or execute Playwright browser behav
 
 ## Selecting checks by change type
 
-“Private required” means an exact-head, prepared private WordPress installation; higher-risk changes should use a deployment-equivalent VM or staging environment. Discovery is never counted as browser execution.
-
-| Change | Minimum public checks | Prepared private / exact-head validation |
-| --- | --- | --- |
-| Documentation only | `git diff --check`; link/table/path validation; `npm run test:public` when commands or architecture are affected | Usually no; exact-commit maintainer/reproducibility review when documentation is delivery evidence. |
-| PHP/helper | `npm run test:php74`; `npm run test:public`; focused synthetic regression | Required when runtime behavior changes. |
-| Settings or role/capability | Public umbrella plus relevant syntax/regression discovery | Required: targeted settings/access Playwright and authorization checks. |
-| Shortcode/front-end | Public umbrella plus targeted suite discovery | Required: relevant shortcode browser checks and representative escaped rendering. |
-| Analytics | Public umbrella plus analytics suite discovery and relevant synthetic checks | Required: configured-mode, consent, ingestion, authorization, and retention behavior as affected. |
-| Synchronization lifecycle | Public umbrella and all affected synchronization regressions/discovery | Required on the exact head; controlled real sync only when explicitly authorized and relevant. |
-| Database/schema/persistent state | Public umbrella plus schema/database regression scripts as applicable | Required: upgrade, rollback/cleanup, concurrency, and read-only state checks against exact head. |
-| Workflow/test infrastructure | Public umbrella and syntax/dry-run/discovery appropriate to the changed tooling | Prepared private run required if private orchestration or browser/runtime semantics change; otherwise validate the exact public workflow head. |
+Use the canonical [pull-request validation policy](validation-policy.md) to classify changes as docs/metadata, test/tooling-only, ordinary runtime, or high-risk and to select proportional pre-merge, review, and post-merge checks. The numbered testing guides remain authoritative for how their individual runners operate; they do not replace the policy.
 
 ## Contribution workflow
 

@@ -1,6 +1,6 @@
 # Phase 2 private VM test runner
 
-Phase 2 orchestrates validation of a deployed NMKR Connect installation from a private, user-owned checkout. For Playwright-only guidance and the current coverage map, see [`testing-playwright.md`](testing-playwright.md).
+The [validation policy](validation-policy.md) determines when to use full or targeted private validation. Phase 2 orchestrates validation of a deployed NMKR Connect installation from a private, user-owned checkout. For Playwright-only guidance and the current coverage map, see [`testing-playwright.md`](testing-playwright.md).
 
 The runner combines optional deployment, dependency/browser preparation, WordPress readiness, the complete Playwright suite, WP-CLI smoke checks, and WP-CLI database-state checks. It does not change the implementations of those checks, and real NMKR synchronization remains outside this workflow.
 
@@ -72,6 +72,22 @@ Source integrity is reported as `PASS` only after the exact-SHA and clean-worktr
 
 `existing-readonly` prevents runner-driven deployment and package/browser installation. The Playwright suite still authenticates and executes browser behavior, and the orchestration still runs readiness and WP-CLI/database-state checks, so use only a private test environment prepared for those checks.
 
+## `targeted-readonly` profile
+
+Use this profile for an ordinary exact-head runtime change that needs one affected browser suite, readiness, and WP-CLI smoke without full Playwright or DB-state validation:
+
+```bash
+NMKR_PHASE2_ENV_FILE=/path/to/private/phase2.env \
+NMKR_PHASE2_EXPECTED_SOURCE_SHA=<40-character-reviewed-sha> \
+NMKR_DEPLOYED_PLUGIN_PATH=/path/to/deployed/plugin-worktree \
+NMKR_PHASE2_TARGET_SUITE=settings \
+npm run test:phase2:targeted-readonly
+```
+
+The internal allowlist is `settings`, `dashboard`, `projects`, `shortcodes`, `analytics`, `ajax-security`, `sync-state`, `sync-run-authority`, `sync-resilience`, and `sync-final-state`. Unknown values fail closed; values are mapped to existing `test:e2e:*` package scripts and are never executed as caller-provided commands. Caller-selected profile and suite values cannot be replaced by the private environment file.
+
+This profile requires `NMKR_DEPLOYED_PLUGIN_PATH` and enforces the same exact source SHA, clean source, exact/clean deployed worktree, no-install, no-deploy, no-real-sync, and no-artifact rules as `existing-readonly`. It runs readiness, only the selected Playwright suite, and WP-CLI smoke; DB-state is intentionally skipped. Both readonly profiles perform one final source/deployed SHA and cleanliness recheck. Set `NMKR_PHASE2_RUNTIME_INTEGRITY=true` to run the existing Composer/vendor integrity gate once.
+
 ## Authentication and output handling
 
 Phase 2 redirects `PLAYWRIGHT_HTML_REPORT` and `PLAYWRIGHT_TEST_OUTPUT_DIR` into the private run directory and supplies that directory as `NMKR_AUTH_STATE_ROOT`. The Playwright wrapper creates a unique owner-only child directory and normally removes it after the run. The authentication cleanup project removes the state file as well. The runner records authentication-state cleanup as `MANAGED_BY_WRAPPER`; `NMKR_RETAIN_AUTH_STATE=true` changes the summary to `RETAINED` and is appropriate only for exceptional private diagnostics.
@@ -91,6 +107,9 @@ Phase 2 summary
   playwright: PASS
   wpcli: PASS
   db-state: PASS
+  targeted-suite: full
+  runtime-integrity: SKIPPED
+  final-integrity: SKIPPED
   profile: general
   source-integrity: SKIPPED
   deployed-integrity: SKIPPED
