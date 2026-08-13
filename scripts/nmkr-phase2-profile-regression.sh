@@ -399,6 +399,31 @@ grep -Fx 'run test:e2e:settings' "$target_log" >/dev/null
 grep -F 'safety RUN_REAL_SYNC=false PW_SAVE_ARTIFACTS=false' "$target_log" >/dev/null
 : >"$target_env"
 
+# Caller-controlled TMPDIR may point inside the checkout or an artifact-like
+# directory, but private source output is never persisted there. A unique
+# marker emitted before failure stays off-console and out of every public or
+# collected fixture, and no deployment or functional command is reached.
+source_tmp="$target_fixture/source-tmp"
+artifact_fixture="$tmp_dir/artifact-fixture"
+mkdir -p "$source_tmp" "$artifact_fixture"
+source_secret='SYNTHETIC_SOURCE_SECRET_4f9c3d8a'
+source_failure_env="$tmp_dir/source-failure.env"
+cat >"$source_failure_env" <<EOF_SOURCE_FAILURE
+printf '%s\\n' '$source_secret'
+false
+EOF_SOURCE_FAILURE
+chmod 600 "$source_failure_env"
+source_failure_count="$tmp_dir/source-failure-deploy-count"
+source_failure_output="$tmp_dir/source-failure.output"
+: >"$target_log"
+if "${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE TMPDIR="$source_tmp" NMKR_PHASE2_ENV_FILE="$source_failure_env" NMKR_DEPLOY_COMMAND="printf 'call\\n' >>'$source_failure_count'" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${operator_target_args[@]}" >"$source_failure_output" 2>&1; then exit 1; fi
+test ! -e "$source_failure_count"
+grep -Fx 'ERROR: Phase 2 private configuration could not be loaded.' "$source_failure_output" >/dev/null
+! grep -F "$source_secret" "$source_failure_output" >/dev/null
+! find "$target_fixture" "$deployed_fixture" "$tmp_dir/wp" "$artifact_fixture" "$source_tmp" -type f -exec grep -Fl -- "$source_secret" {} + | grep . >/dev/null
+test -z "$(find "$source_tmp" -mindepth 1 -print -quit)"
+! grep -E '^run test:e2e|wp .*nmkr-wpcli-(smoke|db-state)' "$target_log" >/dev/null
+
 # Attempts to assign the protected internal namespace fail closed while the
 # private file is sourced, before deployment or functional validation, without
 # exposing any part of the private source diagnostic.

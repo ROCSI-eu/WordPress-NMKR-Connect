@@ -101,32 +101,49 @@ if [[ -n "$ENV_FILE" ]]; then
     printf 'ERROR: Phase 2 env file could not be resolved.\n' >&2
     exit 1
   fi
-  SOURCE_DIAGNOSTICS=""
+  SOURCE_DRAIN_PID=""
+  SOURCE_DRAIN_FD=""
   cleanup_source_diagnostics() {
-    [[ -z "$SOURCE_DIAGNOSTICS" ]] || rm -f -- "$SOURCE_DIAGNOSTICS"
+    if [[ -n "$SOURCE_DRAIN_FD" ]]; then
+      eval "exec ${SOURCE_DRAIN_FD}>&-"
+      SOURCE_DRAIN_FD=""
+    fi
+    if [[ -n "$SOURCE_DRAIN_PID" ]]; then
+      kill "$SOURCE_DRAIN_PID" 2>/dev/null || true
+      wait "$SOURCE_DRAIN_PID" 2>/dev/null || true
+      SOURCE_DRAIN_PID=""
+    fi
   }
   source_boundary_signal() {
     cleanup_source_diagnostics
     trap - EXIT INT TERM
     exit "$1"
   }
-  source_umask="$(umask)"
-  umask 077
-  if ! SOURCE_DIAGNOSTICS="$(mktemp "${TMPDIR:-/tmp}/nmkr-phase2-source.XXXXXX" 2>/dev/null)"; then
-    umask "$source_umask"
-    printf 'ERROR: Phase 2 private configuration could not be loaded.\n' >&2
-    exit 1
-  fi
-  umask "$source_umask"
   trap cleanup_source_diagnostics EXIT
   trap 'source_boundary_signal 130' INT
   trap 'source_boundary_signal 143' TERM
+  # Drain private source output through an anonymous pipe. Nothing is written
+  # beneath caller-selected TMPDIR (or any other persistent location), while
+  # the drain's status still records whether the source emitted even one byte.
+  coproc SOURCE_OUTPUT_DRAIN {
+    if IFS= read -r -n 1; then
+      cat >/dev/null
+      exit 1
+    fi
+  }
+  SOURCE_DRAIN_PID="$SOURCE_OUTPUT_DRAIN_PID"
+  SOURCE_DRAIN_FD="${SOURCE_OUTPUT_DRAIN[1]}"
   set -a
   # shellcheck source=/dev/null
   source_status=0
-  source "$SELECTED_ENV_FILE" >"$SOURCE_DIAGNOSTICS" 2>&1 || source_status=$?
+  source "$SELECTED_ENV_FILE" >&"$SOURCE_DRAIN_FD" || source_status=$?
   set +a
-  if [[ "$source_status" -ne 0 || -s "$SOURCE_DIAGNOSTICS" ]]; then
+  eval "exec ${SOURCE_DRAIN_FD}>&-"
+  SOURCE_DRAIN_FD=""
+  source_output_status=0
+  wait "$SOURCE_DRAIN_PID" || source_output_status=$?
+  SOURCE_DRAIN_PID=""
+  if [[ "$source_status" -ne 0 || "$source_output_status" -ne 0 ]]; then
     cleanup_source_diagnostics
     trap - EXIT INT TERM
     printf 'ERROR: Phase 2 private configuration could not be loaded.\n' >&2
