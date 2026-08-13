@@ -289,6 +289,7 @@ EOF_NODE
 cat >"$target_bin/npm" <<'EOF_NPM'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >>"$TARGET_CALL_LOG"
+printf 'safety RUN_REAL_SYNC=%s PW_SAVE_ARTIFACTS=%s\n' "${RUN_REAL_SYNC:-unset}" "${PW_SAVE_ARTIFACTS:-unset}" >>"$TARGET_CALL_LOG"
 if [[ "${TARGET_DIRTY_AFTER_PLAYWRIGHT:-false}" == true && "$*" == 'run test:e2e:settings' ]]; then
   printf '\nsynthetic-dirty\n' >>"$TARGET_REPO/README.md"
 fi
@@ -307,6 +308,7 @@ exit 0
 EOF_NPM
 cat >"$target_bin/wp" <<'EOF_WP'
 #!/usr/bin/env bash
+printf 'wp %s\n' "$*" >>"$TARGET_CALL_LOG"
 case "$*" in
   *' eval '*)
     case "${TARGET_ACTIVE_PLUGIN_MODE:-valid}" in
@@ -355,6 +357,13 @@ grep -Fx 'run test:e2e:settings' "$target_log" >/dev/null
 grep -F 'stage: pre-merge' "$tmp_dir/operator-target.output" >/dev/null
 grep -F 'rollback: NOT_ATTEMPTED' "$tmp_dir/operator-target.output" >/dev/null
 
+# Accepted uppercase SHAs normalize to Git's lowercase identity before every
+# comparison and are reported in normalized form.
+uppercase_sha="${target_sha^^}"
+uppercase_args=(--stage pre-merge --class test-tooling --profile targeted-readonly --reviewed-sha "$uppercase_sha" --deployed-sha "$uppercase_sha" --target-suite settings --deploy-mode skip --runtime-integrity false)
+"${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${uppercase_args[@]}" >"$tmp_dir/operator-uppercase.output"
+grep -F "reviewed-commit: ${target_sha:0:12}" "$tmp_dir/operator-uppercase.output" >/dev/null
+
 mismatch_args=(--stage pre-merge --class test-tooling --profile targeted-readonly --reviewed-sha "$target_sha" --deployed-sha 0123456789abcdef0123456789abcdef01234567 --target-suite settings --deploy-mode skip --runtime-integrity false)
 if "${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${mismatch_args[@]}" >/dev/null 2>&1; then exit 1; fi
 
@@ -368,14 +377,63 @@ for env_name in "${operator_env_names[@]}"; do
 done
 : >"$target_env"
 
+# Legacy OP_* assignments cannot change the immutable CLI request, while
+# unsafe behavior toggles are forcibly disabled after private configuration.
+cat >"$target_env" <<'EOF_OPERATOR_OVERRIDE'
+OPERATOR_MODE=false
+OP_STAGE=post-merge
+OP_CLASS=high-risk
+OP_PROFILE=existing-readonly
+OP_REVIEWED_SHA=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+OP_DEPLOYED_SHA=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+OP_TARGET_SUITE=dashboard
+OP_DEPLOY_MODE=run
+OP_RUNTIME_INTEGRITY=true
+RUN_REAL_SYNC=true
+PW_SAVE_ARTIFACTS=true
+EOF_OPERATOR_OVERRIDE
+: >"$target_log"
+"${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${operator_target_args[@]}" >"$tmp_dir/operator-immutable.output"
+grep -F 'stage: pre-merge' "$tmp_dir/operator-immutable.output" >/dev/null
+grep -Fx 'run test:e2e:settings' "$target_log" >/dev/null
+grep -F 'safety RUN_REAL_SYNC=false PW_SAVE_ARTIFACTS=false' "$target_log" >/dev/null
+: >"$target_env"
+
+# Attempts to assign the protected internal namespace fail closed while the
+# private file is sourced, before deployment or functional validation.
+printf 'CLI_STAGE=post-merge\n' >"$target_env"
+protected_state_count="$tmp_dir/protected-state-deploy-count"
+if "${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE NMKR_DEPLOY_COMMAND="printf 'call\\n' >>'$protected_state_count'" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${operator_target_args[@]}" >/dev/null 2>&1; then exit 1; fi
+test ! -e "$protected_state_count"
+: >"$target_env"
+
 deploy_count="$tmp_dir/operator-deploy-count"
-deploy_command="printf 'call\\n' >>'$deploy_count'"
+run_deployed_fixture="$tmp_dir/run-deployed-fixture"
+deploy_command="printf 'call\\n' >>'$deploy_count'; '$real_git' clone -q '$target_fixture' '$run_deployed_fixture'"
 run_args=(--stage pre-merge --class test-tooling --profile targeted-readonly --reviewed-sha "$target_sha" --deployed-sha "$target_sha" --target-suite settings --deploy-mode run --runtime-integrity false)
 : >"$target_log"
-"${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE NMKR_DEPLOY_COMMAND="$deploy_command" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${run_args[@]}" >"$tmp_dir/operator-deploy.output"
+"${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE NMKR_DEPLOYED_PLUGIN_PATH="$run_deployed_fixture" TARGET_ACTIVE_PLUGIN_FILE="$run_deployed_fixture/nmkr-connect.php" NMKR_DEPLOY_COMMAND="$deploy_command" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${run_args[@]}" >"$tmp_dir/operator-deploy.output"
 test "$(wc -l <"$deploy_count")" = 1
 grep -F 'deploy: PASS' "$tmp_dir/operator-deploy.output" >/dev/null
 ! grep -F "$deploy_command" "$tmp_dir/operator-deploy.output" >/dev/null
+grep -Fx 'run test:e2e:settings' "$target_log" >/dev/null
+
+# A missing configured verification target fails before the opaque mutation.
+rm -f "$deploy_count"
+if "${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE NMKR_DEPLOYED_PLUGIN_PATH= NMKR_DEPLOY_COMMAND="printf 'call\\n' >>'$deploy_count'" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${run_args[@]}" >"$tmp_dir/operator-missing-path.output" 2>&1; then exit 1; fi
+test ! -e "$deploy_count"
+grep -F 'failed step: preflight' "$tmp_dir/operator-missing-path.output" >/dev/null
+
+# Deployment is invoked once, then an incorrect active binding fails at the
+# deploy-integrity boundary before any functional command can start.
+rm -rf "$run_deployed_fixture"; : >"$target_log"; rm -f "$deploy_count"
+if "${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE NMKR_DEPLOYED_PLUGIN_PATH="$run_deployed_fixture" TARGET_ACTIVE_PLUGIN_FILE="$target_fixture/nmkr-connect.php" NMKR_DEPLOY_COMMAND="$deploy_command" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${run_args[@]}" >"$tmp_dir/operator-binding-failure.output" 2>&1; then exit 1; fi
+test "$(wc -l <"$deploy_count")" = 1
+grep -F 'failed step: deploy-integrity' "$tmp_dir/operator-binding-failure.output" >/dev/null
+grep -F 'rollback: NOT_ATTEMPTED' "$tmp_dir/operator-binding-failure.output" >/dev/null
+! grep -E '^run test:e2e|wp .*nmkr-wpcli-(smoke|db-state)' "$target_log" >/dev/null
+test "$(grep -c '^wp ' "$target_log")" = 1
+
 rm -f "$deploy_count"
 "${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE NMKR_DEPLOY_COMMAND="$deploy_command" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${operator_target_args[@]}" >/dev/null
 test ! -e "$deploy_count"
