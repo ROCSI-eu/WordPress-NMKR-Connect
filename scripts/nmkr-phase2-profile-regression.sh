@@ -258,6 +258,7 @@ cat >"$target_bin/git" <<'EOF_GIT'
 worktree=
 args=("$@")
 if [[ "${1:-}" == -C ]]; then worktree="$2"; shift 2; fi
+if [[ "${1:-}" == -c && "${2:-}" == core.fileMode=true ]]; then shift 2; fi
 if [[ "${1:-}" == status && -n "${FAIL_GIT_STATUS_PATH:-}" && "$worktree" == "$FAIL_GIT_STATUS_PATH" ]]; then
   counter="${GIT_STATUS_COUNTER_DIR}/$(printf '%s' "$worktree" | sed 's/[^A-Za-z0-9]/_/g')"
   count=0; [[ ! -f "$counter" ]] || read -r count <"$counter"
@@ -281,6 +282,11 @@ if [[ -n "${TARGET_HIDDEN_AFTER_PLAYWRIGHT:-}" && "$*" == 'run test:e2e:settings
   [[ "${TARGET_HIDDEN_WORKTREE:-source}" != deployed ]] || hidden_repo="$TARGET_DEPLOYED_REPO"
   "$REAL_GIT" -C "$hidden_repo" update-index "--$TARGET_HIDDEN_AFTER_PLAYWRIGHT" README.md
   printf '\nsynthetic-hidden\n' >>"$hidden_repo/README.md"
+fi
+if [[ "${TARGET_MODE_AFTER_PLAYWRIGHT:-false}" == true && "$*" == 'run test:e2e:settings' ]]; then
+  mode_repo="$TARGET_REPO"
+  [[ "${TARGET_MODE_WORKTREE:-source}" != deployed ]] || mode_repo="$TARGET_DEPLOYED_REPO"
+  chmod +x "$mode_repo/README.md"
 fi
 exit 0
 EOF_NPM
@@ -387,11 +393,39 @@ for flag in assume-unchanged skip-worktree; do
   done
 done
 
+# File-mode differences remain visible even when a worktree disables its
+# ordinary file-mode detection, at both initial and final integrity boundaries.
+for worktree in source deployed; do
+  mode_repo="$target_fixture"; [[ "$worktree" != deployed ]] || mode_repo="$deployed_fixture"
+  git -C "$mode_repo" config core.fileMode false
+  chmod +x "$mode_repo/README.md"
+  if "${target_base[@]}" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/mode-initial-$worktree.output" 2>&1; then exit 1; fi
+  grep -F 'failed step: preflight' "$tmp_dir/mode-initial-$worktree.output" >/dev/null
+  chmod -x "$mode_repo/README.md"
+
+  if "${target_base[@]}" TARGET_MODE_AFTER_PLAYWRIGHT=true TARGET_MODE_WORKTREE="$worktree" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/mode-final-$worktree.output" 2>&1; then exit 1; fi
+  grep -F 'failed step: final-integrity' "$tmp_dir/mode-final-$worktree.output" >/dev/null
+  chmod -x "$mode_repo/README.md"
+done
+
 general_deploy_marker="$tmp_dir/general-deployed"
 if "${target_base[@]/NMKR_PHASE2_PROFILE=targeted-readonly/NMKR_PHASE2_PROFILE=}" NMKR_DEPLOYED_PLUGIN_PATH= NMKR_PHASE2_TARGET_SUITE= NMKR_PHASE2_RUNTIME_INTEGRITY=true NMKR_PHASE2_SKIP_DEPLOY=false NMKR_DEPLOY_COMMAND="touch '$general_deploy_marker'" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/general-runtime.output" 2>&1; then exit 1; fi
 test -e "$general_deploy_marker"
 grep -F 'failed step: runtime-integrity' "$tmp_dir/general-runtime.output" >/dev/null
 grep -F 'runtime-integrity: SKIPPED' "$tmp_dir/general-runtime.output" >/dev/null && exit 1
+
+# A nominally successful general deployment cannot validate a clean stale
+# deployed commit, and the runtime-integrity helper must not be invoked.
+git -C "$deployed_fixture" config user.email public@example.invalid
+git -C "$deployed_fixture" config user.name PublicTest
+git -C "$deployed_fixture" commit --allow-empty -q -m 'synthetic stale deployment'
+: >"$runtime_integrity_log"
+stale_deploy_marker="$tmp_dir/general-stale-deployed"
+if "${target_base[@]/NMKR_PHASE2_PROFILE=targeted-readonly/NMKR_PHASE2_PROFILE=}" NMKR_PHASE2_TARGET_SUITE= NMKR_PHASE2_RUNTIME_INTEGRITY=true NMKR_PHASE2_SKIP_DEPLOY=false NMKR_DEPLOY_COMMAND="touch '$stale_deploy_marker'" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/general-stale-runtime.output" 2>&1; then exit 1; fi
+test -e "$stale_deploy_marker"
+grep -F 'failed step: runtime-integrity' "$tmp_dir/general-stale-runtime.output" >/dev/null
+test ! -s "$runtime_integrity_log"
+git -C "$deployed_fixture" reset --hard -q "$target_sha"
 
 # General and existing-readonly runtime integrity bind to the WordPress-active
 # deployment before invoking the helper, and invoke that helper exactly once.

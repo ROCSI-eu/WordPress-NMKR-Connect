@@ -336,7 +336,7 @@ git_head_and_clean() {
   if ! head="$(git -C "$worktree" rev-parse HEAD 2>/dev/null)" || [[ "$head" != "$expected_sha" ]]; then
     return 1
   fi
-  if ! status="$(git -C "$worktree" status --porcelain 2>/dev/null)" || [[ -n "$status" ]]; then
+  if ! status="$(git -C "$worktree" -c core.fileMode=true status --porcelain 2>/dev/null)" || [[ -n "$status" ]]; then
     return 1
   fi
   # status intentionally honors index hints that can hide modified tracked
@@ -506,6 +506,11 @@ fi
 if [[ "$NMKR_PHASE2_RUNTIME_INTEGRITY" == "true" ]]; then
   RUNTIME_INTEGRITY_STATUS="FAIL"
   [[ -n "${NMKR_DEPLOYED_PLUGIN_PATH:-}" ]] || { printf 'Runtime integrity requires deployed plugin path.\n' >"$RUN_DIR/runtime-integrity.log"; fail_step "runtime-integrity" "$RUN_DIR/runtime-integrity.log" 1; }
+  if [[ -z "$NMKR_PHASE2_PROFILE" ]]; then
+    runtime_source_sha="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null)" || { printf 'Runtime deployment integrity could not be established.\n' >"$RUN_DIR/runtime-integrity.log"; fail_step "runtime-integrity" "$RUN_DIR/runtime-integrity.log" 1; }
+    git_head_and_clean "$REPO_ROOT" "$runtime_source_sha" &&
+      git_head_and_clean "$NMKR_DEPLOYED_PLUGIN_PATH" "$runtime_source_sha" || { printf 'Runtime deployment integrity could not be established.\n' >"$RUN_DIR/runtime-integrity.log"; fail_step "runtime-integrity" "$RUN_DIR/runtime-integrity.log" 1; }
+  fi
   if [[ "$NMKR_PHASE2_PROFILE" != "targeted-readonly" ]]; then
     bind_active_plugin_to_deployed_worktree || { printf 'Active plugin deployment binding failed.\n' >"$RUN_DIR/runtime-integrity.log"; fail_step "runtime-integrity" "$RUN_DIR/runtime-integrity.log" 1; }
   fi
