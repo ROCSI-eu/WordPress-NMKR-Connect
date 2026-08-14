@@ -47,6 +47,12 @@ run_case 3 "$FIXTURE_ROOT/vendor-warning.log"
 printf '[%s] PHP Notice: SYNTHETIC_VENDOR_NOTICE in C:\\synthetic\\plugin\\vendor\\package\\check.php on line 56\n' "$fresh" >"$FIXTURE_ROOT/vendor-notice.log"
 run_case 3 "$FIXTURE_ROOT/vendor-notice.log"
 
+printf '[%s] PHP Warning: SYNTHETIC_AMBIGUOUS_FIRST_PARTY prior location in /synthetic/plugin/vendor/package/check.php on line 57 final location in /synthetic/plugin/includes/check.php on line 58\n' "$fresh" >"$FIXTURE_ROOT/ambiguous-first-party.log"
+run_case 1 "$FIXTURE_ROOT/ambiguous-first-party.log"
+
+printf '[%s] PHP Notice: SYNTHETIC_AMBIGUOUS_VENDOR prior location in /synthetic/plugin/includes/check.php on line 59 final location in /synthetic/plugin/vendor/package/check.php on line 60\n' "$fresh" >"$FIXTURE_ROOT/ambiguous-vendor.log"
+run_case 1 "$FIXTURE_ROOT/ambiguous-vendor.log"
+
 printf '[%s] PHP Fatal error: SYNTHETIC_VENDOR_FATAL in /synthetic/plugin/vendor/package/check.php on line 78\n' "$fresh" >"$FIXTURE_ROOT/fatal.log"
 run_case 1 "$FIXTURE_ROOT/fatal.log"
 

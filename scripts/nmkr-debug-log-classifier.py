@@ -15,7 +15,7 @@ BLOCKING_PATTERN = re.compile(
 )
 WARNING_NOTICE_PATTERN = re.compile(r"PHP (?:Warning|Notice)", re.IGNORECASE)
 SOURCE_LOCATION_PATTERN = re.compile(
-    r"\bin\s+(.+?)\s+on line\s+\d+\s*$", re.IGNORECASE
+    r"\bin\s+(.+?)\s+on line\s+\d+", re.IGNORECASE
 )
 VENDOR_SEGMENT_PATTERN = re.compile(r"(?:^|/)vendor(?:/|$)", re.IGNORECASE)
 TIMESTAMP_PATTERN = re.compile(r"^\[([^]]+)]")
@@ -52,10 +52,10 @@ def is_qualifying(line: str, cutoff: dt.datetime, file_is_recent: bool) -> bool:
 
 
 def is_vendor_warning_or_notice(line: str) -> bool:
-    location = SOURCE_LOCATION_PATTERN.search(line)
-    if location is None:
+    locations = SOURCE_LOCATION_PATTERN.findall(line)
+    if len(locations) != 1:
         return False
-    normalized_path = location.group(1).strip().replace("\\", "/")
+    normalized_path = locations[0].strip().replace("\\", "/")
     return VENDOR_SEGMENT_PATTERN.search(normalized_path) is not None
 
 
