@@ -81,6 +81,21 @@ mkdir -p "$synthetic_home" "$synthetic_tmp"
 chmod 700 "$synthetic_home" "$synthetic_tmp"
 base=(env -i PATH="$safe_path" HOME="$synthetic_home" TMPDIR="$synthetic_tmp" WP_BASE_URL=http://invalid.test WP_ADMIN_USER=placeholder WP_ADMIN_PASSWORD=placeholder WP_CLI_BIN=true WP_PATH="$tmp_dir/wp" NMKR_PHASE2_LOG_DIR="$tmp_dir/private" NMKR_PHASE2_ENV_FILE="$synthetic_env" NMKR_PHASE2_PROFILE= RUN_REAL_SYNC=false PW_SAVE_ARTIFACTS=false NMKR_RETAIN_AUTH_STATE=false NMKR_PHASE2_INSTALL_DEPS=false NMKR_PHASE2_INSTALL_BROWSER=false NMKR_PHASE2_SKIP_DEPLOY=true)
 
+# Operator syntax is fail-closed before private preflight. Docs/metadata is a
+# public-CI-only class and must reject before even sourcing a configured file.
+operator_sha=0123456789abcdef0123456789abcdef01234567
+operator_args=(--stage pre-merge --class test-tooling --profile targeted-readonly --reviewed-sha "$operator_sha" --deployed-sha "$operator_sha" --target-suite settings --deploy-mode skip --runtime-integrity false)
+for bad_args in '--unknown value' '--stage' '--stage pre-merge --stage pre-merge' '--stage invalid'; do
+  read -r -a bad <<<"$bad_args"
+  if env -i PATH="$safe_path" HOME="$synthetic_home" bash "$runner" "${bad[@]}" >/dev/null 2>&1; then exit 1; fi
+done
+if env -i PATH="$safe_path" HOME="$synthetic_home" bash "$runner" "${operator_args[@]/test-tooling/high-risk}" >/dev/null 2>&1; then exit 1; fi
+docs_env="$tmp_dir/docs-private.env"
+printf 'touch "%s"\n' "$tmp_dir/docs-env-loaded" >"$docs_env"
+if env -i PATH="$safe_path" HOME="$synthetic_home" NMKR_PHASE2_ENV_FILE="$docs_env" bash "$runner" "${operator_args[@]/test-tooling/docs-metadata}" >"$tmp_dir/docs-rejection.output" 2>&1; then exit 1; fi
+grep -F 'use public CI' "$tmp_dir/docs-rejection.output" >/dev/null
+test ! -e "$tmp_dir/docs-env-loaded"
+
 # Exercise asdf-style shims without requiring asdf in CI. The child starts
 # with only shim entries for Node tools and a minimal fake `asdf which`; the
 # resolver must replace them with the caller's actual executable directories
@@ -246,6 +261,23 @@ cat >"$target_fixture/scripts/nmkr-ajax-runtime-integrity.sh" <<'EOF_RUNTIME_INT
 printf 'runtime-integrity\n' >>"$RUNTIME_INTEGRITY_CALL_LOG"
 EOF_RUNTIME_INTEGRITY
 chmod 700 "$target_fixture/scripts/nmkr-ajax-runtime-integrity.sh"
+for phase2_child in nmkr-wpcli-smoke nmkr-wpcli-db-state; do
+  mv "$target_fixture/scripts/$phase2_child.sh" "$target_fixture/scripts/$phase2_child.real.sh"
+  cat >"$target_fixture/scripts/$phase2_child.sh" <<'EOF_PHASE2_CHILD'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+if [[ "${ASSERT_REQUIRED_CHILD_ENV:-false}" != true ]]; then
+  exec "${BASH_SOURCE[0]%.sh}.real.sh" "$@"
+fi
+[[ "${WP_BASE_URL:-}" == 'https://phase2.invalid' ]]
+[[ "${WP_ADMIN_USER:-}" == 'phase2-user-marker' ]]
+[[ "${WP_ADMIN_PASSWORD:-}" == 'phase2-password-marker' ]]
+[[ "${WP_PATH:-}" == '/phase2-wp-path-marker' ]]
+"$WP_CLI_BIN" "--path=$WP_PATH" core is-installed >/dev/null
+printf '%s required-child-env PASS\n' "${BASH_SOURCE[0]##*/}" >>"$TARGET_CALL_LOG"
+EOF_PHASE2_CHILD
+  chmod 700 "$target_fixture/scripts/$phase2_child.sh"
+done
 git -C "$target_fixture" add AGENTS.md docs package.json scripts
 git -C "$target_fixture" commit --allow-empty -q -m 'synthetic targeted profile fixture'
 target_sha="$(git -C "$target_fixture" rev-parse HEAD)"
@@ -273,7 +305,15 @@ exit 0
 EOF_NODE
 cat >"$target_bin/npm" <<'EOF_NPM'
 #!/usr/bin/env bash
+if [[ "${ASSERT_REQUIRED_CHILD_ENV:-false}" == true ]]; then
+  [[ "${WP_BASE_URL:-}" == 'https://phase2.invalid' ]]
+  [[ "${WP_ADMIN_USER:-}" == 'phase2-user-marker' ]]
+  [[ "${WP_ADMIN_PASSWORD:-}" == 'phase2-password-marker' ]]
+  [[ "${WP_PATH:-}" == '/phase2-wp-path-marker' ]]
+  printf 'required-child-env PASS\n' >>"$TARGET_CALL_LOG"
+fi
 printf '%s\n' "$*" >>"$TARGET_CALL_LOG"
+printf 'safety RUN_REAL_SYNC=%s PW_SAVE_ARTIFACTS=%s\n' "${RUN_REAL_SYNC:-unset}" "${PW_SAVE_ARTIFACTS:-unset}" >>"$TARGET_CALL_LOG"
 if [[ "${TARGET_DIRTY_AFTER_PLAYWRIGHT:-false}" == true && "$*" == 'run test:e2e:settings' ]]; then
   printf '\nsynthetic-dirty\n' >>"$TARGET_REPO/README.md"
 fi
@@ -292,6 +332,15 @@ exit 0
 EOF_NPM
 cat >"$target_bin/wp" <<'EOF_WP'
 #!/usr/bin/env bash
+if [[ "${ASSERT_REQUIRED_CHILD_ENV:-false}" == true ]]; then
+  [[ "${WP_BASE_URL:-}" == 'https://phase2.invalid' ]]
+  [[ "${WP_ADMIN_USER:-}" == 'phase2-user-marker' ]]
+  [[ "${WP_ADMIN_PASSWORD:-}" == 'phase2-password-marker' ]]
+  [[ "${WP_PATH:-}" == '/phase2-wp-path-marker' ]]
+  [[ "$*" == *'--path=/phase2-wp-path-marker'* ]]
+  printf 'required-child-env PASS\n' >>"$TARGET_CALL_LOG"
+fi
+printf 'wp %s\n' "$*" >>"$TARGET_CALL_LOG"
 case "$*" in
   *' eval '*)
     case "${TARGET_ACTIVE_PLUGIN_MODE:-valid}" in
@@ -330,6 +379,217 @@ grep -F 'db-state: SKIPPED' "$tmp_dir/target-success.output" >/dev/null
 grep -F 'source-integrity: PASS' "$tmp_dir/target-success.output" >/dev/null
 grep -F 'deployed-integrity: PASS' "$tmp_dir/target-success.output" >/dev/null
 grep -F 'final-integrity: PASS' "$tmp_dir/target-success.output" >/dev/null
+
+# Required Phase 2 values may be ordinary, non-exported private-file
+# assignments. Playwright, WP-CLI smoke, and DB-state children must receive the
+# fixed synthetic markers, and WP-CLI must use the configured path rather than
+# falling back to the repository checkout.
+plain_assignment_env="$tmp_dir/plain-assignment.env"
+cat >"$plain_assignment_env" <<EOF_PLAIN_ASSIGNMENTS
+set +a
+WP_BASE_URL=https://phase2.invalid
+WP_ADMIN_USER=phase2-user-marker
+WP_ADMIN_PASSWORD=phase2-password-marker
+WP_PATH=/phase2-wp-path-marker
+WP_CLI_BIN=$(printf '%q' "$target_bin/wp")
+NMKR_PLUGIN_SLUG=nmkr-connect.php
+NMKR_PHASE2_LOG_DIR=$(printf '%q' "$target_private")
+NMKR_DEPLOYED_PLUGIN_PATH=$(printf '%q' "$deployed_fixture")
+NMKR_PHASE2_INSTALL_DEPS=false
+NMKR_PHASE2_INSTALL_BROWSER=false
+RUN_REAL_SYNC=false
+PW_SAVE_ARTIFACTS=false
+NMKR_RETAIN_AUTH_STATE=false
+EOF_PLAIN_ASSIGNMENTS
+chmod 600 "$plain_assignment_env"
+plain_assignment_args=(--stage pre-merge --class high-risk --profile existing-readonly --reviewed-sha "$target_sha" --deployed-sha "$target_sha" --target-suite settings --deploy-mode skip --runtime-integrity false)
+: >"$target_log"
+env -i PATH="$target_bin:$safe_path" HOME="$synthetic_home" TMPDIR="$synthetic_tmp" REAL_GIT="$real_git" TARGET_CALL_LOG="$target_log" TARGET_REPO="$target_fixture" TARGET_DEPLOYED_REPO="$deployed_fixture" TARGET_ACTIVE_PLUGIN_FILE="$deployed_fixture/nmkr-connect.php" RUNTIME_INTEGRITY_CALL_LOG="$runtime_integrity_log" GIT_STATUS_COUNTER_DIR="$git_counter_dir" ASSERT_REQUIRED_CHILD_ENV=true NMKR_PHASE2_ENV_FILE="$plain_assignment_env" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${plain_assignment_args[@]}" >"$tmp_dir/plain-assignment.output"
+grep -F 'result: PASS' "$tmp_dir/plain-assignment.output" >/dev/null
+grep -Fx 'run test:e2e' "$target_log" >/dev/null
+grep -Fx 'nmkr-wpcli-smoke.sh required-child-env PASS' "$target_log" >/dev/null
+grep -Fx 'nmkr-wpcli-db-state.sh required-child-env PASS' "$target_log" >/dev/null
+grep -Fx 'required-child-env PASS' "$target_log" >/dev/null
+! grep -F -- "--path=$target_fixture" "$target_log" >/dev/null
+
+# Unified operator mode preserves every explicit selection across env sourcing,
+# validates exact pre-merge identity, and keeps deployment invocation opaque.
+operator_target_args=(--stage pre-merge --class test-tooling --profile targeted-readonly --reviewed-sha "$target_sha" --deployed-sha "$target_sha" --target-suite settings --deploy-mode skip --runtime-integrity false)
+: >"$target_log"
+"${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${operator_target_args[@]}" >"$tmp_dir/operator-target.output"
+grep -Fx 'run test:e2e:settings' "$target_log" >/dev/null
+grep -F 'stage: pre-merge' "$tmp_dir/operator-target.output" >/dev/null
+grep -F 'rollback: NOT_ATTEMPTED' "$tmp_dir/operator-target.output" >/dev/null
+
+# Accepted uppercase SHAs normalize to Git's lowercase identity before every
+# comparison and are reported in normalized form.
+uppercase_sha="${target_sha^^}"
+uppercase_args=(--stage pre-merge --class test-tooling --profile targeted-readonly --reviewed-sha "$uppercase_sha" --deployed-sha "$uppercase_sha" --target-suite settings --deploy-mode skip --runtime-integrity false)
+"${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${uppercase_args[@]}" >"$tmp_dir/operator-uppercase.output"
+grep -F "reviewed-commit: ${target_sha:0:12}" "$tmp_dir/operator-uppercase.output" >/dev/null
+
+mismatch_args=(--stage pre-merge --class test-tooling --profile targeted-readonly --reviewed-sha "$target_sha" --deployed-sha 0123456789abcdef0123456789abcdef01234567 --target-suite settings --deploy-mode skip --runtime-integrity false)
+if "${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${mismatch_args[@]}" >/dev/null 2>&1; then exit 1; fi
+
+# Every explicit operator selection conflicts rather than being replaced or
+# downgraded by the sourced environment file.
+operator_env_names=(NMKR_PHASE2_STAGE NMKR_PHASE2_VALIDATION_CLASS NMKR_PHASE2_PROFILE NMKR_PHASE2_REVIEWED_SHA NMKR_PHASE2_DEPLOYED_SHA NMKR_PHASE2_TARGET_SUITE NMKR_PHASE2_DEPLOY_MODE NMKR_PHASE2_RUNTIME_INTEGRITY)
+for env_name in "${operator_env_names[@]}"; do
+  printf '%s=conflict\n' "$env_name" >"$target_env"
+  if "${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${operator_target_args[@]}" >"$tmp_dir/operator-conflict.output" 2>&1; then exit 1; fi
+  grep -F 'operator selection conflicts' "$tmp_dir/operator-conflict.output" >/dev/null
+done
+: >"$target_env"
+
+# Legacy OP_* assignments cannot change the immutable CLI request, while
+# unsafe behavior toggles are forcibly disabled after private configuration.
+cat >"$target_env" <<'EOF_OPERATOR_OVERRIDE'
+OPERATOR_MODE=false
+OP_STAGE=post-merge
+OP_CLASS=high-risk
+OP_PROFILE=existing-readonly
+OP_REVIEWED_SHA=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+OP_DEPLOYED_SHA=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+OP_TARGET_SUITE=dashboard
+OP_DEPLOY_MODE=run
+OP_RUNTIME_INTEGRITY=true
+RUN_REAL_SYNC=true
+PW_SAVE_ARTIFACTS=true
+EOF_OPERATOR_OVERRIDE
+: >"$target_log"
+"${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${operator_target_args[@]}" >"$tmp_dir/operator-immutable.output"
+grep -F 'stage: pre-merge' "$tmp_dir/operator-immutable.output" >/dev/null
+grep -Fx 'run test:e2e:settings' "$target_log" >/dev/null
+grep -F 'safety RUN_REAL_SYNC=false PW_SAVE_ARTIFACTS=false' "$target_log" >/dev/null
+: >"$target_env"
+
+# Caller-controlled TMPDIR may point inside the checkout or an artifact-like
+# directory, but private source output is never persisted there. A unique
+# marker emitted before failure stays off-console and out of every public or
+# collected fixture, and no deployment or functional command is reached.
+source_tmp="$target_fixture/source-tmp"
+artifact_fixture="$tmp_dir/artifact-fixture"
+mkdir -p "$source_tmp" "$artifact_fixture"
+source_secret='SYNTHETIC_SOURCE_SECRET_4f9c3d8a'
+source_failure_env="$tmp_dir/source-failure.env"
+cat >"$source_failure_env" <<EOF_SOURCE_FAILURE
+printf '%s\\n' '$source_secret'
+false
+SOURCE_ASSIGNMENT_AFTER_FAILURE=present
+EOF_SOURCE_FAILURE
+chmod 600 "$source_failure_env"
+source_failure_count="$tmp_dir/source-failure-deploy-count"
+source_failure_output="$tmp_dir/source-failure.output"
+: >"$target_log"
+if "${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE TMPDIR="$source_tmp" NMKR_PHASE2_ENV_FILE="$source_failure_env" NMKR_DEPLOY_COMMAND="printf 'call\\n' >>'$source_failure_count'" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${operator_target_args[@]}" >"$source_failure_output" 2>&1; then exit 1; fi
+test ! -e "$source_failure_count"
+grep -Fx 'ERROR: Phase 2 private configuration could not be loaded.' "$source_failure_output" >/dev/null
+test "$(wc -l <"$source_failure_output")" = 1
+! grep -F "$source_secret" "$source_failure_output" >/dev/null
+! grep -E 'line [0-9]+|false|SOURCE_ASSIGNMENT_AFTER_FAILURE|present' "$source_failure_output" >/dev/null
+! find "$target_fixture" "$deployed_fixture" "$tmp_dir/wp" "$artifact_fixture" "$source_tmp" -type f -exec grep -Fl -- "$source_secret" {} + | grep . >/dev/null
+! find "$target_fixture" "$deployed_fixture" "$tmp_dir/wp" "$artifact_fixture" "$source_tmp" -type f -exec grep -El -- 'SOURCE_ASSIGNMENT_AFTER_FAILURE|present' {} + | grep . >/dev/null
+test -z "$(find "$source_tmp" -mindepth 1 -print -quit)"
+! grep -E '^run test:e2e|wp .*nmkr-wpcli-(smoke|db-state)' "$target_log" >/dev/null
+
+# Attempts to assign the protected internal namespace fail closed while the
+# private file is sourced, before deployment or functional validation, without
+# exposing any part of the private source diagnostic.
+printf 'CLI_STAGE=post-merge\n' >"$target_env"
+protected_state_count="$tmp_dir/protected-state-deploy-count"
+protected_output="$tmp_dir/protected-state.output"
+: >"$target_log"
+if "${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE NMKR_DEPLOY_COMMAND="printf 'call\\n' >>'$protected_state_count'" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${operator_target_args[@]}" >"$protected_output" 2>&1; then exit 1; fi
+test ! -e "$protected_state_count"
+grep -Fx 'ERROR: Phase 2 private configuration could not be loaded.' "$protected_output" >/dev/null
+! grep -F "$target_env" "$protected_output" >/dev/null
+! grep -F "$(basename "$target_env")" "$protected_output" >/dev/null
+! grep -E 'line [0-9]+|CLI_STAGE=|readonly variable' "$protected_output" >/dev/null
+! grep -E '^run test:e2e|wp .*nmkr-wpcli-(smoke|db-state)' "$target_log" >/dev/null
+: >"$target_env"
+
+# Failures explicitly handled by the private configuration retain Bash's
+# normal semantics and do not incorrectly abort an otherwise valid load.
+cat >"$target_env" <<'EOF_HANDLED_SOURCE_FAILURE'
+false || true
+HANDLED_SOURCE_VALUE=present
+EOF_HANDLED_SOURCE_FAILURE
+: >"$target_log"
+"${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${operator_target_args[@]}" >"$tmp_dir/handled-source-failure.output"
+grep -F 'result: PASS' "$tmp_dir/handled-source-failure.output" >/dev/null
+grep -Fx 'run test:e2e:settings' "$target_log" >/dev/null
+: >"$target_env"
+
+deploy_count="$tmp_dir/operator-deploy-count"
+run_deployed_fixture="$tmp_dir/run-deployed-fixture"
+deploy_command="printf 'call\\n' >>'$deploy_count'; '$real_git' clone -q '$target_fixture' '$run_deployed_fixture'"
+run_args=(--stage pre-merge --class test-tooling --profile targeted-readonly --reviewed-sha "$target_sha" --deployed-sha "$target_sha" --target-suite settings --deploy-mode run --runtime-integrity false)
+: >"$target_log"
+"${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE NMKR_DEPLOYED_PLUGIN_PATH="$run_deployed_fixture" TARGET_ACTIVE_PLUGIN_FILE="$run_deployed_fixture/nmkr-connect.php" NMKR_DEPLOY_COMMAND="$deploy_command" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${run_args[@]}" >"$tmp_dir/operator-deploy.output"
+test "$(wc -l <"$deploy_count")" = 1
+grep -F 'deploy: PASS' "$tmp_dir/operator-deploy.output" >/dev/null
+! grep -F "$deploy_command" "$tmp_dir/operator-deploy.output" >/dev/null
+grep -Fx 'run test:e2e:settings' "$target_log" >/dev/null
+
+# A missing configured verification target fails before the opaque mutation.
+rm -f "$deploy_count"
+if "${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE NMKR_DEPLOYED_PLUGIN_PATH= NMKR_DEPLOY_COMMAND="printf 'call\\n' >>'$deploy_count'" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${run_args[@]}" >"$tmp_dir/operator-missing-path.output" 2>&1; then exit 1; fi
+test ! -e "$deploy_count"
+grep -F 'failed step: preflight' "$tmp_dir/operator-missing-path.output" >/dev/null
+
+# Deployment is invoked once, then an incorrect active binding fails at the
+# deploy-integrity boundary before any functional command can start.
+rm -rf "$run_deployed_fixture"; : >"$target_log"; rm -f "$deploy_count"
+if "${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE NMKR_DEPLOYED_PLUGIN_PATH="$run_deployed_fixture" TARGET_ACTIVE_PLUGIN_FILE="$target_fixture/nmkr-connect.php" NMKR_DEPLOY_COMMAND="$deploy_command" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${run_args[@]}" >"$tmp_dir/operator-binding-failure.output" 2>&1; then exit 1; fi
+test "$(wc -l <"$deploy_count")" = 1
+grep -F 'failed step: deploy-integrity' "$tmp_dir/operator-binding-failure.output" >/dev/null
+grep -F 'rollback: NOT_ATTEMPTED' "$tmp_dir/operator-binding-failure.output" >/dev/null
+! grep -E '^run test:e2e|wp .*nmkr-wpcli-(smoke|db-state)' "$target_log" >/dev/null
+test "$(grep -c '^wp ' "$target_log")" = 1
+
+rm -f "$deploy_count"
+"${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE NMKR_DEPLOY_COMMAND="$deploy_command" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${operator_target_args[@]}" >/dev/null
+test ! -e "$deploy_count"
+
+# Post-merge accepts distinct commits only when their source-tree objects are
+# identical; missing reviewed commits and different trees fail closed.
+git -C "$target_fixture" commit --allow-empty -q -m 'synthetic merged equivalent tree'
+merged_sha="$(git -C "$target_fixture" rev-parse HEAD)"
+git -C "$deployed_fixture" fetch -q "$target_fixture" "$merged_sha"
+git -C "$deployed_fixture" reset --hard -q "$merged_sha"
+post_args=(--stage post-merge --class test-tooling --profile targeted-readonly --reviewed-sha "$target_sha" --deployed-sha "$merged_sha" --target-suite settings --deploy-mode skip --runtime-integrity false)
+"${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${post_args[@]}" >"$tmp_dir/operator-post.output"
+grep -F 'reviewed-tree-equivalence: PASS' "$tmp_dir/operator-post.output" >/dev/null
+# Tree equivalence is established only between the two exact commit identities.
+# A matching raw tree or another non-commit object fails before functional work
+# and must never be summarized as reviewed-tree equivalence PASS.
+matching_tree="$(git -C "$target_fixture" rev-parse "$target_sha^{tree}")"
+noncommit_blob="$(git -C "$target_fixture" rev-parse "$target_sha:README.md")"
+for identity_case in reviewed-tree deployed-blob; do
+  invalid_args=("${post_args[@]}")
+  if [[ "$identity_case" == reviewed-tree ]]; then
+    invalid_args=("${invalid_args[@]/$target_sha/$matching_tree}")
+  else
+    invalid_args=("${invalid_args[@]/$merged_sha/$noncommit_blob}")
+  fi
+  : >"$target_log"
+  invalid_output="$tmp_dir/operator-post-$identity_case.output"
+  if "${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${invalid_args[@]}" >"$invalid_output" 2>&1; then exit 1; fi
+  grep -F 'reviewed-tree-equivalence: NOT_ESTABLISHED' "$invalid_output" >/dev/null
+  ! grep -F 'reviewed-tree-equivalence: PASS' "$invalid_output" >/dev/null
+  ! grep -E '^run test:e2e|wp .*nmkr-wpcli-(smoke|db-state)' "$target_log" >/dev/null
+done
+missing_sha=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+if "${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${post_args[@]/$target_sha/$missing_sha}" >/dev/null 2>&1; then exit 1; fi
+printf '\nchanged-tree\n' >>"$target_fixture/README.md"
+git -C "$target_fixture" add README.md
+git -C "$target_fixture" commit -q -m 'synthetic merged different tree'
+different_sha="$(git -C "$target_fixture" rev-parse HEAD)"
+git -C "$deployed_fixture" fetch -q "$target_fixture" "$different_sha"
+git -C "$deployed_fixture" reset --hard -q "$different_sha"
+if "${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${post_args[@]/$merged_sha/$different_sha}" >/dev/null 2>&1; then exit 1; fi
+git -C "$target_fixture" reset --hard -q "$target_sha"
+git -C "$deployed_fixture" reset --hard -q "$target_sha"
 
 # Targeted readonly requires deployment identity, while existing readonly keeps
 # accepting an omitted deployed path. General runtime integrity runs only after

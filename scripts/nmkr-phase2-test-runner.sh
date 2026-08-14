@@ -11,6 +11,61 @@ else
   REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 fi
 
+# Arguments opt in to the unified operator workflow. Legacy environment-only
+# invocations continue through the existing path unchanged.
+OPERATOR_MODE=false
+OP_STAGE= OP_CLASS= OP_PROFILE= OP_REVIEWED_SHA= OP_DEPLOYED_SHA=
+OP_TARGET_SUITE= OP_DEPLOY_MODE= OP_RUNTIME_INTEGRITY=
+declare -A OP_SEEN=()
+operator_error() { printf 'ERROR: Invalid Phase 2 operator arguments.\n' >&2; exit 1; }
+while (($#)); do
+  OPERATOR_MODE=true
+  option="$1"; shift
+  case "$option" in
+    --stage|--class|--profile|--reviewed-sha|--deployed-sha|--target-suite|--deploy-mode|--runtime-integrity) ;;
+    *) operator_error ;;
+  esac
+  [[ -z "${OP_SEEN[$option]:-}" ]] || operator_error
+  OP_SEEN[$option]=true
+  (($#)) || operator_error
+  value="$1"; shift
+  [[ -n "$value" && "$value" != --* ]] || operator_error
+  case "$option" in
+    --stage) OP_STAGE="$value" ;; --class) OP_CLASS="$value" ;;
+    --profile) OP_PROFILE="$value" ;; --reviewed-sha) OP_REVIEWED_SHA="$value" ;;
+    --deployed-sha) OP_DEPLOYED_SHA="$value" ;; --target-suite) OP_TARGET_SUITE="$value" ;;
+    --deploy-mode) OP_DEPLOY_MODE="$value" ;; --runtime-integrity) OP_RUNTIME_INTEGRITY="$value" ;;
+  esac
+done
+if [[ "$OPERATOR_MODE" == true ]]; then
+  for required in OP_STAGE OP_CLASS OP_PROFILE OP_REVIEWED_SHA OP_DEPLOYED_SHA OP_TARGET_SUITE OP_DEPLOY_MODE OP_RUNTIME_INTEGRITY; do
+    [[ -n "${!required}" ]] || operator_error
+  done
+  case "$OP_STAGE" in pre-merge|post-merge) ;; *) operator_error ;; esac
+  case "$OP_CLASS" in docs-metadata|test-tooling|ordinary-runtime|high-risk) ;; *) operator_error ;; esac
+  case "$OP_PROFILE" in targeted-readonly|existing-readonly) ;; *) operator_error ;; esac
+  [[ "$OP_REVIEWED_SHA" =~ ^[0-9a-fA-F]{40}$ && "$OP_DEPLOYED_SHA" =~ ^[0-9a-fA-F]{40}$ ]] || operator_error
+  OP_REVIEWED_SHA="${OP_REVIEWED_SHA,,}"
+  OP_DEPLOYED_SHA="${OP_DEPLOYED_SHA,,}"
+  case "$OP_DEPLOY_MODE" in run|skip) ;; *) operator_error ;; esac
+  case "$OP_RUNTIME_INTEGRITY" in true|false) ;; *) operator_error ;; esac
+  if [[ "$OP_CLASS" == docs-metadata ]]; then
+    printf 'ERROR: Phase 2 private validation is not applicable for docs/metadata; use public CI.\n' >&2
+    exit 1
+  fi
+  [[ "$OP_CLASS" != high-risk || "$OP_PROFILE" == existing-readonly ]] || operator_error
+fi
+
+# Lock the parsed request before crossing the private configuration boundary.
+# These internal names are deliberately readonly: the sourced file may set
+# legacy OP_* names, but it cannot replace or downgrade the authoritative CLI
+# request used by any later safety or validation decision.
+readonly CLI_OPERATOR_MODE="$OPERATOR_MODE"
+readonly CLI_STAGE="$OP_STAGE" CLI_CLASS="$OP_CLASS" CLI_PROFILE="$OP_PROFILE"
+readonly CLI_REVIEWED_SHA="$OP_REVIEWED_SHA" CLI_DEPLOYED_SHA="$OP_DEPLOYED_SHA"
+readonly CLI_TARGET_SUITE="$OP_TARGET_SUITE" CLI_DEPLOY_MODE="$OP_DEPLOY_MODE"
+readonly CLI_RUNTIME_INTEGRITY="$OP_RUNTIME_INTEGRITY"
+
 RUN_REAL_SYNC="${RUN_REAL_SYNC:-false}"
 PW_SAVE_ARTIFACTS="${PW_SAVE_ARTIFACTS:-false}"
 CALLER_PROFILE="${NMKR_PHASE2_PROFILE:-}"
@@ -46,11 +101,97 @@ if [[ -n "$ENV_FILE" ]]; then
     printf 'ERROR: Phase 2 env file could not be resolved.\n' >&2
     exit 1
   fi
+  SOURCE_DRAIN_PID=""
+  SOURCE_DRAIN_FD=""
+  SOURCE_PUBLIC_ERR_FD=""
+  cleanup_source_diagnostics() {
+    if [[ -n "$SOURCE_DRAIN_FD" ]]; then
+      eval "exec ${SOURCE_DRAIN_FD}>&-"
+      SOURCE_DRAIN_FD=""
+    fi
+    if [[ -n "$SOURCE_DRAIN_PID" ]]; then
+      kill "$SOURCE_DRAIN_PID" 2>/dev/null || true
+      wait "$SOURCE_DRAIN_PID" 2>/dev/null || true
+      SOURCE_DRAIN_PID=""
+    fi
+    if [[ -n "$SOURCE_PUBLIC_ERR_FD" ]]; then
+      eval "exec ${SOURCE_PUBLIC_ERR_FD}>&-"
+      SOURCE_PUBLIC_ERR_FD=""
+    fi
+  }
+  source_load_error() {
+    local status=$?
+    [[ "$status" -ne 0 ]] || status=1
+    trap - ERR EXIT INT TERM
+    printf 'ERROR: Phase 2 private configuration could not be loaded.\n' >&"$SOURCE_ERROR_FD"
+    cleanup_source_diagnostics
+    exit "$status"
+  }
+  source_boundary_signal() {
+    cleanup_source_diagnostics
+    trap - EXIT INT TERM
+    exit "$1"
+  }
+  trap cleanup_source_diagnostics EXIT
+  trap 'source_boundary_signal 130' INT
+  trap 'source_boundary_signal 143' TERM
+  # Drain private source output through an anonymous pipe. Nothing is written
+  # beneath caller-selected TMPDIR (or any other persistent location), while
+  # the drain's status still records whether the source emitted even one byte.
+  coproc SOURCE_OUTPUT_DRAIN {
+    if IFS= read -r -n 1; then
+      cat >/dev/null
+      exit 1
+    fi
+  }
+  SOURCE_DRAIN_PID="$SOURCE_OUTPUT_DRAIN_PID"
+  SOURCE_DRAIN_FD="${SOURCE_OUTPUT_DRAIN[1]}"
+  exec {SOURCE_PUBLIC_ERR_FD}>&2
+  readonly SOURCE_ERROR_FD="$SOURCE_PUBLIC_ERR_FD"
   set -a
   # shellcheck source=/dev/null
-  source "$SELECTED_ENV_FILE"
+  # Keep source as a direct command: placing it in a conditional or command
+  # list would suppress errexit for unhandled failures inside the private file.
+  # EXIT also covers fatal shell errors (notably readonly-name assignments)
+  # that terminate Bash without dispatching an ERR trap.
+  trap source_load_error ERR EXIT
+  source "$SELECTED_ENV_FILE" >&"$SOURCE_DRAIN_FD"
+  trap - ERR EXIT
   set +a
+  eval "exec ${SOURCE_DRAIN_FD}>&-"
+  SOURCE_DRAIN_FD=""
+  source_output_status=0
+  wait "$SOURCE_DRAIN_PID" || source_output_status=$?
+  SOURCE_DRAIN_PID=""
+  if [[ "$source_output_status" -ne 0 ]]; then
+    cleanup_source_diagnostics
+    trap - EXIT INT TERM
+    printf 'ERROR: Phase 2 private configuration could not be loaded.\n' >&2
+    exit 1
+  fi
+  cleanup_source_diagnostics
+  trap - EXIT INT TERM
   export NMKR_PHASE2_ENV_FILE="$SELECTED_ENV_FILE"
+fi
+
+if [[ "$CLI_OPERATOR_MODE" == true ]]; then
+  operator_conflict=false
+  check_operator_env() { local name="$1" expected="$2"; [[ -z "${!name+x}" || "${!name}" == "$expected" ]] || operator_conflict=true; }
+  check_operator_env NMKR_PHASE2_STAGE "$CLI_STAGE"
+  check_operator_env NMKR_PHASE2_VALIDATION_CLASS "$CLI_CLASS"
+  check_operator_env NMKR_PHASE2_PROFILE "$CLI_PROFILE"
+  check_operator_env NMKR_PHASE2_REVIEWED_SHA "$CLI_REVIEWED_SHA"
+  check_operator_env NMKR_PHASE2_DEPLOYED_SHA "$CLI_DEPLOYED_SHA"
+  check_operator_env NMKR_PHASE2_TARGET_SUITE "$CLI_TARGET_SUITE"
+  check_operator_env NMKR_PHASE2_DEPLOY_MODE "$CLI_DEPLOY_MODE"
+  check_operator_env NMKR_PHASE2_RUNTIME_INTEGRITY "$CLI_RUNTIME_INTEGRITY"
+  [[ "$operator_conflict" == false ]] || { printf 'ERROR: Phase 2 operator selection conflicts with environment configuration.\n' >&2; exit 1; }
+  NMKR_PHASE2_STAGE="$CLI_STAGE"; NMKR_PHASE2_VALIDATION_CLASS="$CLI_CLASS"
+  NMKR_PHASE2_PROFILE="$CLI_PROFILE"; NMKR_PHASE2_REVIEWED_SHA="$CLI_REVIEWED_SHA"
+  NMKR_PHASE2_DEPLOYED_SHA="$CLI_DEPLOYED_SHA"; NMKR_PHASE2_TARGET_SUITE="$CLI_TARGET_SUITE"
+  NMKR_PHASE2_DEPLOY_MODE="$CLI_DEPLOY_MODE"; NMKR_PHASE2_RUNTIME_INTEGRITY="$CLI_RUNTIME_INTEGRITY"
+  RUN_REAL_SYNC=false; PW_SAVE_ARTIFACTS=false
+  NMKR_PHASE2_INSTALL_DEPS=false; NMKR_PHASE2_INSTALL_BROWSER=false
 fi
 
 export RUN_REAL_SYNC="${RUN_REAL_SYNC:-false}"
@@ -98,6 +239,14 @@ print_summary() {
   local commit="unknown"
   commit="$(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null || printf 'unknown')"
   printf '\nPhase 2 summary\n'
+  if [[ "$CLI_OPERATOR_MODE" == true ]]; then
+    printf '  stage: %s\n' "$CLI_STAGE"
+    printf '  validation-class: %s\n' "$CLI_CLASS"
+    printf '  reviewed-commit: %.12s\n' "$CLI_REVIEWED_SHA"
+    printf '  expected-deployed-commit: %.12s\n' "$CLI_DEPLOYED_SHA"
+    printf '  deploy-mode: %s\n' "$CLI_DEPLOY_MODE"
+    printf '  reviewed-tree-equivalence: %s\n' "${TREE_EQUIVALENCE:-NOT_APPLICABLE}"
+  fi
   printf '  deploy: %s\n' "$DEPLOY_STATUS"
   printf '  dependencies: %s\n' "$DEPS_STATUS"
   printf '  browser: %s\n' "$BROWSER_STATUS"
@@ -114,6 +263,7 @@ print_summary() {
   printf '  readonly-policy: %s\n' "${READONLY_POLICY:-SKIPPED}"
   printf '  authentication-state-cleanup: %s\n' "$AUTH_STATE_CLEANUP"
   printf '  result: %s\n' "$result"
+  [[ "$CLI_OPERATOR_MODE" != true ]] || printf '  rollback: NOT_ATTEMPTED\n'
   printf '  commit: %s\n' "$commit"
   if [[ "$EXIT_CODE" != "0" ]]; then
     printf '  failed step: %s\n' "$FAILED_STEP"
@@ -256,6 +406,12 @@ if (( ${#missing[@]} > 0 )); then
   printf 'ERROR: Missing required Phase 2 variables.\n' >&2
   exit 1
 fi
+
+# These values are required by the runner and by its Playwright/WP-CLI child
+# processes. Private configuration may use ordinary shell assignments; do not
+# require operators to add export statements to make the validated values
+# available downstream.
+export WP_BASE_URL WP_ADMIN_USER WP_ADMIN_PASSWORD WP_PATH
 
 # Resolve the private root before creation. It must remain outside web, checkout,
 # and public Playwright output trees, including through symlinks.
@@ -415,7 +571,10 @@ case "$NMKR_PHASE2_TARGET_SUITE" in
   '') [[ "$NMKR_PHASE2_PROFILE" != "targeted-readonly" ]] || { printf 'Target suite is required.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; } ;;
   *) printf 'Unknown target suite.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1 ;;
 esac
-if [[ "$NMKR_PHASE2_PROFILE" != "targeted-readonly" && -n "$NMKR_PHASE2_TARGET_SUITE" ]]; then
+if [[ "$CLI_OPERATOR_MODE" == true && "$NMKR_PHASE2_TARGET_SUITE" == ajax-security ]]; then
+  printf 'Specialized AJAX security validation must use its separate runner.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1
+fi
+if [[ "$NMKR_PHASE2_PROFILE" != "targeted-readonly" && -n "$NMKR_PHASE2_TARGET_SUITE" && "$CLI_OPERATOR_MODE" != true ]]; then
   printf 'Target suite requires targeted-readonly profile.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1
 fi
 [[ "$NMKR_PHASE2_PROFILE" != "targeted-readonly" ]] || SELECTED_SUITE="$NMKR_PHASE2_TARGET_SUITE"
@@ -423,22 +582,46 @@ fi
 if [[ "$NMKR_PHASE2_PROFILE" == "existing-readonly" || "$NMKR_PHASE2_PROFILE" == "targeted-readonly" ]]; then
   READONLY_POLICY="ENFORCED"; SOURCE_INTEGRITY="FAIL"; DEPLOYED_INTEGRITY="SKIPPED"
   readonly_overrides=false
-  for boolean in RUN_REAL_SYNC PW_SAVE_ARTIFACTS NMKR_PHASE2_SKIP_DEPLOY NMKR_PHASE2_INSTALL_BROWSER; do [[ "${!boolean}" != "false" || "$boolean" == NMKR_PHASE2_SKIP_DEPLOY ]] && readonly_overrides=true; done
+  for boolean in RUN_REAL_SYNC PW_SAVE_ARTIFACTS NMKR_PHASE2_INSTALL_BROWSER; do [[ "${!boolean}" != "false" ]] && readonly_overrides=true; done
   [[ "$NMKR_PHASE2_INSTALL_DEPS" != "false" ]] && readonly_overrides=true
-  RUN_REAL_SYNC=false; PW_SAVE_ARTIFACTS=false; NMKR_PHASE2_SKIP_DEPLOY=true; NMKR_PHASE2_INSTALL_DEPS=false; NMKR_PHASE2_INSTALL_BROWSER=false; unset NMKR_DEPLOY_COMMAND
+  RUN_REAL_SYNC=false; PW_SAVE_ARTIFACTS=false; NMKR_PHASE2_INSTALL_DEPS=false; NMKR_PHASE2_INSTALL_BROWSER=false
+  if [[ "$CLI_OPERATOR_MODE" != true ]]; then NMKR_PHASE2_SKIP_DEPLOY=true; unset NMKR_DEPLOY_COMMAND; fi
   [[ "$readonly_overrides" == true ]] && printf 'INFO: readonly overrides present.\n'
-  [[ "${NMKR_PHASE2_EXPECTED_SOURCE_SHA:-}" =~ ^[0-9a-fA-F]{40}$ ]] || { printf 'Expected source SHA is invalid.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; }
-  git_head_and_clean "$REPO_ROOT" "$NMKR_PHASE2_EXPECTED_SOURCE_SHA" || { printf 'Source worktree integrity check failed.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; }
-  SOURCE_INTEGRITY="PASS"
-  if [[ "$NMKR_PHASE2_PROFILE" == "targeted-readonly" && -z "${NMKR_DEPLOYED_PLUGIN_PATH:-}" ]]; then
-    printf 'Targeted readonly requires deployed plugin path.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1
+  EXPECTED_SOURCE_SHA="${NMKR_PHASE2_EXPECTED_SOURCE_SHA:-}"
+  EXPECTED_DEPLOYED_SHA="$EXPECTED_SOURCE_SHA"
+  if [[ "$CLI_OPERATOR_MODE" == true ]]; then
+    EXPECTED_SOURCE_SHA="$CLI_DEPLOYED_SHA"; EXPECTED_DEPLOYED_SHA="$CLI_DEPLOYED_SHA"
+    if [[ "$CLI_STAGE" == pre-merge ]]; then
+      [[ "$CLI_REVIEWED_SHA" == "$CLI_DEPLOYED_SHA" ]] || { printf 'Pre-merge reviewed/deployed identity mismatch.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; }
+      EXPECTED_SOURCE_SHA="$CLI_REVIEWED_SHA"; TREE_EQUIVALENCE="NOT_APPLICABLE"
+    else
+      reviewed_commit="$(git -C "$REPO_ROOT" rev-parse --verify "$CLI_REVIEWED_SHA^{commit}" 2>/dev/null || true)"
+      deployed_commit="$(git -C "$REPO_ROOT" rev-parse --verify "$CLI_DEPLOYED_SHA^{commit}" 2>/dev/null || true)"
+      reviewed_tree=""; deployed_tree=""
+      if [[ "$reviewed_commit" == "$CLI_REVIEWED_SHA" && "$deployed_commit" == "$CLI_DEPLOYED_SHA" ]]; then
+        reviewed_tree="$(git -C "$REPO_ROOT" rev-parse --verify "$reviewed_commit^{tree}" 2>/dev/null || true)"
+        deployed_tree="$(git -C "$REPO_ROOT" rev-parse --verify "$deployed_commit^{tree}" 2>/dev/null || true)"
+      fi
+      if [[ -z "$reviewed_tree" || -z "$deployed_tree" || "$reviewed_tree" != "$deployed_tree" ]]; then
+        TREE_EQUIVALENCE="NOT_ESTABLISHED"
+        printf 'Reviewed/merged equivalence was not established; deeper review and validation are required.\n' >>"$RUN_DIR/preflight.log"
+        fail_step "preflight" "$RUN_DIR/preflight.log" 1
+      fi
+      TREE_EQUIVALENCE="PASS"
+    fi
   fi
-  if [[ -n "${NMKR_DEPLOYED_PLUGIN_PATH:-}" ]]; then
+  [[ "$EXPECTED_SOURCE_SHA" =~ ^[0-9a-fA-F]{40}$ ]] || { printf 'Expected source SHA is invalid.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; }
+  git_head_and_clean "$REPO_ROOT" "$EXPECTED_SOURCE_SHA" || { printf 'Source worktree integrity check failed.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; }
+  SOURCE_INTEGRITY="PASS"
+  if [[ ( "$NMKR_PHASE2_PROFILE" == "targeted-readonly" || "$CLI_OPERATOR_MODE" == true ) && -z "${NMKR_DEPLOYED_PLUGIN_PATH:-}" ]]; then
+    printf 'Readonly workflow requires deployed plugin path.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1
+  fi
+  if [[ -n "${NMKR_DEPLOYED_PLUGIN_PATH:-}" && !( "$CLI_OPERATOR_MODE" == true && "$CLI_DEPLOY_MODE" == run ) ]]; then
     DEPLOYED_INTEGRITY="FAIL"
-    git_head_and_clean "$NMKR_DEPLOYED_PLUGIN_PATH" "$NMKR_PHASE2_EXPECTED_SOURCE_SHA" || { printf 'Deployed worktree integrity check failed.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; }
+    git_head_and_clean "$NMKR_DEPLOYED_PLUGIN_PATH" "$EXPECTED_DEPLOYED_SHA" || { printf 'Deployed worktree integrity check failed.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; }
     DEPLOYED_INTEGRITY="PASS"
   fi
-  if [[ "$NMKR_PHASE2_PROFILE" == "targeted-readonly" ]]; then
+  if [[ ( "$NMKR_PHASE2_PROFILE" == "targeted-readonly" && "$CLI_OPERATOR_MODE" != true ) || ( "$CLI_OPERATOR_MODE" == true && "$CLI_DEPLOY_MODE" == skip ) ]]; then
     bind_active_plugin_to_deployed_worktree || { printf 'Active plugin deployment binding failed.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; }
   fi
   run_external node -e "require('@playwright/test')" >/dev/null 2>&1 || { printf 'Required Node dependencies are unavailable.\n' >>"$RUN_DIR/preflight.log"; fail_step "preflight" "$RUN_DIR/preflight.log" 1; }
@@ -455,18 +638,27 @@ esac
 
 cd "$REPO_ROOT"
 
-if [[ "$NMKR_PHASE2_SKIP_DEPLOY" == "true" ]]; then
+if [[ "$CLI_OPERATOR_MODE" == true && "$CLI_DEPLOY_MODE" == skip ]]; then
+  DEPLOY_STATUS="SKIPPED"
+elif [[ "$NMKR_PHASE2_SKIP_DEPLOY" == "true" && "$CLI_OPERATOR_MODE" != true ]]; then
   DEPLOY_STATUS="SKIPPED"
 else
   DEPLOY_STATUS="FAIL"
   if [[ -z "${NMKR_DEPLOY_COMMAND:-}" ]]; then
-    printf 'NMKR_DEPLOY_COMMAND is required unless NMKR_PHASE2_SKIP_DEPLOY=true.\n' >"$RUN_DIR/deploy.log"
+    printf 'NMKR_DEPLOY_COMMAND is required unless deployment is skipped.\n' >"$RUN_DIR/deploy.log"
     fail_step "deploy" "$RUN_DIR/deploy.log" 2
   fi
   if run_external bash -lc "$NMKR_DEPLOY_COMMAND" >"$RUN_DIR/deploy.log" 2>&1; then
     DEPLOY_STATUS="PASS"
   else
     fail_step "deploy" "$RUN_DIR/deploy.log" 2
+  fi
+  if [[ "$CLI_OPERATOR_MODE" == true ]]; then
+    [[ -n "${NMKR_DEPLOYED_PLUGIN_PATH:-}" ]] || fail_step "deploy-integrity" "$RUN_DIR/deploy.log" 1
+    DEPLOYED_INTEGRITY="FAIL"
+    git_head_and_clean "$NMKR_DEPLOYED_PLUGIN_PATH" "$EXPECTED_DEPLOYED_SHA" || fail_step "deploy-integrity" "$RUN_DIR/deploy.log" 1
+    bind_active_plugin_to_deployed_worktree || fail_step "deploy-integrity" "$RUN_DIR/deploy.log" 1
+    DEPLOYED_INTEGRITY="PASS"
   fi
 fi
 
@@ -558,9 +750,9 @@ fi
 
 if [[ "$NMKR_PHASE2_PROFILE" == "existing-readonly" || "$NMKR_PHASE2_PROFILE" == "targeted-readonly" ]]; then
   FINAL_INTEGRITY="FAIL"
-  git_head_and_clean "$REPO_ROOT" "$NMKR_PHASE2_EXPECTED_SOURCE_SHA" || fail_step "final-integrity" "$RUN_DIR/preflight.log" 1
+  git_head_and_clean "$REPO_ROOT" "$EXPECTED_SOURCE_SHA" || fail_step "final-integrity" "$RUN_DIR/preflight.log" 1
   if [[ -n "${NMKR_DEPLOYED_PLUGIN_PATH:-}" ]]; then
-    git_head_and_clean "$NMKR_DEPLOYED_PLUGIN_PATH" "$NMKR_PHASE2_EXPECTED_SOURCE_SHA" || fail_step "final-integrity" "$RUN_DIR/preflight.log" 1
+    git_head_and_clean "$NMKR_DEPLOYED_PLUGIN_PATH" "$EXPECTED_DEPLOYED_SHA" || fail_step "final-integrity" "$RUN_DIR/preflight.log" 1
   fi
   FINAL_INTEGRITY="PASS"
 fi
