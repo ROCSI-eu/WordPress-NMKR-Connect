@@ -407,6 +407,12 @@ if (( ${#missing[@]} > 0 )); then
   exit 1
 fi
 
+# These values are required by the runner and by its Playwright/WP-CLI child
+# processes. Private configuration may use ordinary shell assignments; do not
+# require operators to add export statements to make the validated values
+# available downstream.
+export WP_BASE_URL WP_ADMIN_USER WP_ADMIN_PASSWORD WP_PATH
+
 # Resolve the private root before creation. It must remain outside web, checkout,
 # and public Playwright output trees, including through symlinks.
 CONFIGURED_LOG_PARENT="${NMKR_PHASE2_LOG_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/nmkr-connect}"

@@ -261,6 +261,23 @@ cat >"$target_fixture/scripts/nmkr-ajax-runtime-integrity.sh" <<'EOF_RUNTIME_INT
 printf 'runtime-integrity\n' >>"$RUNTIME_INTEGRITY_CALL_LOG"
 EOF_RUNTIME_INTEGRITY
 chmod 700 "$target_fixture/scripts/nmkr-ajax-runtime-integrity.sh"
+for phase2_child in nmkr-wpcli-smoke nmkr-wpcli-db-state; do
+  mv "$target_fixture/scripts/$phase2_child.sh" "$target_fixture/scripts/$phase2_child.real.sh"
+  cat >"$target_fixture/scripts/$phase2_child.sh" <<'EOF_PHASE2_CHILD'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+if [[ "${ASSERT_REQUIRED_CHILD_ENV:-false}" != true ]]; then
+  exec "${BASH_SOURCE[0]%.sh}.real.sh" "$@"
+fi
+[[ "${WP_BASE_URL:-}" == 'https://phase2.invalid' ]]
+[[ "${WP_ADMIN_USER:-}" == 'phase2-user-marker' ]]
+[[ "${WP_ADMIN_PASSWORD:-}" == 'phase2-password-marker' ]]
+[[ "${WP_PATH:-}" == '/phase2-wp-path-marker' ]]
+"$WP_CLI_BIN" "--path=$WP_PATH" core is-installed >/dev/null
+printf '%s required-child-env PASS\n' "${BASH_SOURCE[0]##*/}" >>"$TARGET_CALL_LOG"
+EOF_PHASE2_CHILD
+  chmod 700 "$target_fixture/scripts/$phase2_child.sh"
+done
 git -C "$target_fixture" add AGENTS.md docs package.json scripts
 git -C "$target_fixture" commit --allow-empty -q -m 'synthetic targeted profile fixture'
 target_sha="$(git -C "$target_fixture" rev-parse HEAD)"
@@ -288,6 +305,13 @@ exit 0
 EOF_NODE
 cat >"$target_bin/npm" <<'EOF_NPM'
 #!/usr/bin/env bash
+if [[ "${ASSERT_REQUIRED_CHILD_ENV:-false}" == true ]]; then
+  [[ "${WP_BASE_URL:-}" == 'https://phase2.invalid' ]]
+  [[ "${WP_ADMIN_USER:-}" == 'phase2-user-marker' ]]
+  [[ "${WP_ADMIN_PASSWORD:-}" == 'phase2-password-marker' ]]
+  [[ "${WP_PATH:-}" == '/phase2-wp-path-marker' ]]
+  printf 'required-child-env PASS\n' >>"$TARGET_CALL_LOG"
+fi
 printf '%s\n' "$*" >>"$TARGET_CALL_LOG"
 printf 'safety RUN_REAL_SYNC=%s PW_SAVE_ARTIFACTS=%s\n' "${RUN_REAL_SYNC:-unset}" "${PW_SAVE_ARTIFACTS:-unset}" >>"$TARGET_CALL_LOG"
 if [[ "${TARGET_DIRTY_AFTER_PLAYWRIGHT:-false}" == true && "$*" == 'run test:e2e:settings' ]]; then
@@ -308,6 +332,14 @@ exit 0
 EOF_NPM
 cat >"$target_bin/wp" <<'EOF_WP'
 #!/usr/bin/env bash
+if [[ "${ASSERT_REQUIRED_CHILD_ENV:-false}" == true ]]; then
+  [[ "${WP_BASE_URL:-}" == 'https://phase2.invalid' ]]
+  [[ "${WP_ADMIN_USER:-}" == 'phase2-user-marker' ]]
+  [[ "${WP_ADMIN_PASSWORD:-}" == 'phase2-password-marker' ]]
+  [[ "${WP_PATH:-}" == '/phase2-wp-path-marker' ]]
+  [[ "$*" == *'--path=/phase2-wp-path-marker'* ]]
+  printf 'required-child-env PASS\n' >>"$TARGET_CALL_LOG"
+fi
 printf 'wp %s\n' "$*" >>"$TARGET_CALL_LOG"
 case "$*" in
   *' eval '*)
@@ -347,6 +379,37 @@ grep -F 'db-state: SKIPPED' "$tmp_dir/target-success.output" >/dev/null
 grep -F 'source-integrity: PASS' "$tmp_dir/target-success.output" >/dev/null
 grep -F 'deployed-integrity: PASS' "$tmp_dir/target-success.output" >/dev/null
 grep -F 'final-integrity: PASS' "$tmp_dir/target-success.output" >/dev/null
+
+# Required Phase 2 values may be ordinary, non-exported private-file
+# assignments. Playwright, WP-CLI smoke, and DB-state children must receive the
+# fixed synthetic markers, and WP-CLI must use the configured path rather than
+# falling back to the repository checkout.
+plain_assignment_env="$tmp_dir/plain-assignment.env"
+cat >"$plain_assignment_env" <<EOF_PLAIN_ASSIGNMENTS
+WP_BASE_URL=https://phase2.invalid
+WP_ADMIN_USER=phase2-user-marker
+WP_ADMIN_PASSWORD=phase2-password-marker
+WP_PATH=/phase2-wp-path-marker
+WP_CLI_BIN=$(printf '%q' "$target_bin/wp")
+NMKR_PLUGIN_SLUG=nmkr-connect.php
+NMKR_PHASE2_LOG_DIR=$(printf '%q' "$target_private")
+NMKR_DEPLOYED_PLUGIN_PATH=$(printf '%q' "$deployed_fixture")
+NMKR_PHASE2_INSTALL_DEPS=false
+NMKR_PHASE2_INSTALL_BROWSER=false
+RUN_REAL_SYNC=false
+PW_SAVE_ARTIFACTS=false
+NMKR_RETAIN_AUTH_STATE=false
+EOF_PLAIN_ASSIGNMENTS
+chmod 600 "$plain_assignment_env"
+plain_assignment_args=(--stage pre-merge --class high-risk --profile existing-readonly --reviewed-sha "$target_sha" --deployed-sha "$target_sha" --target-suite settings --deploy-mode skip --runtime-integrity false)
+: >"$target_log"
+env -i PATH="$target_bin:$safe_path" HOME="$synthetic_home" TMPDIR="$synthetic_tmp" REAL_GIT="$real_git" TARGET_CALL_LOG="$target_log" TARGET_REPO="$target_fixture" TARGET_DEPLOYED_REPO="$deployed_fixture" TARGET_ACTIVE_PLUGIN_FILE="$deployed_fixture/nmkr-connect.php" RUNTIME_INTEGRITY_CALL_LOG="$runtime_integrity_log" GIT_STATUS_COUNTER_DIR="$git_counter_dir" ASSERT_REQUIRED_CHILD_ENV=true NMKR_PHASE2_ENV_FILE="$plain_assignment_env" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${plain_assignment_args[@]}" >"$tmp_dir/plain-assignment.output"
+grep -F 'result: PASS' "$tmp_dir/plain-assignment.output" >/dev/null
+grep -Fx 'run test:e2e' "$target_log" >/dev/null
+grep -Fx 'nmkr-wpcli-smoke.sh required-child-env PASS' "$target_log" >/dev/null
+grep -Fx 'nmkr-wpcli-db-state.sh required-child-env PASS' "$target_log" >/dev/null
+grep -Fx 'required-child-env PASS' "$target_log" >/dev/null
+! grep -F -- "--path=$target_fixture" "$target_log" >/dev/null
 
 # Unified operator mode preserves every explicit selection across env sourcing,
 # validates exact pre-merge identity, and keeps deployment invocation opaque.
