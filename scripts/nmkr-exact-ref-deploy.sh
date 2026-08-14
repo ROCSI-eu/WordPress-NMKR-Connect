@@ -67,9 +67,6 @@ candidate_installed=false
 preserve_displaced=false
 cleanup() {
   [[ -z "$staged" || ! -e "$staged" ]] || rm -rf -- "$staged"
-  if ! $preserve_displaced; then
-    [[ -z "$displaced" || ! -e "$displaced" ]] || rm -rf -- "$displaced"
-  fi
   rm -rf -- "$work"
 }
 trap cleanup EXIT
@@ -90,15 +87,60 @@ active_plugin_is_bound() {
   active_file=$(NMKR_PLUGIN_SLUG=nmkr-connect/nmkr-connect.php "$WP_CLI_BIN" --path="$WP_PATH" eval 'require_once ABSPATH . "wp-admin/includes/plugin.php"; $slug = getenv("NMKR_PLUGIN_SLUG"); if ($slug !== "nmkr-connect/nmkr-connect.php" || !is_plugin_active($slug)) { exit(1); } $file = realpath(WP_PLUGIN_DIR . "/" . $slug); if ($file === false || !is_file($file)) { exit(1); } echo $file;' 2>/dev/null) || return 1
   [[ "$active_file" == "$expected_file" ]]
 }
+git_head_and_clean() {
+  local candidate=$1 head status index_entry
+  head=$(git -C "$candidate" rev-parse HEAD 2>/dev/null) || return 1
+  [[ "$head" == "$expected_sha" ]] || return 1
+  status=$(git -C "$candidate" -c core.fileMode=true status --porcelain --untracked-files=no 2>/dev/null) || return 1
+  [[ -z "$status" ]] || return 1
+  git -C "$candidate" ls-files -v -z 2>/dev/null |
+    while IFS= read -r -d '' index_entry; do
+      [[ "${index_entry:0:1}" != S && "${index_entry:0:1}" != [a-z] ]] || exit 1
+    done
+}
 candidate_is_valid() {
   local candidate=$1 item file
-  [[ "$(git -C "$candidate" rev-parse HEAD 2>/dev/null)" == "$expected_sha" ]] || return 1
-  [[ -z "$(git -C "$candidate" -c core.fileMode=true status --porcelain --untracked-files=no 2>/dev/null)" ]] || return 1
+  git_head_and_clean "$candidate" || return 1
   for item in "${required[@]}"; do [[ -e "$candidate/$item" ]] || return 1; done
   while IFS= read -r -d '' file; do
     [[ -x "$candidate/$file" ]] || return 1
   done < <(git -C "$candidate" ls-files -z --stage | awk -v RS='\0' -F '[ \t]+' '$1 == "100755" { sub(/^[^\t]*\t/, ""); printf "%s%c", $0, 0 }')
 }
+
+restore_previous() {
+  local can_replace_live=false
+  [[ -n "$displaced" && -d "$displaced" && ! -L "$displaced" ]] || return 1
+  if [[ ! -e "$live" ]]; then
+    can_replace_live=true
+  elif $candidate_installed || [[ -n "$staged" && ! -e "$staged" ]]; then
+    # The candidate sibling has completed its rename. The displaced sibling is
+    # therefore the recoverable previous tree even if the following flag write
+    # was interrupted.
+    rm -rf -- "$live" || return 1
+    can_replace_live=true
+  fi
+  $can_replace_live || return 1
+  mv -- "$displaced" "$live" >/dev/null 2>&1 || return 1
+  original_displaced=false; candidate_installed=false; displaced=
+  wp_quiet plugin activate nmkr-connect/nmkr-connect.php && active_plugin_is_bound
+}
+handle_signal() {
+  local status=$1
+  trap '' INT TERM
+  if [[ -n "$displaced" && -e "$displaced" ]]; then
+    if restore_previous; then
+      printf 'Exact-ref deployment interrupted; rollback succeeded.\n'
+    else
+      preserve_displaced=true
+      printf 'Exact-ref deployment interrupted; rollback failed.\n'
+    fi
+  else
+    printf 'Exact-ref deployment interrupted.\n'
+  fi
+  exit "$status"
+}
+trap 'handle_signal 130' INT
+trap 'handle_signal 143' TERM
 
 sync_is_idle || fail
 repo=$work/repository
@@ -147,28 +189,18 @@ fi
 candidate_installed=true; staged=
 
 rollback() {
-  $candidate_installed && rm -rf -- "$live"
-  candidate_installed=false
-  if $original_displaced && mv -- "$displaced" "$live" >/dev/null 2>&1; then
-    original_displaced=false; displaced=
-  else
+  if ! restore_previous; then
     preserve_displaced=true
     printf 'Exact-ref deployment failed; rollback failed.\n'
     exit 1
   fi
-  if wp_quiet plugin activate nmkr-connect/nmkr-connect.php && active_plugin_is_bound; then
-    printf 'Exact-ref deployment failed; rollback succeeded.\n'
-  else
-    printf 'Exact-ref deployment failed; rollback failed.\n'
-  fi
+  printf 'Exact-ref deployment failed; rollback succeeded.\n'
   exit 1
 }
 
 wp_quiet plugin activate nmkr-connect/nmkr-connect.php || rollback
 active_plugin_is_bound || rollback
-[[ "$(git -C "$live" rev-parse HEAD 2>/dev/null)" == "$expected_sha" ]] || rollback
-[[ -z "$(git -C "$live" status --porcelain --untracked-files=no 2>/dev/null)" ]] || rollback
-for item in "${required[@]}"; do [[ -e "$live/$item" ]] || rollback; done
+candidate_is_valid "$live" || rollback
 active_plugin_is_bound || rollback
 
 rm -rf -- "$displaced"; displaced=; original_displaced=false

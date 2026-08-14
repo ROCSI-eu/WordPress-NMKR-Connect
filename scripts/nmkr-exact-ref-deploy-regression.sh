@@ -42,6 +42,10 @@ cat >"$bin/composer-sentinel" <<'EOF'
 #!/usr/bin/env bash
 set -eu
 printf 'composer\n' >>"$TEST_STATE/composer-calls"
+if [[ "${TEST_BLOCK_COMPOSER:-false}" == true ]]; then
+  : >"$TEST_STATE/composer-blocked"
+  read -r _ <"$TEST_STATE/composer-release"
+fi
 [[ "${TEST_BECOME_ACTIVE_AFTER_BUILD:-false}" != true ]] || : >"$TEST_STATE/sync-active"
 printf 'PRIVATE_SUBPROCESS_DIAGNOSTIC_SENTINEL\n' >&2
 [[ "${TEST_COMPOSER_FAIL:-false}" != true ]] || exit 9
@@ -49,6 +53,10 @@ mkdir -p vendor/freemius/wordpress-sdk
 printf '<?php // generated synthetic autoloader\n' >vendor/autoload.php
 if [[ "${TEST_MISSING_BUILD:-false}" != true ]]; then
   printf '<?php // generated synthetic SDK entry\n' >vendor/freemius/wordpress-sdk/start.php
+fi
+if [[ -n "${TEST_PREP_HIDDEN_FLAG:-}" ]]; then
+  git update-index "--${TEST_PREP_HIDDEN_FLAG}" nmkr-connect.php
+  printf 'hidden preparation change\n' >>nmkr-connect.php
 fi
 EOF
 cat >"$bin/wp-sentinel" <<'EOF'
@@ -75,6 +83,16 @@ case "${1:-} ${2:-}" in
     fi
     : >"$TEST_STATE/active"
     : >"$TEST_STATE/activated"
+    if [[ "${TEST_BLOCK_ACTIVATION:-false}" == true && ! -e "$TEST_STATE/activation-blocked" ]]; then
+      : >"$TEST_STATE/activation-blocked"
+      read -r _ <"$TEST_STATE/activation-release"
+      : >"$TEST_STATE/activation-released"
+    fi
+    if [[ -n "${TEST_FINAL_HIDDEN_FLAG:-}" && -d "$NMKR_DEPLOYED_PLUGIN_PATH/.git" && ! -e "$TEST_STATE/hidden-final" ]]; then
+      git -C "$NMKR_DEPLOYED_PLUGIN_PATH" update-index "--${TEST_FINAL_HIDDEN_FLAG}" nmkr-connect.php
+      printf 'hidden activated change\n' >>"$NMKR_DEPLOYED_PLUGIN_PATH/nmkr-connect.php"
+      : >"$TEST_STATE/hidden-final"
+    fi
     ;;
   'plugin is-active')
     [[ -e "$TEST_STATE/active" ]] || exit 1
@@ -107,7 +125,7 @@ new_case() {
   export WP_PATH=$case_root/private-wordpress-sentinel
   export WP_CLI_BIN=$bin/wp-sentinel COMPOSER_BIN=$bin/composer-sentinel
   export PATH=$bin:$ORIGINAL_PATH
-  unset TEST_SYNC_ACTIVE TEST_BECOME_ACTIVE_AFTER_BUILD TEST_COMPOSER_FAIL TEST_MISSING_BUILD TEST_ACTIVATE_FAIL_ONCE TEST_FINAL_DIRTY TEST_BOUND_PATH TEST_FAIL_FIRST_MOVE TEST_FAIL_SECOND_MOVE TEST_FAIL_RESTORE_MOVE
+  unset TEST_SYNC_ACTIVE TEST_BECOME_ACTIVE_AFTER_BUILD TEST_COMPOSER_FAIL TEST_MISSING_BUILD TEST_ACTIVATE_FAIL_ONCE TEST_FINAL_DIRTY TEST_BOUND_PATH TEST_FAIL_FIRST_MOVE TEST_FAIL_SECOND_MOVE TEST_FAIL_RESTORE_MOVE TEST_BLOCK_COMPOSER TEST_BLOCK_ACTIVATION TEST_PREP_HIDDEN_FLAG TEST_FINAL_HIDDEN_FLAG
   mkdir -p "$TEST_STATE" "$NMKR_DEPLOYED_PLUGIN_PATH" "$NMKR_DEPLOY_BACKUP_ROOT" "$WP_PATH"
   printf 'original\n' >"$NMKR_DEPLOYED_PLUGIN_PATH/original-marker"
   printf '<?php // original synthetic\n' >"$NMKR_DEPLOYED_PLUGIN_PATH/nmkr-connect.php"
@@ -115,11 +133,27 @@ new_case() {
   output=$case_root/output
 }
 run_deploy() { bash "$deploy" --ref "$1" --expected-sha "$2" >"$output" 2>&1; }
+start_deploy() {
+  setsid bash "$deploy" --ref "$1" --expected-sha "$2" >"$output" 2>&1 &
+  deploy_pid=$!
+}
+wait_for_marker() {
+  local marker=$1 count=0
+  while [[ ! -e "$marker" && $count -lt 100 ]]; do sleep 0.02; count=$((count + 1)); done
+  [[ -e "$marker" ]]
+}
+signal_deploy() {
+  local signal=$1 status=0
+  kill -s "$signal" -- "-$deploy_pid"
+  wait "$deploy_pid" || status=$?
+  [[ $status -ne 0 ]]
+}
 unchanged() { [[ -f "$NMKR_DEPLOYED_PLUGIN_PATH/original-marker" ]]; }
 one_backup() { [[ $(find "$NMKR_DEPLOY_BACKUP_ROOT" -maxdepth 1 -type f -name '*.tar' | wc -l) -eq 1 ]]; }
 no_leaks() {
   ! rg -q 'private-remote-sentinel|private-backup-sentinel|private-wordpress-sentinel|PRIVATE_(WP|SUBPROCESS)_DIAGNOSTIC_SENTINEL' "$output"
 }
+no_success() { ! rg -q '^Exact-ref deployment succeeded\.$' "$output"; }
 ORIGINAL_PATH=$PATH
 
 new_case
@@ -196,6 +230,42 @@ export TEST_COMPOSER_FAIL=true
 check test_must_fail run_deploy refs/heads/main "$sha"
 check unchanged
 check test "$(find "$NMKR_DEPLOY_BACKUP_ROOT" -name '*.tar' | wc -l)" -eq 0
+check no_leaks
+
+new_case
+export TEST_BLOCK_COMPOSER=true
+mkfifo "$TEST_STATE/composer-release"
+start_deploy refs/heads/main "$sha"
+check wait_for_marker "$TEST_STATE/composer-blocked"
+check signal_deploy TERM
+check unchanged
+check test "$(find "${NMKR_DEPLOYED_PLUGIN_PATH%/*}" -maxdepth 1 -type d -name '.nmkr-previous.*' | wc -l)" -eq 0
+check no_leaks
+
+new_case
+export TEST_BLOCK_ACTIVATION=true
+mkfifo "$TEST_STATE/activation-release"
+start_deploy refs/heads/main "$sha"
+check wait_for_marker "$TEST_STATE/activation-blocked"
+check signal_deploy TERM
+check unchanged
+check test "$(find "${NMKR_DEPLOYED_PLUGIN_PATH%/*}" -maxdepth 1 -type d -name '.nmkr-previous.*' | wc -l)" -eq 0
+check no_leaks
+
+for hidden_flag in assume-unchanged skip-worktree; do
+  new_case
+  export TEST_PREP_HIDDEN_FLAG=$hidden_flag
+  check test_must_fail run_deploy refs/heads/main "$sha"
+  check unchanged
+  check test "$(find "$NMKR_DEPLOY_BACKUP_ROOT" -name '*.tar' | wc -l)" -eq 0
+done
+
+new_case
+export TEST_FINAL_HIDDEN_FLAG=assume-unchanged
+check test_must_fail run_deploy refs/heads/main "$sha"
+check unchanged
+check one_backup
+check no_success
 check no_leaks
 
 new_case
