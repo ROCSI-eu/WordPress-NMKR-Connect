@@ -386,6 +386,7 @@ grep -F 'final-integrity: PASS' "$tmp_dir/target-success.output" >/dev/null
 # falling back to the repository checkout.
 plain_assignment_env="$tmp_dir/plain-assignment.env"
 cat >"$plain_assignment_env" <<EOF_PLAIN_ASSIGNMENTS
+set +a
 WP_BASE_URL=https://phase2.invalid
 WP_ADMIN_USER=phase2-user-marker
 WP_ADMIN_PASSWORD=phase2-password-marker
