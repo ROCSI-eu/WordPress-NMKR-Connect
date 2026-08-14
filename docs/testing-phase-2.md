@@ -164,3 +164,41 @@ npm run test:phase2 -- \
 ```
 
 The existing environment-only `test:phase2`, `test:phase2:targeted-readonly`, and `test:phase2:existing-readonly` entry points remain supported with their existing semantics.
+
+## Exact-ref deployment helper
+
+The repository includes a bounded deployment helper for the fixed `nmkr-connect` plugin. It accepts only a supported pull-request head or branch ref and its full reviewed commit ID:
+
+```bash
+bash scripts/nmkr-exact-ref-deploy.sh \
+  --ref refs/pull/<positive-number>/head \
+  --expected-sha <reviewed-40-character-sha>
+```
+
+`refs/heads/<safe-branch-name>` is also supported. Configure `NMKR_DEPLOY_REMOTE`, `NMKR_DEPLOYED_PLUGIN_PATH`, `NMKR_DEPLOY_BACKUP_ROOT`, and `WP_PATH` only in the private VM environment. `WP_CLI_BIN` and `COMPOSER_BIN` optionally select executables and default to `wp` and `composer`. Paths, remotes, credentials, command output, and populated environment files must remain outside GitHub and other public output.
+
+The helper checks that synchronization is idle before preparation and again immediately before replacement. It fetches only the requested ref without tags into an isolated temporary repository, verifies the exact SHA, builds its lockfile with production Composer options, verifies the required plugin files, and preserves the Git metadata and tracked executable modes needed by Phase 2 integrity checks. It then creates one timestamped archive in the private backup root immediately before replacing only the plugin directory and verifies the exact clean deployed commit, production build, and active fixed plugin.
+
+After the previous plugin has been displaced, replacement, activation, or final-integrity failure triggers restoration and activation verification of the previous directory. The console reports only a generic rollback result; the timestamped backup remains available for the private operator. The helper neither changes WordPress data nor runs synchronization.
+
+For a placeholder pre-merge deployment command behind the existing opaque boundary:
+
+```bash
+NMKR_DEPLOY_COMMAND='bash scripts/nmkr-exact-ref-deploy.sh --ref refs/pull/<positive-number>/head --expected-sha <reviewed-40-character-sha>' \
+npm run test:phase2 -- \
+  --stage pre-merge --class high-risk --profile existing-readonly \
+  --reviewed-sha <reviewed-40-character-sha> --deployed-sha <reviewed-40-character-sha> \
+  --target-suite <allowlisted-suite> --deploy-mode run --runtime-integrity true
+```
+
+For post-merge, use the merged main identity in both the helper and Phase 2 deployment expectation:
+
+```bash
+NMKR_DEPLOY_COMMAND='bash scripts/nmkr-exact-ref-deploy.sh --ref refs/heads/main --expected-sha <merged-main-40-character-sha>' \
+npm run test:phase2 -- \
+  --stage post-merge --class high-risk --profile existing-readonly \
+  --reviewed-sha <reviewed-40-character-sha> --deployed-sha <merged-main-40-character-sha> \
+  --target-suite <allowlisted-suite> --deploy-mode run --runtime-integrity true
+```
+
+These examples are placeholders: supply values through approved private configuration, do not paste the populated command or its captured output into GitHub, and do not claim deployment validation until the separately reviewed private VM run is complete.

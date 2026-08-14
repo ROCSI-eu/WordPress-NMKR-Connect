@@ -9,6 +9,7 @@
     "test:phase2": "bash scripts/nmkr-phase2-test-runner.sh",
     "test:phase2:existing-readonly": "NMKR_PHASE2_PROFILE=existing-readonly bash scripts/nmkr-phase2-test-runner.sh",
     "test:phase2:targeted-readonly": "NMKR_PHASE2_PROFILE=targeted-readonly bash scripts/nmkr-phase2-test-runner.sh",
+    "test:deploy:regression": "bash scripts/nmkr-exact-ref-deploy-regression.sh",
     "test:php74": "bash scripts/nmkr-php74-compat-scan.sh",
     "test:public": "bash scripts/nmkr-public-checks.sh",
     "test:e2e:settings": "node scripts/nmkr-playwright.js tests/e2e/nmkr-settings.regression.spec.ts",
