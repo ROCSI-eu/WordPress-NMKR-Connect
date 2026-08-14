@@ -35,10 +35,19 @@ fresh="$(timestamp -1)"
 printf '[%s] PHP Warning: SYNTHETIC_PRIVATE_MARKER_OLD\n[%s] benign entry\n' "$old" "$fresh" >"$FIXTURE_ROOT/old.log"
 run_case 0 "$FIXTURE_ROOT/old.log"
 
-printf '[%s] PHP Warning: SYNTHETIC_PRIVATE_MARKER_WARNING\n' "$fresh" >"$FIXTURE_ROOT/warning.log"
+printf '[%s] PHP Warning: SYNTHETIC_FIRST_PARTY_WARNING in /synthetic/plugin/includes/check.php on line 12\n' "$fresh" >"$FIXTURE_ROOT/warning.log"
 run_case 1 "$FIXTURE_ROOT/warning.log"
 
-printf '[%s] PHP Fatal error: SYNTHETIC_PRIVATE_MARKER_FATAL\n' "$fresh" >"$FIXTURE_ROOT/fatal.log"
+printf '[%s] PHP Notice: SYNTHETIC_UNCLASSIFIED_NOTICE\n' "$fresh" >"$FIXTURE_ROOT/unclassified-notice.log"
+run_case 1 "$FIXTURE_ROOT/unclassified-notice.log"
+
+printf '[%s] PHP Warning: SYNTHETIC_VENDOR_WARNING in /synthetic/plugin/vendor/package/check.php on line 34\n' "$fresh" >"$FIXTURE_ROOT/vendor-warning.log"
+run_case 3 "$FIXTURE_ROOT/vendor-warning.log"
+
+printf '[%s] PHP Notice: SYNTHETIC_VENDOR_NOTICE in C:\\synthetic\\plugin\\vendor\\package\\check.php on line 56\n' "$fresh" >"$FIXTURE_ROOT/vendor-notice.log"
+run_case 3 "$FIXTURE_ROOT/vendor-notice.log"
+
+printf '[%s] PHP Fatal error: SYNTHETIC_VENDOR_FATAL in /synthetic/plugin/vendor/package/check.php on line 78\n' "$fresh" >"$FIXTURE_ROOT/fatal.log"
 run_case 1 "$FIXTURE_ROOT/fatal.log"
 
 printf '[%s] NMKR Error: SYNTHETIC_PRIVATE_MARKER_NMKR\n' "$fresh" >"$FIXTURE_ROOT/nmkr.log"
@@ -46,6 +55,9 @@ run_case 1 "$FIXTURE_ROOT/nmkr.log"
 
 printf 'PHP Notice: SYNTHETIC_PRIVATE_MARKER_UNCLASSIFIED\n' >"$FIXTURE_ROOT/unclassified.log"
 run_case 1 "$FIXTURE_ROOT/unclassified.log"
+
+printf '[%s] PHP Warning: SYNTHETIC_VENDOR_MIXED in /synthetic/plugin/vendor/package/check.php on line 90\n[%s] PHP Warning: SYNTHETIC_FIRST_PARTY_MIXED in /synthetic/plugin/includes/check.php on line 91\n' "$fresh" "$fresh" >"$FIXTURE_ROOT/mixed.log"
+run_case 1 "$FIXTURE_ROOT/mixed.log"
 
 printf '[%s] PHP Warning: SYNTHETIC_PRIVATE_MARKER_OUTSIDE_TAIL\n' "$fresh" >"$FIXTURE_ROOT/tail.log"
 for i in $(seq 1 300); do printf '[%s] benign tail entry %s\n' "$fresh" "$i"; done >>"$FIXTURE_ROOT/tail.log"

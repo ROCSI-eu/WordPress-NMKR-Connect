@@ -8,10 +8,16 @@ import datetime as dt
 import os
 import re
 import sys
-ERROR_PATTERN = re.compile(
-    r"PHP (?:Fatal error|Parse error|Warning|Notice)|NMKR.*(?:Fatal|Error|Exception)",
+
+BLOCKING_PATTERN = re.compile(
+    r"PHP (?:Fatal error|Parse error)|NMKR.*(?:Fatal|Error|Exception)",
     re.IGNORECASE,
 )
+WARNING_NOTICE_PATTERN = re.compile(r"PHP (?:Warning|Notice)", re.IGNORECASE)
+SOURCE_LOCATION_PATTERN = re.compile(
+    r"\bin\s+(.+?)\s+on line\s+\d+\s*$", re.IGNORECASE
+)
+VENDOR_SEGMENT_PATTERN = re.compile(r"(?:^|/)vendor(?:/|$)", re.IGNORECASE)
 TIMESTAMP_PATTERN = re.compile(r"^\[([^]]+)]")
 TIMESTAMP_FORMATS = (
     "%d-%b-%Y %H:%M:%S %Z",
@@ -38,7 +44,22 @@ def parse_timestamp(line: str) -> dt.datetime | None:
     return None
 
 
-def has_failing_match(path: str, lookback_minutes: int, now: dt.datetime) -> bool:
+def is_qualifying(line: str, cutoff: dt.datetime, file_is_recent: bool) -> bool:
+    timestamp = parse_timestamp(line)
+    if timestamp is None:
+        return file_is_recent
+    return timestamp >= cutoff
+
+
+def is_vendor_warning_or_notice(line: str) -> bool:
+    location = SOURCE_LOCATION_PATTERN.search(line)
+    if location is None:
+        return False
+    normalized_path = location.group(1).strip().replace("\\", "/")
+    return VENDOR_SEGMENT_PATTERN.search(normalized_path) is not None
+
+
+def classify_matches(path: str, lookback_minutes: int, now: dt.datetime) -> int:
     cutoff = now - dt.timedelta(minutes=lookback_minutes)
     file_is_recent = dt.datetime.fromtimestamp(
         os.stat(path, follow_symlinks=False).st_mtime, dt.timezone.utc
@@ -46,16 +67,18 @@ def has_failing_match(path: str, lookback_minutes: int, now: dt.datetime) -> boo
 
     lines = tail_lines(path, 300)
 
+    vendor_diagnostic = False
     for line in lines:
-        if ERROR_PATTERN.search(line) is None:
+        blocking = BLOCKING_PATTERN.search(line) is not None
+        warning_or_notice = WARNING_NOTICE_PATTERN.search(line) is not None
+        if not blocking and not warning_or_notice:
             continue
-        timestamp = parse_timestamp(line)
-        if timestamp is None:
-            if file_is_recent:
-                return True
-        elif timestamp >= cutoff:
-            return True
-    return False
+        if not is_qualifying(line, cutoff, file_is_recent):
+            continue
+        if blocking or not is_vendor_warning_or_notice(line):
+            return 1
+        vendor_diagnostic = True
+    return 3 if vendor_diagnostic else 0
 
 
 def tail_lines(path: str, limit: int) -> list[str]:
@@ -92,10 +115,8 @@ def main() -> int:
         return 2
 
     try:
-        return int(
-            has_failing_match(
-                args.path, args.lookback_minutes, dt.datetime.now(dt.timezone.utc)
-            )
+        return classify_matches(
+            args.path, args.lookback_minutes, dt.datetime.now(dt.timezone.utc)
         )
     except (OSError, OverflowError, ValueError):
         return 2

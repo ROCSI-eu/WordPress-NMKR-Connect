@@ -41,7 +41,7 @@ Investigate the smallest failing stage and inspect private diagnostics only in t
 
 ### Third-party vendor warnings
 
-A fresh warning attributable only to third-party vendor code may be reported as non-blocking when dependency/runtime-integrity files did not change, runtime integrity passes where applicable, and relevant functional/state validation passes. It must be reported and must not be silently ignored. It is blocking when dependency, build, or deployment state changed, another relevant validation failed, its origin is ambiguous, or it is fatal, parse, or uncaught severity. The current log classifier remains fail-closed; this policy permits a documented maintainer disposition after private inspection rather than automatic suppression.
+A fresh PHP warning or notice with a conventional source location classified inside a `vendor/` path segment is surfaced generically by WP-CLI smoke but does not block validation. Fatal and parse errors remain blocking regardless of origin, as do NMKR fatal/error/exception diagnostics, first-party warnings/notices, and warnings/notices whose source cannot be safely classified. The classifier remains fail-closed for ambiguous diagnostics and never prints log content or source paths.
 
 ## Follow-up commits and review invalidation
 

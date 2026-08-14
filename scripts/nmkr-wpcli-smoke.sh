@@ -87,8 +87,17 @@ if [[ -f "$log_path" ]]; then
     :
   else
     classifier_status=$?
-    (( classifier_status == 1 )) || fail "Could not classify debug.log entries safely."
-    fail "Fresh or timestamp-unclassified debug.log entries contain PHP or NMKR plugin errors. Review the VM-local log manually."
+    case "$classifier_status" in
+      1)
+        fail "Fresh or timestamp-unclassified debug.log entries contain PHP or NMKR plugin errors. Review the VM-local log manually."
+        ;;
+      3)
+        info "Recent third-party vendor warnings/notices were detected and did not block validation."
+        ;;
+      *)
+        fail "Could not classify debug.log entries safely."
+        ;;
+    esac
   fi
 else
   info "debug.log was not found; skipping log scan."

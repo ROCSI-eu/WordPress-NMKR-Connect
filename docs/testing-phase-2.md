@@ -2,7 +2,7 @@
 
 The [validation policy](validation-policy.md) determines when to use full or targeted private validation. Phase 2 orchestrates validation of a deployed NMKR Connect installation from a private, user-owned checkout. For Playwright-only guidance and the current coverage map, see [`testing-playwright.md`](testing-playwright.md).
 
-The runner combines optional deployment, dependency/browser preparation, WordPress readiness, the complete Playwright suite, WP-CLI smoke checks, and WP-CLI database-state checks. It does not change the implementations of those checks, and real NMKR synchronization remains outside this workflow.
+The runner combines optional deployment, dependency/browser preparation, WordPress readiness, the complete Playwright suite, WP-CLI smoke checks, and WP-CLI database-state checks. WP-CLI smoke reports recent third-party `vendor/` PHP warnings/notices generically without blocking; fatal/parse errors, NMKR errors, first-party warnings/notices, and unclassifiable warnings/notices remain blocking. It does not change the implementations of those checks, and real NMKR synchronization remains outside this workflow.
 
 ## Private inputs and external state
 
