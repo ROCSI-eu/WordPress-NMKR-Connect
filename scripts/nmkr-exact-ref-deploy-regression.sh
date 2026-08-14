@@ -9,7 +9,7 @@ export GIT_AUTHOR_NAME='Synthetic Test' GIT_AUTHOR_EMAIL='test@example.invalid'
 export GIT_COMMITTER_NAME=$GIT_AUTHOR_NAME GIT_COMMITTER_EMAIL=$GIT_AUTHOR_EMAIL
 
 pass=0
-check() { if "$@"; then pass=$((pass + 1)); else printf 'Deploy regression failed.\n' >&2; exit 1; fi; }
+check() { if "$@"; then pass=$((pass + 1)); else printf 'Deploy regression failed at assertion %d.\n' "$((pass + 1))" >&2; exit 1; fi; }
 test_must_fail() { if "$@"; then return 1; else return 0; fi; }
 
 source_repo=$tmp/source
@@ -42,6 +42,7 @@ cat >"$bin/composer-sentinel" <<'EOF'
 #!/usr/bin/env bash
 set -eu
 printf 'composer\n' >>"$TEST_STATE/composer-calls"
+[[ "${TEST_BECOME_ACTIVE_AFTER_BUILD:-false}" != true ]] || : >"$TEST_STATE/sync-active"
 printf 'PRIVATE_SUBPROCESS_DIAGNOSTIC_SENTINEL\n' >&2
 [[ "${TEST_COMPOSER_FAIL:-false}" != true ]] || exit 9
 mkdir -p vendor/freemius/wordpress-sdk
@@ -56,12 +57,24 @@ set -eu
 printf 'PRIVATE_WP_DIAGNOSTIC_SENTINEL\n' >&2
 while [[ "${1:-}" == --path=* ]]; do shift; done
 case "${1:-} ${2:-}" in
-  'eval '*) [[ "${TEST_SYNC_ACTIVE:-false}" != true ]] && printf NMKR_IDLE ;;
+  'core is-installed') exit 0 ;;
+  'eval '*)
+    if [[ "${2:-}" == *'require_once ABSPATH'* ]]; then
+      if [[ "${TEST_FINAL_DIRTY:-false}" == true && -e "$TEST_STATE/activated" && ! -e "$TEST_STATE/dirtied" ]]; then
+        printf 'dirty\n' >>"$NMKR_DEPLOYED_PLUGIN_PATH/nmkr-connect.php"; : >"$TEST_STATE/dirtied"
+      fi
+      if [[ -n "${TEST_BOUND_PATH:-}" ]]; then printf '%s' "$TEST_BOUND_PATH"; else printf '%s/nmkr-connect.php' "$(realpath -e "$NMKR_DEPLOYED_PLUGIN_PATH")"; fi
+    else
+      [[ "${TEST_SYNC_ACTIVE:-false}" != true && ! -e "$TEST_STATE/sync-active" ]] || exit 25
+      printf synthetic-idle-digest
+    fi
+    ;;
   'plugin activate')
     if [[ "${TEST_ACTIVATE_FAIL_ONCE:-false}" == true && ! -e "$TEST_STATE/activation-failed" ]]; then
       : >"$TEST_STATE/activation-failed"; exit 8
     fi
     : >"$TEST_STATE/active"
+    : >"$TEST_STATE/activated"
     ;;
   'plugin is-active')
     [[ -e "$TEST_STATE/active" ]] || exit 1
@@ -73,7 +86,17 @@ case "${1:-} ${2:-}" in
   *) exit 2 ;;
 esac
 EOF
-chmod +x "$bin/composer-sentinel" "$bin/wp-sentinel"
+cat >"$bin/mv" <<'EOF'
+#!/usr/bin/env bash
+set -eu
+args=("$@"); count=${#args[@]}; src=${args[$((count-2))]}; dst=${args[$((count-1))]}
+if [[ "$src" == "$NMKR_DEPLOYED_PLUGIN_PATH" && "${TEST_FAIL_FIRST_MOVE:-false}" == true ]]; then exit 7; fi
+if [[ "$src" == */.nmkr-candidate.* && "${TEST_FAIL_SECOND_MOVE:-false}" == true ]]; then exit 7; fi
+if [[ "$src" == */.nmkr-previous.* && "${TEST_FAIL_RESTORE_MOVE:-false}" == true ]]; then exit 7; fi
+printf '%s\n%s\n' "$src" "$dst" >>"$TEST_STATE/move-paths"
+exec /bin/mv "$@"
+EOF
+chmod +x "$bin/composer-sentinel" "$bin/wp-sentinel" "$bin/mv"
 
 new_case() {
   case_root=$(mktemp -d "$tmp/case.XXXXXXXX")
@@ -83,9 +106,12 @@ new_case() {
   export NMKR_DEPLOY_BACKUP_ROOT=$case_root/private-backup-sentinel
   export WP_PATH=$case_root/private-wordpress-sentinel
   export WP_CLI_BIN=$bin/wp-sentinel COMPOSER_BIN=$bin/composer-sentinel
-  unset TEST_SYNC_ACTIVE TEST_COMPOSER_FAIL TEST_MISSING_BUILD TEST_ACTIVATE_FAIL_ONCE TEST_FINAL_DIRTY
+  export PATH=$bin:$ORIGINAL_PATH
+  unset TEST_SYNC_ACTIVE TEST_BECOME_ACTIVE_AFTER_BUILD TEST_COMPOSER_FAIL TEST_MISSING_BUILD TEST_ACTIVATE_FAIL_ONCE TEST_FINAL_DIRTY TEST_BOUND_PATH TEST_FAIL_FIRST_MOVE TEST_FAIL_SECOND_MOVE TEST_FAIL_RESTORE_MOVE
   mkdir -p "$TEST_STATE" "$NMKR_DEPLOYED_PLUGIN_PATH" "$NMKR_DEPLOY_BACKUP_ROOT" "$WP_PATH"
   printf 'original\n' >"$NMKR_DEPLOYED_PLUGIN_PATH/original-marker"
+  printf '<?php // original synthetic\n' >"$NMKR_DEPLOYED_PLUGIN_PATH/nmkr-connect.php"
+  : >"$TEST_STATE/active"
   output=$case_root/output
 }
 run_deploy() { bash "$deploy" --ref "$1" --expected-sha "$2" >"$output" 2>&1; }
@@ -94,6 +120,7 @@ one_backup() { [[ $(find "$NMKR_DEPLOY_BACKUP_ROOT" -maxdepth 1 -type f -name '*
 no_leaks() {
   ! rg -q 'private-remote-sentinel|private-backup-sentinel|private-wordpress-sentinel|PRIVATE_(WP|SUBPROCESS)_DIAGNOSTIC_SENTINEL' "$output"
 }
+ORIGINAL_PATH=$PATH
 
 new_case
 check run_deploy refs/pull/123/head "$sha"
@@ -126,6 +153,45 @@ check unchanged
 check test ! -e "$TEST_STATE/composer-calls"
 
 new_case
+export TEST_BECOME_ACTIVE_AFTER_BUILD=true
+check test_must_fail run_deploy refs/heads/main "$sha"
+check unchanged
+check one_backup
+
+new_case
+export TEST_BOUND_PATH=$case_root/plugins/other/nmkr-connect.php
+check test_must_fail run_deploy refs/heads/main "$sha"
+check unchanged
+check one_backup
+
+new_case
+export TEST_FAIL_FIRST_MOVE=true
+check test_must_fail run_deploy refs/heads/main "$sha"
+check unchanged
+
+new_case
+export TEST_FAIL_SECOND_MOVE=true
+check test_must_fail run_deploy refs/heads/main "$sha"
+check unchanged
+check one_backup
+
+new_case
+export TEST_ACTIVATE_FAIL_ONCE=true
+check test_must_fail run_deploy refs/heads/main "$sha"
+check unchanged
+check test -e "$TEST_STATE/active"
+
+new_case
+export TEST_FAIL_SECOND_MOVE=true TEST_FAIL_RESTORE_MOVE=true
+check test_must_fail run_deploy refs/heads/main "$sha"
+check test ! -e "$NMKR_DEPLOYED_PLUGIN_PATH"
+check test "$(find "${NMKR_DEPLOYED_PLUGIN_PATH%/*}" -maxdepth 1 -type d -name '.nmkr-previous.*' | wc -l)" -eq 1
+
+new_case
+check run_deploy refs/heads/main "$sha"
+check awk -v parent="${NMKR_DEPLOYED_PLUGIN_PATH%/*}" 'index($0,parent "/.nmkr-")==1 || $0==parent "/nmkr-connect" {next} {exit 1}' "$TEST_STATE/move-paths"
+
+new_case
 export TEST_COMPOSER_FAIL=true
 check test_must_fail run_deploy refs/heads/main "$sha"
 check unchanged
@@ -136,14 +202,6 @@ new_case
 export TEST_MISSING_BUILD=true
 check test_must_fail run_deploy refs/heads/main "$sha"
 check unchanged
-
-new_case
-export TEST_ACTIVATE_FAIL_ONCE=true
-check test_must_fail run_deploy refs/heads/main "$sha"
-check unchanged
-check one_backup
-check test -e "$TEST_STATE/active"
-check no_leaks
 
 new_case
 export TEST_FINAL_DIRTY=true

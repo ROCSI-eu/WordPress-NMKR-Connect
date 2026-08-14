@@ -44,7 +44,7 @@ for name in NMKR_DEPLOY_REMOTE NMKR_DEPLOYED_PLUGIN_PATH NMKR_DEPLOY_BACKUP_ROOT
 done
 WP_CLI_BIN=${WP_CLI_BIN:-wp}
 COMPOSER_BIN=${COMPOSER_BIN:-composer}
-for command_name in git tar flock mktemp "$WP_CLI_BIN" "$COMPOSER_BIN"; do
+for command_name in git tar flock mktemp cp mv realpath "$WP_CLI_BIN" "$COMPOSER_BIN"; do
   command -v "$command_name" >/dev/null 2>&1 || fail
 done
 
@@ -60,24 +60,44 @@ case "$backup_root/" in "$live/"*) fail ;; esac
 exec 9>"$backup_root/.nmkr-exact-ref-deploy.lock" || fail
 flock -n 9 || fail
 work=$(mktemp -d "${TMPDIR:-/tmp}/nmkr-exact-ref.XXXXXXXX") || fail
+staged=
 displaced=
+original_displaced=false
+candidate_installed=false
+preserve_displaced=false
 cleanup() {
-  [[ -z "$displaced" || ! -e "$displaced" ]] || rm -rf -- "$displaced"
+  [[ -z "$staged" || ! -e "$staged" ]] || rm -rf -- "$staged"
+  if ! $preserve_displaced; then
+    [[ -z "$displaced" || ! -e "$displaced" ]] || rm -rf -- "$displaced"
+  fi
   rm -rf -- "$work"
 }
 trap cleanup EXIT
 
 wp_quiet() { "$WP_CLI_BIN" --path="$WP_PATH" "$@" >/dev/null 2>&1; }
 sync_is_idle() {
-  local answer
-  answer=$("$WP_CLI_BIN" --path="$WP_PATH" eval '
-    $truthy = static function ($value) { return !empty($value); };
-    $owner = get_option("nmkr_sync_owner", false);
-    $data = get_option("nmkr_sync_data", false);
-    $active_data = is_array($data) && in_array(($data["status"] ?? ""), array("initializing", "queued", "running", "stop_requested", "finalizing"), true);
-    if (!$truthy(get_option("nmkr_sync_in_progress", false)) && !$truthy(get_transient("nmkr_sync_in_progress")) && empty($owner) && !$active_data) { echo "NMKR_IDLE"; }
-  ' 2>/dev/null) || return 1
-  [[ "$answer" == NMKR_IDLE ]]
+  NMKR_PLUGIN_SLUG=nmkr-connect/nmkr-connect.php WP_PATH="$WP_PATH" WP_CLI_BIN="$WP_CLI_BIN" \
+    "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/nmkr-wpcli-ajax-security-state.sh" idle >/dev/null 2>&1
+}
+active_plugin_is_bound() {
+  local deployed_root expected_file active_file
+  [[ ! -L "$live" ]] || return 1
+  deployed_root=$(realpath -e -- "$live" 2>/dev/null) || return 1
+  [[ -d "$deployed_root" ]] || return 1
+  expected_file=$deployed_root/nmkr-connect.php
+  [[ -f "$expected_file" && ! -L "$expected_file" ]] || return 1
+  [[ "$(realpath -e -- "$expected_file" 2>/dev/null)" == "$expected_file" ]] || return 1
+  active_file=$(NMKR_PLUGIN_SLUG=nmkr-connect/nmkr-connect.php "$WP_CLI_BIN" --path="$WP_PATH" eval 'require_once ABSPATH . "wp-admin/includes/plugin.php"; $slug = getenv("NMKR_PLUGIN_SLUG"); if ($slug !== "nmkr-connect/nmkr-connect.php" || !is_plugin_active($slug)) { exit(1); } $file = realpath(WP_PLUGIN_DIR . "/" . $slug); if ($file === false || !is_file($file)) { exit(1); } echo $file;' 2>/dev/null) || return 1
+  [[ "$active_file" == "$expected_file" ]]
+}
+candidate_is_valid() {
+  local candidate=$1 item file
+  [[ "$(git -C "$candidate" rev-parse HEAD 2>/dev/null)" == "$expected_sha" ]] || return 1
+  [[ -z "$(git -C "$candidate" -c core.fileMode=true status --porcelain --untracked-files=no 2>/dev/null)" ]] || return 1
+  for item in "${required[@]}"; do [[ -e "$candidate/$item" ]] || return 1; done
+  while IFS= read -r -d '' file; do
+    [[ -x "$candidate/$file" ]] || return 1
+  done < <(git -C "$candidate" ls-files -z --stage | awk -v RS='\0' -F '[ \t]+' '$1 == "100755" { sub(/^[^\t]*\t/, ""); printf "%s%c", $0, 0 }')
 }
 
 sync_is_idle || fail
@@ -96,26 +116,47 @@ for item in "${required[@]}"; do [[ -e "$repo/$item" ]] || fail; done
 find "$repo" -type d -exec chmod 0755 {} + >/dev/null 2>&1 || fail
 find "$repo" -type f -exec chmod 0644 {} + >/dev/null 2>&1 || fail
 while IFS= read -r -d '' file; do chmod 0755 "$repo/$file" || fail; done < <(git -C "$repo" ls-files -z --stage | awk -v RS='\0' -F '[ \t]+' '$1 == "100755" { sub(/^[^\t]*\t/, ""); printf "%s%c", $0, 0 }')
-[[ "$(git -C "$repo" rev-parse HEAD 2>/dev/null)" == "$expected_sha" ]] || fail
-[[ -z "$(git -C "$repo" status --porcelain --untracked-files=no 2>/dev/null)" ]] || fail
+candidate_is_valid "$repo" || fail
 
-sync_is_idle || fail
 stamp=$(date -u +%Y%m%dT%H%M%SZ)-$$
 backup="$backup_root/nmkr-connect-$stamp.tar"
 tar -C "$live_parent" -cpf "$backup" -- "${live##*/}" >/dev/null 2>&1 || fail
-displaced=$work/previous-plugin
-if ! mv -- "$live" "$displaced" >/dev/null 2>&1 || ! mv -- "$repo" "$live" >/dev/null 2>&1; then
-  rm -rf -- "$live"
-  mv -- "$displaced" "$live" >/dev/null 2>&1 || true
-  displaced=
-  printf 'Exact-ref deployment failed; rollback attempted.\n'
+staged=$(mktemp -d "$live_parent/.nmkr-candidate.XXXXXXXX") || fail
+cp -a -- "$repo/." "$staged/" >/dev/null 2>&1 || fail
+candidate_is_valid "$staged" || fail
+displaced=$(mktemp -d "$live_parent/.nmkr-previous.XXXXXXXX") || fail
+rmdir -- "$displaced" >/dev/null 2>&1 || fail
+
+active_plugin_is_bound || fail
+sync_is_idle || fail
+if ! mv -- "$live" "$displaced" >/dev/null 2>&1; then
+  printf 'Exact-ref deployment failed.\n'
   exit 1
 fi
+original_displaced=true
+if ! mv -- "$staged" "$live" >/dev/null 2>&1; then
+  if mv -- "$displaced" "$live" >/dev/null 2>&1; then
+    original_displaced=false; displaced=
+    printf 'Exact-ref deployment failed; rollback succeeded.\n'
+  else
+    preserve_displaced=true
+    printf 'Exact-ref deployment failed; rollback failed.\n'
+  fi
+  exit 1
+fi
+candidate_installed=true; staged=
 
 rollback() {
-  rm -rf -- "$live"
-  if mv -- "$displaced" "$live" >/dev/null 2>&1 && wp_quiet plugin activate nmkr-connect && wp_quiet plugin is-active nmkr-connect; then
-    displaced=
+  $candidate_installed && rm -rf -- "$live"
+  candidate_installed=false
+  if $original_displaced && mv -- "$displaced" "$live" >/dev/null 2>&1; then
+    original_displaced=false; displaced=
+  else
+    preserve_displaced=true
+    printf 'Exact-ref deployment failed; rollback failed.\n'
+    exit 1
+  fi
+  if wp_quiet plugin activate nmkr-connect/nmkr-connect.php && active_plugin_is_bound; then
     printf 'Exact-ref deployment failed; rollback succeeded.\n'
   else
     printf 'Exact-ref deployment failed; rollback failed.\n'
@@ -123,11 +164,12 @@ rollback() {
   exit 1
 }
 
-wp_quiet plugin activate nmkr-connect || rollback
-wp_quiet plugin is-active nmkr-connect || rollback
+wp_quiet plugin activate nmkr-connect/nmkr-connect.php || rollback
+active_plugin_is_bound || rollback
 [[ "$(git -C "$live" rev-parse HEAD 2>/dev/null)" == "$expected_sha" ]] || rollback
 [[ -z "$(git -C "$live" status --porcelain --untracked-files=no 2>/dev/null)" ]] || rollback
 for item in "${required[@]}"; do [[ -e "$live/$item" ]] || rollback; done
+active_plugin_is_bound || rollback
 
-rm -rf -- "$displaced"; displaced=
+rm -rf -- "$displaced"; displaced=; original_displaced=false
 printf 'Exact-ref deployment succeeded.\n'
