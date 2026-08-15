@@ -167,9 +167,9 @@ signal_deploy() {
 unchanged() { [[ -f "$NMKR_DEPLOYED_PLUGIN_PATH/original-marker" ]]; }
 one_backup() { [[ $(find "$NMKR_DEPLOY_BACKUP_ROOT" -maxdepth 1 -type f -name '*.tar' | wc -l) -eq 1 ]]; }
 no_leaks() {
-  ! rg -q 'private-remote-sentinel|private-backup-sentinel|private-wordpress-sentinel|PRIVATE_(WP|SUBPROCESS)_DIAGNOSTIC_SENTINEL' "$output"
+  ! grep -E -q -- 'private-remote-sentinel|private-backup-sentinel|private-wordpress-sentinel|PRIVATE_(WP|SUBPROCESS)_DIAGNOSTIC_SENTINEL' "$output"
 }
-no_success() { ! rg -q '^Exact-ref deployment succeeded\.$' "$output"; }
+no_success() { ! grep -E -q -- '^Exact-ref deployment succeeded\.$' "$output"; }
 ORIGINAL_PATH=$PATH
 
 new_case
@@ -281,7 +281,7 @@ for deployment_signal in INT TERM; do
   check unchanged
   check test -e "$TEST_STATE/rollback-activation-released"
   check test "$(find "${NMKR_DEPLOYED_PLUGIN_PATH%/*}" -maxdepth 1 -type d -name '.nmkr-previous.*' | wc -l)" -eq 0
-  check rg -q '^Exact-ref deployment failed; rollback succeeded\.$' "$output"
+  check grep -E -q -- '^Exact-ref deployment failed; rollback succeeded\.$' "$output"
   check no_success
   check no_leaks
 done
@@ -301,7 +301,7 @@ for deployment_signal in INT TERM; do
   check test ! -e "$NMKR_DEPLOYED_PLUGIN_PATH/original-marker"
   check test -e "$TEST_STATE/previous-delete-released"
   check test "$(find "${NMKR_DEPLOYED_PLUGIN_PATH%/*}" -maxdepth 1 -type d -name '.nmkr-previous.*' | wc -l)" -eq 0
-  check rg -q '^Exact-ref deployment succeeded\.$' "$output"
+  check grep -E -q -- '^Exact-ref deployment succeeded\.$' "$output"
   check no_leaks
 done
 
