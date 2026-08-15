@@ -65,6 +65,7 @@ displaced=
 original_displaced=false
 candidate_installed=false
 preserve_displaced=false
+restoration_in_progress=false
 cleanup() {
   [[ -z "$staged" || ! -e "$staged" ]] || rm -rf -- "$staged"
   rm -rf -- "$work"
@@ -108,21 +109,37 @@ candidate_is_valid() {
 }
 
 restore_previous() {
-  local can_replace_live=false
+  local can_replace_live=false restored=false
   [[ -n "$displaced" && -d "$displaced" && ! -L "$displaced" ]] || return 1
+  # Restoration is one indivisible transaction: children inherit ignored
+  # deployment signals until the previous tree is active and exactly bound.
+  trap '' INT TERM
   if [[ ! -e "$live" ]]; then
     can_replace_live=true
   elif $candidate_installed || [[ -n "$staged" && ! -e "$staged" ]]; then
     # The candidate sibling has completed its rename. The displaced sibling is
     # therefore the recoverable previous tree even if the following flag write
     # was interrupted.
-    rm -rf -- "$live" || return 1
+    rm -rf -- "$live" || restored=false
     can_replace_live=true
   fi
-  $can_replace_live || return 1
-  mv -- "$displaced" "$live" >/dev/null 2>&1 || return 1
-  original_displaced=false; candidate_installed=false; displaced=
-  wp_quiet plugin activate nmkr-connect/nmkr-connect.php && active_plugin_is_bound
+  if $can_replace_live && [[ ! -e "$live" ]]; then
+    restoration_in_progress=true
+    if mv -- "$displaced" "$live" >/dev/null 2>&1; then
+      candidate_installed=false
+      if wp_quiet plugin activate nmkr-connect/nmkr-connect.php && active_plugin_is_bound; then
+        restored=true
+      fi
+    fi
+  fi
+  if $restored; then
+    original_displaced=false; restoration_in_progress=false; displaced=
+  else
+    preserve_displaced=true
+  fi
+  trap 'handle_signal 130' INT
+  trap 'handle_signal 143' TERM
+  $restored
 }
 handle_signal() {
   local status=$1
@@ -203,5 +220,15 @@ active_plugin_is_bound || rollback
 candidate_is_valid "$live" || rollback
 active_plugin_is_bound || rollback
 
-rm -rf -- "$displaced"; displaced=; original_displaced=false
+trap '' INT TERM
+if rm -rf -- "$displaced"; then
+  displaced=; original_displaced=false
+else
+  preserve_displaced=true
+  trap 'handle_signal 130' INT
+  trap 'handle_signal 143' TERM
+  fail
+fi
+trap 'handle_signal 130' INT
+trap 'handle_signal 143' TERM
 printf 'Exact-ref deployment succeeded.\n'
