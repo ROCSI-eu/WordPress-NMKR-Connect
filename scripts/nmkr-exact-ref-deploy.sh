@@ -66,8 +66,12 @@ original_displaced=false
 candidate_installed=false
 preserve_displaced=false
 restoration_in_progress=false
+backup_temp=
+pending_signal=
+signal_handling=false
 cleanup() {
   [[ -z "$staged" || ! -e "$staged" ]] || rm -rf -- "$staged"
+  [[ -z "$backup_temp" || ! -e "$backup_temp" ]] || rm -f -- "$backup_temp"
   rm -rf -- "$work"
 }
 trap cleanup EXIT
@@ -108,41 +112,76 @@ candidate_is_valid() {
   done < <(git -C "$candidate" ls-files -z --stage | awk -v RS='\0' -F '[ \t]+' '$1 == "100755" { sub(/^[^\t]*\t/, ""); printf "%s%c", $0, 0 }')
 }
 
-restore_previous() {
-  local can_replace_live=false restored=false
+defer_signal() {
+  [[ -n "$pending_signal" ]] || pending_signal=$1
+}
+run_protected() {
+  local child status=0
+  if $signal_handling; then
+    trap '' INT TERM
+    "$@"
+    return
+  fi
+  pending_signal=
+  trap 'defer_signal INT' INT
+  trap 'defer_signal TERM' TERM
+  ( trap '' INT TERM; "$@" ) &
+  child=$!
+  while true; do
+    if wait "$child"; then
+      status=0
+      break
+    else
+      status=$?
+      kill -0 "$child" 2>/dev/null || break
+    fi
+  done
+  trap 'handle_signal INT' INT
+  trap 'handle_signal TERM' TERM
+  if [[ -n "$pending_signal" ]]; then
+    local replay=$pending_signal
+    pending_signal=
+    handle_signal "$replay"
+  fi
+  return "$status"
+}
+restoration_transaction() {
+  local can_replace_live=false
   [[ -n "$displaced" && -d "$displaced" && ! -L "$displaced" ]] || return 1
-  # Restoration is one indivisible transaction: children inherit ignored
-  # deployment signals until the previous tree is active and exactly bound.
-  trap '' INT TERM
   if [[ ! -e "$live" ]]; then
     can_replace_live=true
   elif $candidate_installed || [[ -n "$staged" && ! -e "$staged" ]]; then
     # The candidate sibling has completed its rename. The displaced sibling is
     # therefore the recoverable previous tree even if the following flag write
     # was interrupted.
-    rm -rf -- "$live" || restored=false
+    rm -rf -- "$live" || return 1
     can_replace_live=true
   fi
   if $can_replace_live && [[ ! -e "$live" ]]; then
-    restoration_in_progress=true
     if mv -- "$displaced" "$live" >/dev/null 2>&1; then
-      candidate_installed=false
-      if wp_quiet plugin activate nmkr-connect/nmkr-connect.php && active_plugin_is_bound; then
-        restored=true
-      fi
+      wp_quiet plugin activate nmkr-connect/nmkr-connect.php && active_plugin_is_bound
+      return
     fi
   fi
+  return 1
+}
+restore_previous() {
+  local restored=false
+  restoration_in_progress=true
+  if run_protected restoration_transaction; then restored=true; fi
   if $restored; then
+    candidate_installed=false
     original_displaced=false; restoration_in_progress=false; displaced=
   else
     preserve_displaced=true
   fi
-  trap 'handle_signal 130' INT
-  trap 'handle_signal 143' TERM
   $restored
 }
 handle_signal() {
-  local status=$1
+  local signal=$1 status=143
+  [[ "$signal" == INT ]] && status=130
+  $signal_handling && return
+  signal_handling=true
   trap '' INT TERM
   if [[ -n "$displaced" && -e "$displaced" ]]; then
     if restore_previous; then
@@ -156,8 +195,8 @@ handle_signal() {
   fi
   exit "$status"
 }
-trap 'handle_signal 130' INT
-trap 'handle_signal 143' TERM
+trap 'handle_signal INT' INT
+trap 'handle_signal TERM' TERM
 
 sync_is_idle || fail
 repo=$work/repository
@@ -179,7 +218,14 @@ candidate_is_valid "$repo" || fail
 
 stamp=$(date -u +%Y%m%dT%H%M%SZ)-$$
 backup="$backup_root/nmkr-connect-$stamp.tar"
-tar -C "$live_parent" -cpf "$backup" -- "${live##*/}" >/dev/null 2>&1 || fail
+backup_temp=$(mktemp "$backup_root/.nmkr-connect-$stamp.XXXXXXXX.tmp") || fail
+if ! tar -C "$live_parent" -cpf "$backup_temp" -- "${live##*/}" >/dev/null 2>&1; then
+  rm -f -- "$backup_temp"
+  backup_temp=
+  fail
+fi
+mv -- "$backup_temp" "$backup" >/dev/null 2>&1 || fail
+backup_temp=
 staged=$(mktemp -d "$live_parent/.nmkr-candidate.XXXXXXXX") || fail
 cp -a -- "$repo/." "$staged/" >/dev/null 2>&1 || fail
 candidate_is_valid "$staged" || fail
@@ -220,15 +266,10 @@ active_plugin_is_bound || rollback
 candidate_is_valid "$live" || rollback
 active_plugin_is_bound || rollback
 
-trap '' INT TERM
-if rm -rf -- "$displaced"; then
+if run_protected rm -rf -- "$displaced"; then
   displaced=; original_displaced=false
 else
   preserve_displaced=true
-  trap 'handle_signal 130' INT
-  trap 'handle_signal 143' TERM
   fail
 fi
-trap 'handle_signal 130' INT
-trap 'handle_signal 143' TERM
 printf 'Exact-ref deployment succeeded.\n'

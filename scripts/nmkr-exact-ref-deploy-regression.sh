@@ -116,7 +116,9 @@ args=("$@"); count=${#args[@]}; src=${args[$((count-2))]}; dst=${args[$((count-1
 if [[ "$src" == "$NMKR_DEPLOYED_PLUGIN_PATH" && "${TEST_FAIL_FIRST_MOVE:-false}" == true ]]; then exit 7; fi
 if [[ "$src" == */.nmkr-candidate.* && "${TEST_FAIL_SECOND_MOVE:-false}" == true ]]; then exit 7; fi
 if [[ "$src" == */.nmkr-previous.* && "${TEST_FAIL_RESTORE_MOVE:-false}" == true ]]; then exit 7; fi
-printf '%s\n%s\n' "$src" "$dst" >>"$TEST_STATE/move-paths"
+if [[ "$src" != */.nmkr-connect-*.tmp ]]; then
+  printf '%s\n%s\n' "$src" "$dst" >>"$TEST_STATE/move-paths"
+fi
 exec /bin/mv "$@"
 EOF
 cat >"$bin/rm" <<'EOF'
@@ -130,7 +132,21 @@ if [[ "$target" == */.nmkr-previous.* && "${TEST_BLOCK_PREVIOUS_DELETE:-false}" 
 fi
 exec /bin/rm "$@"
 EOF
-chmod +x "$bin/composer-sentinel" "$bin/wp-sentinel" "$bin/mv" "$bin/rm"
+cat >"$bin/tar" <<'EOF'
+#!/usr/bin/env bash
+set -eu
+if [[ "${TEST_TAR_FAIL:-false}" == true ]]; then
+  archive=
+  while (( $# )); do
+    if [[ "$1" == -cpf && $# -ge 2 ]]; then archive=$2; break; fi
+    shift
+  done
+  [[ -z "$archive" ]] || printf 'partial\n' >"$archive"
+  exit 7
+fi
+exec /bin/tar "$@"
+EOF
+chmod +x "$bin/composer-sentinel" "$bin/wp-sentinel" "$bin/mv" "$bin/rm" "$bin/tar"
 
 new_case() {
   case_root=$(mktemp -d "$tmp/case.XXXXXXXX")
@@ -141,7 +157,7 @@ new_case() {
   export WP_PATH=$case_root/private-wordpress-sentinel
   export WP_CLI_BIN=$bin/wp-sentinel COMPOSER_BIN=$bin/composer-sentinel
   export PATH=$bin:$ORIGINAL_PATH
-  unset TEST_SYNC_ACTIVE TEST_BECOME_ACTIVE_AFTER_BUILD TEST_COMPOSER_FAIL TEST_MISSING_BUILD TEST_ACTIVATE_FAIL_ONCE TEST_FINAL_DIRTY TEST_BOUND_PATH TEST_FAIL_FIRST_MOVE TEST_FAIL_SECOND_MOVE TEST_FAIL_RESTORE_MOVE TEST_BLOCK_COMPOSER TEST_BLOCK_ACTIVATION TEST_BLOCK_ROLLBACK_ACTIVATION TEST_BLOCK_PREVIOUS_DELETE TEST_PREP_HIDDEN_FLAG TEST_FINAL_HIDDEN_FLAG
+  unset TEST_SYNC_ACTIVE TEST_BECOME_ACTIVE_AFTER_BUILD TEST_COMPOSER_FAIL TEST_MISSING_BUILD TEST_ACTIVATE_FAIL_ONCE TEST_FINAL_DIRTY TEST_BOUND_PATH TEST_FAIL_FIRST_MOVE TEST_FAIL_SECOND_MOVE TEST_FAIL_RESTORE_MOVE TEST_BLOCK_COMPOSER TEST_BLOCK_ACTIVATION TEST_BLOCK_ROLLBACK_ACTIVATION TEST_BLOCK_PREVIOUS_DELETE TEST_PREP_HIDDEN_FLAG TEST_FINAL_HIDDEN_FLAG TEST_TAR_FAIL
   mkdir -p "$TEST_STATE" "$NMKR_DEPLOYED_PLUGIN_PATH" "$NMKR_DEPLOY_BACKUP_ROOT" "$WP_PATH"
   printf 'original\n' >"$NMKR_DEPLOYED_PLUGIN_PATH/original-marker"
   printf '<?php // original synthetic\n' >"$NMKR_DEPLOYED_PLUGIN_PATH/nmkr-connect.php"
@@ -150,7 +166,7 @@ new_case() {
 }
 run_deploy() { bash "$deploy" --ref "$1" --expected-sha "$2" >"$output" 2>&1; }
 start_deploy() {
-  setsid bash "$deploy" --ref "$1" --expected-sha "$2" >"$output" 2>&1 &
+  ( trap - INT TERM; exec setsid bash "$deploy" --ref "$1" --expected-sha "$2" ) >"$output" 2>&1 &
   deploy_pid=$!
 }
 wait_for_marker() {
@@ -249,6 +265,15 @@ check test "$(find "$NMKR_DEPLOY_BACKUP_ROOT" -name '*.tar' | wc -l)" -eq 0
 check no_leaks
 
 new_case
+export TEST_TAR_FAIL=true
+check test_must_fail run_deploy refs/heads/main "$sha"
+check unchanged
+check test "$(find "$NMKR_DEPLOY_BACKUP_ROOT" -maxdepth 1 -type f -name '*.tar' | wc -l)" -eq 0
+check test "$(find "$NMKR_DEPLOY_BACKUP_ROOT" -maxdepth 1 -type f -name '.nmkr-connect-*.tmp' | wc -l)" -eq 0
+check no_success
+check no_leaks
+
+new_case
 export TEST_BLOCK_COMPOSER=true
 mkfifo "$TEST_STATE/composer-release"
 start_deploy refs/heads/main "$sha"
@@ -277,11 +302,12 @@ for deployment_signal in INT TERM; do
   check kill -s "$deployment_signal" -- "-$deploy_pid"
   printf 'release\n' >"$TEST_STATE/rollback-activation-release"
   rollback_status=0; wait "$deploy_pid" || rollback_status=$?
-  check test "$rollback_status" -ne 0
+  if [[ "$deployment_signal" == INT ]]; then expected_signal_status=130; else expected_signal_status=143; fi
+  check test "$rollback_status" -eq "$expected_signal_status"
   check unchanged
   check test -e "$TEST_STATE/rollback-activation-released"
   check test "$(find "${NMKR_DEPLOYED_PLUGIN_PATH%/*}" -maxdepth 1 -type d -name '.nmkr-previous.*' | wc -l)" -eq 0
-  check grep -E -q -- '^Exact-ref deployment failed; rollback succeeded\.$' "$output"
+  check grep -E -q -- '^Exact-ref deployment interrupted\.$' "$output"
   check no_success
   check no_leaks
 done
@@ -295,13 +321,15 @@ for deployment_signal in INT TERM; do
   check kill -s "$deployment_signal" -- "-$deploy_pid"
   printf 'release\n' >"$TEST_STATE/previous-delete-release"
   cleanup_status=0; wait "$deploy_pid" || cleanup_status=$?
-  check test "$cleanup_status" -eq 0
+  if [[ "$deployment_signal" == INT ]]; then expected_signal_status=130; else expected_signal_status=143; fi
+  check test "$cleanup_status" -eq "$expected_signal_status"
   check test "$(git -C "$NMKR_DEPLOYED_PLUGIN_PATH" rev-parse HEAD)" = "$sha"
   check test -z "$(git -C "$NMKR_DEPLOYED_PLUGIN_PATH" -c core.fileMode=true status --porcelain --untracked-files=no)"
   check test ! -e "$NMKR_DEPLOYED_PLUGIN_PATH/original-marker"
   check test -e "$TEST_STATE/previous-delete-released"
   check test "$(find "${NMKR_DEPLOYED_PLUGIN_PATH%/*}" -maxdepth 1 -type d -name '.nmkr-previous.*' | wc -l)" -eq 0
-  check grep -E -q -- '^Exact-ref deployment succeeded\.$' "$output"
+  check grep -E -q -- '^Exact-ref deployment interrupted\.$' "$output"
+  check no_success
   check no_leaks
 done
 
