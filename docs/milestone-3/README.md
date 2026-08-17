@@ -23,11 +23,14 @@ Use only these statuses: **Not started**, **Planned**, **Implemented, validation
 - [Traceability matrix](traceability-matrix.md) — one primary row for each contractual subject, its minimum credible evidence, and dependencies.
 - [Evidence register](evidence-register.md) — the ledger of tooling foundations and, later, executed evidence.
 - [Testing plan](testing-plan.md) — adjustable execution boundaries and the minimum test record.
+- [Executed evidence — 2026-08-17](executed-evidence-2026-08-17.md) — sanitized exact-commit mixed-chain synchronization, recovery, final-state, and existing-readonly functionality results.
 - [User guide](../user-guide.md) and [troubleshooting guide](../troubleshooting.md) — current documentation foundations for M3-16 and M3-18.
 - [Developer guide](../developer-guide.md) — current implementation documentation foundation for M3-17; an exact-commit maintainer/reproducibility review is still required before validation.
 - This landing page defines the shared vocabulary and publication boundary.
 
 Reports should be added only when real results exist, then linked from the matrix and register. An adjustable final set may contain concise functionality, usability, performance/load, cross-chain, and security summaries plus reviewer-environment instructions. Subjects may be combined where one reproducible report serves several rows; no empty reports are needed.
+
+The 2026-08-17 report is executed evidence, but its stated limitations remain open requirements; in particular, one mixed-chain run is not separate chain-specific or heavier-traffic evidence, and an average API response time is not the contractual benchmark.
 
 ## Current synchronization foundation
 
