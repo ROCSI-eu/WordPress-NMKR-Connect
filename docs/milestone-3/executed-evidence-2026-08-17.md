@@ -7,11 +7,11 @@ This public-safe report registers one authorized controlled mixed-chain synchron
 - Exact source commit: `aadc7d2a0c404fcae51fe1df0cef75e859adccf1` (clean worktree).
 - Exact deployed commit: `aadc7d2a0c404fcae51fe1df0cef75e859adccf1` (clean worktree).
 - Environment: self-managed Linux WordPress staging environment; WordPress 7.0.4; PHP 8.3.6; WP-CLI 2.12.0; MariaDB 10.11.14; WordPress environment type `staging`; NMKR Connect 0.1 active.
-- Synchronization settings: light profile, batch size 3, and batch delay 3 seconds. A dedicated API credential was configured; its value and all identifying connection details remain private.
+- Synchronization settings: light profile, batch size 3, and batch delay 3 seconds.
 
 ## EVD-001 — controlled mixed-chain synchronization and final state
 
-The controlled dataset contained 10 projects, 100 tokens, and 100 token-detail rows. Project classifications were four Cardano-only, four Solana-only, two Cardano and Solana, and zero other/unknown. All 10 project blockchain values were valid JSON; none were invalid. No project name, UID, token identifier, endpoint, or private record is retained publicly.
+The controlled dataset contained 10 projects, 100 tokens, and 100 token-detail rows. Project classifications were four Cardano-only, four Solana-only, two Cardano and Solana, and zero other/unknown. All 10 project blockchain values were valid JSON; none were invalid. No project name, UID, token identifier, identifying connection detail, or private record is retained publicly.
 
 The successful attempt completed with a 28-second history duration: 100 items processed, 100 successful, zero failed, and no error present. Its stored metrics were:
 
@@ -26,7 +26,7 @@ The successful attempt completed with a 28-second history duration: 100 items pr
 | API requests | 121 |
 | Memory usage | 36 MB |
 
-Final verification found 10 projects, 100 tokens, 100 token details, two history rows, two terminal history rows, zero active history rows, and one metrics row. The latest history row was `completed` with a valid end time; the last-sync timestamp matched the latest metrics. No active option markers or blocked synchronization cron events remained. The light-profile guard passed, the API credential remained configured without being disclosed, and the final aggregate-state check passed.
+Final verification found 10 projects, 100 tokens, 100 token details, two history rows, two terminal history rows, zero active history rows, and one metrics row. The latest history row was `completed` with a valid end time; the last-sync timestamp matched the latest metrics. No active option markers or blocked synchronization cron events remained. The light-profile guard and final aggregate-state check passed.
 
 ## EVD-002 — exact-commit existing-state functionality
 
@@ -36,9 +36,9 @@ This execution provides exact-commit existing-state functional evidence for the 
 
 ## EVD-003 — terminal failure and recovery
 
-The first attempt terminated as `failed` after 1 second with an error present. It processed zero items, with zero successful and zero failed items, and ended cleanly without project, token, or detail writes. Private diagnosis established an expired staging API credential; the raw error, credential, endpoint, and diagnostics are not published.
+The initial controlled attempt terminated safely as `failed` after 1 second with an error present. It processed zero items, with zero successful and zero failed items, and ended cleanly without project, token, or detail writes. The raw cause and remediation details remain private.
 
-After the credential was safely corrected, the second attempt produced the successful EVD-001 result. Final-state verification preserved both attempts as terminal history, with no active history. This is scoped recovery and terminalization evidence for the observed expired-credential path; the failed attempt alone does not validate a success requirement or every failure mode.
+After private remediation, a second authorized attempt produced the successful EVD-001 result. Final-state verification preserved both attempts as terminal history, with no active history. This is scoped recovery and terminalization evidence for the observed controlled-failure path; the failed attempt alone does not validate a success requirement or every failure mode.
 
 ## Interpretation and remaining evidence
 
