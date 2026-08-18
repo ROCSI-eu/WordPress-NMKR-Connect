@@ -7,6 +7,12 @@ function nmkr_benchmark_detail_shape($data, $body) { return is_array($data) && !
 function nmkr_benchmark_supported_identifier($value) { return is_string($value) && $value!=='' && strlen($value)<=200 && preg_match('/^[A-Za-z0-9_-]+$/',$value)===1 ? $value : ''; }
 function nmkr_benchmark_project_identifier($project) { return is_array($project) ? nmkr_benchmark_supported_identifier($project['uid']??$project['project_uid']??$project['projectuid']??$project['projectUid']??'') : ''; }
 function nmkr_benchmark_token_identifier($token) { return is_array($token) ? nmkr_benchmark_supported_identifier($token['uid']??$token['token_uid']??$token['tokenUid']??'') : ''; }
+function nmkr_benchmark_before_dispatch(&$last_dispatch,$started,$timeout,$clock,$sleep) {
+    $now=call_user_func($clock);$delay=$last_dispatch===null?0.0:max(0.0,.5-($now-$last_dispatch));if($delay>0)call_user_func($sleep,$delay);
+    $now=call_user_func($clock);$remaining=300.0-($now-$started);
+    if($remaining<=0.0||!is_numeric($timeout)||(float)$timeout<=0.0||(float)$timeout>$remaining)return new WP_Error('nmkr_benchmark_limit','Benchmark safety ceiling reached.');
+    $last_dispatch=$now;return true;
+}
 function nmkr_benchmark_select_eligible_project($projects,$probe) {
     $identifiers=array();foreach($projects as $project){$identifier=nmkr_benchmark_project_identifier($project);if($identifier!=='')$identifiers[$identifier]=true;} $identifiers=array_keys($identifiers);sort($identifiers,SORT_STRING);
     foreach($identifiers as $project_uid){$tokens=call_user_func($probe,$project_uid);if(is_wp_error($tokens))return $tokens;$token_uids=array();foreach($tokens as $token){$token_uid=nmkr_benchmark_token_identifier($token);if($token_uid!=='')$token_uids[$token_uid]=true;}if($token_uids){$token_uids=array_keys($token_uids);sort($token_uids,SORT_STRING);return array('project_uid'=>$project_uid,'tokens'=>$tokens,'token_uid'=>$token_uids[0]);}}
@@ -16,7 +22,7 @@ function nmkr_benchmark_request($class,$url,$args,$shape,&$attempts,$checkpoint,
     $request=$request?:'wp_remote_get'; $clock=$clock?:'nmkr_benchmark_now'; $sleep=$sleep?:function($seconds){usleep((int)round($seconds*1000000));};
     $wall_clock=$wall_clock?:'time';
     for($attempt=1;$attempt<=3;$attempt++) {
-        $halt=$checkpoint('before_dispatch'); if(is_wp_error($halt)) return $halt;
+        $halt=$checkpoint('before_dispatch',$args['timeout']??null); if(is_wp_error($halt)) return $halt;
         $started=call_user_func($clock); $response=call_user_func($request,$url,$args); $duration=max(0.0,call_user_func($clock)-$started);
         $valid=false; $retry=false; $data=null; $retry_after=0.0;
         if(is_wp_error($response)) $retry=true;
@@ -38,7 +44,7 @@ $source_sha=(string)getenv('NMKR_API_BENCHMARK_SOURCE_SHA');$deployed_sha=(strin
 $before=nmkr_benchmark_state_snapshot($source_sha,$deployed_sha,true,true);
 if(is_wp_error($before)||$before['active']||$source_sha!==$deployed_sha){fwrite(STDERR,"benchmark: REFUSED\n");exit(2);}
 $attempts=array();$samples=array('projects'=>array(),'token_list'=>array(),'token_detail'=>array());$started=nmkr_benchmark_now();$last_dispatch=null;$invalid=false;
-$checkpoint=function($phase)use(&$attempts,$started,&$last_dispatch,&$invalid){$now=nmkr_benchmark_now();if($now-$started>=300||count($attempts)>=45){$invalid=true;return new WP_Error('nmkr_benchmark_limit','Benchmark safety ceiling reached.');}if($phase==='before_dispatch'){if($last_dispatch!==null&&($delay=.5-($now-$last_dispatch))>0)usleep((int)ceil($delay*1000000));$last_dispatch=nmkr_benchmark_now();}return true;};
+$checkpoint=function($phase,$timeout=null)use(&$attempts,$started,&$last_dispatch,&$invalid){if(nmkr_benchmark_now()-$started>=300||count($attempts)>=45){$invalid=true;return new WP_Error('nmkr_benchmark_limit','Benchmark safety ceiling reached.');}if($phase==='before_dispatch'){$halt=nmkr_benchmark_before_dispatch($last_dispatch,$started,$timeout,'nmkr_benchmark_now',function($seconds){usleep((int)ceil($seconds*1000000));});if(is_wp_error($halt)){$invalid=true;return $halt;}}return true;};
 $options=get_option('nmkr_connect_options');$key=is_array($options)?(string)($options['api_key']??''):'';
 $stop=function()use($before,$source_sha,$deployed_sha,&$attempts){$after=nmkr_benchmark_state_snapshot($source_sha,$deployed_sha,true,true);$empty=array('count'=>0,'minimum'=>null,'mean'=>null,'median'=>null,'p95'=>null,'maximum'=>null);echo wp_json_encode(array('schema_version'=>1,'profile'=>'m3-06','endpoint_summaries'=>array('projects'=>$empty,'token_list'=>$empty,'token_detail'=>$empty),'combined_summary'=>null,'http_attempts'=>count($attempts),'failed_http_attempts'=>count(array_filter($attempts,function($a){return empty($a['valid']);})),'measured_logical_failures'=>0,'state_equal'=>!is_wp_error($after)&&nmkr_benchmark_state_equal($before,$after),'limits_ok'=>false,'pass'=>false),JSON_UNESCAPED_SLASHES)."\n";exit(1);};
 if($key===''||!defined('NMKR_API_URL'))$stop();

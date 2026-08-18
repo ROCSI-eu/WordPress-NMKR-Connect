@@ -21,6 +21,14 @@ function nmkr_benchmark_sync_data_is_terminal($value) {
     }
     return false;
 }
+function nmkr_benchmark_truthy($value) { return !empty($value); }
+function nmkr_benchmark_progress_active($value) { return is_numeric($value) && (float) $value > 0 && (float) $value < 100; }
+function nmkr_benchmark_status_active($value) {
+    if (!is_scalar($value)) return !empty($value);
+    $status = strtolower(trim((string) $value));
+    if ($status === '' || in_array($status, nmkr_benchmark_terminal_statuses(), true)) return false;
+    return true; // Canonical active statuses and unknown nonterminal values both fail closed.
+}
 function nmkr_benchmark_table_state($table) {
     global $wpdb;
     $discovered = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table)));
@@ -70,7 +78,7 @@ function nmkr_benchmark_transient_state($name) {
     $timeout = $timeout_present && ctype_digit($records[$timeout_name]) ? (int) $records[$timeout_name] : null;
     // Inspect raw option rows: get_transient() can delete expired records while reading them.
     $active = $present && (!$timeout_present || $timeout === null || $timeout > time());
-    return array('present' => $present, 'active' => $active, 'digest' => nmkr_benchmark_digest($records));
+    return array('present' => $present, 'active' => $active, 'value' => $present ? maybe_unserialize($records[$value_name]) : null, 'digest' => nmkr_benchmark_digest($records));
 }
 function nmkr_benchmark_option_records($names) {
     global $wpdb;
@@ -94,8 +102,8 @@ function nmkr_benchmark_state_snapshot($source_sha, $deployed_sha, $source_clean
         if (is_wp_error($state)) return $state;
         $tables[$suffix] = $state;
     }
-    $option_names = array('nmkr_last_sync_time','nmkr_sync_data','nmkr_sync_in_progress','nmkr_sync_worker_lock','nmkr_sync_heartbeat','nmkr_sync_owner','nmkr_connect_options');
-    $transient_names = array('nmkr_sync_in_progress','nmkr_current_sync_stats_live','nmkr_current_sync_stats_summary','nmkr_active_sync_metrics','nmkr_sync_performance_metrics','nmkr_sync_worker_started_at','nmkr_sync_worker_lock','nmkr_sync_finalization_lock','nmkr_sync_heartbeat');
+    $option_names = array('nmkr_last_sync_time','nmkr_sync_data','nmkr_sync_in_progress','nmkr_sync_progress','nmkr_sync_status','nmkr_stale_recovery_running','nmkr_sync_near_completion','nmkr_sync_worker_started_at','nmkr_sync_worker_lock','nmkr_sync_heartbeat','nmkr_sync_owner','nmkr_connect_options');
+    $transient_names = array('nmkr_sync_in_progress','nmkr_sync_progress','nmkr_sync_status','nmkr_stale_recovery_running','nmkr_current_sync_stats_live','nmkr_current_sync_stats_summary','nmkr_active_sync_metrics','nmkr_sync_performance_metrics','nmkr_sync_worker_started_at','nmkr_sync_worker_lock','nmkr_sync_finalization_lock','nmkr_sync_heartbeat');
     // Read authoritative rows on every snapshot; request-local option and cron caches can be stale.
     $option_records = nmkr_benchmark_option_records(array_merge($option_names, array('cron')));
     if (is_wp_error($option_records)) return $option_records;
@@ -123,15 +131,22 @@ function nmkr_benchmark_state_snapshot($source_sha, $deployed_sha, $source_clean
         }
     }
     $active = false;
-    $lifecycle_hooks = array('nmkr_execute_sync_background', 'nmkr_process_batch_hook', 'nmkr_resume_sync_finalization');
+    $lifecycle_hooks = array('nmkr_execute_sync_background', 'nmkr_process_batch_hook', 'nmkr_sync_cron_hook', 'nmkr_install_sync_cron_hook', 'nmkr_resume_sync_finalization');
     foreach ($nmkr_cron as $hooks) {
         foreach ($lifecycle_hooks as $hook) if (!empty($hooks[$hook])) $active = true;
     }
-    foreach (array('nmkr_sync_owner', 'nmkr_sync_worker_lock') as $name) if (!empty($option_records[$name])) $active = true;
-    if (!empty($option_records['nmkr_sync_in_progress'])) $active = true;
+    foreach (array('nmkr_sync_owner', 'nmkr_sync_worker_lock', 'nmkr_sync_heartbeat', 'nmkr_sync_worker_started_at', 'nmkr_stale_recovery_running') as $name) if (nmkr_benchmark_truthy($option_records[$name] ?? null)) $active = true;
+    $durable_active = nmkr_benchmark_truthy($option_records['nmkr_sync_in_progress'] ?? null) || nmkr_benchmark_status_active($option_records['nmkr_sync_status'] ?? '') || (array_key_exists('nmkr_sync_data', $option_records) && !nmkr_benchmark_sync_data_is_terminal($option_records['nmkr_sync_data']));
+    if ($durable_active || nmkr_benchmark_progress_active($option_records['nmkr_sync_progress'] ?? 0)) $active = true;
+    if ($durable_active && nmkr_benchmark_truthy($option_records['nmkr_sync_near_completion'] ?? null)) $active = true;
     if (isset($resume_name) && array_key_exists($resume_name, $option_records)) $active = true;
     if (array_key_exists('nmkr_sync_data', $option_records) && !nmkr_benchmark_sync_data_is_terminal($option_records['nmkr_sync_data'])) $active = true;
-    foreach ($transients as $item) if ($item['active']) $active = true;
+    foreach ($transients as $name => $item) {
+        if (!$item['active']) continue;
+        if ($name === 'nmkr_sync_progress') { if (nmkr_benchmark_progress_active($item['value'])) $active = true; continue; }
+        if ($name === 'nmkr_sync_status') { if (nmkr_benchmark_status_active($item['value'])) $active = true; continue; }
+        if (nmkr_benchmark_truthy($item['value'])) $active = true;
+    }
     if (!empty($tables['sync_stats']['active_count'])) $active = true;
     return array('tables'=>$tables,'options'=>$options,'transients'=>$transients,'cron_digest'=>nmkr_benchmark_digest($nmkr_cron),'active'=>$active,'source_sha'=>$source_sha,'deployed_sha'=>$deployed_sha,'source_clean'=>(bool)$source_clean,'deployed_clean'=>(bool)$deployed_clean);
 }
