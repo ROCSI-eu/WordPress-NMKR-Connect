@@ -30,12 +30,15 @@ check_git || fail identity
 WP_BIN="${WP_CLI_BIN:-wp}"; "$WP_BIN" --path="$WP_PATH" plugin is-active "${NMKR_PLUGIN_SLUG:-nmkr-connect/nmkr-connect.php}" >/dev/null 2>&1 || fail plugin-binding
 LOCK="$NMKR_API_BENCHMARK_RESULT_DIR/.nmkr-api-benchmark.lock"; RUN_DIR="$NMKR_API_BENCHMARK_RESULT_DIR/run-$(date -u +%Y%m%dT%H%M%SZ)-$$"
 ( set -o noclobber; : >"$LOCK" ) 2>/dev/null || fail lock
-chmod 600 "$LOCK"; OWN_LOCK=1
-cleanup(){ if [[ "${OWN_LOCK:-0}" == 1 && -f "$LOCK" ]]; then rm -f -- "$LOCK"; fi; }
+chmod 600 "$LOCK" 2>/dev/null || { rm -f -- "$LOCK" 2>/dev/null || true; fail lock; }
+OWN_LOCK=1
+cleanup(){ if [[ "${OWN_LOCK:-0}" == 1 ]]; then OWN_LOCK=0; rm -f -- "$LOCK" 2>/dev/null || true; fi; }
 trap cleanup EXIT
 terminate(){ trap - HUP INT TERM; if [[ -n "${CHILD_PID:-}" ]]; then kill -TERM "$CHILD_PID" 2>/dev/null || true; wait "$CHILD_PID" 2>/dev/null || true; fi; cleanup; exit 130; }
 trap terminate HUP INT TERM
-mkdir -m 700 "$RUN_DIR"; RESULT="$RUN_DIR/result.json"; DIAG="$RUN_DIR/diagnostic.txt"; : >"$RESULT"; : >"$DIAG"; chmod 600 "$RESULT" "$DIAG"
+mkdir -m 700 "$RUN_DIR" 2>/dev/null || fail run-directory
+RESULT="$RUN_DIR/result.json"; DIAG="$RUN_DIR/diagnostic.txt"
+{ : >"$RESULT" && : >"$DIAG" && chmod 600 "$RESULT" "$DIAG"; } 2>/dev/null || fail run-directory
 printf 'benchmark controller: preflight PASS\n'
 set +e
 NMKR_API_BENCHMARK_CONTROLLER=1 "$WP_BIN" --path="$WP_PATH" eval-file "$DEPLOYED/scripts/nmkr-api-response-benchmark.php" >"$RESULT" 2>"$DIAG" &

@@ -82,16 +82,28 @@ function nmkr_benchmark_state_snapshot($source_sha, $deployed_sha, $source_clean
         if (is_wp_error($state)) return $state;
         $tables[$suffix] = $state;
     }
-    $option_names = array('nmkr_last_sync_time','nmkr_sync_data','nmkr_sync_active','nmkr_sync_finalization_resume','nmkr_sync_recovery','nmkr_sync_worker','nmkr_sync_heartbeat','nmkr_sync_owner','nmkr_connect_options');
-    $transient_names = array('nmkr_current_sync_stats_live','nmkr_current_sync_stats_summary','nmkr_active_sync_metrics','nmkr_sync_performance_metrics','nmkr_sync_worker_started_at','nmkr_sync_worker_lock','nmkr_sync_finalization_lock','nmkr_sync_heartbeat');
+    $option_names = array('nmkr_last_sync_time','nmkr_sync_data','nmkr_sync_in_progress','nmkr_sync_worker_lock','nmkr_sync_heartbeat','nmkr_sync_owner','nmkr_connect_options');
+    $transient_names = array('nmkr_sync_in_progress','nmkr_current_sync_stats_live','nmkr_current_sync_stats_summary','nmkr_active_sync_metrics','nmkr_sync_performance_metrics','nmkr_sync_worker_started_at','nmkr_sync_worker_lock','nmkr_sync_finalization_lock','nmkr_sync_heartbeat');
     // Read authoritative rows on every snapshot; request-local option and cron caches can be stale.
     $option_records = nmkr_benchmark_option_records(array_merge($option_names, array('cron')));
     if (is_wp_error($option_records)) return $option_records;
+    $sync_data = $option_records['nmkr_sync_data'] ?? null;
+    $sync_stats_id = is_array($sync_data) ? (int) ($sync_data['sync_stats_id'] ?? 0) : 0;
+    if ($sync_stats_id > 0) {
+        $resume_name = 'nmkr_sync_finalization_resume_' . $sync_stats_id;
+        $resume_records = nmkr_benchmark_option_records(array($resume_name));
+        if (is_wp_error($resume_records)) return $resume_records;
+        $option_names[] = $resume_name;
+        $option_records = array_merge($option_records, $resume_records);
+    }
     $options = array(); foreach ($option_names as $name) { $present = array_key_exists($name, $option_records); $options[$name] = array('present' => $present, 'digest' => nmkr_benchmark_digest($present ? $option_records[$name] : null)); }
     $transients = array(); foreach ($transient_names as $name) { $state = nmkr_benchmark_transient_state($name); if (is_wp_error($state)) return $state; $transients[$name] = $state; }
     $cron = $option_records['cron'] ?? array(); if (!is_array($cron)) return new WP_Error('nmkr_benchmark_state_ambiguous', 'State inspection was ambiguous.');
     $nmkr_cron = array(); foreach ($cron as $timestamp => $hooks) foreach ((array) $hooks as $hook => $events) if (strpos($hook, 'nmkr_') === 0) $nmkr_cron[$timestamp][$hook] = $events;
-    $active = false; foreach (array('nmkr_sync_active','nmkr_sync_finalization_resume','nmkr_sync_recovery','nmkr_sync_worker','nmkr_sync_owner') as $name) if (array_key_exists($name, $option_records)) $active = true;
+    $active = false;
+    foreach (array('nmkr_sync_owner', 'nmkr_sync_worker_lock') as $name) if (!empty($option_records[$name])) $active = true;
+    if (!empty($option_records['nmkr_sync_in_progress'])) $active = true;
+    if (isset($resume_name) && array_key_exists($resume_name, $option_records)) $active = true;
     if (array_key_exists('nmkr_sync_data', $option_records) && !nmkr_benchmark_sync_data_is_terminal($option_records['nmkr_sync_data'])) $active = true;
     foreach ($transients as $item) if ($item['active']) $active = true;
     if (!empty($tables['sync_stats']['active_count'])) $active = true;
