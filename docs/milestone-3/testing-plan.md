@@ -74,3 +74,8 @@ Stop and preserve the current state safely when authorization or commit identity
 ## Delivery and follow-up
 
 Limitations must be disclosed. Unfinished optional work may move to **Deferred improvement** without being represented as completed, while submission-critical gaps remain visible. Reports are created only from real registered results and may combine related evidence economically. Post-delivery improvements are expected and should not block a defensible milestone submission; they must not be used to imply that unfinished contractual evidence is already validated.
+
+
+## M3-06 API response benchmark
+
+The bounded read-only M3-06 profile and its private execution boundary are defined in the [NMKR API response-time benchmark guide](../testing-nmkr-api-response-benchmark.md). Tooling readiness and synthetic regression results are not executed API evidence; M3-06 remains validation pending until separately authorized exact-head private VM execution.
