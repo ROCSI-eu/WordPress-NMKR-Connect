@@ -123,6 +123,10 @@ function nmkr_benchmark_state_snapshot($source_sha, $deployed_sha, $source_clean
         }
     }
     $active = false;
+    $lifecycle_hooks = array('nmkr_execute_sync_background', 'nmkr_process_batch_hook', 'nmkr_resume_sync_finalization');
+    foreach ($nmkr_cron as $hooks) {
+        foreach ($lifecycle_hooks as $hook) if (!empty($hooks[$hook])) $active = true;
+    }
     foreach (array('nmkr_sync_owner', 'nmkr_sync_worker_lock') as $name) if (!empty($option_records[$name])) $active = true;
     if (!empty($option_records['nmkr_sync_in_progress'])) $active = true;
     if (isset($resume_name) && array_key_exists($resume_name, $option_records)) $active = true;

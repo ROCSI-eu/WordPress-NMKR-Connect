@@ -48,7 +48,7 @@ CHILD_PID=$!
 wait "$CHILD_PID"; STATUS=$?; CHILD_PID=
 set -e
 check_git || fail final-integrity
-python3 - "$RESULT" <<'PY' || fail result-schema
+python3 - "$RESULT" 2>/dev/null <<'PY' || fail result-schema
 import json,sys
 x=json.load(open(sys.argv[1])); required={'schema_version','profile','endpoint_summaries','combined_summary','http_attempts','failed_http_attempts','measured_logical_failures','state_equal','limits_ok','pass'}
 if set(x)!=required or x['schema_version']!=1 or x['profile']!='m3-06' or set(x['endpoint_summaries'])!={'projects','token_list','token_detail'}: raise SystemExit(1)
