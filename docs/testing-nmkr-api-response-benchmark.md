@@ -4,7 +4,7 @@
 
 This tooling makes the Milestone 3 M3-06 **below 1.000 second** decision for three production API wrapper classes without running synchronization or writing WordPress state. It is implementation/tooling only until a separately authorized private execution is reviewed. It neither consumes a Phase 15 receipt nor invokes, changes, or substitutes for the Phase 16A real-synchronization procedure.
 
-The runtime seam in `includes/api/nmkr-api-functions.php` selects local recorders only when an opaque `NMKR_API_Benchmark_Authority` object is minted by the exact guarded CLI helper. Issuance requires CLI and WP-CLI, a helper-private authorization constant, and the exact caller file. Context keys, callbacks, web/AJAX/cron callers, synchronization workers, and arbitrary CLI wrappers cannot mint or forge the object. Without that identity, the existing attempt and wait recorders remain the default, including durable run evidence and its fail-closed persistence errors.
+The benchmark is isolated from the production synchronization executor. It constructs the three documented read-only requests inside the guarded WP-CLI helper using WordPress HTTP facilities, the plugin's configured API key, and the same endpoint, timeout, payload-shape, and identifier conventions as production. It does not call synchronization wrappers or introduce recorder selection, transport injection, authorization, or bypass behavior into production runtime code. Ordinary synchronization therefore always uses the established production attempt and wait recorders.
 
 ## Private authorization and normal conditions
 
@@ -19,13 +19,13 @@ Do not put private values in shell history, CI, issues, PRs, or public logs. “
 
 ## Profile, sequencing, and stops
 
-The helper retrieves the configured key only through the production wrapper and never outputs key-derived metadata. It performs one successful warm-up in order for `projects`, `token_list`, then `token_detail`; project selection follows the projects warm-up, and token selection follows token-list warm-up. It then performs ten rounds in fixed `projects`, `token_list`, `token_detail` rotation. Identifiers exist only in memory and are never output.
+The helper reads the plugin's runtime configuration and never outputs key-derived metadata. It performs one successful warm-up in order for `projects`, `token_list`, then `token_detail`; project selection follows the projects warm-up, and token selection follows token-list warm-up. It then performs ten rounds in fixed `projects`, `token_list`, `token_detail` rotation. Identifiers exist only in memory and are never output.
 
-Dispatch starts are at least 500 ms apart and execution is serial. All warm-up and retry dispatches count toward the maximum 45 HTTP attempts and five-minute monotonic duration. The production timeouts, transport, endpoint construction, headers, shape/JSON validation, throttle, retry classification, Retry-After handling, and backoff remain in force. Transport failures, 408, 429, and 5xx may retry within production limits. Non-retriable HTTP/shape failures stop the valid sample. Any ceiling, signal, ambiguous state, inspection failure, failed attempt, incomplete sample, dirty/mismatched head, changed transient, or integrity anomaly invalidates the run.
+Dispatch starts are at least 500 ms apart and execution is serial. All warm-up and retry dispatches count toward the maximum 45 HTTP attempts and five-minute monotonic duration. The isolated helper uses WordPress `wp_remote_get()`, production endpoint and timeout conventions, JSON/shape validation, bounded retries, and bounded backoff without invoking synchronization recording. Transport failures, 408, 429, and 5xx may retry within production limits. Non-retriable HTTP/shape failures stop the valid sample. Any ceiling, signal, ambiguous state, inspection failure, failed attempt, incomplete sample, dirty/mismatched head, changed transient, or integrity anomaly invalidates the run.
 
 ## Statistics and strict decision
 
-Warm-ups are excluded from latency distributions but included in attempt/failure accounting. Latency distributions use the production executor's HTTP dispatch-to-response duration for the successful attempt belonging to each valid measured logical request; each retry is recorded separately, and any failed measured attempt invalidates the run. For sorted samples `x` of size `n`, the output contains:
+Warm-ups are excluded from latency distributions but included in attempt/failure accounting. Latency distributions use the isolated helper's HTTP dispatch-to-response duration for the successful attempt belonging to each valid measured logical request; each retry is recorded separately, and any failed measured attempt invalidates the run. For sorted samples `x` of size `n`, the output contains:
 
 - minimum `x[1]` and maximum `x[n]`;
 - arithmetic mean `sum(x) / n`;

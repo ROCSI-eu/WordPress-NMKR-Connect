@@ -11,13 +11,20 @@ truthy "${CI:-}" && fail public-ci
 SRC_SHA="${NMKR_API_BENCHMARK_SOURCE_SHA:-}"; DEP_SHA="${NMKR_API_BENCHMARK_DEPLOYED_SHA:-}"
 [[ "$SRC_SHA" =~ ^[0-9a-f]{40}$ && "$DEP_SHA" =~ ^[0-9a-f]{40}$ ]] || fail identity
 [[ -n "$REPO_ROOT" && -n "${NMKR_DEPLOYED_PLUGIN_PATH:-}" && -n "${WP_PATH:-}" && -n "${NMKR_API_BENCHMARK_RESULT_DIR:-}" ]] || fail configuration
-python3 - "$NMKR_API_BENCHMARK_RESULT_DIR" "$REPO_ROOT" "$WP_PATH" 2>/dev/null <<'PY' || fail private-directory
+RESULT_ROOT="$(python3 - "$NMKR_API_BENCHMARK_RESULT_DIR" "$REPO_ROOT" "$WP_PATH" 2>/dev/null <<'PY'
 import os,stat,sys
-p,repo,wp=map(os.path.realpath,sys.argv[1:])
+p_arg,repo_arg,wp_arg=sys.argv[1:]
+if not os.path.isabs(p_arg): raise SystemExit(1)
+original=os.lstat(p_arg)
+if stat.S_ISLNK(original.st_mode): raise SystemExit(1)
+p,repo,wp=map(os.path.realpath,(p_arg,repo_arg,wp_arg))
 if not os.path.isabs(p) or p in (repo,wp) or p.startswith(repo+os.sep) or p.startswith(wp+os.sep): raise SystemExit(1)
 st=os.lstat(p)
 if not stat.S_ISDIR(st.st_mode) or stat.S_ISLNK(st.st_mode) or st.st_uid!=os.getuid() or stat.S_IMODE(st.st_mode)&0o077: raise SystemExit(1)
+if not os.access(p,os.R_OK|os.W_OK|os.X_OK): raise SystemExit(1)
+print(p)
 PY
+)" || fail private-directory
 DEPLOYED="$(python3 - "$NMKR_DEPLOYED_PLUGIN_PATH" "$WP_PATH" "${NMKR_PLUGIN_SLUG:-nmkr-connect/nmkr-connect.php}" 2>/dev/null <<'PY'
 import os,sys
 p,wp,slug=sys.argv[1:]; p=os.path.realpath(p); active=os.path.realpath(os.path.join(wp,'wp-content','plugins',slug.split('/')[0]))
@@ -25,12 +32,12 @@ if p!=active or not os.path.isdir(p): raise SystemExit(1)
 print(p)
 PY
 )" || fail plugin-binding
-check_git(){ [[ "$(git -C "$REPO_ROOT" rev-parse HEAD)" == "$SRC_SHA" && "$(git -C "$DEPLOYED" rev-parse HEAD)" == "$DEP_SHA" && "$SRC_SHA" == "$DEP_SHA" ]] || return 1; [[ -z "$(git -C "$REPO_ROOT" status --porcelain=v1 --untracked-files=all)" && -z "$(git -C "$DEPLOYED" status --porcelain=v1 --untracked-files=all)" ]]; }
+check_git(){ [[ "$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null)" == "$SRC_SHA" && "$(git -C "$DEPLOYED" rev-parse HEAD 2>/dev/null)" == "$DEP_SHA" && "$SRC_SHA" == "$DEP_SHA" ]] || return 1; [[ -z "$(git -C "$REPO_ROOT" status --porcelain=v1 --untracked-files=all 2>/dev/null)" && -z "$(git -C "$DEPLOYED" status --porcelain=v1 --untracked-files=all 2>/dev/null)" ]]; }
 check_git || fail identity
 WP_BIN="${WP_CLI_BIN:-wp}"; TIMEOUT_BIN="$(command -v timeout 2>/dev/null || true)"
 [[ -n "$TIMEOUT_BIN" ]] || fail configuration
 "$WP_BIN" --path="$WP_PATH" plugin is-active "${NMKR_PLUGIN_SLUG:-nmkr-connect/nmkr-connect.php}" >/dev/null 2>&1 || fail plugin-binding
-LOCK="$NMKR_API_BENCHMARK_RESULT_DIR/.nmkr-api-benchmark.lock"; RUN_DIR="$NMKR_API_BENCHMARK_RESULT_DIR/run-$(date -u +%Y%m%dT%H%M%SZ)-$$"
+LOCK="$RESULT_ROOT/.nmkr-api-benchmark.lock"; RUN_DIR="$RESULT_ROOT/run-$(date -u +%Y%m%dT%H%M%SZ)-$$"
 ( set -o noclobber; : >"$LOCK" ) 2>/dev/null || fail lock
 chmod 600 "$LOCK" 2>/dev/null || { rm -f -- "$LOCK" 2>/dev/null || true; fail lock; }
 OWN_LOCK=1

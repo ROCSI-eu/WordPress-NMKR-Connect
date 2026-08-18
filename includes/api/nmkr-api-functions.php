@@ -14,47 +14,6 @@ $nmkr_api_rate_limited = false;
 global $nmkr_api_cooldown_until; // Timestamp when cooldown period ends
 $nmkr_api_cooldown_until = 0;
 
-final class NMKR_API_Benchmark_Authority {
-    private function __construct() {}
-    public static function issue() {
-        $caller = isset(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2)[1]['file']) ? realpath(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2)[1]['file']) : false;
-        $expected = realpath(dirname(dirname(__DIR__)) . '/scripts/nmkr-api-response-benchmark.php');
-        if (PHP_SAPI !== 'cli' || !defined('WP_CLI') || WP_CLI !== true || !defined('NMKR_API_RESPONSE_BENCHMARK_AUTHORIZED') || NMKR_API_RESPONSE_BENCHMARK_AUTHORIZED !== true || !$caller || !$expected || $caller !== $expected) {
-            return new WP_Error('nmkr_benchmark_authority_refused', 'Benchmark recorder authority refused.');
-        }
-        $authority = new self();
-        $GLOBALS['nmkr_api_benchmark_authority'] = $authority;
-        return $authority;
-    }
-}
-
-/**
- * Return benchmark-local recorders only for the opaque authority minted by the
- * dedicated CLI program.  Context data alone can never select this path.
- *
- * @internal This is deliberately not a general-purpose recorder injection API.
- */
-function nmkr_api_benchmark_recorders($context) {
-    if (!is_array($context) || empty($context['benchmark_authority']) || !isset($GLOBALS['nmkr_api_benchmark_authority'])) return null;
-    if (!defined('WP_CLI') || WP_CLI !== true || PHP_SAPI !== 'cli') return null;
-    if ($context['benchmark_authority'] !== $GLOBALS['nmkr_api_benchmark_authority']) return null;
-    if (empty($context['benchmark_attempt_recorder']) || !is_callable($context['benchmark_attempt_recorder'])) return null;
-    if (empty($context['benchmark_wait_recorder']) || !is_callable($context['benchmark_wait_recorder'])) return null;
-    return array($context['benchmark_attempt_recorder'], $context['benchmark_wait_recorder']);
-}
-
-function nmkr_api_record_attempt_selected($duration, $valid, $retry, $context) {
-    $recorders = nmkr_api_benchmark_recorders($context);
-    if ($recorders !== null) return call_user_func($recorders[0], $duration, $valid, $retry);
-    return function_exists('nmkr_record_api_attempt') ? nmkr_record_api_attempt($duration, $valid, $retry, $context) : true;
-}
-
-function nmkr_api_record_wait_selected($kind, $duration, $context) {
-    $recorders = nmkr_api_benchmark_recorders($context);
-    if ($recorders !== null) return call_user_func($recorders[1], $kind, $duration);
-    return function_exists('nmkr_record_api_wait') ? nmkr_record_api_wait($kind, $duration) : true;
-}
-
 /**
  * Throttle API calls to avoid hitting rate limits
  * This function will delay execution if necessary to stay within rate limits
@@ -172,7 +131,7 @@ function nmkr_sync_http_json_execute($endpoint_class, $url, $args, $shape, $cont
     $checkpoint = isset($context['checkpoint']) && is_callable($context['checkpoint']) ? $context['checkpoint'] : null;
     $jitter = isset($context['jitter']) && is_callable($context['jitter']) ? $context['jitter'] : function () { return 0.0; };
     $check = function ($phase) use ($checkpoint) { return $checkpoint ? call_user_func($checkpoint, $phase) : true; };
-    $wait = function ($seconds, $kind) use ($sleep, $clock, $check, $context) {
+    $wait = function ($seconds, $kind) use ($sleep, $clock, $check) {
         $remaining = max(0.0, min(30.0, (float) $seconds));
         $started = call_user_func($clock);
         while ($remaining > 0) {
@@ -180,15 +139,15 @@ function nmkr_sync_http_json_execute($endpoint_class, $url, $args, $shape, $cont
             $chunk = min(1.0, $remaining); call_user_func($sleep, $chunk); $remaining -= $chunk;
             $halt = $check('after_api_' . $kind . '_wait'); if (is_wp_error($halt)) return $halt;
         }
-        return nmkr_api_record_wait_selected($kind, max(0.0, call_user_func($clock) - $started), $context);
+        if (function_exists('nmkr_record_api_wait')) nmkr_record_api_wait($kind, max(0.0, call_user_func($clock) - $started));
+        return true;
     };
 
     for ($attempt = 1; $attempt <= 3; $attempt++) {
         $halt = $check('before_api_attempt'); if (is_wp_error($halt)) return $halt;
         $throttle_started = call_user_func($clock);
         $halt = nmkr_throttle_api_call($context); if (is_wp_error($halt)) return $halt;
-        $recorded_wait = nmkr_api_record_wait_selected('throttle', max(0.0, call_user_func($clock) - $throttle_started), $context);
-        if (is_wp_error($recorded_wait)) return $recorded_wait;
+        if (function_exists('nmkr_record_api_wait')) nmkr_record_api_wait('throttle', max(0.0, call_user_func($clock) - $throttle_started));
         $halt = $check('before_api_dispatch'); if (is_wp_error($halt)) return $halt;
 
         $started = call_user_func($clock);
@@ -214,8 +173,10 @@ function nmkr_sync_http_json_execute($endpoint_class, $url, $args, $shape, $cont
                 } else { $valid = true; }
             }
         }
-        $recorded = nmkr_api_record_attempt_selected($duration, $valid, $attempt > 1, $context);
-        if (is_wp_error($recorded)) return $recorded;
+        if (function_exists('nmkr_record_api_attempt')) {
+            $recorded = nmkr_record_api_attempt($duration, $valid, $attempt > 1, $context);
+            if (is_wp_error($recorded)) return $recorded;
+        }
         if ($valid) return $data;
         if (!$retry) return $error;
         if ($attempt === 3) return new WP_Error('nmkr_api_retry_exhausted', 'Synchronization request retry budget exhausted.', array('endpoint' => $endpoint_class));
