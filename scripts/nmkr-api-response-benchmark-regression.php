@@ -4,6 +4,7 @@ define('ABSPATH', dirname(__DIR__) . '/'); define('WP_CLI', true);
 define('ARRAY_A', 'ARRAY_A');
 class WP_Error { private $c; function __construct($c,$m='',$d=null){$this->c=$c;} function get_error_code(){return $this->c;} }
 function is_wp_error($v){return $v instanceof WP_Error;} function plugin_dir_path($f){return dirname($f).'/';} function __($v){return $v;}
+function maybe_unserialize($v){if(!is_string($v))return $v;$decoded=@unserialize($v);return $decoded===false&&$v!=='b:0;'?$v:$decoded;}
 $GLOBALS['benchmark_options']=array();
 function get_option($k,$d=false){if($k==='nmkr_connect_options')return array('api_key'=>'FAKE_KEY_DO_NOT_DISCLOSE');return array_key_exists($k,$GLOBALS['benchmark_options'])?$GLOBALS['benchmark_options'][$k]:$d;}
 function _get_cron_array(){return array();}
@@ -46,7 +47,10 @@ class NMKR_Benchmark_State_WPDB {
     function get_var($query){if($this->mode==='discovery_error'){$this->last_error='synthetic';return null;}$this->last_error='';return $query['args'][0];}
     function get_results($query,$format){
         $this->last_error='';
-        if(is_array($query)) return $this->mode==='transient_row'?array(array('option_name'=>$query['args'][0],'option_value'=>'serialized-value'),array('option_name'=>$query['args'][1],'option_value'=>(string)(time()+60))):array();
+        if(is_array($query)) {
+            if(strpos($query['args'][0], '_transient_')===0) return $this->mode==='transient_row'?array(array('option_name'=>$query['args'][0],'option_value'=>'serialized-value'),array('option_name'=>$query['args'][1],'option_value'=>(string)(time()+60))):array();
+            $rows=array();foreach($query['args'] as $name)if(array_key_exists($name,$GLOBALS['benchmark_options']))$rows[]=array('option_name'=>$name,'option_value'=>serialize($GLOBALS['benchmark_options'][$name]));return $rows;
+        }
         if($this->mode==='active_history'&&strpos($query,'nmkr_sync_stats')!==false)return array(array('id'=>1,'status'=>'running'));
         if($this->mode==='terminal_history'&&strpos($query,'nmkr_sync_stats')!==false)return array(array('id'=>1,'status'=>$this->history_status));
         return array();
@@ -59,9 +63,10 @@ $wpdb->mode='normal';
 foreach(array('completed','success','failed','error','stopped','cancelled','aborted',' SUCCESS ')as$status){$GLOBALS['benchmark_options']=array('nmkr_sync_data'=>array('status'=>$status));$snapshot=nmkr_benchmark_state_snapshot(str_repeat('a',40),str_repeat('a',40),true,true);check(is_array($snapshot)&&!$snapshot['active'],"terminal sync data status $status remains idle");}
 foreach(array('success','error','cancelled','aborted',' SUCCESS ')as$status){$wpdb->mode='terminal_history';$wpdb->history_status=$status;$GLOBALS['benchmark_options']=array();$snapshot=nmkr_benchmark_state_snapshot(str_repeat('a',40),str_repeat('a',40),true,true);check(is_array($snapshot)&&$snapshot['tables']['sync_stats']['active_count']===0&&!$snapshot['active'],"terminal history status $status remains idle");}
 $wpdb->mode='normal';$GLOBALS['benchmark_options']=array('nmkr_sync_owner'=>array('state'=>'queued'));$snapshot=nmkr_benchmark_state_snapshot(str_repeat('a',40),str_repeat('a',40),true,true);check(is_array($snapshot)&&$snapshot['options']['nmkr_sync_owner']['present']&&$snapshot['active'],'canonical sync owner makes the benchmark state active');$GLOBALS['benchmark_options']=array();
+$GLOBALS['benchmark_options']=array();$idle=nmkr_benchmark_state_snapshot(str_repeat('a',40),str_repeat('a',40),true,true);$GLOBALS['benchmark_options']=array('nmkr_sync_owner'=>array('state'=>'queued'),'cron'=>array(1700000000=>array('nmkr_sync_worker'=>array('event'=>array()))));$owned=nmkr_benchmark_state_snapshot(str_repeat('a',40),str_repeat('a',40),true,true);check(!$idle['active']&&$owned['active']&&!nmkr_benchmark_state_equal($idle,$owned),'successive snapshots bypass request-local option and cron caches');$GLOBALS['benchmark_options']=array();
 $helper=file_get_contents(__DIR__.'/nmkr-api-response-benchmark.php');$controller=file_get_contents(__DIR__.'/nmkr-api-response-benchmark.sh');$state=file_get_contents(__DIR__.'/nmkr-api-response-benchmark-state.php');
 foreach(array('set_transient','delete_transient','update_option','wp_schedule_event','wp_clear_scheduled_hook')as$writer)check(strpos($helper,$writer.'(')===false&&strpos($state,$writer.'(')===false,"benchmark performs no $writer write");
-check(substr_count($controller,'eval-file "$DEPLOYED/scripts/nmkr-api-response-benchmark.php"')===1,'controller invokes the benchmark helper exactly once');check(strpos($controller,'rm -f -- "$LOCK"')!==false,'controller removes only its own lock');check(strpos($controller,"trap 'cleanup; exit 130' HUP INT TERM")!==false,'controller handles interruption signals');
+check(substr_count($controller,'eval-file "$DEPLOYED/scripts/nmkr-api-response-benchmark.php"')===1,'controller invokes the benchmark helper exactly once');check(strpos($controller,'rm -f -- "$LOCK"')!==false,'controller removes only its own lock');check(strpos($controller,'trap terminate HUP INT TERM')!==false&&strpos($controller,'kill -TERM "$CHILD_PID"')!==false,'controller forwards interruption signals to the benchmark child');check(substr_count($controller,'2>/dev/null <<\'PY\'')===2,'private-path validation suppresses subprocess diagnostics');
 foreach(array('FAKE_KEY_DO_NOT_DISCLOSE','https://example.invalid/fake','fake-project-id','Authorization: Bearer fake','/private/fake/path','synthetic transport secret')as$secret)check(strpos("benchmark: REFUSED\n",$secret)===false,'sanitized output excludes injected private material');
 check(strpos($helper,"getenv('CI')")!==false&&strpos($helper,'benchmark: REFUSED')!==false,'default and CI refusal precede dispatch');check(strpos($controller,'check_git || fail identity')!==false&&strpos($helper,"\$before['active']")!==false,'dirty identity and active/ambiguous state refuse');
 echo "All NMKR API benchmark regressions passed.\n";

@@ -11,14 +11,14 @@ truthy "${CI:-}" && fail public-ci
 SRC_SHA="${NMKR_API_BENCHMARK_SOURCE_SHA:-}"; DEP_SHA="${NMKR_API_BENCHMARK_DEPLOYED_SHA:-}"
 [[ "$SRC_SHA" =~ ^[0-9a-f]{40}$ && "$DEP_SHA" =~ ^[0-9a-f]{40}$ ]] || fail identity
 [[ -n "$REPO_ROOT" && -n "${NMKR_DEPLOYED_PLUGIN_PATH:-}" && -n "${WP_PATH:-}" && -n "${NMKR_API_BENCHMARK_RESULT_DIR:-}" ]] || fail configuration
-python3 - "$NMKR_API_BENCHMARK_RESULT_DIR" "$REPO_ROOT" "$WP_PATH" <<'PY' || fail private-directory
+python3 - "$NMKR_API_BENCHMARK_RESULT_DIR" "$REPO_ROOT" "$WP_PATH" 2>/dev/null <<'PY' || fail private-directory
 import os,stat,sys
 p,repo,wp=map(os.path.realpath,sys.argv[1:])
 if not os.path.isabs(p) or p in (repo,wp) or p.startswith(repo+os.sep) or p.startswith(wp+os.sep): raise SystemExit(1)
 st=os.lstat(p)
 if not stat.S_ISDIR(st.st_mode) or stat.S_ISLNK(st.st_mode) or st.st_uid!=os.getuid() or stat.S_IMODE(st.st_mode)&0o077: raise SystemExit(1)
 PY
-DEPLOYED="$(python3 - "$NMKR_DEPLOYED_PLUGIN_PATH" "$WP_PATH" "${NMKR_PLUGIN_SLUG:-nmkr-connect/nmkr-connect.php}" <<'PY'
+DEPLOYED="$(python3 - "$NMKR_DEPLOYED_PLUGIN_PATH" "$WP_PATH" "${NMKR_PLUGIN_SLUG:-nmkr-connect/nmkr-connect.php}" 2>/dev/null <<'PY'
 import os,sys
 p,wp,slug=sys.argv[1:]; p=os.path.realpath(p); active=os.path.realpath(os.path.join(wp,'wp-content','plugins',slug.split('/')[0]))
 if p!=active or not os.path.isdir(p): raise SystemExit(1)
@@ -33,12 +33,14 @@ LOCK="$NMKR_API_BENCHMARK_RESULT_DIR/.nmkr-api-benchmark.lock"; RUN_DIR="$NMKR_A
 chmod 600 "$LOCK"; OWN_LOCK=1
 cleanup(){ if [[ "${OWN_LOCK:-0}" == 1 && -f "$LOCK" ]]; then rm -f -- "$LOCK"; fi; }
 trap cleanup EXIT
-trap 'cleanup; exit 130' HUP INT TERM
+terminate(){ trap - HUP INT TERM; if [[ -n "${CHILD_PID:-}" ]]; then kill -TERM "$CHILD_PID" 2>/dev/null || true; wait "$CHILD_PID" 2>/dev/null || true; fi; cleanup; exit 130; }
+trap terminate HUP INT TERM
 mkdir -m 700 "$RUN_DIR"; RESULT="$RUN_DIR/result.json"; DIAG="$RUN_DIR/diagnostic.txt"; : >"$RESULT"; : >"$DIAG"; chmod 600 "$RESULT" "$DIAG"
 printf 'benchmark controller: preflight PASS\n'
 set +e
-NMKR_API_BENCHMARK_CONTROLLER=1 "$WP_BIN" --path="$WP_PATH" eval-file "$DEPLOYED/scripts/nmkr-api-response-benchmark.php" >"$RESULT" 2>"$DIAG"
-STATUS=$?
+NMKR_API_BENCHMARK_CONTROLLER=1 "$WP_BIN" --path="$WP_PATH" eval-file "$DEPLOYED/scripts/nmkr-api-response-benchmark.php" >"$RESULT" 2>"$DIAG" &
+CHILD_PID=$!
+wait "$CHILD_PID"; STATUS=$?; CHILD_PID=
 set -e
 check_git || fail final-integrity
 python3 - "$RESULT" <<'PY' || fail result-schema
