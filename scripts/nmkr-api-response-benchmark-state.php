@@ -9,6 +9,18 @@ function nmkr_benchmark_canonical($value) {
     return $value;
 }
 function nmkr_benchmark_digest($value) { return hash('sha256', serialize(nmkr_benchmark_canonical($value))); }
+function nmkr_benchmark_terminal_statuses() {
+    return function_exists('nmkr_sync_terminal_statuses')
+        ? nmkr_sync_terminal_statuses()
+        : array('completed', 'success', 'failed', 'error', 'stopped', 'cancelled', 'aborted');
+}
+function nmkr_benchmark_sync_data_is_terminal($value) {
+    if (!is_array($value) || empty($value)) return false;
+    foreach (array('status', 'sync_status', 'state') as $key) {
+        if (isset($value[$key]) && in_array(strtolower(trim((string) $value[$key])), nmkr_benchmark_terminal_statuses(), true)) return true;
+    }
+    return false;
+}
 function nmkr_benchmark_table_state($table) {
     global $wpdb;
     $discovered = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table)));
@@ -20,7 +32,7 @@ function nmkr_benchmark_table_state($table) {
     $state = array('exists' => true, 'count' => count($rows), 'max_id' => empty($rows) ? 0 : (int) end($rows)['id'], 'digest' => nmkr_benchmark_digest($rows));
     if (substr($table, -15) === 'nmkr_sync_stats') {
         $terminal = array(); $active = 0;
-        foreach ($rows as $row) { $status = isset($row['status']) ? (string) $row['status'] : ''; if (in_array($status, array('completed','failed','stopped'), true)) $terminal[] = $row; else $active++; }
+        foreach ($rows as $row) { $status = isset($row['status']) ? strtolower(trim((string) $row['status'])) : ''; if (in_array($status, nmkr_benchmark_terminal_statuses(), true)) $terminal[] = $row; else $active++; }
         $state['active_count'] = $active; $state['terminal_count'] = count($terminal); $state['terminal_digest'] = nmkr_benchmark_digest($terminal);
     }
     if (substr($table, -17) === 'nmkr_sync_metrics') { $latest = empty($rows) ? null : end($rows); $state['latest_digest'] = nmkr_benchmark_digest($latest); $state['latest_timestamp_digest'] = nmkr_benchmark_digest(is_array($latest) ? array($latest['last_sync_time'] ?? null, $latest['created_at'] ?? null) : null); }
@@ -57,13 +69,15 @@ function nmkr_benchmark_state_snapshot($source_sha, $deployed_sha, $source_clean
         if (is_wp_error($state)) return $state;
         $tables[$suffix] = $state;
     }
-    $option_names = array('nmkr_last_sync_time','nmkr_sync_data','nmkr_sync_active','nmkr_sync_finalization_resume','nmkr_sync_recovery','nmkr_sync_worker','nmkr_sync_heartbeat','nmkr_connect_options');
+    $option_names = array('nmkr_last_sync_time','nmkr_sync_data','nmkr_sync_active','nmkr_sync_finalization_resume','nmkr_sync_recovery','nmkr_sync_worker','nmkr_sync_heartbeat','nmkr_sync_owner','nmkr_connect_options');
     $transient_names = array('nmkr_current_sync_stats_live','nmkr_current_sync_stats_summary','nmkr_active_sync_metrics','nmkr_sync_performance_metrics','nmkr_sync_worker_started_at','nmkr_sync_worker_lock','nmkr_sync_finalization_lock','nmkr_sync_heartbeat');
     $options = array(); foreach ($option_names as $name) $options[$name] = array('present' => get_option($name, '__nmkr_missing__') !== '__nmkr_missing__', 'digest' => nmkr_benchmark_digest(get_option($name, '__nmkr_missing__')));
     $transients = array(); foreach ($transient_names as $name) { $state = nmkr_benchmark_transient_state($name); if (is_wp_error($state)) return $state; $transients[$name] = $state; }
     $cron = _get_cron_array(); if (!is_array($cron)) return new WP_Error('nmkr_benchmark_state_ambiguous', 'State inspection was ambiguous.');
     $nmkr_cron = array(); foreach ($cron as $timestamp => $hooks) foreach ((array) $hooks as $hook => $events) if (strpos($hook, 'nmkr_') === 0) $nmkr_cron[$timestamp][$hook] = $events;
-    $active = false; foreach (array('nmkr_sync_data','nmkr_sync_active','nmkr_sync_finalization_resume','nmkr_sync_recovery','nmkr_sync_worker') as $name) if (get_option($name, false) !== false) $active = true;
+    $active = false; foreach (array('nmkr_sync_active','nmkr_sync_finalization_resume','nmkr_sync_recovery','nmkr_sync_worker','nmkr_sync_owner') as $name) if (get_option($name, false) !== false) $active = true;
+    $sync_data = get_option('nmkr_sync_data', false);
+    if ($sync_data !== false && !nmkr_benchmark_sync_data_is_terminal($sync_data)) $active = true;
     foreach ($transients as $item) if ($item['active']) $active = true;
     if (!empty($tables['sync_stats']['active_count'])) $active = true;
     return array('tables'=>$tables,'options'=>$options,'transients'=>$transients,'cron_digest'=>nmkr_benchmark_digest($nmkr_cron),'active'=>$active,'source_sha'=>$source_sha,'deployed_sha'=>$deployed_sha,'source_clean'=>(bool)$source_clean,'deployed_clean'=>(bool)$deployed_clean);
