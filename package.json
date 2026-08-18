@@ -11,6 +11,7 @@
     "test:phase2:targeted-readonly": "NMKR_PHASE2_PROFILE=targeted-readonly bash scripts/nmkr-phase2-test-runner.sh",
     "test:php74": "bash scripts/nmkr-php74-compat-scan.sh",
     "test:public": "bash scripts/nmkr-public-checks.sh",
+    "test:nmkr-api-benchmark:regression": "php scripts/nmkr-api-response-benchmark-regression.php",
     "test:e2e:settings": "node scripts/nmkr-playwright.js tests/e2e/nmkr-settings.regression.spec.ts",
     "test:e2e:dashboard": "node scripts/nmkr-playwright.js tests/e2e/nmkr-dashboard.regression.spec.ts",
     "test:e2e:projects": "node scripts/nmkr-playwright.js tests/e2e/nmkr-projects.regression.spec.ts",

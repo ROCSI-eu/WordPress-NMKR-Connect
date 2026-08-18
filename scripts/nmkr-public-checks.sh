@@ -57,6 +57,9 @@ php scripts/nmkr-database-write-regression.php
 printf '\n== HTTP and metric correctness regression ==\n'
 php scripts/nmkr-http-metrics-regression.php
 
+printf '\n== NMKR API response benchmark regression ==\n'
+php scripts/nmkr-api-response-benchmark-regression.php
+
 printf '\n== Streaming synchronization pagination regression ==\n'
 php scripts/nmkr-sync-pagination-regression.php
 
