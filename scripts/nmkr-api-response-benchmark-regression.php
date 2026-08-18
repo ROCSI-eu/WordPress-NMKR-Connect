@@ -1,9 +1,11 @@
 <?php
 /** Public-safe deterministic M3-06 regression. No WordPress or network access. */
 define('ABSPATH', dirname(__DIR__) . '/'); define('WP_CLI', true);
+define('ARRAY_A', 'ARRAY_A');
 class WP_Error { private $c; function __construct($c,$m='',$d=null){$this->c=$c;} function get_error_code(){return $this->c;} }
 function is_wp_error($v){return $v instanceof WP_Error;} function plugin_dir_path($f){return dirname($f).'/';} function __($v){return $v;}
 function get_option($k,$d=false){return $k==='nmkr_connect_options'?array('api_key'=>'FAKE_KEY_DO_NOT_DISCLOSE'):$d;}
+function _get_cron_array(){return array();}
 function wp_remote_retrieve_body($r){return $r['body']??'';} function wp_remote_retrieve_response_code($r){return $r['code']??0;} function wp_remote_retrieve_header($r,$k){return $r['headers'][$k]??'';}
 $GLOBALS['production_attempts']=0;$GLOBALS['production_waits']=0;$GLOBALS['persistence_fail']=false;
 function nmkr_record_api_attempt($d,$v,$r,$c){$GLOBALS['production_attempts']++;return $GLOBALS['persistence_fail']?new WP_Error('nmkr_api_metric_evidence_persistence_failure'):true;}
@@ -36,6 +38,21 @@ $classes=array_fill_keys(array('projects','token_list','token_detail'),array_fil
 check(!(stats_for(array(.1,.1,1.0))['maximum']<1.0)&&!(stats_for(array(.1,.1,1.001))['maximum']<1.0),'exactly one second and above fail regardless of mean');check(count(array_fill(0,9,.1))!==10,'incomplete samples cannot pass');
 // State comparison and redaction/static read-only boundary.
 $base=array('tables'=>array('projects'=>array('digest'=>'a')),'history'=>'a','metrics'=>'a','options'=>'a','transients'=>'a','cron'=>'a');check(nmkr_benchmark_state_equal($base,$base),'equal snapshots pass');foreach(array('tables','history','metrics','options','transients','cron')as$key){$changed=$base;if($key==='tables')$changed['tables']['projects']['digest']='b';else $changed[$key].='x';check(!nmkr_benchmark_state_equal($base,$changed),"$key state change fails");}
+class NMKR_Benchmark_State_WPDB {
+    public $last_error=''; public $prefix='wp_'; public $options='wp_options'; public $mode='normal';
+    function esc_like($value){return $value;}
+    function prepare($query,...$args){return array('query'=>$query,'args'=>$args);}
+    function get_var($query){if($this->mode==='discovery_error'){$this->last_error='synthetic';return null;}$this->last_error='';return $query['args'][0];}
+    function get_results($query,$format){
+        $this->last_error='';
+        if(is_array($query)) return $this->mode==='transient_row'?array(array('option_name'=>$query['args'][0],'option_value'=>'serialized-value'),array('option_name'=>$query['args'][1],'option_value'=>(string)(time()+60))):array();
+        if($this->mode==='active_history'&&strpos($query,'nmkr_sync_stats')!==false)return array(array('id'=>1,'status'=>'running'));
+        return array();
+    }
+}
+$wpdb=new NMKR_Benchmark_State_WPDB();$wpdb->mode='discovery_error';check(is_wp_error(nmkr_benchmark_table_state('wp_nmkr_projects')),'table discovery query errors fail closed');
+$wpdb->mode='transient_row';$transient=nmkr_benchmark_transient_state('nmkr_sync_worker_lock');check($transient['present']&&$transient['active'],'transient state reads raw option rows without a mutating accessor');
+$wpdb->mode='active_history';$snapshot=nmkr_benchmark_state_snapshot(str_repeat('a',40),str_repeat('a',40),true,true);check(is_array($snapshot)&&$snapshot['tables']['sync_stats']['active_count']===1&&$snapshot['active'],'nonterminal history rows make the benchmark state active');
 $helper=file_get_contents(__DIR__.'/nmkr-api-response-benchmark.php');$controller=file_get_contents(__DIR__.'/nmkr-api-response-benchmark.sh');$state=file_get_contents(__DIR__.'/nmkr-api-response-benchmark-state.php');
 foreach(array('set_transient','delete_transient','update_option','wp_schedule_event','wp_clear_scheduled_hook')as$writer)check(strpos($helper,$writer.'(')===false&&strpos($state,$writer.'(')===false,"benchmark performs no $writer write");
 check(substr_count($controller,'eval-file "$DEPLOYED/scripts/nmkr-api-response-benchmark.php"')===1,'controller invokes the benchmark helper exactly once');check(strpos($controller,'rm -f -- "$LOCK"')!==false,'controller removes only its own lock');check(strpos($controller,"trap 'cleanup; exit 130' HUP INT TERM")!==false,'controller handles interruption signals');
