@@ -12,19 +12,20 @@ function nmkr_benchmark_select_eligible_project($projects,$probe) {
     foreach($identifiers as $project_uid){$tokens=call_user_func($probe,$project_uid);if(is_wp_error($tokens))return $tokens;$token_uids=array();foreach($tokens as $token){$token_uid=nmkr_benchmark_token_identifier($token);if($token_uid!=='')$token_uids[$token_uid]=true;}if($token_uids){$token_uids=array_keys($token_uids);sort($token_uids,SORT_STRING);return array('project_uid'=>$project_uid,'tokens'=>$tokens,'token_uid'=>$token_uids[0]);}}
     return new WP_Error('nmkr_benchmark_no_eligible_project','No eligible benchmark project.');
 }
-function nmkr_benchmark_request($class,$url,$args,$shape,&$attempts,$checkpoint,$request=null,$clock=null,$sleep=null) {
+function nmkr_benchmark_request($class,$url,$args,$shape,&$attempts,$checkpoint,$request=null,$clock=null,$sleep=null,$wall_clock=null) {
     $request=$request?:'wp_remote_get'; $clock=$clock?:'nmkr_benchmark_now'; $sleep=$sleep?:function($seconds){usleep((int)round($seconds*1000000));};
+    $wall_clock=$wall_clock?:'time';
     for($attempt=1;$attempt<=3;$attempt++) {
         $halt=$checkpoint('before_dispatch'); if(is_wp_error($halt)) return $halt;
         $started=call_user_func($clock); $response=call_user_func($request,$url,$args); $duration=max(0.0,call_user_func($clock)-$started);
-        $valid=false; $retry=false; $data=null;
+        $valid=false; $retry=false; $data=null; $retry_after=0.0;
         if(is_wp_error($response)) $retry=true;
-        else { $status=(int)wp_remote_retrieve_response_code($response); $retry=$status===408||$status===429||$status>=500; if($status>=200&&$status<300){$body=wp_remote_retrieve_body($response);$data=json_decode($body,true);$valid=$body!==''&&json_last_error()===JSON_ERROR_NONE&&call_user_func($shape,$data,$body);} }
+        else { $status=(int)wp_remote_retrieve_response_code($response); $retry=$status===408||$status===429||$status>=500; if($retry){$header=wp_remote_retrieve_header($response,'retry-after');if(is_numeric($header))$retry_after=max(0.0,(float)$header);elseif(is_string($header)&&($when=strtotime($header))!==false)$retry_after=max(0.0,$when-call_user_func($wall_clock));} if($status>=200&&$status<300){$body=wp_remote_retrieve_body($response);$data=json_decode($body,true);$valid=$body!==''&&json_last_error()===JSON_ERROR_NONE&&call_user_func($shape,$data,$body);} }
         $attempts[]=array('class'=>$class,'duration'=>$duration,'valid'=>$valid);
         if($valid) return $data;
         if(!$retry||$attempt===3) return new WP_Error('nmkr_benchmark_request_failed','Benchmark request failed.');
         $halt=$checkpoint('before_backoff'); if(is_wp_error($halt)) return $halt;
-        call_user_func($sleep,min(30.0,pow(2,$attempt-1)));
+        call_user_func($sleep,min(30.0,max($retry_after,pow(2,$attempt-1))));
     }
 }
 if (defined('NMKR_API_BENCHMARK_REGRESSION') && NMKR_API_BENCHMARK_REGRESSION === true) return;

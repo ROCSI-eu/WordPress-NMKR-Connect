@@ -32,7 +32,15 @@ if p!=active or not os.path.isdir(p): raise SystemExit(1)
 print(p)
 PY
 )" || fail plugin-binding
-check_git(){ [[ "$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null)" == "$SRC_SHA" && "$(git -C "$DEPLOYED" rev-parse HEAD 2>/dev/null)" == "$DEP_SHA" && "$SRC_SHA" == "$DEP_SHA" ]] || return 1; [[ -z "$(git -C "$REPO_ROOT" status --porcelain=v1 --untracked-files=all 2>/dev/null)" && -z "$(git -C "$DEPLOYED" status --porcelain=v1 --untracked-files=all 2>/dev/null)" ]]; }
+check_git(){
+    local source_head deployed_head source_status deployed_status
+    source_head="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null)" || return 1
+    deployed_head="$(git -C "$DEPLOYED" rev-parse HEAD 2>/dev/null)" || return 1
+    [[ "$source_head" == "$SRC_SHA" && "$deployed_head" == "$DEP_SHA" && "$SRC_SHA" == "$DEP_SHA" ]] || return 1
+    source_status="$(git -C "$REPO_ROOT" status --porcelain=v1 --untracked-files=all 2>/dev/null)" || return 1
+    deployed_status="$(git -C "$DEPLOYED" status --porcelain=v1 --untracked-files=all 2>/dev/null)" || return 1
+    [[ -z "$source_status" && -z "$deployed_status" ]]
+}
 check_git || fail identity
 WP_BIN="${WP_CLI_BIN:-wp}"; TIMEOUT_BIN="$(command -v timeout 2>/dev/null || true)"
 [[ -n "$TIMEOUT_BIN" ]] || fail configuration
