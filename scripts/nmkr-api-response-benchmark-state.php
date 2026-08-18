@@ -27,15 +27,27 @@ function nmkr_benchmark_table_state($table) {
     if ($wpdb->last_error) return new WP_Error('nmkr_benchmark_state_ambiguous', 'State inspection was ambiguous.');
     $exists = $discovered === $table;
     if (!$exists) return array('exists' => false, 'count' => 0, 'max_id' => 0, 'digest' => null);
-    $rows = $wpdb->get_results("SELECT * FROM `{$table}` ORDER BY id ASC", ARRAY_A);
-    if ($wpdb->last_error || !is_array($rows)) return new WP_Error('nmkr_benchmark_state_ambiguous', 'State inspection was ambiguous.');
-    $state = array('exists' => true, 'count' => count($rows), 'max_id' => empty($rows) ? 0 : (int) end($rows)['id'], 'digest' => nmkr_benchmark_digest($rows));
+    $digest = hash_init('sha256'); $terminal_digest = hash_init('sha256');
+    $count = 0; $max_id = 0; $active = 0; $terminal_count = 0; $latest = null;
+    do {
+        // Keyset pagination bounds peak memory even for large prepared datasets.
+        $rows = $wpdb->get_results($wpdb->prepare("SELECT * FROM `{$table}` WHERE id > %d ORDER BY id ASC LIMIT 250", $max_id), ARRAY_A);
+        if ($wpdb->last_error || !is_array($rows)) return new WP_Error('nmkr_benchmark_state_ambiguous', 'State inspection was ambiguous.');
+        foreach ($rows as $row) {
+            if (!isset($row['id']) || (int) $row['id'] <= $max_id) return new WP_Error('nmkr_benchmark_state_ambiguous', 'State inspection was ambiguous.');
+            $max_id = (int) $row['id']; $count++; $latest = $row;
+            hash_update($digest, serialize(nmkr_benchmark_canonical($row)) . "\n");
+            if (substr($table, -15) === 'nmkr_sync_stats') {
+                $status = isset($row['status']) ? strtolower(trim((string) $row['status'])) : '';
+                if (in_array($status, nmkr_benchmark_terminal_statuses(), true)) { $terminal_count++; hash_update($terminal_digest, serialize(nmkr_benchmark_canonical($row)) . "\n"); } else $active++;
+            }
+        }
+    } while (count($rows) === 250);
+    $state = array('exists' => true, 'count' => $count, 'max_id' => $max_id, 'digest' => hash_final($digest));
     if (substr($table, -15) === 'nmkr_sync_stats') {
-        $terminal = array(); $active = 0;
-        foreach ($rows as $row) { $status = isset($row['status']) ? strtolower(trim((string) $row['status'])) : ''; if (in_array($status, nmkr_benchmark_terminal_statuses(), true)) $terminal[] = $row; else $active++; }
-        $state['active_count'] = $active; $state['terminal_count'] = count($terminal); $state['terminal_digest'] = nmkr_benchmark_digest($terminal);
+        $state['active_count'] = $active; $state['terminal_count'] = $terminal_count; $state['terminal_digest'] = hash_final($terminal_digest);
     }
-    if (substr($table, -17) === 'nmkr_sync_metrics') { $latest = empty($rows) ? null : end($rows); $state['latest_digest'] = nmkr_benchmark_digest($latest); $state['latest_timestamp_digest'] = nmkr_benchmark_digest(is_array($latest) ? array($latest['last_sync_time'] ?? null, $latest['created_at'] ?? null) : null); }
+    if (substr($table, -17) === 'nmkr_sync_metrics') { $state['latest_digest'] = nmkr_benchmark_digest($latest); $state['latest_timestamp_digest'] = nmkr_benchmark_digest(is_array($latest) ? array($latest['last_sync_time'] ?? null, $latest['created_at'] ?? null) : null); }
     return $state;
 }
 function nmkr_benchmark_transient_state($name) {
@@ -98,8 +110,18 @@ function nmkr_benchmark_state_snapshot($source_sha, $deployed_sha, $source_clean
     }
     $options = array(); foreach ($option_names as $name) { $present = array_key_exists($name, $option_records); $options[$name] = array('present' => $present, 'digest' => nmkr_benchmark_digest($present ? $option_records[$name] : null)); }
     $transients = array(); foreach ($transient_names as $name) { $state = nmkr_benchmark_transient_state($name); if (is_wp_error($state)) return $state; $transients[$name] = $state; }
-    $cron = $option_records['cron'] ?? array(); if (!is_array($cron)) return new WP_Error('nmkr_benchmark_state_ambiguous', 'State inspection was ambiguous.');
-    $nmkr_cron = array(); foreach ($cron as $timestamp => $hooks) foreach ((array) $hooks as $hook => $events) if (strpos($hook, 'nmkr_') === 0) $nmkr_cron[$timestamp][$hook] = $events;
+    $cron = $option_records['cron'] ?? array('version' => 2);
+    if (!is_array($cron) || !isset($cron['version']) || (int) $cron['version'] !== 2) return new WP_Error('nmkr_benchmark_state_ambiguous', 'State inspection was ambiguous.');
+    $nmkr_cron = array();
+    foreach ($cron as $timestamp => $hooks) {
+        if ($timestamp === 'version') continue;
+        if (!ctype_digit((string) $timestamp) || !is_array($hooks)) return new WP_Error('nmkr_benchmark_state_ambiguous', 'State inspection was ambiguous.');
+        foreach ($hooks as $hook => $events) {
+            if (!is_string($hook) || !is_array($events)) return new WP_Error('nmkr_benchmark_state_ambiguous', 'State inspection was ambiguous.');
+            foreach ($events as $event) if (!is_array($event) || (isset($event['args']) && !is_array($event['args']))) return new WP_Error('nmkr_benchmark_state_ambiguous', 'State inspection was ambiguous.');
+            if (strpos($hook, 'nmkr_') === 0) $nmkr_cron[$timestamp][$hook] = $events;
+        }
+    }
     $active = false;
     foreach (array('nmkr_sync_owner', 'nmkr_sync_worker_lock') as $name) if (!empty($option_records[$name])) $active = true;
     if (!empty($option_records['nmkr_sync_in_progress'])) $active = true;
