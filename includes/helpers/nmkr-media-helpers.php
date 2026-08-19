@@ -81,6 +81,45 @@ if (!function_exists('nmkr_is_probably_image_url')) {
 }
 
 /**
+ * Check whether a stored IPFS image value has a supported raw shape.
+ *
+ * @param string $url
+ * @return bool
+ */
+if (!function_exists('nmkr_is_usable_ipfs_image_input')) {
+    function nmkr_is_usable_ipfs_image_input( $url ) {
+        $url = trim( (string) $url );
+        if ( '' === $url ) return false;
+
+        if ( preg_match( '#^https?://#i', $url ) ) {
+            $candidate = esc_url_raw( $url );
+            if ( '' === $candidate ) return false;
+
+            $path = (string) parse_url( $candidate, PHP_URL_PATH );
+            if ( nmkr_is_probably_image_url( $candidate ) && false === stripos( $path, '/ipfs/' ) ) {
+                return true;
+            }
+
+            $path = preg_replace( '#^.*?/ipfs/#i', '', $path );
+        } else {
+            $path = preg_replace( '#^ipfs://#i', '', $url );
+            $path = preg_replace( '#^/ipfs/#i', '', $path );
+        }
+
+        $path = ltrim( (string) $path, '/' );
+        if ( 0 === stripos( $path, 'ipfs/' ) ) {
+            $path = substr( $path, 5 );
+        }
+
+        $cid = strtok( $path, '/' );
+        return is_string( $cid ) && (
+            1 === preg_match( '/^Qm[1-9A-HJ-NP-Za-km-z]{44}$/', $cid ) ||
+            1 === preg_match( '/^b[a-z2-7]{45,}$/i', $cid )
+        );
+    }
+}
+
+/**
  * Pick the best token image URL from stored fields, normalized to HTTP(S).
  * $token is t.* + td.* from JOIN of nmkr_tokens (t) and nmkr_token_details (td).
  *
@@ -99,7 +138,7 @@ if (!function_exists('nmkr_get_token_image_url')) {
         // 1) Prefer the canonical IPFS source so it uses the configured gateway.
         if ( isset( $t->ipfs_link ) && is_string( $t->ipfs_link ) ) {
             $ipfs_link = trim( $t->ipfs_link );
-            $candidate = '' !== $ipfs_link ? nmkr_resolve_ipfs_url( $ipfs_link ) : '';
+            $candidate = nmkr_is_usable_ipfs_image_input( $ipfs_link ) ? nmkr_resolve_ipfs_url( $ipfs_link ) : '';
 
             if ( nmkr_is_probably_image_url( $candidate ) ) {
                 $url = $candidate;

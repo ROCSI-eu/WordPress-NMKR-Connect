@@ -14,7 +14,8 @@ function apply_filters( $hook, $value ) {
 }
 
 function esc_url_raw( $url ) {
-    return filter_var( $url, FILTER_VALIDATE_URL ) ? $url : '';
+    $url = str_replace( ' ', '%20', trim( $url ) );
+    return preg_match( '#^https?://#i', $url ) && filter_var( $url, FILTER_VALIDATE_URL ) ? $url : '';
 }
 
 require_once __DIR__ . '/../includes/helpers/nmkr-media-helpers.php';
@@ -51,7 +52,7 @@ nmkr_image_assert_same(
     'https://provider.example.test/image.png',
     nmkr_get_token_image_url( (object) array(
         'gateway_link' => 'https://provider.example.test/image.png',
-        'ipfs_link'    => 'not a usable image source',
+        'ipfs_link'    => 'not-a-cid',
     ) ),
     'malformed ipfs_link must not suppress gateway_link'
 );
