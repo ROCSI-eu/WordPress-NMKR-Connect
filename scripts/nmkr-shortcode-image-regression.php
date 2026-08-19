@@ -29,6 +29,8 @@ function nmkr_image_assert_same( $expected, $actual, $message ) {
 
 $cid = 'QmYwAPJzv5CZsnAzt8auVZRnGi2C9B7F9hTQYxA9Z9n2mR';
 $normalized = 'https://gateway.example.test/content/ipfs/' . $cid . '/token.png';
+$base58_cid = 'zdj7WVRuyEiwKpFdZU8UPrxcX9KtmQTzkbR4nUWfu7D9DWycA';
+$base36_cid = 'k2jmtxrd43ukk1y7sbez98gxlwwbobotav868thdas64o6xu8eqxruvz';
 
 nmkr_image_assert_same(
     $normalized,
@@ -37,6 +39,24 @@ nmkr_image_assert_same(
         'ipfs_link'    => 'ipfs://' . $cid . '/token.png',
     ) ),
     'ipfs_link must take priority over gateway_link'
+);
+
+nmkr_image_assert_same(
+    'https://gateway.example.test/content/ipfs/' . $base58_cid . '/token.png',
+    nmkr_get_token_image_url( (object) array(
+        'gateway_link' => 'https://provider.example.test/image.png',
+        'ipfs_link'    => 'ipfs://' . $base58_cid . '/token.png',
+    ) ),
+    'base58btc CIDv1 ipfs_link must take priority over gateway_link'
+);
+
+nmkr_image_assert_same(
+    'https://gateway.example.test/content/ipfs/' . $base36_cid . '/token.png',
+    nmkr_get_token_image_url( (object) array(
+        'gateway_link' => 'https://provider.example.test/image.png',
+        'ipfs_link'    => '/ipfs/' . $base36_cid . '/token.png',
+    ) ),
+    'base36 CIDv1 ipfs_link must take priority over gateway_link'
 );
 
 nmkr_image_assert_same(

@@ -114,7 +114,9 @@ if (!function_exists('nmkr_is_usable_ipfs_image_input')) {
         $cid = strtok( $path, '/' );
         return is_string( $cid ) && (
             1 === preg_match( '/^Qm[1-9A-HJ-NP-Za-km-z]{44}$/', $cid ) ||
-            1 === preg_match( '/^b[a-z2-7]{45,}$/i', $cid )
+            1 === preg_match( '/^b[a-z2-7]{45,}$/i', $cid ) ||
+            1 === preg_match( '/^z[1-9A-HJ-NP-Za-km-z]{40,}$/', $cid ) ||
+            1 === preg_match( '/^k[0-9a-z]{45,}$/', $cid )
         );
     }
 }
