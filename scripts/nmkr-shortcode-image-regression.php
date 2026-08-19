@@ -42,6 +42,24 @@ nmkr_image_assert_same(
     'https://provider.example.test/image.png',
     nmkr_get_token_image_url( (object) array(
         'gateway_link' => 'https://provider.example.test/image.png',
+        'ipfs_link'    => " \t\n ",
+    ) ),
+    'whitespace-only ipfs_link must not suppress gateway_link'
+);
+
+nmkr_image_assert_same(
+    'https://provider.example.test/image.png',
+    nmkr_get_token_image_url( (object) array(
+        'gateway_link' => 'https://provider.example.test/image.png',
+        'ipfs_link'    => 'not a usable image source',
+    ) ),
+    'malformed ipfs_link must not suppress gateway_link'
+);
+
+nmkr_image_assert_same(
+    'https://provider.example.test/image.png',
+    nmkr_get_token_image_url( (object) array(
+        'gateway_link' => 'https://provider.example.test/image.png',
     ) ),
     'gateway_link must remain the fallback'
 );

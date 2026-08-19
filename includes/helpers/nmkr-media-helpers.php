@@ -97,8 +97,13 @@ if (!function_exists('nmkr_get_token_image_url')) {
         $url = '';
 
         // 1) Prefer the canonical IPFS source so it uses the configured gateway.
-        if ( ! empty( $t->ipfs_link ) && is_string( $t->ipfs_link ) ) {
-            $url = nmkr_resolve_ipfs_url( $t->ipfs_link );
+        if ( isset( $t->ipfs_link ) && is_string( $t->ipfs_link ) ) {
+            $ipfs_link = trim( $t->ipfs_link );
+            $candidate = '' !== $ipfs_link ? nmkr_resolve_ipfs_url( $ipfs_link ) : '';
+
+            if ( nmkr_is_probably_image_url( $candidate ) ) {
+                $url = $candidate;
+            }
         }
 
         // 2) Fall back to gateway_link if no usable ipfs_link is present.
