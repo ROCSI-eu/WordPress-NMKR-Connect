@@ -410,7 +410,7 @@ function nmkr_shortcode_carousel($atts) {
             // --- BEGIN: normalized slide image for [nmkr-carousel] ---
             $img = nmkr_get_token_image_url( $token );
             if ( empty( $img ) ) {
-                $img = plugins_url( 'images/placeholder.jpg', NMKR_CONNECT_PLUGIN_FILE );
+                $img = plugins_url( 'images/placeholder.png', NMKR_CONNECT_PLUGIN_FILE );
             }
 
             $alt = '';

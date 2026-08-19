@@ -287,7 +287,7 @@ function nmkr_shortcode_grid($atts) {
         
         // Token image
         $img = nmkr_get_token_image_url($token);
-        $ph  = plugins_url('images/placeholder.jpg', NMKR_CONNECT_PLUGIN_FILE);
+        $ph  = plugins_url('images/placeholder.png', NMKR_CONNECT_PLUGIN_FILE);
         $alt = !empty($token->token_name) ? $token->token_name : (!empty($token->asset_name) ? $token->asset_name : 'Token');
         
         $output .= '<img'

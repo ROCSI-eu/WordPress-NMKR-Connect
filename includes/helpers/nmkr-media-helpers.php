@@ -85,8 +85,8 @@ if (!function_exists('nmkr_is_probably_image_url')) {
  * $token is t.* + td.* from JOIN of nmkr_tokens (t) and nmkr_token_details (td).
  *
  * Priority:
- *   1) t.gateway_link (with IPFS path extraction)
- *   2) t.ipfs_link
+ *   1) t.ipfs_link
+ *   2) t.gateway_link (with IPFS path extraction)
  *   3) t.metadata.image
  *
  * @param object $t
@@ -96,8 +96,13 @@ if (!function_exists('nmkr_get_token_image_url')) {
     function nmkr_get_token_image_url( $t ) {
         $url = '';
 
-        // 1) Prefer gateway_link if present.
-        if ( ! empty( $t->gateway_link ) && is_string( $t->gateway_link ) ) {
+        // 1) Prefer the canonical IPFS source so it uses the configured gateway.
+        if ( ! empty( $t->ipfs_link ) && is_string( $t->ipfs_link ) ) {
+            $url = nmkr_resolve_ipfs_url( $t->ipfs_link );
+        }
+
+        // 2) Fall back to gateway_link if no usable ipfs_link is present.
+        if ( empty( $url ) && ! empty( $t->gateway_link ) && is_string( $t->gateway_link ) ) {
             $gw   = trim( $t->gateway_link );
             $path = parse_url( $gw, PHP_URL_PATH );
 
@@ -120,11 +125,6 @@ if (!function_exists('nmkr_get_token_image_url')) {
                     $url = $gw;
                 }
             }
-        }
-
-        // 2) If still empty, try ipfs_link directly.
-        if ( empty( $url ) && ! empty( $t->ipfs_link ) && is_string( $t->ipfs_link ) ) {
-            $url = nmkr_resolve_ipfs_url( $t->ipfs_link );
         }
 
         // 3) Then metadata.image (ipfs://, CID, or https).

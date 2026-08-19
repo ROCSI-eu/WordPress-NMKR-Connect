@@ -286,12 +286,12 @@ function nmkr_shortcode_list($atts) {
         
         // --- BEGIN: normalized token thumbnail for [nmkr-token-list] ---
         
-        // Resolve image URL via helper (gateway_link → re-based HTTPS; or ipfs_link; or metadata.image).
+        // Resolve image URL via helper (ipfs_link; or gateway_link; or metadata.image).
         $img = nmkr_get_token_image_url( $token );
         
         // Fallback to bundled placeholder if nothing resolves.
         if ( empty( $img ) ) {
-            $img = plugins_url( 'images/placeholder.jpg', NMKR_CONNECT_PLUGIN_FILE );
+            $img = plugins_url( 'images/placeholder.png', NMKR_CONNECT_PLUGIN_FILE );
         }
         
         // Sensible alt text.
