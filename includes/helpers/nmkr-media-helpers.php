@@ -21,7 +21,30 @@ if (!function_exists('nmkr_str_ends_with')) {
 }
 
 /**
- * Convert ipfs://, /ipfs/, or bare CIDs to an HTTP(S) gateway URL.
+ * Validate and normalize the configured IPFS gateway base.
+ *
+ * @param mixed $base
+ * @return string
+ */
+if (!function_exists('nmkr_normalize_ipfs_gateway_base')) {
+    function nmkr_normalize_ipfs_gateway_base($base) {
+        if (!is_string($base) || '' === $base || preg_match('/[\x00-\x1F\x7F]/', $base)) return '';
+        if (trim($base) !== $base || false === filter_var($base, FILTER_VALIDATE_URL)) return '';
+
+        $parts = parse_url($base);
+        if (!is_array($parts) || 'https' !== strtolower(isset($parts['scheme']) ? $parts['scheme'] : '') || empty($parts['host'])) return '';
+        if (isset($parts['user']) || isset($parts['pass']) || isset($parts['query']) || isset($parts['fragment'])) return '';
+
+        $origin = 'https://' . $parts['host'];
+        if (isset($parts['port'])) $origin .= ':' . $parts['port'];
+        $path = isset($parts['path']) ? $parts['path'] : '';
+        $path = preg_replace('#(?:/ipfs)+/?$#i', '', rtrim($path, '/'));
+        return esc_url_raw($origin . rtrim($path, '/') . '/ipfs/');
+    }
+}
+
+/**
+ * Convert ipfs://, /ipfs/, or bare CIDs to an HTTPS gateway URL.
  * Override base via:
  *   add_filter('nmkr_ipfs_gateway_base', function() { return 'https://gateway.example/ipfs/'; });
  *
@@ -33,16 +56,14 @@ if (!function_exists('nmkr_resolve_ipfs_url')) {
         if (empty($url)) return '';
         $url = trim((string) $url);
 
-        // Already http(s)
-        if (stripos($url, 'http://') === 0 || stripos($url, 'https://') === 0) {
-            return esc_url_raw($url);
+        // Preserve usable direct HTTPS inputs unchanged.
+        if (stripos($url, 'https://') === 0) {
+            return nmkr_is_valid_https_url($url) ? $url : '';
         }
 
-        // Configurable gateway base; ensure it ends with /ipfs/
-        $base = apply_filters('nmkr_ipfs_gateway_base', 'https://gateway.pinata.cloud/ipfs/');
-        if (!nmkr_str_ends_with($base, '/ipfs/')) {
-            $base = rtrim($base, '/') . '/ipfs/';
-        }
+        // Empty by default: production installations should configure a trusted gateway.
+        $base = nmkr_normalize_ipfs_gateway_base(apply_filters('nmkr_ipfs_gateway_base', ''));
+        if ('' === $base) return '';
 
         // Strip common prefixes
         $path = preg_replace('#^ipfs://#i', '', $url);
@@ -51,6 +72,16 @@ if (!function_exists('nmkr_resolve_ipfs_url')) {
 
         // Avoid double slashes
         return esc_url_raw(rtrim($base, '/') . '/' . $path);
+    }
+}
+
+/** Validate an absolute, credential-free HTTPS URL for public image markup. */
+if (!function_exists('nmkr_is_valid_https_url')) {
+    function nmkr_is_valid_https_url($url) {
+        if (!is_string($url) || '' === $url || trim($url) !== $url || preg_match('/[\x00-\x1F\x7F]/', $url)) return false;
+        if (false === filter_var($url, FILTER_VALIDATE_URL)) return false;
+        $parts = parse_url($url);
+        return is_array($parts) && 'https' === strtolower(isset($parts['scheme']) ? $parts['scheme'] : '') && !empty($parts['host']) && !isset($parts['user']) && !isset($parts['pass']);
     }
 }
 
@@ -122,64 +153,53 @@ if (!function_exists('nmkr_is_usable_ipfs_image_input')) {
 }
 
 /**
- * Pick the best token image URL from stored fields, normalized to HTTP(S).
+ * Build the finite token-image candidate set.
  * $token is t.* + td.* from JOIN of nmkr_tokens (t) and nmkr_token_details (td).
  *
  * Priority:
- *   1) t.ipfs_link
- *   2) t.gateway_link (with IPFS path extraction)
+ *   1) t.gateway_link, preserved unchanged
+ *   2) t.ipfs_link through a configured gateway
  *   3) t.metadata.image
  *
  * @param object $t
- * @return string Normalized image URL or '' if none
+ * @return array Primary, optional fallback, and packaged placeholder URLs
  */
+if (!function_exists('nmkr_get_token_image_candidates')) {
+    function nmkr_get_token_image_candidates($t) {
+        $remote = array();
+        if (isset($t->gateway_link) && is_string($t->gateway_link)) {
+            $provider = trim($t->gateway_link);
+            if (nmkr_is_valid_https_url($provider)) $remote[] = $provider;
+        }
+        if (count($remote) < 2 && isset($t->ipfs_link) && is_string($t->ipfs_link) && nmkr_is_usable_ipfs_image_input($t->ipfs_link)) {
+            $ipfs = nmkr_resolve_ipfs_url(trim($t->ipfs_link));
+            if (nmkr_is_valid_https_url($ipfs) && !in_array($ipfs, $remote, true)) $remote[] = $ipfs;
+        }
+        if (count($remote) < 2 && isset($t->metadata->image) && is_string($t->metadata->image)) {
+            $metadata = nmkr_resolve_ipfs_url(trim($t->metadata->image));
+            if (nmkr_is_valid_https_url($metadata) && !in_array($metadata, $remote, true)) $remote[] = $metadata;
+        }
+        $placeholder = plugins_url('images/placeholder.png', NMKR_CONNECT_PLUGIN_FILE);
+        return array('primary' => isset($remote[0]) ? $remote[0] : $placeholder, 'fallback' => isset($remote[1]) ? $remote[1] : '', 'placeholder' => $placeholder);
+    }
+}
+
 if (!function_exists('nmkr_get_token_image_url')) {
-    function nmkr_get_token_image_url( $t ) {
-        $url = '';
+    function nmkr_get_token_image_url($t) {
+        $candidates = nmkr_get_token_image_candidates($t);
+        return $candidates['primary'];
+    }
+}
 
-        // 1) Prefer the canonical IPFS source so it uses the configured gateway.
-        if ( isset( $t->ipfs_link ) && is_string( $t->ipfs_link ) ) {
-            $ipfs_link = trim( $t->ipfs_link );
-            $candidate = nmkr_is_usable_ipfs_image_input( $ipfs_link ) ? nmkr_resolve_ipfs_url( $ipfs_link ) : '';
-
-            if ( nmkr_is_probably_image_url( $candidate ) ) {
-                $url = $candidate;
-            }
-        }
-
-        // 2) Fall back to gateway_link if no usable ipfs_link is present.
-        if ( empty( $url ) && ! empty( $t->gateway_link ) && is_string( $t->gateway_link ) ) {
-            $gw   = trim( $t->gateway_link );
-            $path = parse_url( $gw, PHP_URL_PATH );
-
-            // Strict match: /ipfs|ipns/<cid>[/rest]
-            if ( is_string( $path ) && preg_match('~/(ipfs|ipns)/([A-Za-z0-9]+)(/.*)?$~', $path, $m) ) {
-                $ns   = $m[1];                // ipfs|ipns
-                $cid  = $m[2];
-                $rest = isset($m[3]) ? $m[3] : '';
-                $url  = nmkr_resolve_ipfs_url( $ns . '://' . $cid . $rest );
-            } else {
-                // Fallback: hunt for a CID anywhere in the URL and re-base to the configured gateway
-                if ( preg_match('~(Qm[1-9A-HJ-NP-Za-km-z]{44,})~', $gw, $m) ) {
-                    // CIDv0 (base58btc)
-                    $url = nmkr_resolve_ipfs_url( 'ipfs://' . $m[1] );
-                } elseif ( preg_match('~([a-z0-9]{46,})~', $gw, $m) ) {
-                    // very loose CIDv1 (base32) heuristic
-                    $url = nmkr_resolve_ipfs_url( 'ipfs://' . $m[1] );
-                } else {
-                    // last resort: use gateway_link as-is (non-standard provider path)
-                    $url = $gw;
-                }
-            }
-        }
-
-        // 3) Then metadata.image (ipfs://, CID, or https).
-        if ( empty( $url ) && ! empty( $t->metadata->image ) ) {
-            $url = nmkr_resolve_ipfs_url( $t->metadata->image );
-        }
-
-        // 4) Return trimmed; caller will esc_url() on output.
-        return is_string( $url ) ? trim( $url ) : '';
+/** Render shared token image markup and enqueue its finite fallback handler. */
+if (!function_exists('nmkr_get_token_image_markup')) {
+    function nmkr_get_token_image_markup($t, $alt, $class, $attributes = '') {
+        $sources = nmkr_get_token_image_candidates($t);
+        $script = 'js/nmkr-token-image-fallback.js';
+        wp_enqueue_script('nmkr-token-image-fallback', plugins_url($script, NMKR_CONNECT_PLUGIN_FILE), array(), @filemtime(plugin_dir_path(NMKR_CONNECT_PLUGIN_FILE) . $script) ?: '1.0', true);
+        return '<img src="' . esc_url($sources['primary']) . '" alt="' . esc_attr($alt) . '" class="' . esc_attr($class) . '" loading="lazy" decoding="async" onclick="openLightbox(this.src)" data-nmkr-token-image="1"'
+            . ('' !== $sources['fallback'] ? ' data-nmkr-fallback-src="' . esc_url($sources['fallback']) . '"' : '')
+            . ' data-nmkr-placeholder-src="' . esc_url($sources['placeholder']) . '" ' . $attributes . ' />';
     }
 }
 

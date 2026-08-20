@@ -68,3 +68,4 @@ npm run test:php74
 
 printf '\n== Shortcode image-source regression ==\n'
 php scripts/nmkr-shortcode-image-regression.php
+node scripts/nmkr-token-image-fallback-regression.js

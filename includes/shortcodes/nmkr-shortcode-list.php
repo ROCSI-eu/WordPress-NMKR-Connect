@@ -286,14 +286,6 @@ function nmkr_shortcode_list($atts) {
         
         // --- BEGIN: normalized token thumbnail for [nmkr-token-list] ---
         
-        // Resolve image URL via helper (ipfs_link; or gateway_link; or metadata.image).
-        $img = nmkr_get_token_image_url( $token );
-        
-        // Fallback to bundled placeholder if nothing resolves.
-        if ( empty( $img ) ) {
-            $img = plugins_url( 'images/placeholder.png', NMKR_CONNECT_PLUGIN_FILE );
-        }
-        
         // Sensible alt text.
         $alt = '';
         if ( ! empty( $token->token_name ) ) {
@@ -304,7 +296,7 @@ function nmkr_shortcode_list($atts) {
             $alt = 'Token';
         }
         
-        $output .= '<img src="' . esc_url( $img ) . '" alt="' . esc_attr( $alt ) . '" loading="lazy" decoding="async" class="nmkr-token-image" onclick="openLightbox(this.src)">';
+        $output .= nmkr_get_token_image_markup( $token, $alt, 'nmkr-token-image' );
         
         // --- END: normalized token thumbnail for [nmkr-token-list] ---
         

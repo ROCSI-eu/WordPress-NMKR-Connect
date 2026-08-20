@@ -149,7 +149,7 @@ Only the following deliberate hooks and ordinary WordPress registrations should 
 | Hook/registration | Kind | Purpose | Caveat |
 | --- | --- | --- | --- |
 | `wnc_fs_loaded` | Action | Signals that the Freemius SDK has been initialized. | Runs early during bootstrap; callbacks must tolerate plugin activation/update contexts and must not expose licensing data. |
-| `nmkr_ipfs_gateway_base` | Filter | Replaces the base used when normalizing IPFS media URLs. | Return a trusted HTTPS base; the helper normalizes it to end in `/ipfs/`, but consumers remain responsible for availability, privacy, and compatibility. |
+| `nmkr_ipfs_gateway_base` | Filter | Supplies the optional base used for a one-time IPFS token-image fallback. | The default is empty. Return a trusted, credential-free HTTPS base; shared public gateways can be slow, rate-limited, blocked, or unavailable. The helper validates and normalizes the base to end in `/ipfs/`, but consumers remain responsible for availability, privacy, and compatibility. |
 | `nmkr_marketing_allowed_submenus` | Filter | Adjusts the submenu slug allowlist visible to restricted users. | Visibility is not authorization. Never use this to grant access; page and AJAX capability checks must remain authoritative. |
 | WordPress plugin lifecycle hooks | Core registrations | Activation establishes schema/defaults/capabilities; deactivation clears volatile state; uninstall performs configured cleanup. | Do not call callbacks directly or assume uninstall removes every possible plugin-owned state key. |
 | `init` shortcode registrations | Core registrations | Registers `[nmkr-grid]`, `[nmkr-token-list]`, `[nmkr-carousel]`, `[nmkr-token]`, and `[nmkr-project]`. | Preserve registered attributes, escaping, plan gates, local-data behavior, and compatibility when altering callbacks. |
@@ -158,7 +158,7 @@ Synthetic filter examples:
 
 ```php
 add_filter( 'nmkr_ipfs_gateway_base', function () {
-    return 'https://gateway.example/ipfs/';
+    return 'https://dedicated-gateway.example/ipfs/';
 } );
 
 add_filter( 'nmkr_marketing_allowed_submenus', function ( $slugs ) {

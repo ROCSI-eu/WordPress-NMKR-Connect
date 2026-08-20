@@ -408,11 +408,6 @@ function nmkr_shortcode_carousel($atts) {
         foreach ($tokens as $token) {
             
             // --- BEGIN: normalized slide image for [nmkr-carousel] ---
-            $img = nmkr_get_token_image_url( $token );
-            if ( empty( $img ) ) {
-                $img = plugins_url( 'images/placeholder.png', NMKR_CONNECT_PLUGIN_FILE );
-            }
-
             $alt = '';
             if ( ! empty( $token->name ) ) {
                 $alt = $token->name;
@@ -430,7 +425,7 @@ function nmkr_shortcode_carousel($atts) {
                 . ' data-nmkr-token-uid="' . esc_attr(!empty($token->token_uid) ? $token->token_uid : '') . '"'
                 . ' data-nmkr-id="carousel:' . esc_attr(!empty($token->token_uid) ? $token->token_uid : $active_project_uid) . '"'
                 . '>';
-            $output .= '<img src="' . esc_url( $img ) . '" alt="' . esc_attr( $alt ) . '" class="token-image" style="max-width: 100%; height: auto; margin-bottom: 10px;" onclick="openLightbox(this.src)" loading="lazy" decoding="async" />';
+            $output .= nmkr_get_token_image_markup( $token, $alt, 'token-image', 'style="max-width: 100%; height: auto; margin-bottom: 10px;"' );
             $output .= '<h4>' . esc_html($token->token_name) . '</h4>';
             $price_html = nmkr_render_token_price_badges( $token );
             if ( $price_html ) { $output .= $price_html; }
