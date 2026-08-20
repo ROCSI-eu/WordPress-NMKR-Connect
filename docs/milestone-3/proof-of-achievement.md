@@ -18,17 +18,17 @@ The exact-source assessment found coherent maintainer/operator workflows for ins
 
 This is specifically a **maintainer/operator workflow usability assessment**. It is not an independent participant study and is not statistically representative user research.
 
-### Bounded operational load
+### Bounded operational synchronization
 
-[EVD-001](executed-evidence-2026-08-17.md#evd-001--controlled-mixed-chain-synchronization-and-final-state) is the bounded operational load profile: 10 projects, 100 tokens, 100 token-detail records, and 121 API requests; 100/100 items succeeded with zero failed items; synchronization duration was 27.2997 seconds and recorded memory usage was 36 MB; terminal and final database state was clean.
+[EVD-001](executed-evidence-2026-08-17.md#evd-001--controlled-mixed-chain-synchronization-and-final-state) is a bounded light-profile operational synchronization: 10 projects, 100 tokens, 100 token-detail records, and 121 API requests; 100/100 items succeeded with zero failed items; synchronization duration was 27.2997 seconds and recorded memory usage was 36 MB; terminal and final database state was clean. It is useful supporting evidence for the load-testing foundations, but it does not validate M3-05's promised high-traffic criterion.
 
-The result is not stress testing, high-concurrency evidence, unlimited-scale evidence, production-capacity evidence, a guarantee for arbitrary collection sizes, or broad infrastructure-capacity certification.
+The result did not use a defined high-traffic, stepped-load, concurrency, stress, or heavy-request profile. It is not unlimited-scale evidence, production-capacity evidence, a guarantee for arbitrary collection sizes, or broad infrastructure-capacity certification.
 
 ### Cardano, Solana, and mixed-chain behavior
 
 EVD-001 directly contained four Cardano-only projects, four Solana-only projects, and two Cardano-and-Solana projects. Both chains were therefore directly exercised in one successful controlled mixed-chain synchronization; success for one chain is not being substituted for the other. Separate chain-only executions are not required by the proof-of-achievement evidence wording when both chains are directly represented and attributable in the controlled result.
 
-For M3-11, this is bounded mixed-chain behavior under the disclosed operational request load. It is not heavier, high-volume, stress, or production-scale traffic.
+For M3-11, this is partial supporting evidence of bounded mixed-chain behavior under the disclosed light operational request profile. It does not validate the heavier cross-chain API-traffic/stress criterion.
 
 ### Performance benchmarks
 
@@ -92,13 +92,13 @@ The environment URL, username, password, authentication state, activation detail
 | M3-02 | Validated | EVD-002 and EVD-006 support representative, non-exhaustive functionality coverage. |
 | M3-03 | Validated | EVD-001, EVD-004, and EVD-005 retain the scoped performance results. |
 | M3-04 | Validated | EVD-006 records the maintainer/operator workflow assessment; no participant study is claimed. |
-| M3-05 | Validated | EVD-001 and EVD-006 support only the disclosed bounded operational profile. |
+| M3-05 | Implemented, validation pending | Tooling exists and EVD-001 supplies supporting light-profile evidence; the defined high-traffic execution remains open. |
 | M3-06 | Validated | EVD-004 applies only under its defined normal conditions. |
 | M3-07 | Validated | EVD-005 applies to the representative single-NFT display under its defined conditions. |
 | M3-08 | Planned | The actual monitoring window has not been assessed or registered. |
 | M3-09 | Validated | EVD-001 directly includes Cardano-only and dual-chain projects. |
 | M3-10 | Validated | EVD-001 directly includes Solana-only and dual-chain projects. |
-| M3-11 | Validated | EVD-001 and EVD-006 support bounded mixed-chain behavior under the disclosed operational request load, not stress or high concurrency. |
+| M3-11 | Implemented, validation pending | Tooling exists and EVD-001 supplies supporting mixed-chain evidence; the heavier cross-chain API-traffic/stress execution remains open. |
 | M3-12 | Validated | EVD-006 records a scoped implementation/control assessment; no universal vulnerability guarantee is made. |
 | M3-13 | Implemented, validation pending | EVD-003 is supporting evidence; generic error-disclosure hardening remains open. |
 | M3-14 | Implemented, validation pending | Implementation/regression foundations exist; an unambiguous retained exact-head live restricted-role result remains open. |
@@ -113,6 +113,7 @@ The environment URL, username, password, authentication state, activation detail
 ## Open actions
 
 - **M3-01:** perform one small read-oriented smoke execution on a second representative WordPress/PHP/hosting profile only for a stronger multi-environment claim.
+- **M3-05 and M3-11:** perform one safe, authorized, bounded high-traffic/heavy mixed-chain execution with a defined traffic model, ceilings and stop conditions, measurements, recovery, final-state checks, and sanitized evidence. Keep this narrow and proportionate rather than turning it into a broad or production-scale stress campaign.
 - **M3-08:** assess and register the actual monitoring start/end, probe, interval/location class, incidents, missing-data handling, calculation, and whether uptime was strictly above 99.9%; no percentage is asserted here.
 - **M3-13:** harden the residual privileged synchronization error disclosures in a separate runtime change and validate the affected boundary.
 - **M3-14:** register a complete existing retained exact-head restricted-role/private-security record if available, otherwise execute that separately authorized private validation later.
