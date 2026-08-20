@@ -4,7 +4,7 @@
 
 This sanitized report registers **EVD-005** for NFT display page-load performance and assesses **M3-07** for a representative single-NFT front-end display under the conditions below. The execution began at `2026-08-20T12:58:11.282Z` against exact source commit and exact deployed commit `5876eb0c68449419be30088c054f5b98a10a79c0`.
 
-The single-token shortcode page is the representative M3-07 display. Results from all five measured pages are retained below as supplementary boundary evidence, not as an expanded claim that every shortcode or dataset meets the target.
+The single-token shortcode page is the representative M3-07 display because it is the plugin's direct single-NFT front-end view, whereas GRID, LIST, and CAROUSEL are multi-item aggregation views whose first-display timing is materially affected by the prepared external-media payload. Results from all five measured pages are retained below as supplementary boundary evidence, not as an expanded claim that every shortcode or dataset meets the target.
 
 ## Browser method and conditions
 
