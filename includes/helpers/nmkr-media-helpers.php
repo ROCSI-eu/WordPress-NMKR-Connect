@@ -23,7 +23,7 @@ if (!function_exists('nmkr_str_ends_with')) {
 /**
  * Convert ipfs://, /ipfs/, or bare CIDs to an HTTP(S) gateway URL.
  * Override base via:
- *   add_filter('nmkr_ipfs_gateway_base', function() { return 'https://ipfs.io/ipfs/'; });
+ *   add_filter('nmkr_ipfs_gateway_base', function() { return 'https://gateway.example/ipfs/'; });
  *
  * @param string $url
  * @return string Normalized HTTP(S) URL or empty string
@@ -39,7 +39,7 @@ if (!function_exists('nmkr_resolve_ipfs_url')) {
         }
 
         // Configurable gateway base; ensure it ends with /ipfs/
-        $base = apply_filters('nmkr_ipfs_gateway_base', 'https://ipfs.io/ipfs/');
+        $base = apply_filters('nmkr_ipfs_gateway_base', 'https://gateway.pinata.cloud/ipfs/');
         if (!nmkr_str_ends_with($base, '/ipfs/')) {
             $base = rtrim($base, '/') . '/ipfs/';
         }

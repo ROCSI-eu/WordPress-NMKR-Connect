@@ -6,7 +6,7 @@
 define( 'ABSPATH', __DIR__ . '/../' );
 
 function apply_filters( $hook, $value ) {
-    if ( 'nmkr_ipfs_gateway_base' === $hook ) {
+    if ( 'nmkr_ipfs_gateway_base' === $hook && ! empty( $GLOBALS['nmkr_test_custom_gateway'] ) ) {
         return 'https://gateway.example.test/content';
     }
 
@@ -31,6 +31,14 @@ $cid = 'QmYwAPJzv5CZsnAzt8auVZRnGi2C9B7F9hTQYxA9Z9n2mR';
 $normalized = 'https://gateway.example.test/content/ipfs/' . $cid . '/token.png';
 $base58_cid = 'zdj7WVRuyEiwKpFdZU8UPrxcX9KtmQTzkbR4nUWfu7D9DWycA';
 $base36_cid = 'k2jmtxrd43ukk1y7sbez98gxlwwbobotav868thdas64o6xu8eqxruvz';
+
+nmkr_image_assert_same(
+    'https://gateway.pinata.cloud/ipfs/' . $cid . '/token.png',
+    nmkr_resolve_ipfs_url( 'ipfs://' . $cid . '/token.png' ),
+    'IPFS paths must use the Pinata gateway by default'
+);
+
+$GLOBALS['nmkr_test_custom_gateway'] = true;
 
 nmkr_image_assert_same(
     $normalized,
