@@ -189,7 +189,7 @@ function nmkr_shortcode_project($atts) {
     // --- BEGIN: normalized project logo for [nmkr-project] ---
     $logo = nmkr_get_project_logo_url( $project );
     if ( empty( $logo ) ) {
-        $logo = plugins_url( 'images/placeholder.jpg', NMKR_CONNECT_PLUGIN_FILE );
+        $logo = plugins_url( 'images/placeholder.png', NMKR_CONNECT_PLUGIN_FILE );
     }
 
     $alt = '';
@@ -248,11 +248,7 @@ function nmkr_shortcode_project($atts) {
         $output .= '<h5>' . esc_html__( 'Featured Token', 'nmkr-connect' ) . '</h5>';
         
         // Token image (opens lightbox)
-        $img = nmkr_get_token_image_url( $featured );
-        if ( empty( $img ) ) {
-            $img = plugins_url( 'images/placeholder.jpg', NMKR_CONNECT_PLUGIN_FILE );
-        }
-        $output .= '<img src="' . esc_url( $img ) . '" alt="' . esc_attr( $featured->token_name ) . '" onclick="openLightbox(this.src)" />';
+        $output .= nmkr_get_token_image_markup( $featured, $featured->token_name, '' );
         
         $output .= '<h6>' . esc_html( $featured->token_name ) . '</h6>';
         

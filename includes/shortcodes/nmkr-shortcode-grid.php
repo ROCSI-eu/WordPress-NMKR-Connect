@@ -286,18 +286,8 @@ function nmkr_shortcode_grid($atts) {
             . '>';
         
         // Token image
-        $img = nmkr_get_token_image_url($token);
-        $ph  = plugins_url('images/placeholder.jpg', NMKR_CONNECT_PLUGIN_FILE);
         $alt = !empty($token->token_name) ? $token->token_name : (!empty($token->asset_name) ? $token->asset_name : 'Token');
-        
-        $output .= '<img'
-            . ' src="' . esc_url($img ? $img : $ph) . '"'
-            . ' alt="' . esc_attr($alt) . '"'
-            . ' class="nmkr-token-image"'
-            . ' loading="lazy"'
-            . ' decoding="async"'
-            . ' onclick="openLightbox(this.src)"'
-            . ' />';
+        $output .= nmkr_get_token_image_markup($token, $alt, 'nmkr-token-image');
         
         // Token title
         $output .= '<h3 class="nmkr-token-title">' . esc_html($token->token_name) . '</h3>';
