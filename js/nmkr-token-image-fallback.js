@@ -1,8 +1,7 @@
 (function () {
     'use strict';
 
-    document.addEventListener('error', function (event) {
-        var image = event.target;
+    function transitionFailedImage(image) {
         if (!image || !image.matches || !image.matches('img[data-nmkr-token-image]')) {
             return;
         }
@@ -29,5 +28,15 @@
                 image.src = placeholder;
             }
         }
+    }
+
+    document.addEventListener('error', function (event) {
+        transitionFailedImage(event.target);
     }, true);
+
+    Array.prototype.forEach.call(document.querySelectorAll('img[data-nmkr-token-image]'), function (image) {
+        if (image.complete === true && image.naturalWidth === 0) {
+            transitionFailedImage(image);
+        }
+    });
 }());
