@@ -2,7 +2,7 @@
 
 ## Evidence identity and scope
 
-This sanitized report registers **EVD-007** for **M3-01** and records a bounded compatibility execution across two separately configured WordPress installations on the project’s maintained runtime. The exact source and deployed commit was `bbf87e351a118ff67d5b57c2c20dfcf4e936b477`.
+This sanitized report registers **EVD-007** primarily for **M3-01**, with **M3-19** indexing the report, and records a bounded compatibility execution across two separately configured WordPress installations on the project’s maintained runtime. The exact source commit and deployed plugin commit on both executed profiles was `bbf87e351a118ff67d5b57c2c20dfcf4e936b477`.
 
 The execution covered one development installation and one staging installation. A production installation on the same host was inventoried only and was not modified, authenticated against, or used for intentional runtime mutation.
 
@@ -22,23 +22,19 @@ Both installations used the same operating-system, web-server, PHP, database-ser
 
 ## Method
 
-Before execution, the operator confirmed the exact public `main` commit, clean source identity, required tooling, WordPress readiness, plugin activation, API-key presence without printing the value, idle synchronization state, database health, and absence of maintenance mode.
-
-The exact commit was deployed as a clean Git worktree to development and staging with production Composer dependencies. The compatibility smoke then ran the repository’s non-mutating WP-CLI smoke on both installations and verified:
+The compatibility execution verified the following on both development and staging:
 
 - exact deployed commit and clean worktree;
 - site identity and WordPress environment type;
-- WordPress, PHP, database, theme, and plugin versions;
 - required NMKR database tables;
-- non-empty API configuration without exposing it;
-- latest synchronization timestamp consistency when both values existed;
-- absence of suspicious completed synchronization rows;
-- recent first-party PHP or NMKR errors where a debug log existed;
+- API-key presence without exposing the value;
+- idle synchronization and passing database health;
+- the repository's `scripts/nmkr-wpcli-smoke.sh` result;
 - representative shortcode runtime registration;
 - unauthenticated homepage HTTP readiness;
 - unchanged fingerprint of selected synchronization options and NMKR table counts before and after the smoke.
 
-No real NMKR synchronization ran. No intentional database, option, transient, history, or content mutation was performed.
+No real NMKR synchronization ran. No intentional option, transient, database, history, content, or production mutation occurred.
 
 ## Results
 
@@ -57,7 +53,7 @@ The private compatibility execution record SHA-256 was `603a7bb9b234bd1fa4116288
 
 This result demonstrates compatibility with the recorded WordPress environment and with separately configured WordPress installations. It does not claim certification for every hosting provider, managed WordPress platform, operating system, web server, PHP version, database version, theme, plugin combination, or network topology.
 
-Runtime evidence was intentionally limited to the current maintained WordPress and PHP environment used by the project. Older runtime versions were not deployed solely to expand the matrix, and this report does not convert declared minimum-version metadata into executed runtime coverage.
+Runtime evidence was intentionally limited to the project's maintained, current real-world WordPress and PHP environment rather than an artificial legacy matrix. Obsolete or older runtime versions were not deployed solely to expand the matrix; declared minimum-version metadata is separate from this executed runtime evidence and does not establish executed coverage for older WordPress or PHP versions.
 
 ## Final state and evidence retention
 

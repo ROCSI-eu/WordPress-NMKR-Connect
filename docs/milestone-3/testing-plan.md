@@ -31,7 +31,9 @@ Never publish credentials, endpoints, infrastructure names/paths, customer or pr
 
 ### Functionality and compatibility
 
-Cover representative critical paths: installation/activation and readiness; settings and authorization; dashboard/project views; synchronization start, stop, failure, recovery, and final state; Cardano and Solana data; Free/Premium shortcode displays as access permits; analytics/privacy settings; roles/capabilities; and safe errors. Existing automated and operational evidence may be assessed together without inventing a duplicate manual matrix; add targeted manual coverage only for a material gap. Run a critical subset on another representative WordPress hosting/environment profile only when making a stronger multi-environment claim, and disclose combinations not tested.
+Cover representative critical paths: installation/activation and readiness; settings and authorization; dashboard/project views; synchronization start, stop, failure, recovery, and final state; Cardano and Solana data; Free/Premium shortcode displays as access permits; analytics/privacy settings; roles/capabilities; and safe errors. Existing automated and operational evidence may be assessed together without inventing a duplicate manual matrix; add targeted manual coverage only for a material gap.
+
+[EVD-007](executed-evidence-2026-08-21.md) completes the current M3-01 evidence action with a read-oriented smoke across separate development and staging WordPress installations on one representative self-managed GCP VM stack. Treat it as current-maintained-runtime, multi-installation evidence—not independent-hosting-provider, managed-host, legacy-runtime, or broad cross-platform certification. Retain the record and rerun affected checks when the maintained runtime or relevant hosting assumptions materially change; do not deploy obsolete or older WordPress/PHP versions solely to enlarge an artificial matrix, and keep declared minimum-version metadata separate from executed coverage.
 
 ### Usability
 
