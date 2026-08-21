@@ -31,27 +31,27 @@ Never publish credentials, endpoints, infrastructure names/paths, customer or pr
 
 ### Functionality and compatibility
 
-Cover representative critical paths: installation/activation and readiness; settings and authorization; dashboard/project views; synchronization start, stop, failure, recovery, and final state; Cardano and Solana data; Free/Premium shortcode displays as access permits; analytics/privacy settings; roles/capabilities; and safe errors. Combine targeted automation with a concise manual matrix. Run the critical subset on more than one representative WordPress hosting/environment profile; disclose combinations not tested.
+Cover representative critical paths: installation/activation and readiness; settings and authorization; dashboard/project views; synchronization start, stop, failure, recovery, and final state; Cardano and Solana data; Free/Premium shortcode displays as access permits; analytics/privacy settings; roles/capabilities; and safe errors. Existing automated and operational evidence may be assessed together without inventing a duplicate manual matrix; add targeted manual coverage only for a material gap. Run a critical subset on another representative WordPress hosting/environment profile only when making a stronger multi-environment claim, and disclose combinations not tested.
 
 ### Usability
 
-Use a short neutral task script for representative setup, synchronization status interpretation, and NFT display tasks. A small practical participant sample is acceptable: record relevant experience range, completion/obstacles, observations, and resulting fixes or open gaps without identifying participants. Automated browser tests may prepare flows but do not replace participant evidence. Avoid arbitrary large participant commitments.
+A documented maintainer/operator workflow assessment may use representative setup, synchronization-status interpretation, NFT display, analytics, role, troubleshooting, and escalation tasks already exercised in operational evidence and current guides. Clearly label its audience and limitations. Independent participants can strengthen evidence, and any such work should record relevant experience range, completion/obstacles, observations, and resulting fixes or gaps without identifying participants, but a participant study is not mandatory unless the contractual wording requires one. Automated browser tests alone must not be relabelled as participant research.
 
 ### Performance, load, and uptime
 
 Before measurement, define the operation, metric, normal/load profile, dataset scale, cache state, client/network conditions, observation window, warm-up/repetition approach, and acceptable errors. Report measured values and distribution/summary rather than only “fast.” Keep the method adjustable but evaluate the fixed contractual thresholds explicitly.
 
-Use bounded stepped load in an authorized non-production environment. Set concurrency/rate ceilings, resource and error monitoring, stop thresholds, cooldown, and recovery/final-state checks. Do not extrapolate unlimited scale from a small test. Streaming numbered-page traversal, run-scoped deduplication, bounded provisional progress, and canonical final metrics are current implementation foundations. Their operational validation does not replace separately measured bounded load, latency, uptime, or heavier cross-chain evidence.
+A controlled light-profile synchronization with a disclosed dataset, request count, outcomes, timing, resource signal, and terminal/final state may serve as useful preparation and supporting operational evidence. It does not complete M3-05's high-traffic criterion or M3-11's heavy cross-chain request criterion. For those claims, use an authorized non-production environment and a specifically defined higher-traffic profile with rate/concurrency ceilings, monitoring, stop thresholds, cooldown, recovery, and final-state checks. Never extrapolate unlimited scale or production capacity from a bounded profile or turn the required execution into a broad production-scale stress campaign. Streaming traversal, run-scoped deduplication, bounded provisional progress, and canonical final metrics remain implementation foundations rather than measurements by themselves; uptime and materially broader traffic claims still require their own evidence.
 
 For uptime, define what endpoint and response qualify as available, probe interval/location class, observation start/end, planned-maintenance treatment, calculation, missing-data handling, and incidents. Choose a defensible period appropriate to submission evidence; this plan does not invent an excessive mandatory duration. State whether the above-99.9% target was met during that disclosed period.
 
 ### Chain-specific synchronization
 
-Register Cardano and Solana executions separately, with chain, dataset scope, terminal state, integrity checks, API timing, cleanup, and limitations. Only after both exist may a combined comparison reference them. A single synchronization does not prove heavier traffic, uptime, or full cross-chain performance. Streaming traversal, run-scoped deduplication, unique final totals, provisional progress, pagination failure handling, and final metrics are current implementation foundations. Register separate measured evidence for each chain and for representative high volume or heavier cross-chain traffic; the foundation alone does not validate those contractual claims.
+Register Cardano and Solana evidence with attributable chain representation, dataset scope, terminal state, integrity checks, API timing, cleanup, and limitations. One controlled mixed-chain execution may support both chain-specific functional claims when Cardano and Solana are each directly represented and attributable; artificial chain-only executions are unnecessary absent an express contractual requirement. EVD-001's bounded light-profile mixed-chain run is useful supporting evidence, but it does not prove or complete the heavier-request, stepped-load, concurrency, or stress claim. Streaming traversal, run-scoped deduplication, unique final totals, provisional progress, pagination failure handling, and final metrics remain implementation foundations; materially broader traffic claims require separate measured evidence.
 
 ### Security and negative paths
 
-Use focused control review and representative negative tests for:
+Use exact-source control review and representative deterministic regressions for implementation-evidence claims, including:
 
 - input type/length/allow-list validation and sanitization;
 - output escaping and stored/reflected XSS boundaries;
@@ -61,7 +61,7 @@ Use focused control review and representative negative tests for:
 - error disclosure, logging redaction, retention, and safe user messages;
 - dependency inventory, reproducible install, advisory review, and finding disposition.
 
-Run mutation or attack-like cases only against disposable/controlled data. A selected negative suite supports a scoped conclusion, not a guarantee that no vulnerability exists.
+Source/control assessment cannot substitute for live execution when a claim specifically depends on runtime authorization or environment behavior. Run mutation or attack-like cases only against disposable/controlled data. A selected negative suite supports a scoped conclusion, not a guarantee that no vulnerability exists.
 
 ## Reviewer environment
 
