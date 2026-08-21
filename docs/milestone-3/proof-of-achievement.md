@@ -1,6 +1,6 @@
 # Milestone 3 proof of achievement
 
-This is the public, documentation-only synthesis of [EVD-001 through EVD-003](executed-evidence-2026-08-17.md), [EVD-004](executed-evidence-2026-08-18.md), [EVD-005](executed-evidence-2026-08-20.md), current implementation controls, public regressions and CI foundations, and the existing user, developer, troubleshooting, Playwright, and numbered testing guides. The exact source baseline assessed was `2b97486a023366669d7744993ad15e86f47070ca`.
+This is the public, documentation-only synthesis of [EVD-001 through EVD-003](executed-evidence-2026-08-17.md), [EVD-004](executed-evidence-2026-08-18.md), [EVD-005](executed-evidence-2026-08-20.md), [EVD-007](executed-evidence-2026-08-21.md), current implementation controls, public regressions and CI foundations, and the existing user, developer, troubleshooting, Playwright, and numbered testing guides. The exact source baseline assessed was `2b97486a023366669d7744993ad15e86f47070ca`; EVD-007 is a later, separately registered execution against its own exact commit.
 
 This assessment produced no new runtime observation, synchronization, benchmark, browser execution, private validation, security attack, participant study, or reviewer account. It links the detailed records instead of reproducing their reports, measurements, guides, or implementation descriptions. “Validated” below means that reviewer evidence supports the stated, bounded requirement; it is not a formal certification or a claim beyond the disclosed scope.
 
@@ -11,6 +11,12 @@ This assessment produced no new runtime observation, synchronization, benchmark,
 [EVD-002](executed-evidence-2026-08-17.md#evd-002--exact-commit-existing-state-functionality) records an exact-commit full existing-readonly Phase 2 pass across Playwright, WP-CLI, database-state, runtime/final/source/deployed integrity, and read-only enforcement. Together with the [Playwright coverage index](../testing-playwright.md#implemented-coverage), [WP-CLI smoke guidance](../testing-phase-1.md), [database-state checks](../testing-phase-8.md), and public regressions described by the [CI guide](../testing-phase-4.md), it covers representative critical functionality: administration and readiness; settings and access controls; dashboards and project views; synchronization status and lifecycle; shortcode and NFT display paths; analytics; error/final-state behavior; and integrity and read-only enforcement.
 
 This is representative rather than exhaustive coverage. A new manual matrix was not created merely to duplicate the automated and already exercised operational paths.
+
+### Compatibility
+
+[EVD-007](executed-evidence-2026-08-21.md) records a passing read-oriented compatibility smoke on separate development and staging WordPress installations, with separate databases/configuration states and disclosed collations, on one representative self-managed Google Cloud VM stack. Both profiles used the same exact clean plugin commit and the project's maintained current WordPress/PHP runtime; required tables, API-key presence, idle/database health, WP-CLI smoke, shortcode runtime registration, homepage readiness, and before/after state fingerprints passed without a real synchronization or intentional mutation.
+
+This validates M3-01 only within that current-runtime, multi-installation boundary. It is not evidence from independent hosting providers, and it does not certify managed hosts, every platform combination, production, or older WordPress/PHP runtimes. Obsolete or older runtimes were not deployed solely to create an artificial legacy matrix; declared minimum-version metadata remains separate from executed runtime evidence.
 
 ### Maintainer/operator usability
 
@@ -88,7 +94,7 @@ The environment URL, username, password, authentication state, activation detail
 
 | ID | Status | Evidence and limitation |
 | --- | --- | --- |
-| M3-01 | Planned | Existing compatibility foundations are documented; a second representative environment smoke remains for a stronger multi-environment claim. |
+| M3-01 | Validated | EVD-007 validates the maintained current runtime across separate development and staging installations on one representative self-managed GCP VM stack; no independent-provider, managed-host, broad cross-platform, production-execution, or legacy-runtime claim is made. |
 | M3-02 | Validated | EVD-002 and EVD-006 support representative, non-exhaustive functionality coverage. |
 | M3-03 | Validated | EVD-001, EVD-004, and EVD-005 retain the scoped performance results. |
 | M3-04 | Validated | EVD-006 records the maintainer/operator workflow assessment; no participant study is claimed. |
@@ -106,13 +112,12 @@ The environment URL, username, password, authentication state, activation detail
 | M3-16 | Validated | The user documentation is indexed and exact-source reviewed by EVD-006. |
 | M3-17 | Validated | The developer documentation is indexed and exact-source reviewed by EVD-006. |
 | M3-18 | Validated | The troubleshooting documentation, EVD-003, and EVD-006 provide scoped evidence. |
-| M3-19 | Validated | This index and EVD-001 through EVD-006 provide consolidated reviewer-visible reports. |
+| M3-19 | Validated | This index and EVD-001 through EVD-007 provide consolidated reviewer-visible reports. |
 | M3-20 | Validated | EVD-006 provides bounded security implementation evidence with findings and limitations, not certification. |
 | M3-21 | Planned | Generic access controls are documented; actual private provisioning remains outstanding. |
 
 ## Open actions
 
-- **M3-01:** perform one small read-oriented smoke execution on a second representative WordPress/PHP/hosting profile only for a stronger multi-environment claim.
 - **M3-05 and M3-11:** perform one safe, authorized, bounded high-traffic/heavy mixed-chain execution with a defined traffic model, ceilings and stop conditions, measurements, recovery, final-state checks, and sanitized evidence. Keep this narrow and proportionate rather than turning it into a broad or production-scale stress campaign.
 - **M3-08:** assess and register the actual monitoring start/end, probe, interval/location class, incidents, missing-data handling, calculation, and whether uptime was strictly above 99.9%; no percentage is asserted here.
 - **M3-13:** harden the residual privileged synchronization error disclosures in a separate runtime change and validate the affected boundary.
