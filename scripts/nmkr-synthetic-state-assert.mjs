@@ -1,30 +1,12 @@
 import fs from 'node:fs';
-
-const fail = () => { throw new Error('synthetic-state-invalid'); };
-const read = path => JSON.parse(fs.readFileSync(path, 'utf8'));
-const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-
-try {
-  if (process.argv.length !== 4) fail();
-  const before = read(process.argv[2]);
-  const after = read(process.argv[3]);
-  if (before.schema_version !== 2 || after.schema_version !== 2) fail();
-  if (after.project_count !== 24 || after.token_count !== 2400 || after.token_detail_count !== 2400) fail();
-  if (!equal(after.chain_classifications, { cardano_only: 8, solana_only: 8, dual_chain: 8 })) fail();
-  for (const key of ['duplicate_project_count', 'duplicate_token_count', 'orphan_token_count', 'orphan_detail_count', 'active_history_count']) {
-    if (after[key] !== 0) fail();
-  }
-  if (after.history_count !== before.history_count + 1 || after.metrics_count !== before.metrics_count + 1) fail();
-  if (after.history_max_id <= before.history_max_id || after.latest_history.id !== after.history_max_id) fail();
-  if (!equal(after.latest_history, { id: after.history_max_id, status: 'completed', items_processed: 2400, items_successful: 2400, items_failed: 0, ended: 1, error_free: 1 })) fail();
-  const metrics = after.latest_metrics;
-  if (after.metrics_max_id <= before.metrics_max_id || metrics.id !== after.metrics_max_id) fail();
-  if (metrics.total_projects !== 24 || metrics.total_tokens !== 2400 || metrics.api_requests !== 2497 || metrics.timestamped !== 1) fail();
-  if (!(metrics.total_sync_duration > 0 && metrics.total_api_time > 0 && metrics.average_response_time > 0 && metrics.memory_usage >= 0)) fail();
-  for (const key of ['owner_present', 'active_marker', 'worker_lock', 'heartbeat', 'live_metrics']) if (after[key]) fail();
-  if (!equal(after.cron, { nmkr_execute_sync_background: 0, nmkr_process_batch_hook: 0, nmkr_resume_sync_finalization: 0 })) fail();
-  if (!equal(after.provider_counters, { projects: 1, token_lists: 96, details: 2400, violations: 0, external: 0, total: 2497 })) fail();
-} catch {
-  process.stderr.write('Synthetic final state: FAIL\n');
-  process.exitCode = 1;
-}
+const fail=()=>{throw new Error('synthetic-state-invalid');};const read=p=>JSON.parse(fs.readFileSync(p,'utf8'));const eq=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+try{
+ if(process.argv.length===5&&process.argv[2]==='--preflight'){const mode=process.argv[3],s=read(process.argv[4]);if(!['cold','warm'].includes(mode)||s.schema_version!==3)fail();const wanted=mode==='cold'?[0,0,0]:[24,2400,2400];if(!eq([s.project_count,s.token_count,s.token_detail_count],wanted))fail();if(mode==='warm'&&!eq(s.chain_classifications,{cardano_only:8,solana_only:8,dual_chain:8}))fail();for(const k of ['duplicate_project_count','duplicate_token_count','orphan_token_count','orphan_detail_count','active_history_count','option_active_marker_count','transient_active_marker_count','stale_recovery_marker_count','worker_evidence_count','finalization_resume_marker_count'])if(s[k]!==0)fail();if(s.owner_present||s.live_metrics||s.sync_data_classification==='active'||s.sync_data_classification==='unknown'||!s.cron_inspectable||Object.values(s.cron).some(Boolean))fail();process.exit(0);}
+ if(process.argv.length!==5)fail();const mode=process.argv[2],before=read(process.argv[3]),after=read(process.argv[4]);if(!['cold','warm'].includes(mode)||before.schema_version!==3||after.schema_version!==3)fail();
+ const totals=[before.project_count,before.token_count,before.token_detail_count],final=[after.project_count,after.token_count,after.token_detail_count];if(mode==='cold'&&!eq(totals,[0,0,0]))fail();if(mode==='warm'&&!eq(totals,[24,2400,2400]))fail();if(!eq(final,[24,2400,2400]))fail();if(mode==='cold'&&!eq(final.map((v,i)=>v-totals[i]),[24,2400,2400]))fail();if(mode==='warm'&&!eq(final.map((v,i)=>v-totals[i]),[0,0,0]))fail();
+ if(!eq(after.chain_classifications,{cardano_only:8,solana_only:8,dual_chain:8}))fail();if(mode==='warm'&&!eq(before.chain_classifications,after.chain_classifications))fail();
+ for(const k of ['duplicate_project_count','duplicate_token_count','orphan_token_count','orphan_detail_count','active_history_count','option_active_marker_count','transient_active_marker_count','stale_recovery_marker_count','worker_evidence_count','finalization_resume_marker_count'])if(after[k]!==0)fail();
+ if(after.owner_present||after.live_metrics||after.sync_data_classification==='active'||after.sync_data_classification==='unknown'||!after.cron_inspectable)fail();if(!eq(after.cron,{nmkr_execute_sync_background:0,nmkr_process_batch_hook:0,nmkr_sync_cron_hook:0,nmkr_install_sync_cron_hook:0,nmkr_resume_sync_finalization:0}))fail();
+ if(after.history_count!==before.history_count+1||after.metrics_count!==before.metrics_count+1||after.terminal_history_fingerprint!==before.terminal_history_fingerprint)fail();if(after.exact_history_count!==1||after.exact_metrics_count!==1)fail();if(!eq(after.exact_history,{status:'completed',items_processed:2400,items_successful:2400,items_failed:0,ended:true,error_free:true}))fail();
+ const m=after.exact_metrics;if(m.total_projects!==24||m.total_tokens!==2400||m.api_requests!==2497||!m.timestamp_match||!(m.total_sync_duration>0&&m.total_api_time>0&&m.average_response_time>0&&m.memory_usage>=0))fail();if(!eq(after.provider_counters,{projects:1,token_lists:96,details:2400,violations:0,external:0,total:2497}))fail();
+}catch{process.stderr.write('Synthetic final state: FAIL\n');process.exitCode=1;}

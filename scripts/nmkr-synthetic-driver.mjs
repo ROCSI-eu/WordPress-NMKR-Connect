@@ -1,5 +1,5 @@
-import { spawn } from 'node:child_process';
-import { closeSync, openSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
+import { chmodSync, closeSync, openSync, writeFileSync } from 'node:fs';
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const fail = name => { throw new Error(name); };
@@ -8,6 +8,16 @@ const post = async (context, url, form) => {
   let json; try { json = await response.json(); } catch { fail('malformed-response'); }
   if (!response.ok() || !json?.success) fail('request-refused');
   return json.data;
+};
+const refuse = async (context, url, form) => {
+  const response = await context.request.post(url, { form, timeout: 30000 });
+  let json; try { json = await response.json(); } catch { fail('duplicate-start-ambiguous'); }
+  if (response.status() !== 409 || json?.success !== false) fail('duplicate-start-accepted');
+};
+const verifyWorker = (env, runId) => {
+  const code = `\n$expected=getenv("NMKR_SYNTHETIC_EXPECTED_RUN_ID");$found=array();\nforeach((array)_get_cron_array() as $timestamp=>$events){if($timestamp==="version"||!isset($events["nmkr_execute_sync_background"]))continue;foreach($events["nmkr_execute_sync_background"] as $event){$found[]=array("due"=>(int)$timestamp<=time(),"args"=>$event["args"]??array());}}\nexit(count($found)===1&&$found[0]["args"]===array($expected)&&$found[0]["due"]?0:1);`;
+  const checked = spawnSync(env.NMKR_SYNTHETIC_WP_CLI, ['--path', env.NMKR_SYNTHETIC_WP_ROOT, 'eval', code], { env: { ...env, NMKR_SYNTHETIC_EXPECTED_RUN_ID: runId }, stdio: 'ignore' });
+  if (checked.status !== 0) fail('worker-event-identity');
 };
 export function assertProgress(previous, data) {
   const value = Number(data?.progress ?? data?.percentage);
@@ -49,6 +59,10 @@ export async function runSyntheticLifecycle({ playwright, env = process.env }) {
     const ajax = `${env.NMKR_SYNTHETIC_BASE_URL}/wp-admin/admin-ajax.php`;
     const start = await post(context, ajax, { action: 'nmkr_start_sync', nonce });
     if (!/^[0-9a-f-]{36}$/i.test(start?.run_id || '')) fail('run-id-invalid');
+    writeFileSync(env.NMKR_SYNTHETIC_RUN_RECEIPT, JSON.stringify({ schema_version: 1, run_id: start.run_id, mode: env.NMKR_SYNTHETIC_RUN_MODE }) + '\n', { mode: 0o600, flag: 'wx' });
+    chmodSync(env.NMKR_SYNTHETIC_RUN_RECEIPT, 0o600);
+    await refuse(context, ajax, { action: 'nmkr_start_sync', nonce });
+    verifyWorker(env, start.run_id);
     const workerLog = openSync(env.NMKR_SYNTHETIC_WORKER_LOG, 'a', 0o600);
     try {
       wp = spawn(env.NMKR_SYNTHETIC_WP_CLI, ['--path', env.NMKR_SYNTHETIC_WP_ROOT, 'cron', 'event', 'run', 'nmkr_execute_sync_background', '--due-now'], { stdio: ['ignore', workerLog, workerLog], env });
