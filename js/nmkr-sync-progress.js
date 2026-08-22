@@ -2,7 +2,7 @@
 
 function nmkrFormatPublicError(data, status) {
     try {
-        var allowed = ['option_retrieval_failed', 'sync_critical_error', 'sync_terminal_failed', 'sync_owner_mismatch', 'invalid_run_id', 'sync_owner_recovery_required', 'sync_finalization_pending', 'sync_already_owned', 'sync_admission_failed', 'sync_schedule_failed', 'sync_schedule_cleanup_pending', 'sync_schedule_owner_changed', 'sync_cleanup_failed', 'sync_stop_cleanup_failed', 'direct_stop_requires_cooperative_worker', 'force_stop_execution_failed', 'force_stop_failed', 'force_stop_handler_failure', 'log_clear_failed', 'section_log_clear_failed'];
+        var allowed = ['option_retrieval_failed', 'sync_critical_error', 'sync_terminal_failed', 'sync_owner_mismatch', 'invalid_run_id', 'sync_owner_recovery_required', 'sync_finalization_pending', 'sync_already_owned', 'sync_admission_failed', 'sync_start_rollback_completed', 'sync_start_rollback_lock_unavailable', 'sync_start_rollback_retained', 'sync_start_rollback_owner_changed', 'ajax_handler_failure', 'sync_schedule_failed', 'sync_schedule_cleanup_pending', 'sync_schedule_owner_changed', 'sync_cleanup_failed', 'sync_stop_cleanup_failed', 'direct_stop_requires_cooperative_worker', 'force_stop_execution_failed', 'force_stop_failed', 'force_stop_handler_failure', 'log_clear_failed', 'section_log_clear_failed'];
         var code = data ? data.error_code : '';
         var known = allowed.indexOf(code) !== -1;
         var message = known && typeof data.message === 'string' && data.message.trim() !== '' ? data.message.trim() : '';

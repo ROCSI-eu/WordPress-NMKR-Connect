@@ -15,6 +15,10 @@ function assertSafe(name, value) {
 
 try {
     const allowed = formatter({ status: 409, responseJSON: { data: { error_code: 'sync_already_owned', message: 'A synchronization is already in progress.' } } });
+    const startFailureCodes = ['sync_start_rollback_completed', 'sync_start_rollback_lock_unavailable', 'sync_start_rollback_retained', 'sync_start_rollback_owner_changed', 'ajax_handler_failure'];
+    const startFailures = startFailureCodes.map(function (code) {
+        return formatter({ status: 500, responseJSON: { data: { error_code: code, message: 'Synchronization could not be initialized safely.' } } });
+    });
     const application = applicationFormatter({ success: false, data: { error_code: 'option_retrieval_failed', message: 'Synchronization options could not be loaded.' } });
     const unknown = formatter({ status: 502, statusText: secret, responseText: secret, responseJSON: { data: { error_code: secret, message: secret } } });
     const unknownApplication = applicationFormatter({ success: false, data: { error_code: secret, message: secret } });
@@ -23,6 +27,10 @@ try {
     [allowed, application, unknown, unknownApplication, warning].forEach(function (value, index) { assertSafe('formatted_' + index, value); });
     consolePayload.forEach(function (value, index) { assertSafe('console_' + index, value); });
     if (allowed !== 'HTTP 409: A synchronization is already in progress. [sync_already_owned]') throw new Error('allowlisted_message_missing');
+    startFailures.forEach(function (value, index) {
+        const expected = 'HTTP 500: Synchronization could not be initialized safely. [' + startFailureCodes[index] + ']';
+        if (value !== expected) throw new Error('start_failure_message_missing_' + index);
+    });
     if (application !== 'Synchronization options could not be loaded. [option_retrieval_failed]') throw new Error('application_message_missing');
     if (application.indexOf('HTTP') !== -1) throw new Error('application_http_fabricated');
     if (unknown !== 'HTTP 502 [request_failed]') throw new Error('status_classification_missing');
