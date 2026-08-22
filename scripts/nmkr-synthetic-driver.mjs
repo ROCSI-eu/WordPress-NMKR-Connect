@@ -24,6 +24,12 @@ export function assertProgress(previous, data) {
   if (!Number.isFinite(value) || value < previous || value < 0 || value > 100) fail('invalid-progress');
   return value;
 }
+export function canonicalNonce(runtimeNonce, domNonce) {
+  if (typeof runtimeNonce !== 'string' || typeof domNonce !== 'string' || runtimeNonce.length === 0 || domNonce.length === 0) fail('nonce-missing');
+  if (!/^[a-z0-9]{10}$/i.test(runtimeNonce) || !/^[a-z0-9]{10}$/i.test(domNonce)) fail('nonce-malformed');
+  if (runtimeNonce !== domNonce) fail('nonce-mismatch');
+  return runtimeNonce;
+}
 export async function runSyntheticLifecycle({ playwright, env = process.env }) {
   const timeoutSeconds = Number(env.NMKR_SYNTHETIC_TIMEOUT_SECONDS || 1200);
   if (!Number.isInteger(timeoutSeconds) || timeoutSeconds < 60 || timeoutSeconds > 2700) fail('timeout-invalid');
@@ -54,8 +60,11 @@ export async function runSyntheticLifecycle({ playwright, env = process.env }) {
     await page.goto(`${env.NMKR_SYNTHETIC_BASE_URL}/wp-admin/admin.php?page=nmkr-connect-dashboard`, { waitUntil: 'domcontentloaded' });
     await Promise.race([statusProbesComplete, sleep(30000).then(() => fail('status-probes-missing'))]);
     if (statusProbes !== 2) fail('status-probes-unexpected');
-    const nonce = await page.evaluate(() => globalThis.nmkrSyncData?.nonce || globalThis.nmkr_sync_ajax?.nonce || '');
-    if (!nonce) fail('nonce-missing');
+    const nonceSources = await page.evaluate(() => ({
+      runtime: globalThis.nmkrSyncProgress?.nonce,
+      dom: document.querySelector('#nmkr-sync-nonce')?.value,
+    }));
+    const nonce = canonicalNonce(nonceSources.runtime, nonceSources.dom);
     const ajax = `${env.NMKR_SYNTHETIC_BASE_URL}/wp-admin/admin-ajax.php`;
     const start = await post(context, ajax, { action: 'nmkr_start_sync', nonce });
     if (!/^[0-9a-f-]{36}$/i.test(start?.run_id || '')) fail('run-id-invalid');

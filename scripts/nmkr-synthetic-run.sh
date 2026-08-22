@@ -60,10 +60,16 @@ cleanup(){ rm -f "$target"; [[ -z "${server:-}" ]] || kill "$server" 2>/dev/null
 install -m 600 "$NMKR_SYNTHETIC_PROVIDER_SOURCE" "$target"
 capture_state "$NMKR_SYNTHETIC_RUN_DIR/before-state.json" "$NMKR_SYNTHETIC_RUN_DIR/before-state.stderr" || exit 46
 node "$NMKR_SYNTHETIC_STATE_ASSERT" --preflight "$NMKR_SYNTHETIC_RUN_MODE" "$NMKR_SYNTHETIC_RUN_DIR/before-state.json"
-debug_meta="$NMKR_SYNTHETIC_RUN_DIR/debug-meta"; debug_delta="$NMKR_SYNTHETIC_RUN_DIR/debug-delta.log"
+debug_meta="$NMKR_SYNTHETIC_RUN_DIR/debug-meta"; debug_delta="$NMKR_SYNTHETIC_RUN_DIR/debug-delta.log"; debug_baseline_diagnostic="$NMKR_SYNTHETIC_RUN_DIR/debug-baseline.stderr"
+set +e
 "$NMKR_SYNTHETIC_WP_CLI" --path="$NMKR_SYNTHETIC_WP_ROOT" eval '\''
 if(!defined("WP_DEBUG_LOG")||WP_DEBUG_LOG===false)exit(1);$p=WP_DEBUG_LOG===true?WP_CONTENT_DIR."/debug.log":WP_DEBUG_LOG;
-if(!is_string($p)||$p===""||!is_dir(dirname($p)))exit(1);if(!file_exists($p)&&file_put_contents($p,"")===false)exit(1);@chmod($p,0600);$s=lstat($p);if(!$s||!is_file($p)||is_link($p)||!is_readable($p)||($s["mode"]&077)!==0)exit(1);file_put_contents(getenv("NMKR_SYNTHETIC_RUN_DIR")."/debug-meta",$p."\n".$s["ino"]."\n".$s["size"]."\n",LOCK_EX);'\'' >/dev/null 2>&1
+if(!is_string($p)||$p===""||!is_dir(dirname($p)))exit(1);if(!file_exists($p)&&file_put_contents($p,"")===false)exit(1);@chmod($p,0600);$s=lstat($p);if(!$s||!is_file($p)||is_link($p)||!is_readable($p)||($s["mode"]&077)!==0)exit(1);file_put_contents(getenv("NMKR_SYNTHETIC_RUN_DIR")."/debug-meta",$p."\n".$s["ino"]."\n".$s["size"]."\n",LOCK_EX);'\'' >/dev/null 2>"$debug_baseline_diagnostic"
+debug_baseline_status=$?
+python3 "$NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER" "$debug_baseline_diagnostic" 60 >/dev/null 2>&1
+debug_baseline_diagnostic_status=$?
+set -e
+[[ "$debug_baseline_status" == 0 && ( "$debug_baseline_diagnostic_status" == 0 || "$debug_baseline_diagnostic_status" == 3 ) ]] || exit 45
 php -S "127.0.0.1:$NMKR_SYNTHETIC_PORT" -t "$NMKR_SYNTHETIC_WP_ROOT" >"$NMKR_SYNTHETIC_SERVER_LOG" 2>&1 & server=$!
 sleep 1; node "$NMKR_SYNTHETIC_DRIVER"
 mapfile -t debug_info <"$debug_meta"; [[ "${#debug_info[@]}" == 3 ]] || exit 45

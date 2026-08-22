@@ -22,6 +22,17 @@ node "$assertor" warm "$tmp/warm.json" "$tmp/after.json"
 sed -i 's/"exact_history_count":1/"exact_history_count":0/' "$tmp/after.json"
 ! node "$assertor" cold "$tmp/cold.json" "$tmp/after.json" >/dev/null 2>&1 || { echo 'FAIL: unbound history accepted' >&2; exit 1; }
 grep -Fq 'terminal_outcome' "$(dirname "$runner")/nmkr-synthetic-driver.mjs" || { echo 'FAIL: canonical terminal outcome missing' >&2; exit 1; }
+driver="$(dirname "$runner")/nmkr-synthetic-driver.mjs"
+grep -Fq 'globalThis.nmkrSyncProgress?.nonce' "$driver" && grep -Fq "document.querySelector('#nmkr-sync-nonce')?.value" "$driver" || { echo 'FAIL: canonical nonce sources missing' >&2; exit 1; }
+! grep -Eq 'nmkrSyncData|nmkr_sync_ajax' "$driver" || { echo 'FAIL: unsupported nonce fallback present' >&2; exit 1; }
+DRIVER="$driver" node --input-type=module <<'JS'
+const { canonicalNonce } = await import(`file://${process.env.DRIVER}`);
+const expectFailure = (name, left, right) => { try { canonicalNonce(left, right); } catch (error) { if (error.message === name) return; } throw new Error(`nonce regression: ${name}`); };
+if (canonicalNonce('abc123def4', 'abc123def4') !== 'abc123def4') throw new Error('canonical nonce rejected');
+expectFailure('nonce-missing', '', 'abc123def4');
+expectFailure('nonce-malformed', 'unsafe value', 'unsafe value');
+expectFailure('nonce-mismatch', 'abc123def4', 'abc123def5');
+JS
 grep -Fq "form.get('action') !== 'nmkr_check_api_status'" "$(dirname "$runner")/nmkr-synthetic-driver.mjs" || { echo 'FAIL: dashboard status probes not isolated' >&2; exit 1; }
 grep -Fq 'NMKR_SYNTHETIC_DEPLOYED_PLUGIN_PATH' "$runner" || { echo 'FAIL: deployed integrity gate missing' >&2; exit 1; }
 grep -Fq 'NMKR_SYNTHETIC_WORKER_LOG' "$(dirname "$runner")/nmkr-synthetic-driver.mjs" || { echo 'FAIL: private worker diagnostics missing' >&2; exit 1; }
@@ -29,6 +40,8 @@ grep -Fq 'NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER' "$runner" || { echo 'FAIL: worke
 grep -Fq 'duplicate-start-accepted' "$(dirname "$runner")/nmkr-synthetic-driver.mjs" || { echo 'FAIL: duplicate Start gate missing' >&2; exit 1; }
 grep -Fq 'NMKR_SYNTHETIC_RUN_RECEIPT' "$runner" || { echo 'FAIL: run receipt missing' >&2; exit 1; }
 grep -Fq 'debug-delta.log' "$runner" || { echo 'FAIL: debug-log delta missing' >&2; exit 1; }
+grep -Fq '2>"$debug_baseline_diagnostic"' "$runner" || { echo 'FAIL: debug-baseline stderr reaches the console' >&2; exit 1; }
+grep -Fq 'debug_baseline_diagnostic_status" == 0 || "$debug_baseline_diagnostic_status" == 3' "$runner" || { echo 'FAIL: debug-baseline diagnostics are not enforced' >&2; exit 1; }
 grep -Fq 'NMKR_SYNTHETIC_SERVER_LOG' "$runner" || { echo 'FAIL: private server diagnostics missing' >&2; exit 1; }
 [[ "$(grep -Fc 'capture_state "$NMKR_SYNTHETIC_RUN_DIR/' "$runner")" == 2 ]] || { echo 'FAIL: state helpers are not captured' >&2; exit 1; }
 grep -Fq 'eval-file "$NMKR_SYNTHETIC_STATE_HELPER" >"$output" 2>"$diagnostic"' "$runner" || { echo 'FAIL: state-helper stderr reaches the console' >&2; exit 1; }
