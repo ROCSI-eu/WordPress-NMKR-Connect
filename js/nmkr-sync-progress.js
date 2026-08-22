@@ -1,5 +1,19 @@
 'use strict';
 
+function nmkrFormatTransportError(xhr) {
+    try {
+        var allowed = ['option_retrieval_failed', 'sync_critical_error', 'sync_terminal_failed', 'sync_owner_mismatch', 'invalid_run_id', 'sync_owner_recovery_required', 'sync_finalization_pending', 'sync_already_owned', 'sync_admission_failed', 'sync_schedule_failed', 'sync_schedule_cleanup_pending', 'sync_schedule_owner_changed', 'sync_cleanup_failed', 'sync_stop_cleanup_failed', 'direct_stop_requires_cooperative_worker', 'force_stop_execution_failed', 'force_stop_failed', 'force_stop_handler_failure', 'log_clear_failed', 'section_log_clear_failed'];
+        var code = xhr && xhr.responseJSON && xhr.responseJSON.data ? xhr.responseJSON.data.error_code : '';
+        return 'HTTP ' + Number(xhr && xhr.status || 0) + (allowed.indexOf(code) !== -1 ? ' [' + code + ']' : ' [request_failed]');
+    } catch (e) {
+        return 'HTTP error';
+    }
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { nmkrFormatTransportError: nmkrFormatTransportError };
+}
+
 jQuery(document).ready(function($) {
     // --- Polling backoff state (exponential) --------------------------------
     const pollBackoff = {
@@ -32,8 +46,7 @@ jQuery(document).ready(function($) {
     // If the detailed error helper isn't defined globally yet, define it.
     if (typeof window.nmkrHttpErrorString !== 'function') {
         window.nmkrHttpErrorString = function (xhr) {
-            try { return 'HTTP ' + (xhr.status || 0) + ' ' + (xhr.statusText || '') + ' – ' + String(xhr.responseText || '').slice(0, 200); }
-            catch (e) { return 'HTTP error'; }
+            return nmkrFormatTransportError(xhr);
         };
     }
 
@@ -48,11 +61,7 @@ jQuery(document).ready(function($) {
     };
     // Build a concise HTTP error summary from jqXHR
     function nmkrHttpErrorString(xhr) {
-        try {
-            return `HTTP ${xhr.status} ${xhr.statusText} – ${(xhr.responseText || '').slice(0,200)}`;
-        } catch (e) {
-            return 'HTTP error';
-        }
+        return window.nmkrHttpErrorString(xhr);
     }
     // Consolidated polling state variables
     let pollTimeoutId;
@@ -295,7 +304,7 @@ jQuery(document).ready(function($) {
         // Reset backoff on success
         pollBackoff.fails = 0;
         window.lastSyncResponse = response;
-        console.log('JS: Received AJAX response:', response);
+        console.log('JS: Received synchronization progress response');
         
         try {
           if (response.success && response.data) {
@@ -398,8 +407,8 @@ jQuery(document).ready(function($) {
             }
           } else {
             // Handle unsuccessful response
-            const payloadMessage = response && response.data && (response.data.message || response.data.error);
-            handleError(payloadMessage || 'Invalid response from server');
+            const payloadCode = response && response.data ? response.data.error_code : '';
+            handleError('Synchronization request failed' + (payloadCode ? ': ' + nmkrFormatTransportError({ status: 200, responseJSON: response }) : '.'));
             return;
           }
         } catch (e) {
