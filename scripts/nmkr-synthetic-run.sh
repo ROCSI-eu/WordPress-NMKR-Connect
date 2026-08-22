@@ -81,7 +81,7 @@ set +e; python3 "$NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER" "$NMKR_SYNTHETIC_WORKER_
 [[ "$diagnostic_status" == 0 || "$diagnostic_status" == 3 ]] || exit 44
 set +e; python3 "$NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER" --complete-file "$NMKR_SYNTHETIC_SERVER_LOG" 60; diagnostic_status=$?; set -e
 [[ "$diagnostic_status" == 0 || "$diagnostic_status" == 3 ]] || exit 44
-set +e; python3 "$NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER" "$debug_delta" 60; diagnostic_status=$?; set -e
+set +e; python3 "$NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER" --complete-file "$debug_delta" 60; diagnostic_status=$?; set -e
 [[ "$diagnostic_status" == 0 || "$diagnostic_status" == 3 ]] || exit 45
 capture_state "$NMKR_SYNTHETIC_RUN_DIR/after-state.json" "$NMKR_SYNTHETIC_RUN_DIR/after-state.stderr" || exit 46
 node "$NMKR_SYNTHETIC_STATE_ASSERT" "$NMKR_SYNTHETIC_RUN_MODE" "$NMKR_SYNTHETIC_RUN_DIR/before-state.json" "$NMKR_SYNTHETIC_RUN_DIR/after-state.json"

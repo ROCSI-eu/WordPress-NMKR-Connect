@@ -44,7 +44,9 @@ grep -Fq '2>"$debug_baseline_diagnostic"' "$runner" || { echo 'FAIL: debug-basel
 grep -Fq 'debug_baseline_diagnostic_status" == 0 || "$debug_baseline_diagnostic_status" == 3' "$runner" || { echo 'FAIL: debug-baseline diagnostics are not enforced' >&2; exit 1; }
 grep -Fq 'NMKR_SYNTHETIC_SERVER_LOG' "$runner" || { echo 'FAIL: private server diagnostics missing' >&2; exit 1; }
 [[ "$(grep -Fc ' --complete-file "$NMKR_SYNTHETIC_SERVER_LOG" 60' "$runner")" == 1 ]] || { echo 'FAIL: server log complete-file classification missing' >&2; exit 1; }
-[[ "$(grep -Fc -- '--complete-file' "$runner")" == 1 ]] || { echo 'FAIL: complete-file mode escaped the server log' >&2; exit 1; }
+[[ "$(grep -Fc ' --complete-file "$debug_delta" 60' "$runner")" == 1 ]] || { echo 'FAIL: debug delta complete-file classification missing' >&2; exit 1; }
+[[ "$(grep -Fc -- '--complete-file' "$runner")" == 2 ]] || { echo 'FAIL: complete-file mode escaped controller-owned logs' >&2; exit 1; }
+[[ "$(grep -Fc 'NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER" "$NMKR_SYNTHETIC_WORKER_LOG" 60' "$runner")" == 1 ]] || { echo 'FAIL: worker log default classification changed' >&2; exit 1; }
 [[ "$(grep -Fc 'capture_state "$NMKR_SYNTHETIC_RUN_DIR/' "$runner")" == 2 ]] || { echo 'FAIL: state helpers are not captured' >&2; exit 1; }
 grep -Fq 'eval-file "$NMKR_SYNTHETIC_STATE_HELPER" >"$output" 2>"$diagnostic"' "$runner" || { echo 'FAIL: state-helper stderr reaches the console' >&2; exit 1; }
 grep -Fq 'before-state.stderr" || exit 46' "$runner" || { echo 'FAIL: preflight diagnostics are not enforced' >&2; exit 1; }
