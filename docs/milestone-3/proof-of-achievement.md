@@ -1,6 +1,6 @@
 # Milestone 3 proof of achievement
 
-This is the public, documentation-only synthesis of [EVD-001 through EVD-003](executed-evidence-2026-08-17.md), [EVD-004](executed-evidence-2026-08-18.md), [EVD-005](executed-evidence-2026-08-20.md), and [EVD-007 and EVD-008](executed-evidence-2026-08-21.md), current implementation controls, public regressions and CI foundations, and the existing user, developer, troubleshooting, Playwright, and numbered testing guides. The exact source baseline assessed was `2b97486a023366669d7744993ad15e86f47070ca`; EVD-007 and EVD-008 are later, separately registered executions against their own exact commit; the later documentation baseline was not deployed or executed for either record.
+This is the public, documentation-only synthesis of [EVD-001 through EVD-003](executed-evidence-2026-08-17.md), [EVD-004](executed-evidence-2026-08-18.md), [EVD-005](executed-evidence-2026-08-20.md), [EVD-007 and EVD-008](executed-evidence-2026-08-21.md), and [EVD-009](executed-evidence-2026-08-22.md), current implementation controls, public regressions and CI foundations, and the existing user, developer, troubleshooting, Playwright, and numbered testing guides. The exact source baseline assessed was `2b97486a023366669d7744993ad15e86f47070ca`; EVD-007 and EVD-008 are later, separately registered executions against their own exact commit; EVD-009 is a still-later, separately registered exact-head pre-merge and post-merge validation. The documentation baseline was not deployed or executed for EVD-007 or EVD-008.
 
 This assessment produced no new runtime observation, synchronization, benchmark, browser execution, private validation, security attack, participant study, or reviewer account. It links the detailed records instead of reproducing their reports, measurements, guides, or implementation descriptions. “Validated” below means that reviewer evidence supports the stated, bounded requirement; it is not a formal certification or a claim beyond the disclosed scope.
 
@@ -63,9 +63,11 @@ This section is a bounded implementation-evidence index, not a security certific
 
 HTTPS/TLS provides encryption in transit when the WordPress environment and upstream requests are served over HTTPS. This assessment does not claim application-level encryption, encryption at rest, encrypted WordPress options, formal security certification, penetration testing, complete OWASP coverage, or absence of all vulnerabilities.
 
-### Errors and logging residual
+### Errors and logging
 
-[EVD-003](executed-evidence-2026-08-17.md#evd-003--terminal-failure-and-recovery) proves controlled terminal failure, private remediation, successful recovery, preserved terminal history, and clean final state for the observed path. It does not prove that every error response uses fully generic disclosure. Current source includes internal exception or error text in some privileged synchronization error responses or `technical_details`; generic error-disclosure hardening therefore remains an open residual item under M3-13. No raw response, exploit instruction, private data, or log is published here.
+[EVD-003](executed-evidence-2026-08-17.md#evd-003--terminal-failure-and-recovery) remains useful supporting evidence for controlled terminal failure, private remediation, successful recovery, preserved terminal history, and clean final state. EVD-006 accurately identified a residual privileged error-disclosure hardening action at its earlier assessment baseline. The later [EVD-009](executed-evidence-2026-08-22.md) records its implementation and exact-head pre-merge and post-merge validation, so **M3-13 is Validated within the disclosed privileged AJAX, browser-error, failed-terminal, and affected logging-response boundary**.
+
+This scoped result is not penetration testing, complete OWASP coverage, a universal log-redaction guarantee, or a substitute for the separate open M3-14 restricted-role/capability/nonce live-evidence boundary. No raw response, private data, or log is published here.
 
 ### Capabilities and nonces
 
@@ -108,21 +110,20 @@ The environment URL, username, password, authentication state, activation detail
 | M3-10 | Validated | EVD-001 directly includes Solana-only and dual-chain projects. |
 | M3-11 | Implemented, validation pending | EVD-008 is validated supporting/partial evidence for repeated mixed-chain reliability, but it does not establish heavier API traffic or stress; the bounded larger synthetic plugin-level workload remains required. |
 | M3-12 | Validated | EVD-006 records a scoped implementation/control assessment; no universal vulnerability guarantee is made. |
-| M3-13 | Implemented, validation pending | EVD-003 is supporting evidence; generic error-disclosure hardening remains open. |
+| M3-13 | Validated | EVD-003 remains supporting failure/recovery evidence; EVD-006 identified the earlier residual, and EVD-009 records its later implemented and executed closure within the disclosed scope. |
 | M3-14 | Implemented, validation pending | Implementation/regression foundations exist; an unambiguous retained exact-head live restricted-role result remains open. |
 | M3-15 | Validated | EVD-006 covers lockfiles, reproducible installs, CI, compatibility, and runtime-integrity foundations, not a current advisory audit. |
 | M3-16 | Validated | The user documentation is indexed and exact-source reviewed by EVD-006. |
 | M3-17 | Validated | The developer documentation is indexed and exact-source reviewed by EVD-006. |
 | M3-18 | Validated | The troubleshooting documentation, EVD-003, and EVD-006 provide scoped evidence. |
-| M3-19 | Validated | This index and EVD-001 through EVD-008 provide consolidated reviewer-visible reports. |
-| M3-20 | Validated | EVD-006 provides bounded security implementation evidence with findings and limitations, not certification. |
+| M3-19 | Validated | This index and EVD-001 through EVD-009 provide consolidated reviewer-visible reports. |
+| M3-20 | Validated | EVD-006 and EVD-009 provide bounded security implementation evidence with findings and limitations, not certification. |
 | M3-21 | Planned | Generic access controls are documented; actual private provisioning remains outstanding. |
 
 ## Open actions
 
 - **M3-05 and M3-11:** run a bounded plugin-level higher-pressure validation using a defined larger synthetic mixed-chain API workload. Exercise plugin-controlled pagination, processing, database writes, deduplication, memory, metrics, terminalization, and cleanup without loading the live NMKR API or certifying production, upstream, unlimited-scale, or external infrastructure capacity.
 - **M3-08:** assess and register the actual monitoring start/end, probe, interval/location class, incidents, missing-data handling, calculation, and whether uptime was strictly above 99.9%; no percentage is asserted here.
-- **M3-13:** harden the residual privileged synchronization error disclosures in a separate runtime change and validate the affected boundary.
 - **M3-14:** register a complete existing retained exact-head restricted-role/private-security record if available, otherwise execute that separately authorized private validation later.
 - **M3-21:** create, deliver, support, expire, and revoke reviewer access privately and out of band.
 
