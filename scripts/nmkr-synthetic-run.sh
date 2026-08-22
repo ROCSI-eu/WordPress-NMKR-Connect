@@ -6,14 +6,23 @@ active(){ [[ -n "${1:-}" && "$1" != 0 && "$1" != false ]]; }
 active "${CI:-}" && fail ci-refusal
 [[ "${RUN_NMKR_SYNTHETIC:-false}" == true ]] || fail default-refusal
 [[ "${NMKR_SYNTHETIC_CONFIRM:-}" == I_AUTHORIZE_DISPOSABLE_SYNTHETIC_SYNC ]] || fail authorization
-for v in NMKR_SYNTHETIC_WP_ROOT NMKR_SYNTHETIC_RUN_DIR NMKR_SYNTHETIC_ADMIN_USER NMKR_SYNTHETIC_ADMIN_PASSWORD NMKR_SYNTHETIC_PORT NMKR_SYNTHETIC_EXPECTED_SHA NMKR_SYNTHETIC_DB_SOCKET; do [[ -n "${!v:-}" ]] || fail missing-input; done
+for v in NMKR_SYNTHETIC_WP_ROOT NMKR_SYNTHETIC_RUN_DIR NMKR_SYNTHETIC_ADMIN_USER NMKR_SYNTHETIC_ADMIN_PASSWORD NMKR_SYNTHETIC_PORT NMKR_SYNTHETIC_EXPECTED_SHA NMKR_SYNTHETIC_DB_SOCKET NMKR_SYNTHETIC_DEPLOYED_PLUGIN_PATH NMKR_SYNTHETIC_PLUGIN_SLUG; do [[ -n "${!v:-}" ]] || fail missing-input; done
 [[ "${NMKR_SYNTHETIC_PROFILE:-}" == private-2400-v1 ]] || fail profile
 [[ "$NMKR_SYNTHETIC_PORT" =~ ^[0-9]+$ ]] && ((NMKR_SYNTHETIC_PORT>=1024&&NMKR_SYNTHETIC_PORT<=65535)) || fail port
 repo="$(git rev-parse --show-toplevel)"; [[ "$(git -C "$repo" rev-parse HEAD)" == "$NMKR_SYNTHETIC_EXPECTED_SHA" && -z "$(git -C "$repo" status --porcelain --untracked-files=no)" ]] || fail source-integrity
+deployed="$(realpath -e -- "$NMKR_SYNTHETIC_DEPLOYED_PLUGIN_PATH" 2>/dev/null)" || fail deployed-integrity
+[[ -d "$deployed" && ! -L "$NMKR_SYNTHETIC_DEPLOYED_PLUGIN_PATH" && "$(realpath -e -- "$(git -C "$deployed" rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null)" == "$deployed" ]] || fail deployed-integrity
+[[ "$(git -C "$deployed" rev-parse HEAD 2>/dev/null)" == "$NMKR_SYNTHETIC_EXPECTED_SHA" && -z "$(git -C "$deployed" status --porcelain --untracked-files=no 2>/dev/null)" ]] || fail deployed-integrity
 [[ -d "$NMKR_SYNTHETIC_WP_ROOT" && ! -L "$NMKR_SYNTHETIC_WP_ROOT" && -d "$NMKR_SYNTHETIC_RUN_DIR" && ! -L "$NMKR_SYNTHETIC_RUN_DIR" ]] || fail private-path
 [[ "$(stat -c %a "$NMKR_SYNTHETIC_RUN_DIR")" =~ ^(700|750)$ ]] || fail private-permissions
 wp="${WP_CLI_BIN:-wp}"; command -v "$wp" >/dev/null && command -v unshare >/dev/null && command -v ip >/dev/null && command -v php >/dev/null || fail required-tool
 "$wp" --path="$NMKR_SYNTHETIC_WP_ROOT" core is-installed >/dev/null 2>&1 || fail wordpress-ready
+NMKR_SYNTHETIC_DEPLOYED_PLUGIN_PATH="$deployed" NMKR_SYNTHETIC_PLUGIN_SLUG="$NMKR_SYNTHETIC_PLUGIN_SLUG" "$wp" --path="$NMKR_SYNTHETIC_WP_ROOT" eval '
+require_once ABSPATH."wp-admin/includes/plugin.php";$slug=getenv("NMKR_SYNTHETIC_PLUGIN_SLUG");
+if(!is_string($slug)||$slug===""||validate_file($slug)!==0)exit(1);
+$active=realpath(WP_PLUGIN_DIR."/".$slug);$expected=realpath(getenv("NMKR_SYNTHETIC_DEPLOYED_PLUGIN_PATH")."/".basename($slug));
+if(!is_plugin_active($slug)||$active===false||$expected===false||!hash_equals($expected,$active))exit(1);
+' >/dev/null 2>&1 || fail active-plugin-integrity
 NMKR_SYNTHETIC_DB_SOCKET="$NMKR_SYNTHETIC_DB_SOCKET" "$wp" --path="$NMKR_SYNTHETIC_WP_ROOT" eval '
 $socket=getenv("NMKR_SYNTHETIC_DB_SOCKET"); $home=(string)get_option("home","");
 if(!defined("WP_ENVIRONMENT_TYPE")||WP_ENVIRONMENT_TYPE==="production"||!defined("DISABLE_WP_CRON")||DISABLE_WP_CRON!==true)exit(1);
@@ -25,6 +34,7 @@ unshare --user --map-root-user --net true 2>/dev/null || fail namespace-prefligh
 export NMKR_SYNTHETIC_EXECUTION_ID="$(php -r 'echo bin2hex(random_bytes(16));')" NMKR_SYNTHETIC_EXPIRY="$(( $(date +%s)+2700 ))" NMKR_SYNTHETIC_SENTINEL=NMKR_SYNTHETIC_TEST_ONLY_V1
 export NMKR_SYNTHETIC_STATE_FILE="$NMKR_SYNTHETIC_RUN_DIR/provider-state.json" NMKR_SYNTHETIC_BASE_URL="http://127.0.0.1:$NMKR_SYNTHETIC_PORT" NMKR_SYNTHETIC_WP_CLI="${WP_CLI_BIN:-wp}"
 export NMKR_SYNTHETIC_PROVIDER_SOURCE="$repo/scripts/nmkr-synthetic-provider.php" NMKR_SYNTHETIC_DRIVER="$repo/scripts/nmkr-synthetic-driver.mjs" NMKR_SYNTHETIC_STATE_HELPER="$repo/scripts/nmkr-synthetic-state.php"
+export NMKR_SYNTHETIC_STATE_ASSERT="$repo/scripts/nmkr-synthetic-state-assert.mjs"
 unshare --user --map-root-user --net bash -c '
 set -Eeuo pipefail; ip link set lo up
 [[ "$(find /sys/class/net -mindepth 1 -maxdepth 1 -printf "%f\n")" == lo ]] || exit 40
@@ -33,8 +43,12 @@ set -Eeuo pipefail; ip link set lo up
 mu="$NMKR_SYNTHETIC_WP_ROOT/wp-content/mu-plugins"; mkdir -p "$mu"; target="$mu/nmkr-synthetic-provider.php"; [[ ! -e "$target" ]] || exit 43
 cleanup(){ rm -f "$target"; [[ -z "${server:-}" ]] || kill "$server" 2>/dev/null || true; }; trap cleanup EXIT
 install -m 600 "$NMKR_SYNTHETIC_PROVIDER_SOURCE" "$target"
+"$NMKR_SYNTHETIC_WP_CLI" --path="$NMKR_SYNTHETIC_WP_ROOT" eval-file "$NMKR_SYNTHETIC_STATE_HELPER" >"$NMKR_SYNTHETIC_RUN_DIR/before-state.json"
 php -S "127.0.0.1:$NMKR_SYNTHETIC_PORT" -t "$NMKR_SYNTHETIC_WP_ROOT" >/dev/null 2>&1 & server=$!
 sleep 1; node "$NMKR_SYNTHETIC_DRIVER"
-"$NMKR_SYNTHETIC_WP_CLI" --path="$NMKR_SYNTHETIC_WP_ROOT" eval-file "$NMKR_SYNTHETIC_STATE_HELPER" >/dev/null
+"$NMKR_SYNTHETIC_WP_CLI" --path="$NMKR_SYNTHETIC_WP_ROOT" eval-file "$NMKR_SYNTHETIC_STATE_HELPER" >"$NMKR_SYNTHETIC_RUN_DIR/after-state.json"
+node "$NMKR_SYNTHETIC_STATE_ASSERT" "$NMKR_SYNTHETIC_RUN_DIR/before-state.json" "$NMKR_SYNTHETIC_RUN_DIR/after-state.json"
 ' || fail isolated-lifecycle
+[[ "$(git -C "$repo" rev-parse HEAD)" == "$NMKR_SYNTHETIC_EXPECTED_SHA" && -z "$(git -C "$repo" status --porcelain --untracked-files=no)" ]] || fail final-source-integrity
+[[ "$(git -C "$deployed" rev-parse HEAD)" == "$NMKR_SYNTHETIC_EXPECTED_SHA" && -z "$(git -C "$deployed" status --porcelain --untracked-files=no)" ]] || fail final-deployed-integrity
 pass

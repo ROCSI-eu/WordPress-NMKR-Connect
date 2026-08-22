@@ -6,6 +6,8 @@ Phase 17 implements test tooling only for a later, separately authorized validat
 
 The controller refuses by default and in CI. It uses an ephemeral `unshare` user/network namespace, raises loopback, proves that loopback is the only interface, proves there is no IPv4 or IPv6 default route, and checks that a reserved `.invalid` request cannot leave. It never falls back to host networking and makes no global firewall, Apache, MariaDB, or host-network changes.
 
+The operator must also provide `NMKR_SYNTHETIC_DEPLOYED_PLUGIN_PATH` and `NMKR_SYNTHETIC_PLUGIN_SLUG`. The former must be a clean deployed Git worktree at `NMKR_SYNTHETIC_EXPECTED_SHA`; the latter must be WordPress's active plugin slug and its resolved main file must be inside that worktree. The controller refuses a stale, dirty, unrelated, or inactive deployment.
+
 ## Lifecycle and intended mutations
 
 After installing the temporary MU provider into the disposable installation, the private driver obtains an authenticated dashboard session and in-memory nonce, sends exactly one real `nmkr_start_sync` AJAX request, captures its real `run_id`, and runs the due `nmkr_execute_sync_background` hook with WP-CLI in a separate process. `DISABLE_WP_CRON` means HTTP loopback spawning is not relied upon. Polling is non-overlapping at approximately three seconds and requires monotonic progress and explicit canonical completion. This exercises owner admission, worker claim, pagination, deduplication, persistence, HTTP/sync metrics, history, terminalization, and cleanup. It never calls `nmkr_sync_data()` directly.
