@@ -8,6 +8,7 @@ check($p['private-2400-v1']['projects']*$p['private-2400-v1']['tokens_per_projec
 $a=array('execution_id'=>str_repeat('a',32),'profile_id'=>'public-v1','expiry'=>time()+60);
 $r=nmkr_synthetic_dispatch('GET','https://studio-api.nmkr.io/v2/ListProjects',$a,false); check(count(json_decode($r['body'],true))===3,'project dispatch');
 $r=nmkr_synthetic_dispatch('GET','https://studio-api.nmkr.io/v2/GetNfts/synthetic-project-000/all/50/2',$a,false); check(count(json_decode($r['body'],true))===2,'same-project duplicate page');
+$detail=nmkr_synthetic_detail(nmkr_synthetic_token(nmkr_synthetic_project(0,$p['public-v1']),0)); check(is_string($detail['metadata'])&&json_decode($detail['metadata'],true)===array('synthetic'=>true),'detail metadata is persistence-safe JSON');
 $run=sys_get_temp_dir().'/nmkr-synthetic-provider-'.bin2hex(random_bytes(6)); check(mkdir($run,0700),'private state directory');
 $state=$run.'/state.json'; putenv('NMKR_SYNTHETIC_RUN_DIR='.$run); putenv('NMKR_SYNTHETIC_STATE_FILE='.$state);
 $bad=array(

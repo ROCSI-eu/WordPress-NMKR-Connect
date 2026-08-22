@@ -15,7 +15,7 @@ function nmkr_synthetic_token($project, $index) {
     $uid=$project['uid'].'-token-'.sprintf('%04d',$index);
     return array('id'=>200000+$index,'uid'=>$uid,'name'=>'Synthetic Token','displayName'=>'Synthetic Token '.sprintf('%04d',$index),'state'=>'free','minted'=>false,'policyId'=>'synthetic-policy','assetId'=>'synthetic-asset-'.$index,'assetName'=>'SYN'.$index,'fingerprint'=>'synthetic-fingerprint-'.$index,'tokenAmount'=>1,'price'=>0,'priceSolana'=>0);
 }
-function nmkr_synthetic_detail($token) { return array_merge($token,array('title'=>$token['displayName'],'metadata'=>array('synthetic'=>true),'uploadSource'=>'synthetic-generator','receiveraddress'=>'synthetic-not-a-wallet','sendBackCentralPaymentInLovelace'=>0,'sendBackCentralPaymentInLamport'=>0,'priceInLovelaceCentralPayments'=>0,'priceInLamportCentralPayments'=>0)); }
+function nmkr_synthetic_detail($token) { return array_merge($token,array('title'=>$token['displayName'],'metadata'=>'{"synthetic":true}','uploadSource'=>'synthetic-generator','receiveraddress'=>'synthetic-not-a-wallet','sendBackCentralPaymentInLovelace'=>0,'sendBackCentralPaymentInLamport'=>0,'priceInLovelaceCentralPayments'=>0,'priceInLamportCentralPayments'=>0)); }
 function nmkr_synthetic_page_indexes($profile_id,$page) {
     if ($profile_id==='public-v1') return $page===1?array(0,1,2):($page===2?array(2,3):array());
     if ($page===1) return range(0,49);
