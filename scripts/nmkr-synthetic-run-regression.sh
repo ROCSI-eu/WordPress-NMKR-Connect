@@ -5,7 +5,7 @@ run_fail(){ local out; if out="$(env -i PATH="$PATH" HOME="$HOME" "$@" bash "$ru
 run_fail
 run_fail CI=true RUN_NMKR_SYNTHETIC=true
 run_fail RUN_NMKR_SYNTHETIC=true NMKR_SYNTHETIC_CONFIRM=I_AUTHORIZE_DISPOSABLE_SYNTHETIC_SYNC
-! rg -n 'docker|iptables|nft|wp core download' "$runner" >/dev/null || { echo 'FAIL: prohibited provisioning' >&2; exit 1; }
+! grep -En 'docker|iptables|nft|wp core download' "$runner" >/dev/null || { echo 'FAIL: prohibited provisioning' >&2; exit 1; }
 assertor="$(dirname "$runner")/nmkr-synthetic-state-assert.mjs"
 cat >"$tmp/before.json" <<'JSON'
 {"schema_version":1,"history_count":4,"metrics_count":4}
@@ -16,6 +16,6 @@ JSON
 node "$assertor" "$tmp/before.json" "$tmp/after.json"
 sed -i 's/"token_count":2400/"token_count":2399/' "$tmp/after.json"
 if node "$assertor" "$tmp/before.json" "$tmp/after.json" >/dev/null 2>&1; then echo 'FAIL: invalid final state accepted' >&2; exit 1; fi
-rg -q 'terminal_outcome' "$(dirname "$runner")/nmkr-synthetic-driver.mjs" || { echo 'FAIL: canonical terminal outcome missing' >&2; exit 1; }
-rg -q 'NMKR_SYNTHETIC_DEPLOYED_PLUGIN_PATH' "$runner" || { echo 'FAIL: deployed integrity gate missing' >&2; exit 1; }
+grep -Fq 'terminal_outcome' "$(dirname "$runner")/nmkr-synthetic-driver.mjs" || { echo 'FAIL: canonical terminal outcome missing' >&2; exit 1; }
+grep -Fq 'NMKR_SYNTHETIC_DEPLOYED_PLUGIN_PATH' "$runner" || { echo 'FAIL: deployed integrity gate missing' >&2; exit 1; }
 echo 'Synthetic controller regression: PASS'
