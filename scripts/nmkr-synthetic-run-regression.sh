@@ -30,4 +30,16 @@ grep -Fq 'duplicate-start-accepted' "$(dirname "$runner")/nmkr-synthetic-driver.
 grep -Fq 'NMKR_SYNTHETIC_RUN_RECEIPT' "$runner" || { echo 'FAIL: run receipt missing' >&2; exit 1; }
 grep -Fq 'debug-delta.log' "$runner" || { echo 'FAIL: debug-log delta missing' >&2; exit 1; }
 grep -Fq 'NMKR_SYNTHETIC_SERVER_LOG' "$runner" || { echo 'FAIL: private server diagnostics missing' >&2; exit 1; }
+[[ "$(grep -Fc 'capture_state "$NMKR_SYNTHETIC_RUN_DIR/' "$runner")" == 2 ]] || { echo 'FAIL: state helpers are not captured' >&2; exit 1; }
+grep -Fq 'eval-file "$NMKR_SYNTHETIC_STATE_HELPER" >"$output" 2>"$diagnostic"' "$runner" || { echo 'FAIL: state-helper stderr reaches the console' >&2; exit 1; }
+grep -Fq 'before-state.stderr" || exit 46' "$runner" || { echo 'FAIL: preflight diagnostics are not enforced' >&2; exit 1; }
+grep -Fq 'after-state.stderr" || exit 46' "$runner" || { echo 'FAIL: final diagnostics are not enforced' >&2; exit 1; }
+classifier="$(dirname "$runner")/nmkr-debug-log-classifier.py"
+printf '' >"$tmp/clean.log"
+printf 'PHP Warning: synthetic first-party warning in /private/synthetic/plugin/file.php on line 1\n' >"$tmp/first-party.log"
+printf 'PHP Warning: synthetic dependency warning in /private/synthetic/plugin/vendor/package/file.php on line 1\n' >"$tmp/vendor.log"
+classify(){ set +e; python3 "$classifier" "$1" 60 >/dev/null 2>&1; local status=$?; set -e; printf '%s' "$status"; }
+[[ "$(classify "$tmp/clean.log")" == 0 ]] || { echo 'FAIL: clean state-helper diagnostics rejected' >&2; exit 1; }
+[[ "$(classify "$tmp/vendor.log")" == 3 ]] || { echo 'FAIL: accepted dependency diagnostics rejected' >&2; exit 1; }
+[[ "$(classify "$tmp/first-party.log")" == 1 ]] || { echo 'FAIL: first-party state-helper diagnostic accepted' >&2; exit 1; }
 echo 'Synthetic controller regression: PASS'

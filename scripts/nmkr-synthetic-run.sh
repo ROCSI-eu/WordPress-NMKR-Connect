@@ -42,13 +42,23 @@ export NMKR_SYNTHETIC_RUN_RECEIPT="$NMKR_SYNTHETIC_RUN_DIR/run-receipt.json"
 export NMKR_SYNTHETIC_WORKER_LOG="$NMKR_SYNTHETIC_RUN_DIR/worker.log" NMKR_SYNTHETIC_SERVER_LOG="$NMKR_SYNTHETIC_RUN_DIR/server.log" NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER="$repo/scripts/nmkr-debug-log-classifier.py"
 unshare --user --map-root-user --net bash -c '
 set -Eeuo pipefail; umask 077; ip link set lo up
+capture_state(){
+  local output="$1" diagnostic="$2" helper_status diagnostic_status
+  set +e
+  "$NMKR_SYNTHETIC_WP_CLI" --path="$NMKR_SYNTHETIC_WP_ROOT" eval-file "$NMKR_SYNTHETIC_STATE_HELPER" >"$output" 2>"$diagnostic"
+  helper_status=$?
+  python3 "$NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER" "$diagnostic" 60
+  diagnostic_status=$?
+  set -e
+  [[ "$helper_status" == 0 && ( "$diagnostic_status" == 0 || "$diagnostic_status" == 3 ) ]]
+}
 [[ "$(find /sys/class/net -mindepth 1 -maxdepth 1 -printf "%f\n")" == lo ]] || exit 40
 ! ip -4 route show default | grep -q . && ! ip -6 route show default | grep -q . || exit 41
 ! php -r '\''exit(@file_get_contents("http://network-must-not-resolve.invalid/")===false?0:1);'\'' || exit 42
 mu="$NMKR_SYNTHETIC_WP_ROOT/wp-content/mu-plugins"; mkdir -p "$mu"; target="$mu/nmkr-synthetic-provider.php"; [[ ! -e "$target" ]] || exit 43
 cleanup(){ rm -f "$target"; [[ -z "${server:-}" ]] || kill "$server" 2>/dev/null || true; }; trap cleanup EXIT
 install -m 600 "$NMKR_SYNTHETIC_PROVIDER_SOURCE" "$target"
-"$NMKR_SYNTHETIC_WP_CLI" --path="$NMKR_SYNTHETIC_WP_ROOT" eval-file "$NMKR_SYNTHETIC_STATE_HELPER" >"$NMKR_SYNTHETIC_RUN_DIR/before-state.json"
+capture_state "$NMKR_SYNTHETIC_RUN_DIR/before-state.json" "$NMKR_SYNTHETIC_RUN_DIR/before-state.stderr" || exit 46
 node "$NMKR_SYNTHETIC_STATE_ASSERT" --preflight "$NMKR_SYNTHETIC_RUN_MODE" "$NMKR_SYNTHETIC_RUN_DIR/before-state.json"
 debug_meta="$NMKR_SYNTHETIC_RUN_DIR/debug-meta"; debug_delta="$NMKR_SYNTHETIC_RUN_DIR/debug-delta.log"
 "$NMKR_SYNTHETIC_WP_CLI" --path="$NMKR_SYNTHETIC_WP_ROOT" eval '\''
@@ -67,7 +77,7 @@ for diagnostic_log in "$NMKR_SYNTHETIC_WORKER_LOG" "$NMKR_SYNTHETIC_SERVER_LOG";
 done
 set +e; python3 "$NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER" "$debug_delta" 60; diagnostic_status=$?; set -e
 [[ "$diagnostic_status" == 0 || "$diagnostic_status" == 3 ]] || exit 45
-"$NMKR_SYNTHETIC_WP_CLI" --path="$NMKR_SYNTHETIC_WP_ROOT" eval-file "$NMKR_SYNTHETIC_STATE_HELPER" >"$NMKR_SYNTHETIC_RUN_DIR/after-state.json"
+capture_state "$NMKR_SYNTHETIC_RUN_DIR/after-state.json" "$NMKR_SYNTHETIC_RUN_DIR/after-state.stderr" || exit 46
 node "$NMKR_SYNTHETIC_STATE_ASSERT" "$NMKR_SYNTHETIC_RUN_MODE" "$NMKR_SYNTHETIC_RUN_DIR/before-state.json" "$NMKR_SYNTHETIC_RUN_DIR/after-state.json"
 ' || fail isolated-lifecycle
 check_worktree "$repo" || fail final-source-integrity
