@@ -30,6 +30,12 @@ bash scripts/nmkr-real-sync-phase16a-regression.sh
 printf '\n== Canonical synchronization terminalization regression ==\n'
 bash scripts/nmkr-sync-terminalization-regression.sh
 
+printf '\n== Isolated synthetic provider regression ==\n'
+php scripts/nmkr-synthetic-provider-regression.php
+
+printf '\n== Isolated synthetic controller regression ==\n'
+bash scripts/nmkr-synthetic-run-regression.sh
+
 printf '\n== Privileged AJAX guard regression ==\n'
 php scripts/nmkr-ajax-guard-regression.php
 

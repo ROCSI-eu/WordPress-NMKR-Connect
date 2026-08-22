@@ -1,0 +1,25 @@
+# Phase 17 isolated synthetic synchronization harness
+
+## Purpose and boundary
+
+Phase 17 implements test tooling only for a later, separately authorized validation. It accepts an independently prepared disposable WordPress root and separate disposable database on the existing VM. It neither provisions WordPress nor creates users or databases. The database must use the local MariaDB Unix socket; WordPress must be non-production, use `DISABLE_WP_CRON`, and be served only by the harness at a configured `127.0.0.1` high port.
+
+The controller refuses by default and in CI. It uses an ephemeral `unshare` user/network namespace, raises loopback, proves that loopback is the only interface, proves there is no IPv4 or IPv6 default route, and checks that a reserved `.invalid` request cannot leave. It never falls back to host networking and makes no global firewall, Apache, MariaDB, or host-network changes.
+
+## Lifecycle and intended mutations
+
+After installing the temporary MU provider into the disposable installation, the private driver obtains an authenticated dashboard session and in-memory nonce, sends exactly one real `nmkr_start_sync` AJAX request, captures its real `run_id`, and runs the due `nmkr_execute_sync_background` hook with WP-CLI in a separate process. `DISABLE_WP_CRON` means HTTP loopback spawning is not relied upon. Polling is non-overlapping at approximately three seconds and requires monotonic progress and explicit canonical completion. This exercises owner admission, worker claim, pagination, deduplication, persistence, HTTP/sync metrics, history, terminalization, and cleanup. It never calls `nmkr_sync_data()` directly.
+
+Expected mutations are limited to synthetic project/token/detail rows, one history and metrics row per run, and the production lifecycle's temporary options, transients, owner, and exact cron event. Unexpected pre-existing activity, ambiguous Start, provider/state error, PHP diagnostic, timeout, ceiling breach, or cleanup residue is a stop condition; the harness does not repair or force-delete unexpected state.
+
+## Fixed profiles
+
+`public-v1` is the public deterministic regression: three projects (Cardano, Solana, dual-chain), 12 unique tokens, three same-project duplicate appearances, nine list requests, 12 details, and 22 total synthetic API requests.
+
+`private-2400-v1` is definition-only in this PR: 24 projects, 2,400 unique tokens, 3,600 list appearances including 1,200 same-project duplicates, 96 list requests, 2,400 details, and 2,497 requests per run. A future sequential cold/warm campaign totals 4,994 API requests and 4,800 token-processing operations over the same 2,400 unique tokens; 4,800 is not a unique-token count. Cold expectations are +24 projects, +2,400 tokens/details, and one history/metrics row. Warm expectations are stable business rows and one additional history/metrics row. Both require zero errors, retries, violations, or residue, with 20 minutes per run and 45 minutes combined as configurable bounded conditions, not universal guarantees.
+
+## Cleanup and evidence
+
+On clean terminal completion the controller removes only its copied MU provider and stops its local server. Failure preserves WordPress evidence for private diagnosis while stopping controller-owned processes; no raw rows, identifiers, credentials, URLs, paths, cookies, nonces, logs, or payloads are public output.
+
+Only public deterministic regressions were executed for this PR. No private synthetic synchronization or real synchronization was executed, no live NMKR request was made, no NMKR Studio project or token was created, and the 2,400-token cold/warm campaign remains unexecuted. M3-05 and M3-11 remain **Implemented, validation pending**. Future validation requires separately authorized exact-head VM execution; executed evidence belongs in a later documentation PR. Do not claim validation from this harness implementation alone.
