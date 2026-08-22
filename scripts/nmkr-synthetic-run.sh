@@ -77,10 +77,10 @@ debug_path="${debug_info[0]}"; debug_inode="${debug_info[1]}"; debug_size="${deb
 debug_after_inode="$(stat -c %i "$debug_path" 2>/dev/null)"; debug_after_size="$(stat -c %s "$debug_path" 2>/dev/null)"
 [[ "$debug_after_inode" == "$debug_inode" && "$debug_after_size" =~ ^[0-9]+$ && "$debug_size" =~ ^[0-9]+$ && "$debug_after_size" -ge "$debug_size" ]] || exit 45
 dd if="$debug_path" of="$debug_delta" bs=1 skip="$debug_size" status=none 2>/dev/null || exit 45
-for diagnostic_log in "$NMKR_SYNTHETIC_WORKER_LOG" "$NMKR_SYNTHETIC_SERVER_LOG"; do
-  set +e; python3 "$NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER" "$diagnostic_log" 60; diagnostic_status=$?; set -e
-  [[ "$diagnostic_status" == 0 || "$diagnostic_status" == 3 ]] || exit 44
-done
+set +e; python3 "$NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER" "$NMKR_SYNTHETIC_WORKER_LOG" 60; diagnostic_status=$?; set -e
+[[ "$diagnostic_status" == 0 || "$diagnostic_status" == 3 ]] || exit 44
+set +e; python3 "$NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER" --complete-file "$NMKR_SYNTHETIC_SERVER_LOG" 60; diagnostic_status=$?; set -e
+[[ "$diagnostic_status" == 0 || "$diagnostic_status" == 3 ]] || exit 44
 set +e; python3 "$NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER" "$debug_delta" 60; diagnostic_status=$?; set -e
 [[ "$diagnostic_status" == 0 || "$diagnostic_status" == 3 ]] || exit 45
 capture_state "$NMKR_SYNTHETIC_RUN_DIR/after-state.json" "$NMKR_SYNTHETIC_RUN_DIR/after-state.stderr" || exit 46
