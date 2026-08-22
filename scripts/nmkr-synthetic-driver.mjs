@@ -26,7 +26,24 @@ export async function runSyntheticLifecycle({ playwright, env = process.env }) {
     await page.locator('#user_login').fill(env.NMKR_SYNTHETIC_ADMIN_USER);
     await page.locator('#user_pass').fill(env.NMKR_SYNTHETIC_ADMIN_PASSWORD);
     await Promise.all([page.waitForLoadState('domcontentloaded'), page.locator('#wp-submit').click()]);
+    let statusProbes = 0;
+    let resolveStatusProbes;
+    const statusProbesComplete = new Promise(resolve => { resolveStatusProbes = resolve; });
+    await page.route('**/wp-admin/admin-ajax.php', async route => {
+      const request = route.request();
+      const form = new URLSearchParams(request.postData() || '');
+      if (request.method() !== 'POST' || form.get('action') !== 'nmkr_check_api_status') return route.continue();
+      statusProbes++;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, data: { message: 'Synthetic status probe bypassed.', connected: true, sync_in_progress: false } }),
+      });
+      if (statusProbes === 2) resolveStatusProbes();
+    });
     await page.goto(`${env.NMKR_SYNTHETIC_BASE_URL}/wp-admin/admin.php?page=nmkr-connect-dashboard`, { waitUntil: 'domcontentloaded' });
+    await Promise.race([statusProbesComplete, sleep(30000).then(() => fail('status-probes-missing'))]);
+    if (statusProbes !== 2) fail('status-probes-unexpected');
     const nonce = await page.evaluate(() => globalThis.nmkrSyncData?.nonce || globalThis.nmkr_sync_ajax?.nonce || '');
     if (!nonce) fail('nonce-missing');
     const ajax = `${env.NMKR_SYNTHETIC_BASE_URL}/wp-admin/admin-ajax.php`;
