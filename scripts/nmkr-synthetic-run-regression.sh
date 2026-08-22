@@ -18,4 +18,6 @@ sed -i 's/"token_count":2400/"token_count":2399/' "$tmp/after.json"
 if node "$assertor" "$tmp/before.json" "$tmp/after.json" >/dev/null 2>&1; then echo 'FAIL: invalid final state accepted' >&2; exit 1; fi
 grep -Fq 'terminal_outcome' "$(dirname "$runner")/nmkr-synthetic-driver.mjs" || { echo 'FAIL: canonical terminal outcome missing' >&2; exit 1; }
 grep -Fq 'NMKR_SYNTHETIC_DEPLOYED_PLUGIN_PATH' "$runner" || { echo 'FAIL: deployed integrity gate missing' >&2; exit 1; }
+grep -Fq 'NMKR_SYNTHETIC_WORKER_LOG' "$(dirname "$runner")/nmkr-synthetic-driver.mjs" || { echo 'FAIL: private worker diagnostics missing' >&2; exit 1; }
+grep -Fq 'NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER' "$runner" || { echo 'FAIL: worker diagnostic classification missing' >&2; exit 1; }
 echo 'Synthetic controller regression: PASS'

@@ -38,25 +38,27 @@ function nmkr_synthetic_state_update($kind,$activation) {
     $fh=@fopen($path,'c+'); if (!$fh||!flock($fh,LOCK_EX|LOCK_NB)) { if($fh)fclose($fh); return false; }
     $raw=stream_get_contents($fh); $s=$raw===''?array('schema_version'=>1,'execution_id'=>$activation['execution_id'],'profile_id'=>$activation['profile_id'],'expiry'=>$activation['expiry'],'counters'=>array('projects'=>0,'token_lists'=>0,'details'=>0,'violations'=>0,'external'=>0,'total'=>0)):json_decode($raw,true);
     $valid=is_array($s)&&$s['schema_version']===1&&hash_equals($activation['execution_id'],(string)$s['execution_id'])&&$s['profile_id']===$activation['profile_id']&&$s['expiry']===$activation['expiry']&&isset($s['counters'][$kind],$s['counters']['total']);
-    if (!$valid||$s['counters']['total']>=nmkr_synthetic_profiles()[$activation['profile_id']]['budget']) { flock($fh,LOCK_UN); fclose($fh); return false; }
-    $s['counters'][$kind]++; $s['counters']['total']++; $encoded=json_encode($s); rewind($fh);
+    $violation=$kind==='violations'||$kind==='external';
+    if (!$valid||(!$violation&&$s['counters']['total']>=nmkr_synthetic_profiles()[$activation['profile_id']]['budget'])) { flock($fh,LOCK_UN); fclose($fh); return false; }
+    $s['counters'][$kind]++; if($kind==='external')$s['counters']['violations']++; $s['counters']['total']++; $encoded=json_encode($s); rewind($fh);
     $ok=ftruncate($fh,0)&&fwrite($fh,$encoded)===strlen($encoded)&&fflush($fh); if($ok) @chmod($path,0600); flock($fh,LOCK_UN); fclose($fh); return $ok;
 }
 function nmkr_synthetic_response($body) { return array('headers'=>array('content-type'=>'application/json'),'body'=>json_encode($body),'response'=>array('code'=>200,'message'=>'OK'),'cookies'=>array(),'filename'=>null); }
 function nmkr_synthetic_error($code) { return class_exists('WP_Error')?new WP_Error($code,'Synthetic provider refused request.'):array('synthetic_error'=>$code); }
+function nmkr_synthetic_refusal($code,$activation,$record) { if($record)nmkr_synthetic_state_update('violations',$activation); return nmkr_synthetic_error($code); }
 function nmkr_synthetic_dispatch($method,$url,$activation,$record=true) {
-    if ($method!=='GET') return nmkr_synthetic_error('synthetic_method'); $p=parse_url($url); $path=isset($p['path'])?$p['path']:''; $profile=nmkr_synthetic_profiles()[$activation['profile_id']]; $kind=''; $body=null;
+    if ($method!=='GET') return nmkr_synthetic_refusal('synthetic_method',$activation,$record); $p=parse_url($url); $path=isset($p['path'])?$p['path']:''; $profile=nmkr_synthetic_profiles()[$activation['profile_id']]; $kind=''; $body=null;
     if ($path==='/v2/ListProjects') { $kind='projects'; $body=array(); for($i=0;$i<$profile['projects'];$i++)$body[]=nmkr_synthetic_project($i,$profile); }
-    elseif(preg_match('#^/v2/GetNfts/(synthetic-project-[0-9]{3})/all/([0-9]+)/([0-9]+)$#D',$path,$m)) { $kind='token_lists'; $pi=(int)substr($m[1],-3); $page=(int)$m[3]; if($pi>=$profile['projects']||(int)$m[2]<=0||$page<1||$page>$profile['pages'])return nmkr_synthetic_error('synthetic_shape'); $project=nmkr_synthetic_project($pi,$profile); $body=array(); foreach(nmkr_synthetic_page_indexes($activation['profile_id'],$page) as $i)$body[]=nmkr_synthetic_token($project,$i); }
-    elseif(preg_match('#^/v2/GetNftDetailsById/(synthetic-project-[0-9]{3})-token-([0-9]{4})$#D',$path,$m)) { $kind='details'; $pi=(int)substr($m[1],-3); $ti=(int)$m[2]; if($pi>=$profile['projects']||$ti>=$profile['tokens_per_project'])return nmkr_synthetic_error('synthetic_shape'); $body=nmkr_synthetic_detail(nmkr_synthetic_token(nmkr_synthetic_project($pi,$profile),$ti)); }
-    else return nmkr_synthetic_error('synthetic_unexpected');
+    elseif(preg_match('#^/v2/GetNfts/(synthetic-project-[0-9]{3})/all/([0-9]+)/([0-9]+)$#D',$path,$m)) { $kind='token_lists'; $pi=(int)substr($m[1],-3); $page=(int)$m[3]; if($pi>=$profile['projects']||(int)$m[2]<=0||$page<1||$page>$profile['pages'])return nmkr_synthetic_refusal('synthetic_shape',$activation,$record); $project=nmkr_synthetic_project($pi,$profile); $body=array(); foreach(nmkr_synthetic_page_indexes($activation['profile_id'],$page) as $i)$body[]=nmkr_synthetic_token($project,$i); }
+    elseif(preg_match('#^/v2/GetNftDetailsById/(synthetic-project-[0-9]{3})-token-([0-9]{4})$#D',$path,$m)) { $kind='details'; $pi=(int)substr($m[1],-3); $ti=(int)$m[2]; if($pi>=$profile['projects']||$ti>=$profile['tokens_per_project'])return nmkr_synthetic_refusal('synthetic_shape',$activation,$record); $body=nmkr_synthetic_detail(nmkr_synthetic_token(nmkr_synthetic_project($pi,$profile),$ti)); }
+    else return nmkr_synthetic_refusal('synthetic_unexpected',$activation,$record);
     if($record&&!nmkr_synthetic_state_update($kind,$activation))return nmkr_synthetic_error('synthetic_state'); usleep((int)(getenv('NMKR_SYNTHETIC_LATENCY_MS')?:125)*1000); return nmkr_synthetic_response($body);
 }
 function nmkr_synthetic_pre_http($pre,$args,$url) {
     $a=nmkr_synthetic_activation(); if(!$a)return $pre;
     if(nmkr_synthetic_loopback_url($url,(int)getenv('NMKR_SYNTHETIC_PORT')))return $pre;
     $host=(string)parse_url($url,PHP_URL_HOST); if($host==='studio-api.nmkr.io')return nmkr_synthetic_dispatch(isset($args['method'])?strtoupper($args['method']):'GET',$url,$a,true);
-    return nmkr_synthetic_error('synthetic_external_blocked');
+    nmkr_synthetic_state_update('external',$a); return nmkr_synthetic_error('synthetic_external_blocked');
 }
 if(function_exists('add_filter')) add_filter('pre_http_request','nmkr_synthetic_pre_http',PHP_INT_MIN,3);
 }

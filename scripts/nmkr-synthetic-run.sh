@@ -15,7 +15,7 @@ deployed="$(realpath -e -- "$NMKR_SYNTHETIC_DEPLOYED_PLUGIN_PATH" 2>/dev/null)" 
 [[ "$(git -C "$deployed" rev-parse HEAD 2>/dev/null)" == "$NMKR_SYNTHETIC_EXPECTED_SHA" && -z "$(git -C "$deployed" status --porcelain --untracked-files=no 2>/dev/null)" ]] || fail deployed-integrity
 [[ -d "$NMKR_SYNTHETIC_WP_ROOT" && ! -L "$NMKR_SYNTHETIC_WP_ROOT" && -d "$NMKR_SYNTHETIC_RUN_DIR" && ! -L "$NMKR_SYNTHETIC_RUN_DIR" ]] || fail private-path
 [[ "$(stat -c %a "$NMKR_SYNTHETIC_RUN_DIR")" =~ ^(700|750)$ ]] || fail private-permissions
-wp="${WP_CLI_BIN:-wp}"; command -v "$wp" >/dev/null && command -v unshare >/dev/null && command -v ip >/dev/null && command -v php >/dev/null || fail required-tool
+wp="${WP_CLI_BIN:-wp}"; command -v "$wp" >/dev/null && command -v unshare >/dev/null && command -v ip >/dev/null && command -v php >/dev/null && command -v python3 >/dev/null || fail required-tool
 "$wp" --path="$NMKR_SYNTHETIC_WP_ROOT" core is-installed >/dev/null 2>&1 || fail wordpress-ready
 NMKR_SYNTHETIC_DEPLOYED_PLUGIN_PATH="$deployed" NMKR_SYNTHETIC_PLUGIN_SLUG="$NMKR_SYNTHETIC_PLUGIN_SLUG" "$wp" --path="$NMKR_SYNTHETIC_WP_ROOT" eval '
 require_once ABSPATH."wp-admin/includes/plugin.php";$slug=getenv("NMKR_SYNTHETIC_PLUGIN_SLUG");
@@ -35,6 +35,7 @@ export NMKR_SYNTHETIC_EXECUTION_ID="$(php -r 'echo bin2hex(random_bytes(16));')"
 export NMKR_SYNTHETIC_STATE_FILE="$NMKR_SYNTHETIC_RUN_DIR/provider-state.json" NMKR_SYNTHETIC_BASE_URL="http://127.0.0.1:$NMKR_SYNTHETIC_PORT" NMKR_SYNTHETIC_WP_CLI="${WP_CLI_BIN:-wp}"
 export NMKR_SYNTHETIC_PROVIDER_SOURCE="$repo/scripts/nmkr-synthetic-provider.php" NMKR_SYNTHETIC_DRIVER="$repo/scripts/nmkr-synthetic-driver.mjs" NMKR_SYNTHETIC_STATE_HELPER="$repo/scripts/nmkr-synthetic-state.php"
 export NMKR_SYNTHETIC_STATE_ASSERT="$repo/scripts/nmkr-synthetic-state-assert.mjs"
+export NMKR_SYNTHETIC_WORKER_LOG="$NMKR_SYNTHETIC_RUN_DIR/worker.log" NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER="$repo/scripts/nmkr-debug-log-classifier.py"
 unshare --user --map-root-user --net bash -c '
 set -Eeuo pipefail; ip link set lo up
 [[ "$(find /sys/class/net -mindepth 1 -maxdepth 1 -printf "%f\n")" == lo ]] || exit 40
@@ -46,6 +47,8 @@ install -m 600 "$NMKR_SYNTHETIC_PROVIDER_SOURCE" "$target"
 "$NMKR_SYNTHETIC_WP_CLI" --path="$NMKR_SYNTHETIC_WP_ROOT" eval-file "$NMKR_SYNTHETIC_STATE_HELPER" >"$NMKR_SYNTHETIC_RUN_DIR/before-state.json"
 php -S "127.0.0.1:$NMKR_SYNTHETIC_PORT" -t "$NMKR_SYNTHETIC_WP_ROOT" >/dev/null 2>&1 & server=$!
 sleep 1; node "$NMKR_SYNTHETIC_DRIVER"
+set +e; python3 "$NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER" "$NMKR_SYNTHETIC_WORKER_LOG" 60; diagnostic_status=$?; set -e
+[[ "$diagnostic_status" == 0 || "$diagnostic_status" == 3 ]] || exit 44
 "$NMKR_SYNTHETIC_WP_CLI" --path="$NMKR_SYNTHETIC_WP_ROOT" eval-file "$NMKR_SYNTHETIC_STATE_HELPER" >"$NMKR_SYNTHETIC_RUN_DIR/after-state.json"
 node "$NMKR_SYNTHETIC_STATE_ASSERT" "$NMKR_SYNTHETIC_RUN_DIR/before-state.json" "$NMKR_SYNTHETIC_RUN_DIR/after-state.json"
 ' || fail isolated-lifecycle

@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { closeSync, openSync } from 'node:fs';
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const fail = name => { throw new Error(name); };
@@ -31,7 +32,12 @@ export async function runSyntheticLifecycle({ playwright, env = process.env }) {
     const ajax = `${env.NMKR_SYNTHETIC_BASE_URL}/wp-admin/admin-ajax.php`;
     const start = await post(context, ajax, { action: 'nmkr_start_sync', nonce });
     if (!/^[0-9a-f-]{36}$/i.test(start?.run_id || '')) fail('run-id-invalid');
-    wp = spawn(env.NMKR_SYNTHETIC_WP_CLI, ['--path', env.NMKR_SYNTHETIC_WP_ROOT, 'cron', 'event', 'run', 'nmkr_execute_sync_background', '--due-now'], { stdio: ['ignore','ignore','ignore'], env });
+    const workerLog = openSync(env.NMKR_SYNTHETIC_WORKER_LOG, 'a', 0o600);
+    try {
+      wp = spawn(env.NMKR_SYNTHETIC_WP_CLI, ['--path', env.NMKR_SYNTHETIC_WP_ROOT, 'cron', 'event', 'run', 'nmkr_execute_sync_background', '--due-now'], { stdio: ['ignore', workerLog, workerLog], env });
+    } finally {
+      closeSync(workerLog);
+    }
     const workerExit = new Promise(resolve => {
       wp.once('exit', code => resolve({ workerExited: true, code }));
       wp.once('error', () => resolve({ workerExited: true, code: null }));

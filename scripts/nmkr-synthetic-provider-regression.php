@@ -10,6 +10,13 @@ $r=nmkr_synthetic_dispatch('GET','https://studio-api.nmkr.io/v2/ListProjects',$a
 $r=nmkr_synthetic_dispatch('GET','https://studio-api.nmkr.io/v2/GetNfts/synthetic-project-000/all/50/2',$a,false); check(count(json_decode($r['body'],true))===2,'same-project duplicate page');
 check(nmkr_synthetic_dispatch('POST','https://studio-api.nmkr.io/v2/ListProjects',$a,false) instanceof WP_Error,'method refusal');
 check(nmkr_synthetic_dispatch('GET','https://studio-api.nmkr.io/v2/unknown',$a,false) instanceof WP_Error,'path refusal');
+$run=sys_get_temp_dir().'/nmkr-synthetic-provider-'.bin2hex(random_bytes(6)); check(mkdir($run,0700),'private state directory');
+$state=$run.'/state.json'; putenv('NMKR_SYNTHETIC_RUN_DIR='.$run); putenv('NMKR_SYNTHETIC_STATE_FILE='.$state);
+check(nmkr_synthetic_dispatch('POST','https://studio-api.nmkr.io/v2/ListProjects',$a,true) instanceof WP_Error,'recorded method refusal');
+putenv('NMKR_SYNTHETIC_SENTINEL=NMKR_SYNTHETIC_TEST_ONLY_V1'); putenv('NMKR_SYNTHETIC_EXECUTION_ID='.$a['execution_id']); putenv('NMKR_SYNTHETIC_PROFILE='.$a['profile_id']); putenv('NMKR_SYNTHETIC_EXPIRY='.$a['expiry']); putenv('NMKR_SYNTHETIC_PORT=8123');
+check(nmkr_synthetic_pre_http(null,array('method'=>'GET'),'https://example.invalid/') instanceof WP_Error,'recorded external refusal');
+$recorded=json_decode(file_get_contents($state),true); check($recorded['counters']['violations']===2&&$recorded['counters']['external']===1&&$recorded['counters']['total']===2,'refusal counters');
+unlink($state); rmdir($run);
 check(nmkr_synthetic_loopback_url('http://127.0.0.1:8123/wp-admin/',8123)&&!nmkr_synthetic_loopback_url('http://localhost:8123/',8123)&&!nmkr_synthetic_loopback_url('https://127.0.0.1:8123/',8123),'narrow loopback');
 putenv('NMKR_SYNTHETIC_SENTINEL=bad'); check(nmkr_synthetic_activation()===false,'inactive without valid activation');
 $x=nmkr_synthetic_token(nmkr_synthetic_project(0,$p['public-v1']),0)['uid']; $y=nmkr_synthetic_token(nmkr_synthetic_project(1,$p['public-v1']),0)['uid']; check($x!==$y,'cross-project UID conflict prevented');
