@@ -35,9 +35,9 @@ export NMKR_SYNTHETIC_EXECUTION_ID="$(php -r 'echo bin2hex(random_bytes(16));')"
 export NMKR_SYNTHETIC_STATE_FILE="$NMKR_SYNTHETIC_RUN_DIR/provider-state.json" NMKR_SYNTHETIC_BASE_URL="http://127.0.0.1:$NMKR_SYNTHETIC_PORT" NMKR_SYNTHETIC_WP_CLI="${WP_CLI_BIN:-wp}"
 export NMKR_SYNTHETIC_PROVIDER_SOURCE="$repo/scripts/nmkr-synthetic-provider.php" NMKR_SYNTHETIC_DRIVER="$repo/scripts/nmkr-synthetic-driver.mjs" NMKR_SYNTHETIC_STATE_HELPER="$repo/scripts/nmkr-synthetic-state.php"
 export NMKR_SYNTHETIC_STATE_ASSERT="$repo/scripts/nmkr-synthetic-state-assert.mjs"
-export NMKR_SYNTHETIC_WORKER_LOG="$NMKR_SYNTHETIC_RUN_DIR/worker.log" NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER="$repo/scripts/nmkr-debug-log-classifier.py"
+export NMKR_SYNTHETIC_WORKER_LOG="$NMKR_SYNTHETIC_RUN_DIR/worker.log" NMKR_SYNTHETIC_SERVER_LOG="$NMKR_SYNTHETIC_RUN_DIR/server.log" NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER="$repo/scripts/nmkr-debug-log-classifier.py"
 unshare --user --map-root-user --net bash -c '
-set -Eeuo pipefail; ip link set lo up
+set -Eeuo pipefail; umask 077; ip link set lo up
 [[ "$(find /sys/class/net -mindepth 1 -maxdepth 1 -printf "%f\n")" == lo ]] || exit 40
 ! ip -4 route show default | grep -q . && ! ip -6 route show default | grep -q . || exit 41
 ! php -r '\''exit(@file_get_contents("http://network-must-not-resolve.invalid/")===false?0:1);'\'' || exit 42
@@ -45,10 +45,12 @@ mu="$NMKR_SYNTHETIC_WP_ROOT/wp-content/mu-plugins"; mkdir -p "$mu"; target="$mu/
 cleanup(){ rm -f "$target"; [[ -z "${server:-}" ]] || kill "$server" 2>/dev/null || true; }; trap cleanup EXIT
 install -m 600 "$NMKR_SYNTHETIC_PROVIDER_SOURCE" "$target"
 "$NMKR_SYNTHETIC_WP_CLI" --path="$NMKR_SYNTHETIC_WP_ROOT" eval-file "$NMKR_SYNTHETIC_STATE_HELPER" >"$NMKR_SYNTHETIC_RUN_DIR/before-state.json"
-php -S "127.0.0.1:$NMKR_SYNTHETIC_PORT" -t "$NMKR_SYNTHETIC_WP_ROOT" >/dev/null 2>&1 & server=$!
+php -S "127.0.0.1:$NMKR_SYNTHETIC_PORT" -t "$NMKR_SYNTHETIC_WP_ROOT" >"$NMKR_SYNTHETIC_SERVER_LOG" 2>&1 & server=$!
 sleep 1; node "$NMKR_SYNTHETIC_DRIVER"
-set +e; python3 "$NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER" "$NMKR_SYNTHETIC_WORKER_LOG" 60; diagnostic_status=$?; set -e
-[[ "$diagnostic_status" == 0 || "$diagnostic_status" == 3 ]] || exit 44
+for diagnostic_log in "$NMKR_SYNTHETIC_WORKER_LOG" "$NMKR_SYNTHETIC_SERVER_LOG"; do
+  set +e; python3 "$NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER" "$diagnostic_log" 60; diagnostic_status=$?; set -e
+  [[ "$diagnostic_status" == 0 || "$diagnostic_status" == 3 ]] || exit 44
+done
 "$NMKR_SYNTHETIC_WP_CLI" --path="$NMKR_SYNTHETIC_WP_ROOT" eval-file "$NMKR_SYNTHETIC_STATE_HELPER" >"$NMKR_SYNTHETIC_RUN_DIR/after-state.json"
 node "$NMKR_SYNTHETIC_STATE_ASSERT" "$NMKR_SYNTHETIC_RUN_DIR/before-state.json" "$NMKR_SYNTHETIC_RUN_DIR/after-state.json"
 ' || fail isolated-lifecycle
