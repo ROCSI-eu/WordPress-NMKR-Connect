@@ -71,3 +71,87 @@ Development and staging remained healthy, active, idle, and database-ready after
 ## Public/private publication boundary
 
 This report excludes private URLs and domains, infrastructure identifiers, filesystem paths, credentials, API keys, cookies, nonces, database contents, project/token identifiers, raw logs, screenshots, traces, videos, generated reports, authentication state, and private evidence locations. The published SHA-256 identifies the retained private compatibility execution record without exposing its contents.
+
+---
+
+## EVD-008 — bounded repeated sequential mixed-chain traffic
+
+### Evidence identity and scope
+
+This sanitized report registers **EVD-008** for **M3-05**, **M3-11**, and **M3-19**. The controlled-mutation campaign ran on 2026-08-21 in an authorized non-production WordPress validation environment. Its exact source commit and exact deployed commit were both `bbf87e351a118ff67d5b57c2c20dfcf4e936b477`; this documentation change is based on later commit `12737990da042279d8db7b10f3c37ac767f705bd`, which was not deployed or executed for EVD-008.
+
+The campaign was bounded repeated sequential traffic over the same stable mixed-chain dataset. It comprised three separately authorized stages of three cycles each, for nine complete synchronization cycles. Execution was never concurrent: at most one synchronization was active, successful cycles had a 15-second cooldown, and no automatic retry followed an attempted synchronization Start.
+
+### Method, profile, and safeguards
+
+- Each of the nine cycles had one synchronization Start and processed the same 10 projects, 100 unique tokens, and 100 token-detail records.
+- Each cycle performed 121 NMKR API requests and 100 token-processing operations.
+- Authorization was separately established for each stage; execution remained sequential with a one-active-synchronization ceiling.
+- The campaign used controlled mutation in non-production, with terminal-state, database-integrity, worker/marker, dataset, source-worktree, and deployed-worktree checks.
+- Cooldown was enforced after successful cycles, and an attempted Start was not automatically retried.
+
+### Aggregate results
+
+| Measure | Result |
+| --- | --- |
+| Stages and cycles | 3 stages × 3 cycles; 9 complete cycles |
+| Synchronization Starts | 9 |
+| Cycle outcomes | 9 successful; 0 failed; every cycle completed terminally |
+| Per-cycle item outcome | 100 processed; 100 successful; 0 failed |
+| NMKR API requests | 121 per cycle; 1,089 total |
+| Token processing | 100 operations per cycle; 900 repeated operations total |
+| Stable dataset | 10 projects; 100 unique tokens; 100 token-detail records in every cycle |
+| New persistence records | Exactly 9 distinct completed history records and 9 distinct metrics records |
+| Campaign status | Completed |
+| Validation result | **PASS** |
+
+The 900 figure is repeated processing of 100 unique tokens over nine cycles, not 900 unique tokens and not nine different datasets.
+
+### Cross-chain attribution
+
+The execution-time profile was stable across Cycles 1–9:
+
+| Profile | Cardano-only | Solana-only | Dual-chain | Other/unknown |
+| --- | ---: | ---: | ---: | ---: |
+| Projects per cycle | 4 | 4 | 2 | 0 |
+| Unique tokens per cycle | 40 | 40 | 20 | 0 |
+| Repeated token-processing operations across the campaign | 360 | 360 | 180 | 0 |
+
+Cardano and Solana were directly represented in every cycle. The campaign totals preserve direct attribution to both chains without treating success on one chain as evidence for the other.
+
+### Performance ranges
+
+| Recorded measure across nine cycles | Minimum | Median | Maximum |
+| --- | ---: | ---: | ---: |
+| Synchronization duration | 24.6503 s | 29.6331 s | 45.4955 s |
+| Total API time | 18.5278 s | 22.3653 s | 34.7862 s |
+| Stored average response time | 0.1531 s | 0.1848 s | 0.2875 s |
+| Recorded memory usage | 50 MB | 50 MB | 50 MB |
+
+### Final state and integrity
+
+The final dataset remained 10 projects, 100 tokens, and 100 details. The runtime was clean, terminal, idle, and internally consistent. Checks detected no duplicate project, token, or token-detail identifiers; invalid relationships; or impossible counters. No active synchronization history, owner/option/transient/finalization/recovery/heartbeat marker, duplicate worker, or blocked synchronization cron remained. The exact source and deployed worktrees remained unchanged and clean.
+
+### Classification-snapshot anomaly
+
+The pre-campaign classification snapshot differed from the execution-time classification and is not authoritative for chain attribution. The execution-time project and token profiles were stable throughout Cycles 1–9, and the final sealed manifest's 360 Cardano-only, 360 Solana-only, and 180 dual-chain operation totals match the cycle evidence. This classification-snapshot anomaly did not affect the stable execution-time profile, cycle success, request totals, database integrity, or final state. No cause is asserted.
+
+### Requirement assessment
+
+- **M3-05 remains Implemented, validation pending.** EVD-008 is supporting/partial evidence: it supplies measured aggregate repeated volume, explicit ceilings and cooldown, successful outcomes, performance ranges, integrity checks, and a clean final state, but it retained the guarded light profile and did not establish materially higher processing pressure.
+- **M3-11 remains Implemented, validation pending.** EVD-008 is supporting/partial evidence because Cardano and Solana were directly and stably represented during all nine cycles and across the 900 repeated token-processing operations, but the sequential light-profile campaign did not establish heavier API traffic or stress.
+- **M3-19 is supported** by this reviewer-visible sanitized report and its register entry.
+
+The validated EVD-008 execution boundary is the disclosed nine-cycle sequential repeated-traffic profile; it does not by itself validate the high-traffic or stress criteria in M3-05 or M3-11. It is not concurrent load, production traffic, a maximum-capacity, saturation, breaking-point, or unlimited-scale test, and it is not formal certification.
+
+The next required action for M3-05 and M3-11 is a bounded plugin-level higher-pressure test using synthetic mixed-chain API data, without overloading the live NMKR API. The defined larger workload should evaluate plugin-controlled pagination, processing, database writes, deduplication, memory, metrics, terminalization, and cleanup. It must not treat production, upstream, unlimited-scale, or external infrastructure capacity as a plugin deliverable.
+
+### Evidence retention and limitations
+
+Private raw evidence is retained. Its final evidence-seal SHA-256 is `7f743f8aa9fc4ec78e07dd0d1cab38ec1102dc9f5d4d6bb48002f87ddddb7341`.
+
+- Results cover one authorized non-production environment, one stable dataset, and the exact executed source/deployed commit only.
+- Nine sequential cycles do not establish concurrent behavior, production capacity, maximum load, or a breaking point.
+- The campaign does not guarantee behavior for arbitrary account sizes, datasets, hosting environments, upstream conditions, future releases, or unlimited scale.
+- The evidence does not claim independent hosting-provider coverage or broad stress certification.
+- Private URLs, paths, usernames, infrastructure identifiers, project/token identifiers, API responses, raw database rows, screenshots, credentials, API keys, cookies, nonces, logs, and artifact locations remain outside the public repository.
