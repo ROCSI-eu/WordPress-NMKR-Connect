@@ -45,6 +45,14 @@ function nmkr_is_verified_failed_terminal_for_progress($sync_data, $has_active_d
         && nmkr_verify_sync_terminal_result($sync_data, 'failed');
 }
 
+/** Replace a verified failed terminal's private diagnostic with public-safe copy. */
+function nmkr_public_failed_terminal_progress_response($response_data) {
+    $response_data['error'] = __('Synchronization failed. Review the private server diagnostics for details.', 'nmkr-connect');
+    $response_data['error_code'] = 'sync_terminal_failed';
+    unset($response_data['technical_details']);
+    return $response_data;
+}
+
 /** Return a fixed browser-safe message for a synchronization error code. */
 function nmkr_public_sync_error_message($code, $fallback) {
     $messages = array(
@@ -647,9 +655,8 @@ function nmkr_sync_progress_handler() {
             $response_data['terminal_outcome'] = $terminal_status;
             $response_data['finished'] = $terminal_status === 'completed' ? $canonically_finished : false;
             $response_data['aborted'] = $terminal_status === 'stopped';
-            if ($terminal_status === 'failed' && $response_data['error'] === '') {
-                $response_data['error'] = __('Synchronization failed. Review the private server diagnostics for details.', 'nmkr-connect');
-                $response_data['error_code'] = 'sync_terminal_failed';
+            if ($terminal_status === 'failed') {
+                $response_data = nmkr_public_failed_terminal_progress_response($response_data);
             }
         }
     }

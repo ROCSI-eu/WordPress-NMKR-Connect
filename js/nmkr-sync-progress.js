@@ -1,17 +1,32 @@
 'use strict';
 
-function nmkrFormatTransportError(xhr) {
+function nmkrFormatPublicError(data, status) {
     try {
         var allowed = ['option_retrieval_failed', 'sync_critical_error', 'sync_terminal_failed', 'sync_owner_mismatch', 'invalid_run_id', 'sync_owner_recovery_required', 'sync_finalization_pending', 'sync_already_owned', 'sync_admission_failed', 'sync_schedule_failed', 'sync_schedule_cleanup_pending', 'sync_schedule_owner_changed', 'sync_cleanup_failed', 'sync_stop_cleanup_failed', 'direct_stop_requires_cooperative_worker', 'force_stop_execution_failed', 'force_stop_failed', 'force_stop_handler_failure', 'log_clear_failed', 'section_log_clear_failed'];
-        var code = xhr && xhr.responseJSON && xhr.responseJSON.data ? xhr.responseJSON.data.error_code : '';
-        return 'HTTP ' + Number(xhr && xhr.status || 0) + (allowed.indexOf(code) !== -1 ? ' [' + code + ']' : ' [request_failed]');
+        var code = data ? data.error_code : '';
+        var known = allowed.indexOf(code) !== -1;
+        var message = known && typeof data.message === 'string' && data.message.trim() !== '' ? data.message.trim() : '';
+        var prefix = status === null ? '' : 'HTTP ' + Number(status || 0) + (message ? ': ' : ' ');
+        return prefix + (message ? message + ' [' + code + ']' : (known ? '[' + code + ']' : '[request_failed]'));
     } catch (e) {
-        return 'HTTP error';
+        return status === null ? '[request_failed]' : 'HTTP error';
     }
 }
 
+function nmkrFormatTransportError(xhr) {
+    var data = xhr && xhr.responseJSON && xhr.responseJSON.data ? xhr.responseJSON.data : null;
+    return nmkrFormatPublicError(data, Number(xhr && xhr.status || 0));
+}
+
+function nmkrFormatApplicationError(response) {
+    return nmkrFormatPublicError(response && response.data ? response.data : null, null);
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { nmkrFormatTransportError: nmkrFormatTransportError };
+    module.exports = {
+        nmkrFormatTransportError: nmkrFormatTransportError,
+        nmkrFormatApplicationError: nmkrFormatApplicationError
+    };
 }
 
 jQuery(document).ready(function($) {
@@ -407,8 +422,7 @@ jQuery(document).ready(function($) {
             }
           } else {
             // Handle unsuccessful response
-            const payloadCode = response && response.data ? response.data.error_code : '';
-            handleError('Synchronization request failed' + (payloadCode ? ': ' + nmkrFormatTransportError({ status: 200, responseJSON: response }) : '.'));
+            handleError('Synchronization request failed: ' + nmkrFormatApplicationError(response));
             return;
           }
         } catch (e) {

@@ -10,9 +10,45 @@ function nmkr_contract_assert($condition, $case) {
     }
 }
 
+function nmkr_extract_function($source, $name) {
+    $start = strpos($source, 'function ' . $name . '(');
+    nmkr_contract_assert($start !== false, 'missing_' . $name);
+    $brace = strpos($source, '{', $start);
+    $depth = 0;
+    $length = strlen($source);
+    for ($index = $brace; $index < $length; $index++) {
+        if ($source[$index] === '{') $depth++;
+        if ($source[$index] === '}' && --$depth === 0) return substr($source, $start, $index - $start + 1);
+    }
+    throw new Exception('unterminated_' . $name);
+}
+
 try {
+    // Execute the production serializer boundary in isolation with a non-empty
+    // private diagnostic. Test output deliberately never includes the marker.
+    if (!function_exists('__')) {
+        function __($message, $domain = null) { return $message; }
+    }
+    eval(nmkr_extract_function($sync, 'nmkr_public_failed_terminal_progress_response'));
+    $marker = implode('_', array('NMKR', 'INTERNAL', 'MARKER', 'DO', 'NOT', 'DISCLOSE'));
+    $terminal = nmkr_public_failed_terminal_progress_response(array(
+        'terminal_outcome' => 'failed',
+        'terminalRunId' => 'abababab-1111-4111-8111-111111111111',
+        'progress' => 73,
+        'live_metrics' => array('api_requests' => 4),
+        'error' => $marker,
+        'technical_details' => $marker,
+    ));
+    $encoded = json_encode(array('success' => true, 'data' => $terminal));
+    nmkr_contract_assert($terminal['terminal_outcome'] === 'failed', 'terminal_outcome');
+    nmkr_contract_assert($terminal['error_code'] === 'sync_terminal_failed', 'terminal_error_code');
+    nmkr_contract_assert($terminal['error'] === 'Synchronization failed. Review the private server diagnostics for details.', 'terminal_public_message');
+    nmkr_contract_assert(strpos($encoded, $marker) === false, 'terminal_marker_disclosed');
+    nmkr_contract_assert(!array_key_exists('technical_details', $terminal), 'terminal_technical_details');
+    nmkr_contract_assert(strpos($encoded, '"success":true') !== false, 'terminal_success_contract');
+    nmkr_contract_assert($terminal['progress'] === 73 && $terminal['live_metrics']['api_requests'] === 4, 'terminal_progress_metrics');
+
     $forbidden = array(
-        "'technical_details'",
         "'message' => \$owner_error->get_error_message()",
         "'message' => \$result->get_error_message()",
         "'message' => 'Synchronization encountered a critical error: ' . \$error",
