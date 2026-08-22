@@ -120,6 +120,7 @@ The environment URL, username, password, authentication state, activation detail
 
 ## Open actions
 
+- **M3-05 and M3-11:** run a bounded plugin-level higher-pressure validation using a defined larger synthetic mixed-chain API workload. Exercise plugin-controlled pagination, processing, database writes, deduplication, memory, metrics, terminalization, and cleanup without loading the live NMKR API or certifying production, upstream, unlimited-scale, or external infrastructure capacity.
 - **M3-08:** assess and register the actual monitoring start/end, probe, interval/location class, incidents, missing-data handling, calculation, and whether uptime was strictly above 99.9%; no percentage is asserted here.
 - **M3-13:** harden the residual privileged synchronization error disclosures in a separate runtime change and validate the affected boundary.
 - **M3-14:** register a complete existing retained exact-head restricted-role/private-security record if available, otherwise execute that separately authorized private validation later.
