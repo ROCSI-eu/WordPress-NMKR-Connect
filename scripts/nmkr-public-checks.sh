@@ -39,6 +39,10 @@ bash scripts/nmkr-synthetic-run-regression.sh
 printf '\n== Privileged AJAX guard regression ==\n'
 php scripts/nmkr-ajax-guard-regression.php
 
+printf '\n== AJAX error-disclosure regressions ==\n'
+php scripts/nmkr-ajax-error-disclosure-regression.php
+node scripts/nmkr-transport-error-disclosure-regression.js
+
 printf '\n== AJAX security private-boundary regression ==\n'
 bash scripts/nmkr-ajax-security-public-regression.sh
 
