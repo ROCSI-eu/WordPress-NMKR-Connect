@@ -138,11 +138,13 @@ The pre-campaign classification snapshot differed from the execution-time classi
 
 ### Requirement assessment
 
-- **M3-05 is Validated within this bounded profile.** EVD-008 supplies measured repeated sequential traffic, explicit ceilings and cooldown, successful outcomes, performance ranges, integrity checks, and a clean final state.
-- **M3-11 is Validated within this bounded profile.** Both Cardano and Solana were directly and stably represented during all nine cycles and across the 900 repeated token-processing operations.
+- **M3-05 remains Implemented, validation pending.** EVD-008 is supporting/partial evidence: it supplies measured aggregate repeated volume, explicit ceilings and cooldown, successful outcomes, performance ranges, integrity checks, and a clean final state, but it retained the guarded light profile and did not establish materially higher processing pressure.
+- **M3-11 remains Implemented, validation pending.** EVD-008 is supporting/partial evidence because Cardano and Solana were directly and stably represented during all nine cycles and across the 900 repeated token-processing operations, but the sequential light-profile campaign did not establish heavier API traffic or stress.
 - **M3-19 is supported** by this reviewer-visible sanitized report and its register entry.
 
-The validation boundary is the disclosed nine-cycle sequential repeated-traffic profile. It is not concurrent load, production traffic, a maximum-capacity, saturation, breaking-point, or unlimited-scale test, and it is not formal certification.
+The validated EVD-008 execution boundary is the disclosed nine-cycle sequential repeated-traffic profile; it does not by itself validate the high-traffic or stress criteria in M3-05 or M3-11. It is not concurrent load, production traffic, a maximum-capacity, saturation, breaking-point, or unlimited-scale test, and it is not formal certification.
+
+The next required action for M3-05 and M3-11 is a bounded plugin-level higher-pressure test using synthetic mixed-chain API data, without overloading the live NMKR API. The defined larger workload should evaluate plugin-controlled pagination, processing, database writes, deduplication, memory, metrics, terminalization, and cleanup. It must not treat production, upstream, unlimited-scale, or external infrastructure capacity as a plugin deliverable.
 
 ### Evidence retention and limitations
 

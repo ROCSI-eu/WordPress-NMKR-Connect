@@ -26,7 +26,7 @@ This is specifically a **maintainer/operator workflow usability assessment**. It
 
 ### Bounded operational synchronization
 
-[EVD-001](executed-evidence-2026-08-17.md#evd-001--controlled-mixed-chain-synchronization-and-final-state) is the bounded light-profile foundation. [EVD-008](executed-evidence-2026-08-21.md#evd-008--bounded-repeated-sequential-mixed-chain-traffic) records the completed bounded higher-traffic campaign: three separately authorized stages of three sequential cycles, 9/9 successful cycles, 1,089 NMKR API requests, and 900 repeated token-processing operations over the same 10-project, 100-unique-token, 100-detail dataset. Every cycle completed 100/100 items successfully, and the final runtime and database state were clean, terminal, idle, and consistent. This validates M3-05 within that disclosed profile.
+[EVD-001](executed-evidence-2026-08-17.md#evd-001--controlled-mixed-chain-synchronization-and-final-state) is the bounded light-profile foundation. [EVD-008](executed-evidence-2026-08-21.md#evd-008--bounded-repeated-sequential-mixed-chain-traffic) records a completed bounded repeated-traffic campaign: three separately authorized stages of three sequential cycles, 9/9 successful cycles, 1,089 aggregate NMKR API requests, and 900 repeated token-processing operations over the same 10-project, 100-unique-token, 100-detail dataset. Every cycle completed 100/100 items successfully, and the final runtime and database state were clean, terminal, idle, and consistent. EVD-008 remains validated executed evidence for those observations and is supporting/partial evidence for M3-05; it does not validate high traffic because the campaign retained the guarded light profile, ran sequentially, and used cooldowns.
 
 EVD-008 was sequential, never concurrent, and used one stable dataset. It is not 900 unique tokens, production traffic, maximum-capacity, saturation, breaking-point, unlimited-scale, or broad infrastructure-capacity evidence, and it gives no universal guarantee for arbitrary datasets, environments, upstream conditions, or future releases.
 
@@ -34,7 +34,9 @@ EVD-008 was sequential, never concurrent, and used one stable dataset. It is not
 
 EVD-001 directly contained four Cardano-only projects, four Solana-only projects, and two Cardano-and-Solana projects. EVD-008 retained that stable execution-time project profile throughout all nine cycles, alongside 40 Cardano-only, 40 Solana-only, and 20 dual-chain unique tokens per cycle. Its 900 repeated operations comprised 360 Cardano-only, 360 Solana-only, and 180 dual-chain operations. Both chains were directly exercised in every cycle; success for one chain is not substituted for the other.
 
-EVD-008 validates M3-11 within its bounded nine-cycle sequential repeated-traffic profile. The disclosed classification-snapshot anomaly does not change the stable execution-time attribution or sealed totals. This is not concurrent stress, production-capacity, maximum-load, arbitrary-scale, or universal evidence.
+EVD-008 is supporting/partial evidence for M3-11 because both chains were directly represented throughout the bounded nine-cycle sequential repeated-traffic profile. The disclosed classification-snapshot anomaly does not change the stable execution-time attribution or sealed totals. The campaign does not validate heavier API traffic or stress and is not production-capacity, maximum-load, arbitrary-scale, or universal evidence.
+
+The next required action for M3-05 and M3-11 is a bounded plugin-level higher-pressure test using a defined larger synthetic mixed-chain API workload without loading the live NMKR API. It should evaluate pagination, processing, database writes, deduplication, memory, metrics, terminalization, and cleanup under explicit safety controls. Production, upstream, unlimited-scale, and external infrastructure capacity are not plugin deliverables.
 
 ### Performance benchmarks
 
@@ -98,13 +100,13 @@ The environment URL, username, password, authentication state, activation detail
 | M3-02 | Validated | EVD-002 and EVD-006 support representative, non-exhaustive functionality coverage. |
 | M3-03 | Validated | EVD-001, EVD-004, and EVD-005 retain the scoped performance results. |
 | M3-04 | Validated | EVD-006 records the maintainer/operator workflow assessment; no participant study is claimed. |
-| M3-05 | Validated | EVD-008 validates bounded higher traffic through nine sequential successful cycles, 1,089 requests, and 900 repeated operations over 100 unique tokens; concurrency, production capacity, maximum load, arbitrary scale, and universal guarantees remain outside scope. |
+| M3-05 | Implemented, validation pending | EVD-008 is validated supporting/partial evidence for repeated aggregate volume and reliability, but its guarded sequential light profile does not establish high traffic; a bounded larger synthetic plugin-level workload remains required. |
 | M3-06 | Validated | EVD-004 applies only under its defined normal conditions. |
 | M3-07 | Validated | EVD-005 applies to the representative single-NFT display under its defined conditions. |
 | M3-08 | Planned | The actual monitoring window has not been assessed or registered. |
 | M3-09 | Validated | EVD-001 directly includes Cardano-only and dual-chain projects. |
 | M3-10 | Validated | EVD-001 directly includes Solana-only and dual-chain projects. |
-| M3-11 | Validated | EVD-008 validates heavier mixed-chain repeated traffic within the disclosed nine-cycle sequential profile, with Cardano and Solana directly represented in every cycle; concurrent stress, production capacity, maximum load, arbitrary scale, and universal guarantees remain outside scope. |
+| M3-11 | Implemented, validation pending | EVD-008 is validated supporting/partial evidence for repeated mixed-chain reliability, but it does not establish heavier API traffic or stress; the bounded larger synthetic plugin-level workload remains required. |
 | M3-12 | Validated | EVD-006 records a scoped implementation/control assessment; no universal vulnerability guarantee is made. |
 | M3-13 | Implemented, validation pending | EVD-003 is supporting evidence; generic error-disclosure hardening remains open. |
 | M3-14 | Implemented, validation pending | Implementation/regression foundations exist; an unambiguous retained exact-head live restricted-role result remains open. |
