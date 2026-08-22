@@ -35,7 +35,7 @@ Private exact-head validation recorded the following sanitized outcomes:
 - the focused Node transport-disclosure regression passed;
 - the privileged AJAX guard regression passed;
 - the full non-mutating Playwright suite passed with **18 passed, 2 skipped**;
-- the two skipped tests depended on the separately prepared restricted-role private contract and belong to the still-open M3-14 boundary rather than invalidating M3-13;
+- the two skipped tests depended on the separately prepared restricted-role private contract and belong to the separately executed M3-14 boundary rather than invalidating M3-13;
 - WP-CLI smoke passed;
 - read-only database and synchronization-state checks passed;
 - WordPress/plugin health passed;
@@ -82,5 +82,74 @@ The raw private record remains outside the public repository. No private paths, 
 - It does not prove that arbitrary third-party code or arbitrary raw logs redact every possible secret.
 - It does not guarantee absence of future disclosure vulnerabilities.
 - It validates only the exact source/deployed commits and recorded methods.
-- M3-14 restricted-role/capability/nonce live evidence remains a separate open requirement.
+- M3-14 restricted-role/capability/nonce live evidence is outside EVD-009 and is registered separately as EVD-010 below.
 - No real NMKR synchronization or destructive runtime action was part of this evidence execution.
+
+
+## EVD-010 — Restricted-role and privileged-AJAX security validation
+
+### Evidence identity and requirement scope
+
+This sanitized executed-evidence record registers **EVD-010** primarily for **M3-14 — WordPress security controls, capabilities and nonces**. It also supports the **M3-19** evidence index and **M3-20** bounded security implementation evidence. EVD-010 is separate from EVD-009 and does not expand EVD-009 beyond M3-13.
+
+The exact clean source commit and exact clean active deployed commit were both `d84a193877ea84f79be94d435b9b7191d1c9a5df`. The public documentation-only `main` observed during execution was `9f0298368c7dd56b970272cb5ed542aa92941c15`. Execution occurred on **2026-08-22**.
+
+### Targeted method and safety boundary
+
+The targeted private execution used `npm run test:ajax-security` through the repository's fail-closed restricted-account wrapper. It verified the exact clean source and active deployment at the same commit, then used prepared Administrator and synthetic `nmkr-marketing` accounts. The restricted role had exactly the intended analytics access and lacked dashboard and synchronization-management capabilities. Synchronization was ownerless and idle before execution.
+
+The execution kept `RUN_REAL_SYNC=false` and `PW_SAVE_ARTIFACTS=false`. It performed no real NMKR synchronization or destructive runtime action. Raw evidence was retained privately outside the repository.
+
+### Sanitized negative-case results
+
+The following checks passed:
+
+- anonymous privileged AJAX requests were denied;
+- requests with missing nonces were denied;
+- requests with invalid nonces were denied;
+- insufficient-role privileged requests were denied;
+- a malformed Stop request was denied; and
+- the negative cases caused no mutation of the bounded protected plugin state covered by the repository helper.
+
+### Sanitized authorized-case results
+
+The following checks passed:
+
+- the prepared Administrator and restricted `nmkr-marketing` capability split was verified;
+- an authorized NMKR Marketing aggregate analytics request succeeded; and
+- an authorized Administrator synchronization-health request succeeded.
+
+### Protected-state and final-state results
+
+The following checks passed:
+
+- exact clean source and deployed SHA verification;
+- synchronization owner, lifecycle, cron, history, and metrics state remained unchanged;
+- final WP-CLI smoke;
+- final database integrity checks;
+- final ownerless idle-state verification;
+- confirmation that no real NMKR synchronization ran; and
+- confirmation that no Playwright screenshots, traces, videos, or HTML reports were retained.
+
+These state-equality checks cover only the bounded protected plugin state implemented by the repository helper; they do not claim equality of arbitrary WordPress state.
+
+### Result and M3-14 assessment
+
+**EVD-010 result: PASS.** **M3-14 is Validated only within EVD-010's disclosed live boundary for the tested privileged AJAX actions, role/capability separation, nonce enforcement, malformed Stop rejection, bounded authorized read-oriented requests, and bounded protected plugin state.**
+
+### Evidence retention and public/private boundary
+
+Private evidence retained: **yes**. The public-safe private manifest SHA-256 is `a410eff0c17f32e309961c2a345bdff79b068feccc90d5513421c34cd5f684b1`.
+
+The execution and raw evidence remain private outside the repository. This public record publishes no private record identifier or location, environment file, account identifier, URL, nonce, cookie, password, raw log, database output, authentication state, infrastructure identifier, or private record-bundle hash.
+
+### Limitations
+
+- EVD-010 is representative live-boundary evidence for the tested privileged AJAX actions, role/capability separation, nonce enforcement, malformed Stop rejection, and bounded authorized read-oriented requests.
+- It is not penetration testing or security certification.
+- It is not complete OWASP coverage.
+- It does not establish the absence of every authorization, CSRF, or other vulnerability.
+- It does not cover arbitrary third-party code or every WordPress endpoint.
+- It validates only the exact commits, environment boundary, accounts, and methods described.
+- It treats WordPress nonces as CSRF mitigation, not authentication.
+- It involved no real synchronization or destructive runtime action.
