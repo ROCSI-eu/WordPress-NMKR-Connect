@@ -48,6 +48,7 @@ function nmkr_is_verified_failed_terminal_for_progress($sync_data, $has_active_d
 /** Replace a verified failed terminal's private diagnostic with public-safe copy. */
 function nmkr_public_failed_terminal_progress_response($response_data) {
     $response_data['error'] = __('Synchronization failed. Review the private server diagnostics for details.', 'nmkr-connect');
+    $response_data['current_item'] = '';
     $response_data['error_code'] = 'sync_terminal_failed';
     unset($response_data['technical_details']);
     return $response_data;

@@ -36,6 +36,7 @@ try {
         'terminalRunId' => 'abababab-1111-4111-8111-111111111111',
         'progress' => 73,
         'live_metrics' => array('api_requests' => 4),
+        'current_item' => $marker,
         'error' => $marker,
         'technical_details' => $marker,
     ));
@@ -43,6 +44,7 @@ try {
     nmkr_contract_assert($terminal['terminal_outcome'] === 'failed', 'terminal_outcome');
     nmkr_contract_assert($terminal['error_code'] === 'sync_terminal_failed', 'terminal_error_code');
     nmkr_contract_assert($terminal['error'] === 'Synchronization failed. Review the private server diagnostics for details.', 'terminal_public_message');
+    nmkr_contract_assert($terminal['current_item'] === '', 'terminal_public_current_item');
     nmkr_contract_assert(strpos($encoded, $marker) === false, 'terminal_marker_disclosed');
     nmkr_contract_assert(!array_key_exists('technical_details', $terminal), 'terminal_technical_details');
     nmkr_contract_assert(strpos($encoded, '"success":true') !== false, 'terminal_success_contract');
