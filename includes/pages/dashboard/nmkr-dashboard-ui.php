@@ -1222,7 +1222,7 @@ function nmkr_render_dashboard_scripts($dashboard_nonce) {
                     }
                 },
                 error: function(xhr) {
-                    console.error('API status check error:', xhr.responseText);
+                    console.error('API status check failed (HTTP ' + (xhr.status || 0) + ').');
                     $('#api-status').html('⚠️ Unable to check API status. Please try refreshing the page.');
                     
                     // Log API status check error
@@ -1303,7 +1303,7 @@ function nmkr_render_dashboard_scripts($dashboard_nonce) {
                         }
                     },
                     error: function(xhr) {
-                        console.error('API status refresh error:', xhr.responseText);
+                        console.error('API status refresh failed (HTTP ' + (xhr.status || 0) + ').');
                         $('#api-status').html('⚠️ Unable to check API status. Please try refreshing the page.');
                         
                         // Log API status refresh error
@@ -2028,4 +2028,4 @@ function nmkr_render_dashboard_scripts($dashboard_nonce) {
         });
     </script>
     <?php
-}    
+}
