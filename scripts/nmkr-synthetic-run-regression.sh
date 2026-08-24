@@ -53,7 +53,17 @@ grep -Fq 'debug_baseline_diagnostic_status" == 0 || "$debug_baseline_diagnostic_
 php_gate="$(cat "$runner")"
 [[ "$php_gate" == *'lstat($p)'* && "$php_gate" == *'is_link($p)'* && "$php_gate" == *'@chmod($p,0600)'* ]] || { echo 'FAIL: debug-log path gate missing' >&2; exit 1; }
 [[ "${php_gate%%'@chmod($p,0600)'*}" == *'is_link($p)'* ]] || { echo 'FAIL: debug-log symlink checked after chmod' >&2; exit 1; }
-grep -Fq '"$debug_source" != "$debug_delta_parent/$(basename -- "$debug_delta")"' "$runner" || { echo 'FAIL: debug source/delta collision accepted' >&2; exit 1; }
+path_gate="$(sed -n '/^debug_source_outside_run_dir(){/p' "$runner")"
+[[ -n "$path_gate" ]] || { echo 'FAIL: debug source/run directory gate missing' >&2; exit 1; }
+eval "$path_gate"
+mkdir -p "$tmp/run/nested" "$tmp/external"
+: >"$tmp/run/server.log"; : >"$tmp/run/nested/diagnostic.log"; : >"$tmp/external/debug.log"
+canonical_run="$(realpath -e -- "$tmp/run")"
+! debug_source_outside_run_dir "$(realpath -e -- "$tmp/run/server.log")" "$canonical_run" || { echo 'FAIL: server-log debug source accepted' >&2; exit 1; }
+! debug_source_outside_run_dir "$(realpath -e -- "$tmp/run/nested/diagnostic.log")" "$canonical_run" || { echo 'FAIL: descendant debug source accepted' >&2; exit 1; }
+debug_source_outside_run_dir "$(realpath -e -- "$tmp/external/debug.log")" "$canonical_run" || { echo 'FAIL: external debug source rejected' >&2; exit 1; }
+gate_line="$(grep -nF 'debug_source_outside_run_dir "$debug_source" "$canonical_run_dir"' "$runner" | cut -d: -f1)"; server_line="$(grep -nF 'php -S "127.0.0.1:$NMKR_SYNTHETIC_PORT"' "$runner" | cut -d: -f1)"
+[[ "$gate_line" =~ ^[0-9]+$ && "$server_line" =~ ^[0-9]+$ && "$gate_line" -lt "$server_line" ]] || { echo 'FAIL: debug source gate occurs after server startup' >&2; exit 1; }
 grep -Fq 'NMKR_SYNTHETIC_SERVER_LOG' "$runner" || { echo 'FAIL: private server diagnostics missing' >&2; exit 1; }
 [[ "$(grep -Fc ' --complete-file "$NMKR_SYNTHETIC_SERVER_LOG" 60' "$runner")" == 1 ]] || { echo 'FAIL: server log complete-file classification missing' >&2; exit 1; }
 [[ "$(grep -Fc ' --complete-file "$debug_delta" 60' "$runner")" == 1 ]] || { echo 'FAIL: debug delta complete-file classification missing' >&2; exit 1; }

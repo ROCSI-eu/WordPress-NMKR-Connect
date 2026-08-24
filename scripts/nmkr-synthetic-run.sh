@@ -52,6 +52,7 @@ capture_state(){
   set -e
   [[ "$helper_status" == 0 && ( "$diagnostic_status" == 0 || "$diagnostic_status" == 3 ) ]]
 }
+debug_source_outside_run_dir(){ local source="$1" run_dir="$2"; [[ "$source" != "$run_dir" && "$source" != "$run_dir/"* ]]; }
 [[ "$(find /sys/class/net -mindepth 1 -maxdepth 1 -printf "%f\n")" == lo ]] || exit 40
 ! ip -4 route show default | grep -q . && ! ip -6 route show default | grep -q . || exit 41
 ! php -r '\''exit(@file_get_contents("http://network-must-not-resolve.invalid/")===false?0:1);'\'' || exit 42
@@ -70,12 +71,12 @@ python3 "$NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER" "$debug_baseline_diagnostic" 60 
 debug_baseline_diagnostic_status=$?
 set -e
 [[ "$debug_baseline_status" == 0 && ( "$debug_baseline_diagnostic_status" == 0 || "$debug_baseline_diagnostic_status" == 3 ) ]] || exit 45
-php -S "127.0.0.1:$NMKR_SYNTHETIC_PORT" -t "$NMKR_SYNTHETIC_WP_ROOT" >"$NMKR_SYNTHETIC_SERVER_LOG" 2>&1 & server=$!
-sleep 1; node "$NMKR_SYNTHETIC_DRIVER"
 mapfile -t debug_info <"$debug_meta"; [[ "${#debug_info[@]}" == 3 ]] || exit 45
 debug_path="${debug_info[0]}"; debug_inode="${debug_info[1]}"; debug_size="${debug_info[2]}"
-debug_source="$(realpath -e -- "$debug_path" 2>/dev/null)"; debug_delta_parent="$(realpath -e -- "$(dirname -- "$debug_delta")" 2>/dev/null)"
-[[ -n "$debug_source" && "$debug_source" != "$debug_delta_parent/$(basename -- "$debug_delta")" ]] || exit 45
+debug_source="$(realpath -e -- "$debug_path" 2>/dev/null)"; canonical_run_dir="$(realpath -e -- "$NMKR_SYNTHETIC_RUN_DIR" 2>/dev/null)"
+[[ -n "$debug_source" && -n "$canonical_run_dir" ]] && debug_source_outside_run_dir "$debug_source" "$canonical_run_dir" || exit 45
+php -S "127.0.0.1:$NMKR_SYNTHETIC_PORT" -t "$NMKR_SYNTHETIC_WP_ROOT" >"$NMKR_SYNTHETIC_SERVER_LOG" 2>&1 & server=$!
+sleep 1; node "$NMKR_SYNTHETIC_DRIVER"
 debug_after_inode="$(stat -c %i "$debug_path" 2>/dev/null)"; debug_after_size="$(stat -c %s "$debug_path" 2>/dev/null)"
 [[ "$debug_after_inode" == "$debug_inode" && "$debug_after_size" =~ ^[0-9]+$ && "$debug_size" =~ ^[0-9]+$ && "$debug_after_size" -ge "$debug_size" ]] || exit 45
 dd if="$debug_path" of="$debug_delta" bs=1 skip="$debug_size" status=none 2>/dev/null || exit 45
