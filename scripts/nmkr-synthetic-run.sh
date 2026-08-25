@@ -20,7 +20,8 @@ check_worktree "$deployed" || fail deployed-integrity
 [[ "$(stat -c %a "$NMKR_SYNTHETIC_RUN_DIR")" =~ ^(700|750)$ ]] || fail private-permissions
 wp="${WP_CLI_BIN:-wp}"; command -v "$wp" >/dev/null && command -v unshare >/dev/null && command -v ip >/dev/null && command -v php >/dev/null && command -v python3 >/dev/null && command -v composer >/dev/null || fail required-tool
 namespace_network_isolated(){ local links interfaces routes4 routes6; links="$(ip -o link show 2>/dev/null)" || return 1; interfaces="$(printf '%s\n' "$links" | awk -F': ' '{sub(/@.*/,"",$2);print $2}')"; [[ "$interfaces" == lo ]] || return 1; routes4="$(ip -4 route show default 2>/dev/null)" || return 1; routes6="$(ip -6 route show default 2>/dev/null)" || return 1; [[ -z "$routes4" && -z "$routes6" ]]; }
-export -f namespace_network_isolated
+external_request_blocked(){ php -r 'exit(@file_get_contents("http://network-must-not-resolve.invalid/")===false?0:1);'; }
+export -f namespace_network_isolated external_request_blocked
 "$wp" --path="$NMKR_SYNTHETIC_WP_ROOT" core is-installed >/dev/null 2>&1 || fail wordpress-ready
 NMKR_SYNTHETIC_DEPLOYED_PLUGIN_PATH="$deployed" NMKR_SYNTHETIC_PLUGIN_SLUG="$NMKR_SYNTHETIC_PLUGIN_SLUG" "$wp" --path="$NMKR_SYNTHETIC_WP_ROOT" eval '
 require_once ABSPATH."wp-admin/includes/plugin.php";$slug=getenv("NMKR_SYNTHETIC_PLUGIN_SLUG");
@@ -56,7 +57,7 @@ capture_state(){
 }
 debug_source_outside_run_dir(){ local source="$1" run_dir="$2"; [[ "$source" != "$run_dir" && "$source" != "$run_dir/"* ]]; }
 namespace_network_isolated || exit 40
-! php -r '\''exit(@file_get_contents("http://network-must-not-resolve.invalid/")===false?0:1);'\'' || exit 42
+external_request_blocked || exit 42
 mu="$NMKR_SYNTHETIC_WP_ROOT/wp-content/mu-plugins"; mkdir -p "$mu"; target="$mu/nmkr-synthetic-provider.php"; [[ ! -e "$target" ]] || exit 43
 cleanup(){ rm -f "$target"; [[ -z "${server:-}" ]] || kill "$server" 2>/dev/null || true; }; trap cleanup EXIT
 install -m 600 "$NMKR_SYNTHETIC_PROVIDER_SOURCE" "$target"

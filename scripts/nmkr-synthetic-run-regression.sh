@@ -28,6 +28,19 @@ FIXTURE_LINKS='1: lo: <LOOPBACK> mtu 65536' namespace_network_isolated || { echo
 PATH="$real_path"
 ! grep -Fq '/sys/class/net' "$runner" || { echo 'FAIL: namespace identity relies on sysfs' >&2; exit 1; }
 grep -Fq "unshare --user --map-root-user --net bash -c 'namespace_network_isolated'" "$runner" || { echo 'FAIL: namespace preflight does not exercise network gate' >&2; exit 1; }
+external_gate="$(sed -n '/^external_request_blocked(){/p' "$runner")"
+[[ -n "$external_gate" ]] || { echo 'FAIL: external request gate missing' >&2; exit 1; }
+eval "$external_gate"
+cat >"$tmp/bin/php" <<'SH'
+#!/usr/bin/env bash
+exit "${FIXTURE_PHP_STATUS:-0}"
+SH
+chmod 700 "$tmp/bin/php"
+PATH="$tmp/bin:$PATH"
+FIXTURE_PHP_STATUS=0 external_request_blocked || { echo 'FAIL: blocked external request rejected' >&2; exit 1; }
+! FIXTURE_PHP_STATUS=1 external_request_blocked || { echo 'FAIL: successful external request accepted' >&2; exit 1; }
+PATH="$real_path"
+grep -Fq 'external_request_blocked || exit 42' "$runner" || { echo 'FAIL: external request gate is not fail-closed' >&2; exit 1; }
 assertor="$(dirname "$runner")/nmkr-synthetic-state-assert.mjs"
 node - "$tmp" <<'JS'
 const fs=require('fs'),d=process.argv[2];
