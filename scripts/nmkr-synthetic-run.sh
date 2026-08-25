@@ -82,6 +82,7 @@ debug_source="$(realpath -e -- "$debug_path" 2>/dev/null)"; canonical_run_dir="$
 [[ -n "$debug_source" && -n "$canonical_run_dir" ]] && debug_source_outside_run_dir "$debug_source" "$canonical_run_dir" || exit 45
 env -u NMKR_SYNTHETIC_SENTINEL -u NMKR_SYNTHETIC_EXECUTION_ID -u NMKR_SYNTHETIC_PROFILE -u NMKR_SYNTHETIC_EXPIRY php -S "127.0.0.1:$NMKR_SYNTHETIC_PORT" -t "$NMKR_SYNTHETIC_WP_ROOT" >"$NMKR_SYNTHETIC_SERVER_LOG" 2>&1 & server=$!
 sleep 1; node "$NMKR_SYNTHETIC_DRIVER"
+capture_state "$NMKR_SYNTHETIC_RUN_DIR/after-state.json" "$NMKR_SYNTHETIC_RUN_DIR/after-state.stderr" || exit 46
 debug_after_inode="$(stat -c %i "$debug_path" 2>/dev/null)"; debug_after_size="$(stat -c %s "$debug_path" 2>/dev/null)"
 [[ "$debug_after_inode" == "$debug_inode" && "$debug_after_size" =~ ^[0-9]+$ && "$debug_size" =~ ^[0-9]+$ && "$debug_after_size" -ge "$debug_size" ]] || exit 45
 dd if="$debug_path" of="$debug_delta" bs=1 skip="$debug_size" status=none 2>/dev/null || exit 45
@@ -91,7 +92,6 @@ set +e; python3 "$NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER" --complete-file "$NMKR_S
 [[ "$diagnostic_status" == 0 || "$diagnostic_status" == 3 ]] || exit 44
 set +e; python3 "$NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER" --complete-file "$debug_delta" 60; diagnostic_status=$?; set -e
 [[ "$diagnostic_status" == 0 || "$diagnostic_status" == 3 ]] || exit 45
-capture_state "$NMKR_SYNTHETIC_RUN_DIR/after-state.json" "$NMKR_SYNTHETIC_RUN_DIR/after-state.stderr" || exit 46
 node "$NMKR_SYNTHETIC_STATE_ASSERT" "$NMKR_SYNTHETIC_RUN_MODE" "$NMKR_SYNTHETIC_RUN_DIR/before-state.json" "$NMKR_SYNTHETIC_RUN_DIR/after-state.json"
 ' || fail isolated-lifecycle
 check_worktree "$repo" || fail final-source-integrity

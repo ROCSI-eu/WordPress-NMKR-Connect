@@ -157,6 +157,14 @@ grep -Fq 'NMKR_SYNTHETIC_SERVER_LOG' "$runner" || { echo 'FAIL: private server d
 grep -Fq 'eval-file "$NMKR_SYNTHETIC_STATE_HELPER" >"$output" 2>"$diagnostic"' "$runner" || { echo 'FAIL: state-helper stderr reaches the console' >&2; exit 1; }
 grep -Fq 'before-state.stderr" || exit 46' "$runner" || { echo 'FAIL: preflight diagnostics are not enforced' >&2; exit 1; }
 grep -Fq 'after-state.stderr" || exit 46' "$runner" || { echo 'FAIL: final diagnostics are not enforced' >&2; exit 1; }
+after_capture_line="$(grep -nF 'capture_state "$NMKR_SYNTHETIC_RUN_DIR/after-state.json" "$NMKR_SYNTHETIC_RUN_DIR/after-state.stderr" || exit 46' "$runner" | cut -d: -f1)"
+debug_inspection_line="$(grep -nF 'debug_after_inode="$(stat -c %i "$debug_path" 2>/dev/null)"' "$runner" | cut -d: -f1)"
+debug_delta_line="$(grep -nF 'dd if="$debug_path" of="$debug_delta"' "$runner" | cut -d: -f1)"
+debug_classification_line="$(grep -nF ' --complete-file "$debug_delta" 60' "$runner" | cut -d: -f1)"
+state_assertion_line="$(grep -nF 'node "$NMKR_SYNTHETIC_STATE_ASSERT" "$NMKR_SYNTHETIC_RUN_MODE"' "$runner" | cut -d: -f1)"
+[[ "$after_capture_line" =~ ^[0-9]+$ && "$debug_inspection_line" =~ ^[0-9]+$ && "$debug_delta_line" =~ ^[0-9]+$ && "$debug_classification_line" =~ ^[0-9]+$ && "$state_assertion_line" =~ ^[0-9]+$ ]] || { echo 'FAIL: final diagnostic ordering boundary missing' >&2; exit 1; }
+(( after_capture_line < debug_inspection_line && debug_inspection_line < debug_delta_line && debug_delta_line < debug_classification_line && debug_classification_line < state_assertion_line )) || { echo 'FAIL: final diagnostic ordering is unsafe' >&2; exit 1; }
+[[ "$(grep -Fc 'dd if="$debug_path" of="$debug_delta"' "$runner")" == 1 && "$(grep -Fc ' --complete-file "$debug_delta" 60' "$runner")" == 1 ]] || { echo 'FAIL: duplicate or incomplete debug delta scan' >&2; exit 1; }
 grep -Fq 'items_failed,error_message,failure_breakdown,created_at,updated_at' "$(dirname "$runner")/nmkr-synthetic-state.php" || { echo 'FAIL: prior history fingerprint omits persisted fields' >&2; exit 1; }
 classifier="$(dirname "$runner")/nmkr-debug-log-classifier.py"
 printf '' >"$tmp/clean.log"
