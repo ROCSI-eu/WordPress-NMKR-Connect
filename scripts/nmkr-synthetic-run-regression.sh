@@ -94,6 +94,8 @@ for activation in NMKR_SYNTHETIC_SENTINEL NMKR_SYNTHETIC_EXECUTION_ID NMKR_SYNTH
   [[ "$server_command" == *"-u $activation"* ]] || { echo 'FAIL: server provider environment is active' >&2; exit 1; }
 done
 grep -Fq "spawn(env.NMKR_SYNTHETIC_WP_CLI" "$driver" && grep -Fq "stdio: ['ignore', workerLog, workerLog], env" "$driver" || { echo 'FAIL: worker activation environment changed' >&2; exit 1; }
+grep -Fq "spawn(env.NMKR_SYNTHETIC_WP_CLI, [\`--path=\${env.NMKR_SYNTHETIC_WP_ROOT}\`, 'cron', 'event', 'run', 'nmkr_execute_sync_background', '--due-now']" "$driver" || { echo 'FAIL: worker path argument is not joined' >&2; exit 1; }
+! grep -Fq "spawn(env.NMKR_SYNTHETIC_WP_CLI, ['--path', env.NMKR_SYNTHETIC_WP_ROOT, 'cron'" "$driver" || { echo 'FAIL: split worker path arguments accepted' >&2; exit 1; }
 cat >"$tmp/bin/identity-wp" <<'SH'
 #!/usr/bin/env bash
 [[ "${NMKR_SYNTHETIC_EXPECTED_RUN_ID:-}" == 00000000-0000-0000-0000-000000000001 && "${ORDINARY_WORDPRESS_ENV:-}" == retained ]] || exit 12

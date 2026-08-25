@@ -91,7 +91,7 @@ export async function runSyntheticLifecycle({ playwright, env = process.env }) {
     verifyWorker(env, start.run_id);
     const workerLog = openSync(env.NMKR_SYNTHETIC_WORKER_LOG, 'a', 0o600);
     try {
-      wp = spawn(env.NMKR_SYNTHETIC_WP_CLI, ['--path', env.NMKR_SYNTHETIC_WP_ROOT, 'cron', 'event', 'run', 'nmkr_execute_sync_background', '--due-now'], { stdio: ['ignore', workerLog, workerLog], env });
+      wp = spawn(env.NMKR_SYNTHETIC_WP_CLI, [`--path=${env.NMKR_SYNTHETIC_WP_ROOT}`, 'cron', 'event', 'run', 'nmkr_execute_sync_background', '--due-now'], { stdio: ['ignore', workerLog, workerLog], env });
     } finally {
       closeSync(workerLog);
     }
