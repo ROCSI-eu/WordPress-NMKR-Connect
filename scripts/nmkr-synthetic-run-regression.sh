@@ -89,6 +89,42 @@ grep -Fq "form.get('action') !== 'nmkr_check_api_status'" "$(dirname "$runner")/
 grep -Fq 'NMKR_SYNTHETIC_DEPLOYED_PLUGIN_PATH' "$runner" || { echo 'FAIL: deployed integrity gate missing' >&2; exit 1; }
 grep -Fq 'NMKR_SYNTHETIC_WORKER_LOG' "$(dirname "$runner")/nmkr-synthetic-driver.mjs" || { echo 'FAIL: private worker diagnostics missing' >&2; exit 1; }
 grep -Fq 'NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER' "$runner" || { echo 'FAIL: worker diagnostic classification missing' >&2; exit 1; }
+server_command="$(grep -F 'php -S "127.0.0.1:$NMKR_SYNTHETIC_PORT"' "$runner")"
+for activation in NMKR_SYNTHETIC_SENTINEL NMKR_SYNTHETIC_EXECUTION_ID NMKR_SYNTHETIC_PROFILE NMKR_SYNTHETIC_EXPIRY; do
+  [[ "$server_command" == *"-u $activation"* ]] || { echo 'FAIL: server provider environment is active' >&2; exit 1; }
+done
+grep -Fq "spawn(env.NMKR_SYNTHETIC_WP_CLI" "$driver" && grep -Fq "stdio: ['ignore', workerLog, workerLog], env" "$driver" || { echo 'FAIL: worker activation environment changed' >&2; exit 1; }
+cat >"$tmp/bin/identity-wp" <<'SH'
+#!/usr/bin/env bash
+[[ "${NMKR_SYNTHETIC_EXPECTED_RUN_ID:-}" == 00000000-0000-0000-0000-000000000001 && "${ORDINARY_WORDPRESS_ENV:-}" == retained ]] || exit 12
+for name in NMKR_SYNTHETIC_SENTINEL NMKR_SYNTHETIC_EXECUTION_ID NMKR_SYNTHETIC_PROFILE NMKR_SYNTHETIC_EXPIRY; do [[ -z "${!name:-}" ]] || exit 13; done
+printf 'private stdout must be discarded\n'
+printf '%s\n' "${FIXTURE_IDENTITY_DIAGNOSTIC:-}" >&2
+exit "${FIXTURE_IDENTITY_STATUS:-0}"
+SH
+cat >"$tmp/identity-classifier.py" <<'PY'
+import pathlib, sys
+value = pathlib.Path(sys.argv[1]).read_text()
+raise SystemExit(1 if 'first-party' in value else 3 if 'vendor-only' in value else 0)
+PY
+chmod 700 "$tmp/bin/identity-wp"
+DRIVER="$driver" TMP="$tmp" node --input-type=module <<'JS'
+import fs from 'node:fs';
+const { providerInertEnvironment, verifyWorker } = await import(`file://${process.env.DRIVER}`);
+const activations = ['NMKR_SYNTHETIC_SENTINEL', 'NMKR_SYNTHETIC_EXECUTION_ID', 'NMKR_SYNTHETIC_PROFILE', 'NMKR_SYNTHETIC_EXPIRY'];
+const base = { ...process.env, NMKR_SYNTHETIC_WP_CLI: `${process.env.TMP}/bin/identity-wp`, NMKR_SYNTHETIC_WP_ROOT: '/synthetic-fixture', NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER: `${process.env.TMP}/identity-classifier.py`, ORDINARY_WORDPRESS_ENV: 'retained' };
+for (const name of activations) base[name] = `active-${name}`;
+const inert = providerInertEnvironment(base);
+if (activations.some(name => name in inert) || inert.ORDINARY_WORDPRESS_ENV !== 'retained') throw new Error('identity environment regression');
+const run = (name, diagnostic = '', status = '0', accepted = true) => {
+  const log = `${process.env.TMP}/${name}.stderr`;
+  let failed = false;
+  try { verifyWorker({ ...base, NMKR_SYNTHETIC_WORKER_IDENTITY_LOG: log, FIXTURE_IDENTITY_DIAGNOSTIC: diagnostic, FIXTURE_IDENTITY_STATUS: status }, '00000000-0000-0000-0000-000000000001'); } catch (error) { failed = error.message === 'worker-event-identity'; }
+  if (failed === accepted) throw new Error(`identity classification regression: ${name}`);
+  if ((fs.statSync(log).mode & 0o777) !== 0o600) throw new Error('identity diagnostic permissions');
+};
+run('clean'); run('vendor', 'vendor-only'); run('command-failure', '', '1', false); run('first-party', 'first-party', '0', false);
+JS
 grep -Fq 'preflight_wp(){' "$runner" || { echo 'FAIL: pre-baseline diagnostic boundary missing' >&2; exit 1; }
 grep -Fq 'chmod 600 "$diagnostic"' "$runner" || { echo 'FAIL: pre-baseline diagnostics are not owner-private' >&2; exit 1; }
 [[ "$(grep -Ec '^preflight_wp (wordpress-ready|database-socket)\.stderr| preflight_wp (active-plugin-integrity|target-assumptions)\.stderr' "$runner")" == 4 ]] || { echo 'FAIL: pre-baseline WordPress bootstraps are not classified' >&2; exit 1; }

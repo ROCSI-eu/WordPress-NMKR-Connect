@@ -43,7 +43,8 @@ export NMKR_SYNTHETIC_STATE_FILE="$NMKR_SYNTHETIC_RUN_DIR/provider-state.json" N
 export NMKR_SYNTHETIC_PROVIDER_SOURCE="$repo/scripts/nmkr-synthetic-provider.php" NMKR_SYNTHETIC_DRIVER="$repo/scripts/nmkr-synthetic-driver.mjs" NMKR_SYNTHETIC_STATE_HELPER="$repo/scripts/nmkr-synthetic-state.php"
 export NMKR_SYNTHETIC_STATE_ASSERT="$repo/scripts/nmkr-synthetic-state-assert.mjs"
 export NMKR_SYNTHETIC_RUN_RECEIPT="$NMKR_SYNTHETIC_RUN_DIR/run-receipt.json"
-export NMKR_SYNTHETIC_WORKER_LOG="$NMKR_SYNTHETIC_RUN_DIR/worker.log" NMKR_SYNTHETIC_SERVER_LOG="$NMKR_SYNTHETIC_RUN_DIR/server.log" NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER="$classifier"
+export NMKR_SYNTHETIC_WORKER_LOG="$NMKR_SYNTHETIC_RUN_DIR/worker.log" NMKR_SYNTHETIC_WORKER_IDENTITY_LOG="$NMKR_SYNTHETIC_RUN_DIR/worker-identity.stderr"
+export NMKR_SYNTHETIC_SERVER_LOG="$NMKR_SYNTHETIC_RUN_DIR/server.log" NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER="$classifier"
 unshare --user --map-root-user --net bash -c '
 set -Eeuo pipefail; umask 077; ip link set lo up
 capture_state(){
@@ -79,7 +80,7 @@ mapfile -t debug_info <"$debug_meta"; [[ "${#debug_info[@]}" == 3 ]] || exit 45
 debug_path="${debug_info[0]}"; debug_inode="${debug_info[1]}"; debug_size="${debug_info[2]}"
 debug_source="$(realpath -e -- "$debug_path" 2>/dev/null)"; canonical_run_dir="$(realpath -e -- "$NMKR_SYNTHETIC_RUN_DIR" 2>/dev/null)"
 [[ -n "$debug_source" && -n "$canonical_run_dir" ]] && debug_source_outside_run_dir "$debug_source" "$canonical_run_dir" || exit 45
-php -S "127.0.0.1:$NMKR_SYNTHETIC_PORT" -t "$NMKR_SYNTHETIC_WP_ROOT" >"$NMKR_SYNTHETIC_SERVER_LOG" 2>&1 & server=$!
+env -u NMKR_SYNTHETIC_SENTINEL -u NMKR_SYNTHETIC_EXECUTION_ID -u NMKR_SYNTHETIC_PROFILE -u NMKR_SYNTHETIC_EXPIRY php -S "127.0.0.1:$NMKR_SYNTHETIC_PORT" -t "$NMKR_SYNTHETIC_WP_ROOT" >"$NMKR_SYNTHETIC_SERVER_LOG" 2>&1 & server=$!
 sleep 1; node "$NMKR_SYNTHETIC_DRIVER"
 debug_after_inode="$(stat -c %i "$debug_path" 2>/dev/null)"; debug_after_size="$(stat -c %s "$debug_path" 2>/dev/null)"
 [[ "$debug_after_inode" == "$debug_inode" && "$debug_after_size" =~ ^[0-9]+$ && "$debug_size" =~ ^[0-9]+$ && "$debug_after_size" -ge "$debug_size" ]] || exit 45

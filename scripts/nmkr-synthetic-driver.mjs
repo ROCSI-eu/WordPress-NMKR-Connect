@@ -14,10 +14,28 @@ const refuse = async (context, url, form) => {
   let json; try { json = await response.json(); } catch { fail('duplicate-start-ambiguous'); }
   if (response.status() !== 409 || json?.success !== false) fail('duplicate-start-accepted');
 };
-const verifyWorker = (env, runId) => {
+const syntheticActivationVariables = ['NMKR_SYNTHETIC_SENTINEL', 'NMKR_SYNTHETIC_EXECUTION_ID', 'NMKR_SYNTHETIC_PROFILE', 'NMKR_SYNTHETIC_EXPIRY'];
+export const providerInertEnvironment = env => {
+  const inert = { ...env };
+  for (const name of syntheticActivationVariables) delete inert[name];
+  return inert;
+};
+export const verifyWorker = (env, runId) => {
   const code = `\n$expected=getenv("NMKR_SYNTHETIC_EXPECTED_RUN_ID");$found=array();\nforeach((array)_get_cron_array() as $timestamp=>$events){if($timestamp==="version"||!isset($events["nmkr_execute_sync_background"]))continue;foreach($events["nmkr_execute_sync_background"] as $event){$found[]=array("due"=>(int)$timestamp<=time(),"args"=>$event["args"]??array());}}\nexit(count($found)===1&&$found[0]["args"]===array($expected)&&$found[0]["due"]?0:1);`;
-  const checked = spawnSync(env.NMKR_SYNTHETIC_WP_CLI, ['--path', env.NMKR_SYNTHETIC_WP_ROOT, 'eval', code], { env: { ...env, NMKR_SYNTHETIC_EXPECTED_RUN_ID: runId }, stdio: 'ignore' });
-  if (checked.status !== 0) fail('worker-event-identity');
+  const diagnostic = openSync(env.NMKR_SYNTHETIC_WORKER_IDENTITY_LOG, 'wx', 0o600);
+  let checked;
+  try {
+    checked = spawnSync(env.NMKR_SYNTHETIC_WP_CLI, ['--path', env.NMKR_SYNTHETIC_WP_ROOT, 'eval', code], {
+      env: { ...providerInertEnvironment(env), NMKR_SYNTHETIC_EXPECTED_RUN_ID: runId },
+      stdio: ['ignore', 'ignore', diagnostic],
+    });
+  } finally {
+    closeSync(diagnostic);
+  }
+  const classified = spawnSync('python3', [env.NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER, env.NMKR_SYNTHETIC_WORKER_IDENTITY_LOG, '60'], {
+    env: providerInertEnvironment(env), stdio: 'ignore',
+  });
+  if (checked.status !== 0 || (classified.status !== 0 && classified.status !== 3)) fail('worker-event-identity');
 };
 export function assertProgress(previous, data) {
   const value = Number(data?.progress ?? data?.percentage);
