@@ -6,6 +6,28 @@ run_fail
 run_fail CI=true RUN_NMKR_SYNTHETIC=true
 run_fail RUN_NMKR_SYNTHETIC=true NMKR_SYNTHETIC_CONFIRM=I_AUTHORIZE_DISPOSABLE_SYNTHETIC_SYNC
 ! grep -En 'docker|iptables|nft|wp core download' "$runner" >/dev/null || { echo 'FAIL: prohibited provisioning' >&2; exit 1; }
+network_gate="$(sed -n '/^namespace_network_isolated(){/p' "$runner")"
+[[ -n "$network_gate" ]] || { echo 'FAIL: namespace network gate missing' >&2; exit 1; }
+eval "$network_gate"
+mkdir -p "$tmp/bin"
+cat >"$tmp/bin/ip" <<'SH'
+#!/usr/bin/env bash
+case "$*" in
+  '-o link show') printf '%s\n' "${FIXTURE_LINKS:-}" ;;
+  '-4 route show default') printf '%s' "${FIXTURE_ROUTE4:-}" ;;
+  '-6 route show default') printf '%s' "${FIXTURE_ROUTE6:-}" ;;
+  *) exit 2 ;;
+esac
+SH
+chmod 700 "$tmp/bin/ip"
+real_path="$PATH"; PATH="$tmp/bin:$PATH"
+FIXTURE_LINKS='1: lo: <LOOPBACK> mtu 65536' namespace_network_isolated || { echo 'FAIL: loopback-only fixture rejected' >&2; exit 1; }
+! FIXTURE_LINKS=$'1: lo: <LOOPBACK> mtu 65536\n2: eth0: <BROADCAST> mtu 1500' namespace_network_isolated || { echo 'FAIL: non-loopback interface accepted' >&2; exit 1; }
+! FIXTURE_LINKS='1: lo: <LOOPBACK> mtu 65536' FIXTURE_ROUTE4='default via 192.0.2.1' namespace_network_isolated || { echo 'FAIL: IPv4 default route accepted' >&2; exit 1; }
+! FIXTURE_LINKS='1: lo: <LOOPBACK> mtu 65536' FIXTURE_ROUTE6='default via 2001:db8::1' namespace_network_isolated || { echo 'FAIL: IPv6 default route accepted' >&2; exit 1; }
+PATH="$real_path"
+! grep -Fq '/sys/class/net' "$runner" || { echo 'FAIL: namespace identity relies on sysfs' >&2; exit 1; }
+grep -Fq "unshare --user --map-root-user --net bash -c 'namespace_network_isolated'" "$runner" || { echo 'FAIL: namespace preflight does not exercise network gate' >&2; exit 1; }
 assertor="$(dirname "$runner")/nmkr-synthetic-state-assert.mjs"
 node - "$tmp" <<'JS'
 const fs=require('fs'),d=process.argv[2];

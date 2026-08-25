@@ -19,6 +19,8 @@ check_worktree "$deployed" || fail deployed-integrity
 [[ -d "$NMKR_SYNTHETIC_WP_ROOT" && ! -L "$NMKR_SYNTHETIC_WP_ROOT" && -d "$NMKR_SYNTHETIC_RUN_DIR" && ! -L "$NMKR_SYNTHETIC_RUN_DIR" ]] || fail private-path
 [[ "$(stat -c %a "$NMKR_SYNTHETIC_RUN_DIR")" =~ ^(700|750)$ ]] || fail private-permissions
 wp="${WP_CLI_BIN:-wp}"; command -v "$wp" >/dev/null && command -v unshare >/dev/null && command -v ip >/dev/null && command -v php >/dev/null && command -v python3 >/dev/null && command -v composer >/dev/null || fail required-tool
+namespace_network_isolated(){ local links interfaces routes4 routes6; links="$(ip -o link show 2>/dev/null)" || return 1; interfaces="$(printf '%s\n' "$links" | awk -F': ' '{sub(/@.*/,"",$2);print $2}')"; [[ "$interfaces" == lo ]] || return 1; routes4="$(ip -4 route show default 2>/dev/null)" || return 1; routes6="$(ip -6 route show default 2>/dev/null)" || return 1; [[ -z "$routes4" && -z "$routes6" ]]; }
+export -f namespace_network_isolated
 "$wp" --path="$NMKR_SYNTHETIC_WP_ROOT" core is-installed >/dev/null 2>&1 || fail wordpress-ready
 NMKR_SYNTHETIC_DEPLOYED_PLUGIN_PATH="$deployed" NMKR_SYNTHETIC_PLUGIN_SLUG="$NMKR_SYNTHETIC_PLUGIN_SLUG" "$wp" --path="$NMKR_SYNTHETIC_WP_ROOT" eval '
 require_once ABSPATH."wp-admin/includes/plugin.php";$slug=getenv("NMKR_SYNTHETIC_PLUGIN_SLUG");
@@ -33,7 +35,7 @@ if(strpos((string)DB_HOST,$socket)===false||strpos($home,"http://127.0.0.1:")!==
 if(get_option("nmkr_sync_owner",false)||get_option("nmkr_sync_in_progress",false)||get_transient("nmkr_sync_in_progress"))exit(1);
 ' >/dev/null 2>&1 || fail target-assumptions
 "$wp" --path="$NMKR_SYNTHETIC_WP_ROOT" db check >/dev/null 2>&1 || fail database-socket
-unshare --user --map-root-user --net true 2>/dev/null || fail namespace-preflight
+unshare --user --map-root-user --net bash -c 'namespace_network_isolated' 2>/dev/null || fail namespace-preflight
 export NMKR_SYNTHETIC_EXECUTION_ID="$(php -r 'echo bin2hex(random_bytes(16));')" NMKR_SYNTHETIC_EXPIRY="$(( $(date +%s)+2700 ))" NMKR_SYNTHETIC_SENTINEL=NMKR_SYNTHETIC_TEST_ONLY_V1
 export NMKR_SYNTHETIC_STATE_FILE="$NMKR_SYNTHETIC_RUN_DIR/provider-state.json" NMKR_SYNTHETIC_BASE_URL="http://127.0.0.1:$NMKR_SYNTHETIC_PORT" NMKR_SYNTHETIC_WP_CLI="${WP_CLI_BIN:-wp}"
 export NMKR_SYNTHETIC_PROVIDER_SOURCE="$repo/scripts/nmkr-synthetic-provider.php" NMKR_SYNTHETIC_DRIVER="$repo/scripts/nmkr-synthetic-driver.mjs" NMKR_SYNTHETIC_STATE_HELPER="$repo/scripts/nmkr-synthetic-state.php"
@@ -53,8 +55,7 @@ capture_state(){
   [[ "$helper_status" == 0 && ( "$diagnostic_status" == 0 || "$diagnostic_status" == 3 ) ]]
 }
 debug_source_outside_run_dir(){ local source="$1" run_dir="$2"; [[ "$source" != "$run_dir" && "$source" != "$run_dir/"* ]]; }
-[[ "$(find /sys/class/net -mindepth 1 -maxdepth 1 -printf "%f\n")" == lo ]] || exit 40
-! ip -4 route show default | grep -q . && ! ip -6 route show default | grep -q . || exit 41
+namespace_network_isolated || exit 40
 ! php -r '\''exit(@file_get_contents("http://network-must-not-resolve.invalid/")===false?0:1);'\'' || exit 42
 mu="$NMKR_SYNTHETIC_WP_ROOT/wp-content/mu-plugins"; mkdir -p "$mu"; target="$mu/nmkr-synthetic-provider.php"; [[ ! -e "$target" ]] || exit 43
 cleanup(){ rm -f "$target"; [[ -z "${server:-}" ]] || kill "$server" 2>/dev/null || true; }; trap cleanup EXIT
