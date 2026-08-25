@@ -11,6 +11,8 @@ for v in NMKR_SYNTHETIC_WP_ROOT NMKR_SYNTHETIC_RUN_DIR NMKR_SYNTHETIC_ADMIN_USER
 [[ "$NMKR_SYNTHETIC_RUN_MODE" == cold || "$NMKR_SYNTHETIC_RUN_MODE" == warm ]] || fail run-mode
 [[ "$NMKR_SYNTHETIC_PORT" =~ ^[0-9]+$ ]] && ((NMKR_SYNTHETIC_PORT>=1024&&NMKR_SYNTHETIC_PORT<=65535)) || fail port
 repo="$(git rev-parse --show-toplevel)"; integrity="$repo/scripts/nmkr-ajax-runtime-integrity.sh"
+worker_identity_helper="$repo/scripts/nmkr-synthetic-worker-identity.php"
+[[ -f "$worker_identity_helper" && ! -L "$worker_identity_helper" && "$(realpath -e -- "$worker_identity_helper" 2>/dev/null)" == "$repo/scripts/nmkr-synthetic-worker-identity.php" ]] || fail worker-identity-helper
 check_worktree(){ local root="$1"; [[ "$(git -C "$root" rev-parse HEAD 2>/dev/null)" == "$NMKR_SYNTHETIC_EXPECTED_SHA" && -z "$(git -C "$root" -c core.fileMode=true status --porcelain=v1 --untracked-files=all 2>/dev/null)" ]] && bash "$integrity" "$root" >/dev/null 2>&1; }
 check_worktree "$repo" || fail source-integrity
 deployed="$(realpath -e -- "$NMKR_SYNTHETIC_DEPLOYED_PLUGIN_PATH" 2>/dev/null)" || fail deployed-integrity
@@ -41,6 +43,7 @@ unshare --user --map-root-user --net bash -c 'namespace_network_isolated' 2>/dev
 export NMKR_SYNTHETIC_EXECUTION_ID="$(php -r 'echo bin2hex(random_bytes(16));')" NMKR_SYNTHETIC_EXPIRY="$(( $(date +%s)+2700 ))" NMKR_SYNTHETIC_SENTINEL=NMKR_SYNTHETIC_TEST_ONLY_V1
 export NMKR_SYNTHETIC_STATE_FILE="$NMKR_SYNTHETIC_RUN_DIR/provider-state.json" NMKR_SYNTHETIC_BASE_URL="http://127.0.0.1:$NMKR_SYNTHETIC_PORT" NMKR_SYNTHETIC_WP_CLI="${WP_CLI_BIN:-wp}"
 export NMKR_SYNTHETIC_PROVIDER_SOURCE="$repo/scripts/nmkr-synthetic-provider.php" NMKR_SYNTHETIC_DRIVER="$repo/scripts/nmkr-synthetic-driver.mjs" NMKR_SYNTHETIC_STATE_HELPER="$repo/scripts/nmkr-synthetic-state.php"
+export NMKR_SYNTHETIC_WORKER_IDENTITY_HELPER="$worker_identity_helper"
 export NMKR_SYNTHETIC_STATE_ASSERT="$repo/scripts/nmkr-synthetic-state-assert.mjs"
 export NMKR_SYNTHETIC_RUN_RECEIPT="$NMKR_SYNTHETIC_RUN_DIR/run-receipt.json"
 export NMKR_SYNTHETIC_WORKER_LOG="$NMKR_SYNTHETIC_RUN_DIR/worker.log" NMKR_SYNTHETIC_WORKER_IDENTITY_LOG="$NMKR_SYNTHETIC_RUN_DIR/worker-identity.stderr"

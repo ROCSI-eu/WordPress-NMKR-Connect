@@ -97,6 +97,7 @@ grep -Fq "spawn(env.NMKR_SYNTHETIC_WP_CLI" "$driver" && grep -Fq "stdio: ['ignor
 cat >"$tmp/bin/identity-wp" <<'SH'
 #!/usr/bin/env bash
 [[ "${NMKR_SYNTHETIC_EXPECTED_RUN_ID:-}" == 00000000-0000-0000-0000-000000000001 && "${ORDINARY_WORDPRESS_ENV:-}" == retained ]] || exit 12
+[[ "$1" == --path=/synthetic-fixture && "$2" == eval-file && "$3" == "$FIXTURE_IDENTITY_HELPER" && "$#" == 3 ]] || exit 14
 for name in NMKR_SYNTHETIC_SENTINEL NMKR_SYNTHETIC_EXECUTION_ID NMKR_SYNTHETIC_PROFILE NMKR_SYNTHETIC_EXPIRY; do [[ -z "${!name:-}" ]] || exit 13; done
 printf 'private stdout must be discarded\n'
 printf '%s\n' "${FIXTURE_IDENTITY_DIAGNOSTIC:-}" >&2
@@ -108,11 +109,12 @@ value = pathlib.Path(sys.argv[1]).read_text()
 raise SystemExit(1 if 'first-party' in value else 3 if 'vendor-only' in value else 0)
 PY
 chmod 700 "$tmp/bin/identity-wp"
+: >"$tmp/identity-helper.php"
 DRIVER="$driver" TMP="$tmp" node --input-type=module <<'JS'
 import fs from 'node:fs';
 const { providerInertEnvironment, verifyWorker } = await import(`file://${process.env.DRIVER}`);
 const activations = ['NMKR_SYNTHETIC_SENTINEL', 'NMKR_SYNTHETIC_EXECUTION_ID', 'NMKR_SYNTHETIC_PROFILE', 'NMKR_SYNTHETIC_EXPIRY'];
-const base = { ...process.env, NMKR_SYNTHETIC_WP_CLI: `${process.env.TMP}/bin/identity-wp`, NMKR_SYNTHETIC_WP_ROOT: '/synthetic-fixture', NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER: `${process.env.TMP}/identity-classifier.py`, ORDINARY_WORDPRESS_ENV: 'retained' };
+const base = { ...process.env, NMKR_SYNTHETIC_WP_CLI: `${process.env.TMP}/bin/identity-wp`, NMKR_SYNTHETIC_WP_ROOT: '/synthetic-fixture', NMKR_SYNTHETIC_WORKER_IDENTITY_HELPER: `${process.env.TMP}/identity-helper.php`, FIXTURE_IDENTITY_HELPER: `${process.env.TMP}/identity-helper.php`, NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER: `${process.env.TMP}/identity-classifier.py`, ORDINARY_WORDPRESS_ENV: 'retained' };
 for (const name of activations) base[name] = `active-${name}`;
 const inert = providerInertEnvironment(base);
 if (activations.some(name => name in inert) || inert.ORDINARY_WORDPRESS_ENV !== 'retained') throw new Error('identity environment regression');
@@ -125,6 +127,34 @@ const run = (name, diagnostic = '', status = '0', accepted = true) => {
 };
 run('clean'); run('vendor', 'vendor-only'); run('command-failure', '', '1', false); run('first-party', 'first-party', '0', false);
 JS
+grep -Fq "'eval-file', env.NMKR_SYNTHETIC_WORKER_IDENTITY_HELPER" "$driver" || { echo 'FAIL: worker identity does not use eval-file helper' >&2; exit 1; }
+! grep -Fq "'eval', code" "$driver" || { echo 'FAIL: inline worker identity eval retained' >&2; exit 1; }
+grep -Fq 'NMKR_SYNTHETIC_WORKER_IDENTITY_HELPER="$worker_identity_helper"' "$runner" || { echo 'FAIL: exact worker identity helper is not exported' >&2; exit 1; }
+grep -Fq '! -L "$worker_identity_helper"' "$runner" || { echo 'FAIL: worker identity helper symlink gate missing' >&2; exit 1; }
+identity_helper="$(dirname "$runner")/nmkr-synthetic-worker-identity.php"
+cat >"$tmp/worker-identity-case.php" <<'PHP'
+<?php
+define('WP_CLI', true);
+function _get_cron_array() {
+    $run = '00000000-0000-4000-8000-000000000001';
+    $foreign = '00000000-0000-4000-8000-000000000002';
+    $event = function ($args) { return array('schedule' => false, 'args' => $args, 'interval' => null); };
+    $case = getenv('FIXTURE_CASE');
+    if ($case === 'missing') return array('version' => 2);
+    if ($case === 'future') return array(time() + 60 => array('nmkr_execute_sync_background' => array('a' => $event(array($run)))));
+    if ($case === 'foreign') return array(time() - 1 => array('nmkr_execute_sync_background' => array('a' => $event(array($foreign)))));
+    if ($case === 'malformed') return array(time() - 1 => array('nmkr_execute_sync_background' => array('a' => $event(array($run, 'extra')))));
+    if ($case === 'duplicate') return array(time() - 1 => array('nmkr_execute_sync_background' => array('a' => $event(array($run)), 'b' => $event(array($run)))));
+    return array(time() - 1 => array('nmkr_execute_sync_background' => array('a' => $event(array($run)))));
+}
+require $argv[1];
+PHP
+run_identity_case(){ FIXTURE_CASE="$1" NMKR_SYNTHETIC_EXPECTED_RUN_ID=00000000-0000-4000-8000-000000000001 php "$tmp/worker-identity-case.php" "$identity_helper" >/dev/null 2>&1; }
+run_identity_case due || { echo 'FAIL: exact due worker event rejected' >&2; exit 1; }
+for unsafe_case in missing duplicate foreign malformed future; do
+  ! run_identity_case "$unsafe_case" || { echo 'FAIL: unsafe worker event accepted' >&2; exit 1; }
+done
+! NMKR_SYNTHETIC_EXPECTED_RUN_ID=00000000-0000-4000-8000-000000000001 php "$identity_helper" >/dev/null 2>&1 || { echo 'FAIL: worker identity helper permits direct execution' >&2; exit 1; }
 grep -Fq 'preflight_wp(){' "$runner" || { echo 'FAIL: pre-baseline diagnostic boundary missing' >&2; exit 1; }
 grep -Fq 'chmod 600 "$diagnostic"' "$runner" || { echo 'FAIL: pre-baseline diagnostics are not owner-private' >&2; exit 1; }
 [[ "$(grep -Ec '^preflight_wp (wordpress-ready|database-socket)\.stderr| preflight_wp (active-plugin-integrity|target-assumptions)\.stderr' "$runner")" == 4 ]] || { echo 'FAIL: pre-baseline WordPress bootstraps are not classified' >&2; exit 1; }

@@ -21,11 +21,10 @@ export const providerInertEnvironment = env => {
   return inert;
 };
 export const verifyWorker = (env, runId) => {
-  const code = `\n$expected=getenv("NMKR_SYNTHETIC_EXPECTED_RUN_ID");$found=array();\nforeach((array)_get_cron_array() as $timestamp=>$events){if($timestamp==="version"||!isset($events["nmkr_execute_sync_background"]))continue;foreach($events["nmkr_execute_sync_background"] as $event){$found[]=array("due"=>(int)$timestamp<=time(),"args"=>$event["args"]??array());}}\nexit(count($found)===1&&$found[0]["args"]===array($expected)&&$found[0]["due"]?0:1);`;
   const diagnostic = openSync(env.NMKR_SYNTHETIC_WORKER_IDENTITY_LOG, 'wx', 0o600);
   let checked;
   try {
-    checked = spawnSync(env.NMKR_SYNTHETIC_WP_CLI, ['--path', env.NMKR_SYNTHETIC_WP_ROOT, 'eval', code], {
+    checked = spawnSync(env.NMKR_SYNTHETIC_WP_CLI, [`--path=${env.NMKR_SYNTHETIC_WP_ROOT}`, 'eval-file', env.NMKR_SYNTHETIC_WORKER_IDENTITY_HELPER], {
       env: { ...providerInertEnvironment(env), NMKR_SYNTHETIC_EXPECTED_RUN_ID: runId },
       stdio: ['ignore', 'ignore', diagnostic],
     });

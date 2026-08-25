@@ -31,6 +31,9 @@ printf '\n== Canonical synchronization terminalization regression ==\n'
 bash scripts/nmkr-sync-terminalization-regression.sh
 
 printf '\n== Isolated synthetic provider regression ==\n'
+for script in scripts/nmkr-synthetic-*.php; do
+  php -l "$script"
+done
 php scripts/nmkr-synthetic-provider-regression.php
 
 printf '\n== Isolated synthetic controller regression ==\n'
