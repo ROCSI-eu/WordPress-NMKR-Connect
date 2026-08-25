@@ -85,6 +85,10 @@ grep -Fq "form.get('action') !== 'nmkr_check_api_status'" "$(dirname "$runner")/
 grep -Fq 'NMKR_SYNTHETIC_DEPLOYED_PLUGIN_PATH' "$runner" || { echo 'FAIL: deployed integrity gate missing' >&2; exit 1; }
 grep -Fq 'NMKR_SYNTHETIC_WORKER_LOG' "$(dirname "$runner")/nmkr-synthetic-driver.mjs" || { echo 'FAIL: private worker diagnostics missing' >&2; exit 1; }
 grep -Fq 'NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER' "$runner" || { echo 'FAIL: worker diagnostic classification missing' >&2; exit 1; }
+grep -Fq 'preflight_wp(){' "$runner" || { echo 'FAIL: pre-baseline diagnostic boundary missing' >&2; exit 1; }
+grep -Fq 'chmod 600 "$diagnostic"' "$runner" || { echo 'FAIL: pre-baseline diagnostics are not owner-private' >&2; exit 1; }
+[[ "$(grep -Ec '^preflight_wp (wordpress-ready|database-socket)\.stderr| preflight_wp (active-plugin-integrity|target-assumptions)\.stderr' "$runner")" == 4 ]] || { echo 'FAIL: pre-baseline WordPress bootstraps are not classified' >&2; exit 1; }
+! sed -n '25,38p' "$runner" | grep -Fq '>/dev/null 2>&1' || { echo 'FAIL: pre-baseline WordPress diagnostics reach an unclassified sink' >&2; exit 1; }
 grep -Fq 'duplicate-start-accepted' "$(dirname "$runner")/nmkr-synthetic-driver.mjs" || { echo 'FAIL: duplicate Start gate missing' >&2; exit 1; }
 grep -Fq 'NMKR_SYNTHETIC_RUN_RECEIPT' "$runner" || { echo 'FAIL: run receipt missing' >&2; exit 1; }
 grep -Fq 'debug-delta.log' "$runner" || { echo 'FAIL: debug-log delta missing' >&2; exit 1; }
@@ -113,6 +117,7 @@ grep -Fq 'NMKR_SYNTHETIC_SERVER_LOG' "$runner" || { echo 'FAIL: private server d
 grep -Fq 'eval-file "$NMKR_SYNTHETIC_STATE_HELPER" >"$output" 2>"$diagnostic"' "$runner" || { echo 'FAIL: state-helper stderr reaches the console' >&2; exit 1; }
 grep -Fq 'before-state.stderr" || exit 46' "$runner" || { echo 'FAIL: preflight diagnostics are not enforced' >&2; exit 1; }
 grep -Fq 'after-state.stderr" || exit 46' "$runner" || { echo 'FAIL: final diagnostics are not enforced' >&2; exit 1; }
+grep -Fq 'items_failed,error_message,failure_breakdown,created_at,updated_at' "$(dirname "$runner")/nmkr-synthetic-state.php" || { echo 'FAIL: prior history fingerprint omits persisted fields' >&2; exit 1; }
 classifier="$(dirname "$runner")/nmkr-debug-log-classifier.py"
 printf '' >"$tmp/clean.log"
 printf 'PHP Warning: synthetic first-party warning in /private/synthetic/plugin/file.php on line 1\n' >"$tmp/first-party.log"

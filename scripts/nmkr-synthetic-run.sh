@@ -18,31 +18,32 @@ deployed="$(realpath -e -- "$NMKR_SYNTHETIC_DEPLOYED_PLUGIN_PATH" 2>/dev/null)" 
 check_worktree "$deployed" || fail deployed-integrity
 [[ -d "$NMKR_SYNTHETIC_WP_ROOT" && ! -L "$NMKR_SYNTHETIC_WP_ROOT" && -d "$NMKR_SYNTHETIC_RUN_DIR" && ! -L "$NMKR_SYNTHETIC_RUN_DIR" ]] || fail private-path
 [[ "$(stat -c %a "$NMKR_SYNTHETIC_RUN_DIR")" =~ ^(700|750)$ ]] || fail private-permissions
-wp="${WP_CLI_BIN:-wp}"; command -v "$wp" >/dev/null && command -v unshare >/dev/null && command -v ip >/dev/null && command -v php >/dev/null && command -v python3 >/dev/null && command -v composer >/dev/null || fail required-tool
+wp="${WP_CLI_BIN:-wp}"; classifier="$repo/scripts/nmkr-debug-log-classifier.py"; command -v "$wp" >/dev/null && command -v unshare >/dev/null && command -v ip >/dev/null && command -v php >/dev/null && command -v python3 >/dev/null && command -v composer >/dev/null || fail required-tool
+preflight_wp(){ local diagnostic="$NMKR_SYNTHETIC_RUN_DIR/$1" command_status diagnostic_status; shift; : >"$diagnostic"; chmod 600 "$diagnostic"; set +e; "$@" >/dev/null 2>"$diagnostic"; command_status=$?; python3 "$classifier" "$diagnostic" 60 >/dev/null 2>&1; diagnostic_status=$?; set -e; [[ "$command_status" == 0 && ( "$diagnostic_status" == 0 || "$diagnostic_status" == 3 ) ]]; }
 namespace_network_isolated(){ local links interfaces routes4 routes6; links="$(ip -o link show 2>/dev/null)" || return 1; interfaces="$(printf '%s\n' "$links" | awk -F': ' '{sub(/@.*/,"",$2);print $2}')"; [[ "$interfaces" == lo ]] || return 1; routes4="$(ip -4 route show default 2>/dev/null)" || return 1; routes6="$(ip -6 route show default 2>/dev/null)" || return 1; [[ -z "$routes4" && -z "$routes6" ]]; }
 external_request_blocked(){ php -r 'exit(@file_get_contents("http://network-must-not-resolve.invalid/")===false?0:1);'; }
 export -f namespace_network_isolated external_request_blocked
-"$wp" --path="$NMKR_SYNTHETIC_WP_ROOT" core is-installed >/dev/null 2>&1 || fail wordpress-ready
-NMKR_SYNTHETIC_DEPLOYED_PLUGIN_PATH="$deployed" NMKR_SYNTHETIC_PLUGIN_SLUG="$NMKR_SYNTHETIC_PLUGIN_SLUG" "$wp" --path="$NMKR_SYNTHETIC_WP_ROOT" eval '
+preflight_wp wordpress-ready.stderr "$wp" --path="$NMKR_SYNTHETIC_WP_ROOT" core is-installed || fail wordpress-ready
+NMKR_SYNTHETIC_DEPLOYED_PLUGIN_PATH="$deployed" NMKR_SYNTHETIC_PLUGIN_SLUG="$NMKR_SYNTHETIC_PLUGIN_SLUG" preflight_wp active-plugin-integrity.stderr "$wp" --path="$NMKR_SYNTHETIC_WP_ROOT" eval '
 require_once ABSPATH."wp-admin/includes/plugin.php";$slug=getenv("NMKR_SYNTHETIC_PLUGIN_SLUG");
 if(!is_string($slug)||$slug===""||validate_file($slug)!==0)exit(1);
 $active=realpath(WP_PLUGIN_DIR."/".$slug);$expected=realpath(getenv("NMKR_SYNTHETIC_DEPLOYED_PLUGIN_PATH")."/".basename($slug));
 if(!is_plugin_active($slug)||$active===false||$expected===false||!hash_equals($expected,$active))exit(1);
-' >/dev/null 2>&1 || fail active-plugin-integrity
-NMKR_SYNTHETIC_DB_SOCKET="$NMKR_SYNTHETIC_DB_SOCKET" "$wp" --path="$NMKR_SYNTHETIC_WP_ROOT" eval '
+' || fail active-plugin-integrity
+NMKR_SYNTHETIC_DB_SOCKET="$NMKR_SYNTHETIC_DB_SOCKET" preflight_wp target-assumptions.stderr "$wp" --path="$NMKR_SYNTHETIC_WP_ROOT" eval '
 $socket=getenv("NMKR_SYNTHETIC_DB_SOCKET"); $home=(string)get_option("home","");
 if(!defined("WP_ENVIRONMENT_TYPE")||WP_ENVIRONMENT_TYPE==="production"||!defined("DISABLE_WP_CRON")||DISABLE_WP_CRON!==true)exit(1);
 if(strpos((string)DB_HOST,$socket)===false||strpos($home,"http://127.0.0.1:")!==0)exit(1);
 if(get_option("nmkr_sync_owner",false)||get_option("nmkr_sync_in_progress",false)||get_transient("nmkr_sync_in_progress"))exit(1);
-' >/dev/null 2>&1 || fail target-assumptions
-"$wp" --path="$NMKR_SYNTHETIC_WP_ROOT" db check >/dev/null 2>&1 || fail database-socket
+' || fail target-assumptions
+preflight_wp database-socket.stderr "$wp" --path="$NMKR_SYNTHETIC_WP_ROOT" db check || fail database-socket
 unshare --user --map-root-user --net bash -c 'namespace_network_isolated' 2>/dev/null || fail namespace-preflight
 export NMKR_SYNTHETIC_EXECUTION_ID="$(php -r 'echo bin2hex(random_bytes(16));')" NMKR_SYNTHETIC_EXPIRY="$(( $(date +%s)+2700 ))" NMKR_SYNTHETIC_SENTINEL=NMKR_SYNTHETIC_TEST_ONLY_V1
 export NMKR_SYNTHETIC_STATE_FILE="$NMKR_SYNTHETIC_RUN_DIR/provider-state.json" NMKR_SYNTHETIC_BASE_URL="http://127.0.0.1:$NMKR_SYNTHETIC_PORT" NMKR_SYNTHETIC_WP_CLI="${WP_CLI_BIN:-wp}"
 export NMKR_SYNTHETIC_PROVIDER_SOURCE="$repo/scripts/nmkr-synthetic-provider.php" NMKR_SYNTHETIC_DRIVER="$repo/scripts/nmkr-synthetic-driver.mjs" NMKR_SYNTHETIC_STATE_HELPER="$repo/scripts/nmkr-synthetic-state.php"
 export NMKR_SYNTHETIC_STATE_ASSERT="$repo/scripts/nmkr-synthetic-state-assert.mjs"
 export NMKR_SYNTHETIC_RUN_RECEIPT="$NMKR_SYNTHETIC_RUN_DIR/run-receipt.json"
-export NMKR_SYNTHETIC_WORKER_LOG="$NMKR_SYNTHETIC_RUN_DIR/worker.log" NMKR_SYNTHETIC_SERVER_LOG="$NMKR_SYNTHETIC_RUN_DIR/server.log" NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER="$repo/scripts/nmkr-debug-log-classifier.py"
+export NMKR_SYNTHETIC_WORKER_LOG="$NMKR_SYNTHETIC_RUN_DIR/worker.log" NMKR_SYNTHETIC_SERVER_LOG="$NMKR_SYNTHETIC_RUN_DIR/server.log" NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER="$classifier"
 unshare --user --map-root-user --net bash -c '
 set -Eeuo pipefail; umask 077; ip link set lo up
 capture_state(){
