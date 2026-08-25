@@ -59,9 +59,10 @@ capture_state(){
 debug_source_outside_run_dir(){ local source="$1" run_dir="$2"; [[ "$source" != "$run_dir" && "$source" != "$run_dir/"* ]]; }
 namespace_network_isolated || exit 40
 external_request_blocked || exit 42
-mu="$NMKR_SYNTHETIC_WP_ROOT/wp-content/mu-plugins"; mkdir -p "$mu"; target="$mu/nmkr-synthetic-provider.php"; [[ ! -e "$target" ]] || exit 43
-cleanup(){ rm -f "$target"; [[ -z "${server:-}" ]] || kill "$server" 2>/dev/null || true; }; trap cleanup EXIT
-install -m 600 "$NMKR_SYNTHETIC_PROVIDER_SOURCE" "$target"
+setup_diagnostic="$NMKR_SYNTHETIC_RUN_DIR/provider-setup.stderr"; { : >"$setup_diagnostic" && chmod 600 "$setup_diagnostic"; } 2>/dev/null || exit 43
+mu="$NMKR_SYNTHETIC_WP_ROOT/wp-content/mu-plugins"; mkdir -p "$mu" >>"$setup_diagnostic" 2>&1 || exit 43; target="$mu/nmkr-synthetic-provider.php"; [[ ! -e "$target" ]] || exit 43
+cleanup(){ rm -f "$target" >>"$setup_diagnostic" 2>&1 || true; [[ -z "${server:-}" ]] || kill "$server" 2>/dev/null || true; }; trap cleanup EXIT
+install -m 600 "$NMKR_SYNTHETIC_PROVIDER_SOURCE" "$target" >>"$setup_diagnostic" 2>&1 || exit 43
 capture_state "$NMKR_SYNTHETIC_RUN_DIR/before-state.json" "$NMKR_SYNTHETIC_RUN_DIR/before-state.stderr" || exit 46
 node "$NMKR_SYNTHETIC_STATE_ASSERT" --preflight "$NMKR_SYNTHETIC_RUN_MODE" "$NMKR_SYNTHETIC_RUN_DIR/before-state.json"
 debug_meta="$NMKR_SYNTHETIC_RUN_DIR/debug-meta"; debug_delta="$NMKR_SYNTHETIC_RUN_DIR/debug-delta.log"; debug_baseline_diagnostic="$NMKR_SYNTHETIC_RUN_DIR/debug-baseline.stderr"

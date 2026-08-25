@@ -41,6 +41,10 @@ FIXTURE_PHP_STATUS=0 external_request_blocked || { echo 'FAIL: blocked external 
 ! FIXTURE_PHP_STATUS=1 external_request_blocked || { echo 'FAIL: successful external request accepted' >&2; exit 1; }
 PATH="$real_path"
 grep -Fq 'external_request_blocked || exit 42' "$runner" || { echo 'FAIL: external request gate is not fail-closed' >&2; exit 1; }
+grep -Fq 'setup_diagnostic="$NMKR_SYNTHETIC_RUN_DIR/provider-setup.stderr"; { : >"$setup_diagnostic" && chmod 600 "$setup_diagnostic"; } 2>/dev/null || exit 43' "$runner" || { echo 'FAIL: private provider setup diagnostics missing' >&2; exit 1; }
+grep -Fq 'mkdir -p "$mu" >>"$setup_diagnostic" 2>&1 || exit 43' "$runner" || { echo 'FAIL: provider directory diagnostics reach the console' >&2; exit 1; }
+grep -Fq 'install -m 600 "$NMKR_SYNTHETIC_PROVIDER_SOURCE" "$target" >>"$setup_diagnostic" 2>&1 || exit 43' "$runner" || { echo 'FAIL: provider installation diagnostics reach the console' >&2; exit 1; }
+grep -Fq 'rm -f "$target" >>"$setup_diagnostic" 2>&1 || true' "$runner" || { echo 'FAIL: provider cleanup diagnostics reach the console' >&2; exit 1; }
 assertor="$(dirname "$runner")/nmkr-synthetic-state-assert.mjs"
 node - "$tmp" <<'JS'
 const fs=require('fs'),d=process.argv[2];
