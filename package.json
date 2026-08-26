@@ -25,7 +25,9 @@
     "test:e2e:sync-resilience": "node scripts/nmkr-playwright.js tests/e2e/nmkr-sync-resilience.regression.spec.ts",
     "test:e2e:sync-final-state": "node scripts/nmkr-playwright.js tests/e2e/nmkr-sync-final-state.regression.spec.ts",
     "test:real-sync:preflight": "bash scripts/nmkr-real-sync-preflight.sh",
-    "test:real-sync:phase16a:regression": "bash scripts/nmkr-real-sync-phase16a-regression.sh"
+    "test:real-sync:phase16a:regression": "bash scripts/nmkr-real-sync-phase16a-regression.sh",
+    "test:synthetic:provider": "php scripts/nmkr-synthetic-provider-regression.php",
+    "test:synthetic:controller": "bash scripts/nmkr-synthetic-run-regression.sh"
   },
   "devDependencies": {
     "@playwright/test": "^1.53.0",

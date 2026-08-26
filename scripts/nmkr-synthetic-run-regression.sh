@@ -1,0 +1,216 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+runner="$(cd "$(dirname "$0")" && pwd)/nmkr-synthetic-run.sh"; tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
+run_fail(){ local out; if out="$(env -i PATH="$PATH" HOME="$HOME" "$@" bash "$runner" 2>&1)"; then echo "FAIL: accepted unsafe invocation" >&2; exit 1; fi; [[ "$out" != *password* && "$out" != *credential* && "$out" != *"$tmp"* ]] || { echo 'FAIL: unsafe output' >&2; exit 1; }; }
+run_fail
+run_fail CI=true RUN_NMKR_SYNTHETIC=true
+run_fail RUN_NMKR_SYNTHETIC=true NMKR_SYNTHETIC_CONFIRM=I_AUTHORIZE_DISPOSABLE_SYNTHETIC_SYNC
+! grep -En 'docker|iptables|nft|wp core download' "$runner" >/dev/null || { echo 'FAIL: prohibited provisioning' >&2; exit 1; }
+network_gate="$(sed -n '/^namespace_network_isolated(){/p' "$runner")"
+[[ -n "$network_gate" ]] || { echo 'FAIL: namespace network gate missing' >&2; exit 1; }
+eval "$network_gate"
+mkdir -p "$tmp/bin"
+cat >"$tmp/bin/ip" <<'SH'
+#!/usr/bin/env bash
+case "$*" in
+  '-o link show') printf '%s\n' "${FIXTURE_LINKS:-}" ;;
+  '-4 route show default') printf '%s' "${FIXTURE_ROUTE4:-}" ;;
+  '-6 route show default') printf '%s' "${FIXTURE_ROUTE6:-}" ;;
+  *) exit 2 ;;
+esac
+SH
+chmod 700 "$tmp/bin/ip"
+real_path="$PATH"; PATH="$tmp/bin:$PATH"
+FIXTURE_LINKS='1: lo: <LOOPBACK> mtu 65536' namespace_network_isolated || { echo 'FAIL: loopback-only fixture rejected' >&2; exit 1; }
+! FIXTURE_LINKS=$'1: lo: <LOOPBACK> mtu 65536\n2: eth0: <BROADCAST> mtu 1500' namespace_network_isolated || { echo 'FAIL: non-loopback interface accepted' >&2; exit 1; }
+! FIXTURE_LINKS='1: lo: <LOOPBACK> mtu 65536' FIXTURE_ROUTE4='default via 192.0.2.1' namespace_network_isolated || { echo 'FAIL: IPv4 default route accepted' >&2; exit 1; }
+! FIXTURE_LINKS='1: lo: <LOOPBACK> mtu 65536' FIXTURE_ROUTE6='default via 2001:db8::1' namespace_network_isolated || { echo 'FAIL: IPv6 default route accepted' >&2; exit 1; }
+PATH="$real_path"
+! grep -Fq '/sys/class/net' "$runner" || { echo 'FAIL: namespace identity relies on sysfs' >&2; exit 1; }
+grep -Fq "unshare --user --map-root-user --net bash -c 'namespace_network_isolated'" "$runner" || { echo 'FAIL: namespace preflight does not exercise network gate' >&2; exit 1; }
+external_gate="$(sed -n '/^external_request_blocked(){/p' "$runner")"
+[[ -n "$external_gate" ]] || { echo 'FAIL: external request gate missing' >&2; exit 1; }
+eval "$external_gate"
+cat >"$tmp/bin/php" <<'SH'
+#!/usr/bin/env bash
+exit "${FIXTURE_PHP_STATUS:-0}"
+SH
+chmod 700 "$tmp/bin/php"
+PATH="$tmp/bin:$PATH"
+FIXTURE_PHP_STATUS=0 external_request_blocked || { echo 'FAIL: blocked external request rejected' >&2; exit 1; }
+! FIXTURE_PHP_STATUS=1 external_request_blocked || { echo 'FAIL: successful external request accepted' >&2; exit 1; }
+PATH="$real_path"
+grep -Fq 'external_request_blocked || exit 42' "$runner" || { echo 'FAIL: external request gate is not fail-closed' >&2; exit 1; }
+grep -Fq 'setup_diagnostic="$NMKR_SYNTHETIC_RUN_DIR/provider-setup.stderr"; { : >"$setup_diagnostic" && chmod 600 "$setup_diagnostic"; } 2>/dev/null || exit 43' "$runner" || { echo 'FAIL: private provider setup diagnostics missing' >&2; exit 1; }
+grep -Fq 'mkdir -p "$mu" >>"$setup_diagnostic" 2>&1 || exit 43' "$runner" || { echo 'FAIL: provider directory diagnostics reach the console' >&2; exit 1; }
+grep -Fq 'install -m 600 "$NMKR_SYNTHETIC_PROVIDER_SOURCE" "$target" >>"$setup_diagnostic" 2>&1 || exit 43' "$runner" || { echo 'FAIL: provider installation diagnostics reach the console' >&2; exit 1; }
+grep -Fq 'rm -f "$target" >>"$setup_diagnostic" 2>&1 || true' "$runner" || { echo 'FAIL: provider cleanup diagnostics reach the console' >&2; exit 1; }
+assertor="$(dirname "$runner")/nmkr-synthetic-state-assert.mjs"
+node - "$tmp" <<'JS'
+const fs=require('fs'),d=process.argv[2];
+const base={schema_version:6,non_synthetic_state:{projects:{count:2,fingerprint:'projects-stable'},tokens:{count:3,fingerprint:'tokens-stable'},token_details:{count:3,fingerprint:'details-stable'}},prior_metrics_state:{count:4,fingerprint:'metrics-stable'},project_count:0,token_count:0,token_detail_count:0,chain_classifications:{cardano_only:0,solana_only:0,dual_chain:0},token_attribution:{cardano_only:0,solana_only:0,dual_chain:0},duplicate_project_count:0,duplicate_token_count:0,orphan_token_count:0,orphan_detail_count:0,history_count:4,metrics_count:4,terminal_history_fingerprint:'stable',exact_history_count:0,exact_history:{},exact_metrics_count:0,exact_metrics:{},active_history_count:0,owner_present:false,option_active_marker_count:0,transient_active_marker_count:0,stale_recovery_marker_count:0,worker_evidence_count:0,live_metrics:false,finalization_resume_marker_count:0,sync_data_classification:'absent',cron_inspectable:true,cron:{nmkr_execute_sync_background:0,nmkr_process_batch_hook:0,nmkr_sync_cron_hook:0,nmkr_install_sync_cron_hook:0,nmkr_resume_sync_finalization:0},provider_counters:null};
+const warm={...base,project_count:24,token_count:2400,token_detail_count:2400,chain_classifications:{cardano_only:8,solana_only:8,dual_chain:8},token_attribution:{cardano_only:800,solana_only:800,dual_chain:800}};
+const after={...warm,history_count:5,metrics_count:5,exact_history_count:1,exact_history:{status:'completed',items_processed:2400,items_successful:2400,items_failed:0,ended:true,error_free:true},exact_metrics_count:1,exact_metrics:{total_projects:24,total_tokens:2400,total_sync_duration:360,total_api_time:312,average_response_time:.125,api_requests:2497,memory_usage:32,timestamp_match:true},sync_data_classification:'terminal',provider_counters:{projects:1,token_lists:96,details:2400,violations:0,external:0,total:2497}};
+for(const [n,v] of Object.entries({cold:base,warm,bad:{...base,project_count:1},after}))fs.writeFileSync(`${d}/${n}.json`,JSON.stringify(v));
+JS
+node "$assertor" --preflight cold "$tmp/cold.json"
+node "$assertor" --preflight warm "$tmp/warm.json"
+! node "$assertor" --preflight cold "$tmp/bad.json" >/dev/null 2>&1 || { echo 'FAIL: partial cold state accepted' >&2; exit 1; }
+node "$assertor" cold "$tmp/cold.json" "$tmp/after.json"
+node "$assertor" warm "$tmp/warm.json" "$tmp/after.json"
+node - "$tmp/after.json" "$tmp/wrong-attribution.json" <<'JS'
+const fs=require('fs'),source=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));source.token_attribution={cardano_only:799,solana_only:801,dual_chain:800};fs.writeFileSync(process.argv[3],JSON.stringify(source));
+JS
+! node "$assertor" cold "$tmp/cold.json" "$tmp/wrong-attribution.json" >/dev/null 2>&1 || { echo 'FAIL: wrong token attribution accepted' >&2; exit 1; }
+node - "$tmp/after.json" "$tmp/non-synthetic-changed.json" <<'JS'
+const fs=require('fs'),source=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));source.non_synthetic_state.projects.fingerprint='changed';fs.writeFileSync(process.argv[3],JSON.stringify(source));
+JS
+! node "$assertor" cold "$tmp/cold.json" "$tmp/non-synthetic-changed.json" >/dev/null 2>&1 || { echo 'FAIL: non-synthetic mutation accepted' >&2; exit 1; }
+node - "$tmp/after.json" "$tmp/prior-metrics-changed.json" <<'JS'
+const fs=require('fs'),source=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));source.prior_metrics_state.fingerprint='changed';fs.writeFileSync(process.argv[3],JSON.stringify(source));
+JS
+! node "$assertor" cold "$tmp/cold.json" "$tmp/prior-metrics-changed.json" >/dev/null 2>&1 || { echo 'FAIL: prior metrics mutation accepted' >&2; exit 1; }
+grep -Fq "progress_active=function(\$v){return is_numeric(\$v)&&(float)\$v>0&&(float)\$v<100;}" "$(dirname "$runner")/nmkr-synthetic-state.php" || { echo 'FAIL: terminal progress classified as active' >&2; exit 1; }
+sed -i 's/"exact_history_count":1/"exact_history_count":0/' "$tmp/after.json"
+! node "$assertor" cold "$tmp/cold.json" "$tmp/after.json" >/dev/null 2>&1 || { echo 'FAIL: unbound history accepted' >&2; exit 1; }
+grep -Fq 'terminal_outcome' "$(dirname "$runner")/nmkr-synthetic-driver.mjs" || { echo 'FAIL: canonical terminal outcome missing' >&2; exit 1; }
+driver="$(dirname "$runner")/nmkr-synthetic-driver.mjs"
+grep -Fq 'globalThis.nmkrSyncProgress?.nonce' "$driver" && grep -Fq "document.querySelector('#nmkr-sync-nonce')?.value" "$driver" || { echo 'FAIL: canonical nonce sources missing' >&2; exit 1; }
+! grep -Eq 'nmkrSyncData|nmkr_sync_ajax' "$driver" || { echo 'FAIL: unsupported nonce fallback present' >&2; exit 1; }
+DRIVER="$driver" node --input-type=module <<'JS'
+const { canonicalNonce } = await import(`file://${process.env.DRIVER}`);
+const expectFailure = (name, left, right) => { try { canonicalNonce(left, right); } catch (error) { if (error.message === name) return; } throw new Error(`nonce regression: ${name}`); };
+if (canonicalNonce('abc123def4', 'abc123def4') !== 'abc123def4') throw new Error('canonical nonce rejected');
+expectFailure('nonce-missing', '', 'abc123def4');
+expectFailure('nonce-malformed', 'unsafe value', 'unsafe value');
+expectFailure('nonce-mismatch', 'abc123def4', 'abc123def5');
+JS
+grep -Fq "form.get('action') !== 'nmkr_check_api_status'" "$(dirname "$runner")/nmkr-synthetic-driver.mjs" || { echo 'FAIL: dashboard status probes not isolated' >&2; exit 1; }
+grep -Fq 'NMKR_SYNTHETIC_DEPLOYED_PLUGIN_PATH' "$runner" || { echo 'FAIL: deployed integrity gate missing' >&2; exit 1; }
+grep -Fq 'NMKR_SYNTHETIC_WORKER_LOG' "$(dirname "$runner")/nmkr-synthetic-driver.mjs" || { echo 'FAIL: private worker diagnostics missing' >&2; exit 1; }
+grep -Fq 'NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER' "$runner" || { echo 'FAIL: worker diagnostic classification missing' >&2; exit 1; }
+server_command="$(grep -F 'php -S "127.0.0.1:$NMKR_SYNTHETIC_PORT"' "$runner")"
+for activation in NMKR_SYNTHETIC_SENTINEL NMKR_SYNTHETIC_EXECUTION_ID NMKR_SYNTHETIC_PROFILE NMKR_SYNTHETIC_EXPIRY; do
+  [[ "$server_command" == *"-u $activation"* ]] || { echo 'FAIL: server provider environment is active' >&2; exit 1; }
+done
+[[ "$server_command" == *'NMKR_SYNTHETIC_SUPPRESS_CORE_UPDATES=dashboard-only-v1'* ]] || { echo 'FAIL: dashboard core-update suppression missing' >&2; exit 1; }
+provider="$(dirname "$runner")/nmkr-synthetic-provider.php"
+for callback in _maybe_update_core _maybe_update_plugins _maybe_update_themes; do
+  grep -Fq "remove_action('admin_init','$callback')" "$provider" || { echo 'FAIL: dashboard core-update callback remains active' >&2; exit 1; }
+done
+[[ "$(grep -Fc "remove_action('admin_init'" "$provider")" == 3 ]] || { echo 'FAIL: dashboard suppression is broader than required' >&2; exit 1; }
+grep -Fq "nmkr_synthetic_activation()!==false" "$provider" || { echo 'FAIL: dashboard suppression can activate with the provider' >&2; exit 1; }
+grep -Fq "spawn(env.NMKR_SYNTHETIC_WP_CLI" "$driver" && grep -Fq "stdio: ['ignore', workerLog, workerLog], env" "$driver" || { echo 'FAIL: worker activation environment changed' >&2; exit 1; }
+grep -Fq "spawn(env.NMKR_SYNTHETIC_WP_CLI, [\`--path=\${env.NMKR_SYNTHETIC_WP_ROOT}\`, 'cron', 'event', 'run', 'nmkr_execute_sync_background', '--due-now']" "$driver" || { echo 'FAIL: worker path argument is not joined' >&2; exit 1; }
+! grep -Fq "spawn(env.NMKR_SYNTHETIC_WP_CLI, ['--path', env.NMKR_SYNTHETIC_WP_ROOT, 'cron'" "$driver" || { echo 'FAIL: split worker path arguments accepted' >&2; exit 1; }
+cat >"$tmp/bin/identity-wp" <<'SH'
+#!/usr/bin/env bash
+[[ "${NMKR_SYNTHETIC_EXPECTED_RUN_ID:-}" == 00000000-0000-0000-0000-000000000001 && "${ORDINARY_WORDPRESS_ENV:-}" == retained ]] || exit 12
+[[ "$1" == --path=/synthetic-fixture && "$2" == eval-file && "$3" == "$FIXTURE_IDENTITY_HELPER" && "$#" == 3 ]] || exit 14
+for name in NMKR_SYNTHETIC_SENTINEL NMKR_SYNTHETIC_EXECUTION_ID NMKR_SYNTHETIC_PROFILE NMKR_SYNTHETIC_EXPIRY; do [[ -z "${!name:-}" ]] || exit 13; done
+printf 'private stdout must be discarded\n'
+printf '%s\n' "${FIXTURE_IDENTITY_DIAGNOSTIC:-}" >&2
+exit "${FIXTURE_IDENTITY_STATUS:-0}"
+SH
+cat >"$tmp/identity-classifier.py" <<'PY'
+import pathlib, sys
+value = pathlib.Path(sys.argv[1]).read_text()
+raise SystemExit(1 if 'first-party' in value else 3 if 'vendor-only' in value else 0)
+PY
+chmod 700 "$tmp/bin/identity-wp"
+: >"$tmp/identity-helper.php"
+DRIVER="$driver" TMP="$tmp" node --input-type=module <<'JS'
+import fs from 'node:fs';
+const { providerInertEnvironment, verifyWorker } = await import(`file://${process.env.DRIVER}`);
+const activations = ['NMKR_SYNTHETIC_SENTINEL', 'NMKR_SYNTHETIC_EXECUTION_ID', 'NMKR_SYNTHETIC_PROFILE', 'NMKR_SYNTHETIC_EXPIRY'];
+const base = { ...process.env, NMKR_SYNTHETIC_WP_CLI: `${process.env.TMP}/bin/identity-wp`, NMKR_SYNTHETIC_WP_ROOT: '/synthetic-fixture', NMKR_SYNTHETIC_WORKER_IDENTITY_HELPER: `${process.env.TMP}/identity-helper.php`, FIXTURE_IDENTITY_HELPER: `${process.env.TMP}/identity-helper.php`, NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER: `${process.env.TMP}/identity-classifier.py`, ORDINARY_WORDPRESS_ENV: 'retained' };
+for (const name of activations) base[name] = `active-${name}`;
+const inert = providerInertEnvironment(base);
+if (activations.some(name => name in inert) || inert.ORDINARY_WORDPRESS_ENV !== 'retained') throw new Error('identity environment regression');
+const run = (name, diagnostic = '', status = '0', accepted = true) => {
+  const log = `${process.env.TMP}/${name}.stderr`;
+  let failed = false;
+  try { verifyWorker({ ...base, NMKR_SYNTHETIC_WORKER_IDENTITY_LOG: log, FIXTURE_IDENTITY_DIAGNOSTIC: diagnostic, FIXTURE_IDENTITY_STATUS: status }, '00000000-0000-0000-0000-000000000001'); } catch (error) { failed = error.message === 'worker-event-identity'; }
+  if (failed === accepted) throw new Error(`identity classification regression: ${name}`);
+  if ((fs.statSync(log).mode & 0o777) !== 0o600) throw new Error('identity diagnostic permissions');
+};
+run('clean'); run('vendor', 'vendor-only'); run('command-failure', '', '1', false); run('first-party', 'first-party', '0', false);
+JS
+grep -Fq "'eval-file', env.NMKR_SYNTHETIC_WORKER_IDENTITY_HELPER" "$driver" || { echo 'FAIL: worker identity does not use eval-file helper' >&2; exit 1; }
+! grep -Fq "'eval', code" "$driver" || { echo 'FAIL: inline worker identity eval retained' >&2; exit 1; }
+grep -Fq 'NMKR_SYNTHETIC_WORKER_IDENTITY_HELPER="$worker_identity_helper"' "$runner" || { echo 'FAIL: exact worker identity helper is not exported' >&2; exit 1; }
+grep -Fq '! -L "$worker_identity_helper"' "$runner" || { echo 'FAIL: worker identity helper symlink gate missing' >&2; exit 1; }
+identity_helper="$(dirname "$runner")/nmkr-synthetic-worker-identity.php"
+cat >"$tmp/worker-identity-case.php" <<'PHP'
+<?php
+define('WP_CLI', true);
+function _get_cron_array() {
+    $run = '00000000-0000-4000-8000-000000000001';
+    $foreign = '00000000-0000-4000-8000-000000000002';
+    $event = function ($args) { return array('schedule' => false, 'args' => $args, 'interval' => null); };
+    $case = getenv('FIXTURE_CASE');
+    if ($case === 'missing') return array('version' => 2);
+    if ($case === 'future') return array(time() + 60 => array('nmkr_execute_sync_background' => array('a' => $event(array($run)))));
+    if ($case === 'foreign') return array(time() - 1 => array('nmkr_execute_sync_background' => array('a' => $event(array($foreign)))));
+    if ($case === 'malformed') return array(time() - 1 => array('nmkr_execute_sync_background' => array('a' => $event(array($run, 'extra')))));
+    if ($case === 'duplicate') return array(time() - 1 => array('nmkr_execute_sync_background' => array('a' => $event(array($run)), 'b' => $event(array($run)))));
+    return array(time() - 1 => array('nmkr_execute_sync_background' => array('a' => $event(array($run)))));
+}
+require $argv[1];
+PHP
+run_identity_case(){ FIXTURE_CASE="$1" NMKR_SYNTHETIC_EXPECTED_RUN_ID=00000000-0000-4000-8000-000000000001 php "$tmp/worker-identity-case.php" "$identity_helper" >/dev/null 2>&1; }
+run_identity_case due || { echo 'FAIL: exact due worker event rejected' >&2; exit 1; }
+for unsafe_case in missing duplicate foreign malformed future; do
+  ! run_identity_case "$unsafe_case" || { echo 'FAIL: unsafe worker event accepted' >&2; exit 1; }
+done
+! NMKR_SYNTHETIC_EXPECTED_RUN_ID=00000000-0000-4000-8000-000000000001 php "$identity_helper" >/dev/null 2>&1 || { echo 'FAIL: worker identity helper permits direct execution' >&2; exit 1; }
+grep -Fq 'preflight_wp(){' "$runner" || { echo 'FAIL: pre-baseline diagnostic boundary missing' >&2; exit 1; }
+grep -Fq 'chmod 600 "$diagnostic"' "$runner" || { echo 'FAIL: pre-baseline diagnostics are not owner-private' >&2; exit 1; }
+[[ "$(grep -Ec '^preflight_wp (wordpress-ready|database-socket)\.stderr| preflight_wp (active-plugin-integrity|target-assumptions)\.stderr' "$runner")" == 4 ]] || { echo 'FAIL: pre-baseline WordPress bootstraps are not classified' >&2; exit 1; }
+! sed -n '25,38p' "$runner" | grep -Fq '>/dev/null 2>&1' || { echo 'FAIL: pre-baseline WordPress diagnostics reach an unclassified sink' >&2; exit 1; }
+grep -Fq 'duplicate-start-accepted' "$(dirname "$runner")/nmkr-synthetic-driver.mjs" || { echo 'FAIL: duplicate Start gate missing' >&2; exit 1; }
+grep -Fq 'NMKR_SYNTHETIC_RUN_RECEIPT' "$runner" || { echo 'FAIL: run receipt missing' >&2; exit 1; }
+grep -Fq 'debug-delta.log' "$runner" || { echo 'FAIL: debug-log delta missing' >&2; exit 1; }
+grep -Fq '2>"$debug_baseline_diagnostic"' "$runner" || { echo 'FAIL: debug-baseline stderr reaches the console' >&2; exit 1; }
+grep -Fq 'debug_baseline_diagnostic_status" == 0 || "$debug_baseline_diagnostic_status" == 3' "$runner" || { echo 'FAIL: debug-baseline diagnostics are not enforced' >&2; exit 1; }
+php_gate="$(cat "$runner")"
+[[ "$php_gate" == *'lstat($p)'* && "$php_gate" == *'is_link($p)'* && "$php_gate" == *'@chmod($p,0600)'* ]] || { echo 'FAIL: debug-log path gate missing' >&2; exit 1; }
+[[ "${php_gate%%'@chmod($p,0600)'*}" == *'is_link($p)'* ]] || { echo 'FAIL: debug-log symlink checked after chmod' >&2; exit 1; }
+path_gate="$(sed -n '/^debug_source_outside_run_dir(){/p' "$runner")"
+[[ -n "$path_gate" ]] || { echo 'FAIL: debug source/run directory gate missing' >&2; exit 1; }
+eval "$path_gate"
+mkdir -p "$tmp/run/nested" "$tmp/external"
+: >"$tmp/run/server.log"; : >"$tmp/run/nested/diagnostic.log"; : >"$tmp/external/debug.log"
+canonical_run="$(realpath -e -- "$tmp/run")"
+! debug_source_outside_run_dir "$(realpath -e -- "$tmp/run/server.log")" "$canonical_run" || { echo 'FAIL: server-log debug source accepted' >&2; exit 1; }
+! debug_source_outside_run_dir "$(realpath -e -- "$tmp/run/nested/diagnostic.log")" "$canonical_run" || { echo 'FAIL: descendant debug source accepted' >&2; exit 1; }
+debug_source_outside_run_dir "$(realpath -e -- "$tmp/external/debug.log")" "$canonical_run" || { echo 'FAIL: external debug source rejected' >&2; exit 1; }
+gate_line="$(grep -nF 'debug_source_outside_run_dir "$debug_source" "$canonical_run_dir"' "$runner" | cut -d: -f1)"; server_line="$(grep -nF 'php -S "127.0.0.1:$NMKR_SYNTHETIC_PORT"' "$runner" | cut -d: -f1)"
+[[ "$gate_line" =~ ^[0-9]+$ && "$server_line" =~ ^[0-9]+$ && "$gate_line" -lt "$server_line" ]] || { echo 'FAIL: debug source gate occurs after server startup' >&2; exit 1; }
+grep -Fq 'NMKR_SYNTHETIC_SERVER_LOG' "$runner" || { echo 'FAIL: private server diagnostics missing' >&2; exit 1; }
+[[ "$(grep -Fc ' --complete-file "$NMKR_SYNTHETIC_SERVER_LOG" 60' "$runner")" == 1 ]] || { echo 'FAIL: server log complete-file classification missing' >&2; exit 1; }
+[[ "$(grep -Fc ' --complete-file "$debug_delta" 60' "$runner")" == 1 ]] || { echo 'FAIL: debug delta complete-file classification missing' >&2; exit 1; }
+[[ "$(grep -Fc -- '--complete-file' "$runner")" == 2 ]] || { echo 'FAIL: complete-file mode escaped controller-owned logs' >&2; exit 1; }
+[[ "$(grep -Fc 'NMKR_SYNTHETIC_DIAGNOSTIC_CLASSIFIER" "$NMKR_SYNTHETIC_WORKER_LOG" 60' "$runner")" == 1 ]] || { echo 'FAIL: worker log default classification changed' >&2; exit 1; }
+[[ "$(grep -Fc 'capture_state "$NMKR_SYNTHETIC_RUN_DIR/' "$runner")" == 2 ]] || { echo 'FAIL: state helpers are not captured' >&2; exit 1; }
+grep -Fq 'eval-file "$NMKR_SYNTHETIC_STATE_HELPER" >"$output" 2>"$diagnostic"' "$runner" || { echo 'FAIL: state-helper stderr reaches the console' >&2; exit 1; }
+grep -Fq 'before-state.stderr" || exit 46' "$runner" || { echo 'FAIL: preflight diagnostics are not enforced' >&2; exit 1; }
+grep -Fq 'after-state.stderr" || exit 46' "$runner" || { echo 'FAIL: final diagnostics are not enforced' >&2; exit 1; }
+after_capture_line="$(grep -nF 'capture_state "$NMKR_SYNTHETIC_RUN_DIR/after-state.json" "$NMKR_SYNTHETIC_RUN_DIR/after-state.stderr" || exit 46' "$runner" | cut -d: -f1)"
+debug_inspection_line="$(grep -nF 'debug_after_inode="$(stat -c %i "$debug_path" 2>/dev/null)"' "$runner" | cut -d: -f1)"
+debug_delta_line="$(grep -nF 'dd if="$debug_path" of="$debug_delta"' "$runner" | cut -d: -f1)"
+debug_classification_line="$(grep -nF ' --complete-file "$debug_delta" 60' "$runner" | cut -d: -f1)"
+state_assertion_line="$(grep -nF 'node "$NMKR_SYNTHETIC_STATE_ASSERT" "$NMKR_SYNTHETIC_RUN_MODE"' "$runner" | cut -d: -f1)"
+[[ "$after_capture_line" =~ ^[0-9]+$ && "$debug_inspection_line" =~ ^[0-9]+$ && "$debug_delta_line" =~ ^[0-9]+$ && "$debug_classification_line" =~ ^[0-9]+$ && "$state_assertion_line" =~ ^[0-9]+$ ]] || { echo 'FAIL: final diagnostic ordering boundary missing' >&2; exit 1; }
+(( after_capture_line < debug_inspection_line && debug_inspection_line < debug_delta_line && debug_delta_line < debug_classification_line && debug_classification_line < state_assertion_line )) || { echo 'FAIL: final diagnostic ordering is unsafe' >&2; exit 1; }
+[[ "$(grep -Fc 'dd if="$debug_path" of="$debug_delta"' "$runner")" == 1 && "$(grep -Fc ' --complete-file "$debug_delta" 60' "$runner")" == 1 ]] || { echo 'FAIL: duplicate or incomplete debug delta scan' >&2; exit 1; }
+grep -Fq 'items_failed,error_message,failure_breakdown,created_at,updated_at' "$(dirname "$runner")/nmkr-synthetic-state.php" || { echo 'FAIL: prior history fingerprint omits persisted fields' >&2; exit 1; }
+classifier="$(dirname "$runner")/nmkr-debug-log-classifier.py"
+printf '' >"$tmp/clean.log"
+printf 'PHP Warning: synthetic first-party warning in /private/synthetic/plugin/file.php on line 1\n' >"$tmp/first-party.log"
+printf 'PHP Warning: synthetic dependency warning in /private/synthetic/plugin/vendor/package/file.php on line 1\n' >"$tmp/vendor.log"
+classify(){ set +e; python3 "$classifier" "$1" 60 >/dev/null 2>&1; local status=$?; set -e; printf '%s' "$status"; }
+[[ "$(classify "$tmp/clean.log")" == 0 ]] || { echo 'FAIL: clean state-helper diagnostics rejected' >&2; exit 1; }
+[[ "$(classify "$tmp/vendor.log")" == 3 ]] || { echo 'FAIL: accepted dependency diagnostics rejected' >&2; exit 1; }
+[[ "$(classify "$tmp/first-party.log")" == 1 ]] || { echo 'FAIL: first-party state-helper diagnostic accepted' >&2; exit 1; }
+echo 'Synthetic controller regression: PASS'

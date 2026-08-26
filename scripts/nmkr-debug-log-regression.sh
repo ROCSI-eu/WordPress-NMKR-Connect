@@ -20,9 +20,10 @@ PY
 }
 
 run_case() {
-  local expected="$1" log_file="$2" output status
+  local expected="$1" log_file="$2"; shift 2
+  local output status
   set +e
-  output="$(python3 "$CLASSIFIER" "$log_file" 30 2>&1)"
+  output="$(python3 "$CLASSIFIER" "$@" "$log_file" 30 2>&1)"
   status=$?
   set -e
   [[ "$status" == "$expected" ]] || fail
@@ -65,9 +66,15 @@ run_case 1 "$FIXTURE_ROOT/unclassified.log"
 printf '[%s] PHP Warning: SYNTHETIC_VENDOR_MIXED in /synthetic/plugin/vendor/package/check.php on line 90\n[%s] PHP Warning: SYNTHETIC_FIRST_PARTY_MIXED in /synthetic/plugin/includes/check.php on line 91\n' "$fresh" "$fresh" >"$FIXTURE_ROOT/mixed.log"
 run_case 1 "$FIXTURE_ROOT/mixed.log"
 
-printf '[%s] PHP Warning: SYNTHETIC_PRIVATE_MARKER_OUTSIDE_TAIL\n' "$fresh" >"$FIXTURE_ROOT/tail.log"
-for i in $(seq 1 300); do printf '[%s] benign tail entry %s\n' "$fresh" "$i"; done >>"$FIXTURE_ROOT/tail.log"
-run_case 0 "$FIXTURE_ROOT/tail.log"
+printf '[%s] PHP Warning: SYNTHETIC_PRIVATE_MARKER_OUTSIDE_TAIL\n' "$fresh" >"$FIXTURE_ROOT/debug-delta-warning.log"
+for i in $(seq 1 301); do printf '[%s] benign debug entry %s\n' "$fresh" "$i"; done >>"$FIXTURE_ROOT/debug-delta-warning.log"
+run_case 0 "$FIXTURE_ROOT/debug-delta-warning.log"
+run_case 1 "$FIXTURE_ROOT/debug-delta-warning.log" --complete-file
+
+for i in $(seq 1 301); do printf '[%s] benign debug entry %s\n' "$fresh" "$i"; done >"$FIXTURE_ROOT/debug-delta-clean.log"
+run_case 0 "$FIXTURE_ROOT/debug-delta-clean.log" --complete-file
+
+run_case 3 "$FIXTURE_ROOT/vendor-warning.log" --complete-file
 
 for i in $(seq 1 300); do printf '[%s] benign prefix entry %s\n' "$fresh" "$i"; done >"$FIXTURE_ROOT/tail-match.log"
 printf '[%s] PHP Warning: SYNTHETIC_PRIVATE_MARKER_INSIDE_TAIL\n' "$fresh" >>"$FIXTURE_ROOT/tail-match.log"

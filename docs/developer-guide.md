@@ -12,6 +12,7 @@ Related guidance:
 - [Troubleshooting guide](troubleshooting.md)
 - [Playwright guide](testing-playwright.md)
 - [Milestone 3 evidence workspace](milestone-3/README.md)
+- [Phase 17 isolated synthetic harness](testing-phase-17.md)
 
 ## Development prerequisites
 

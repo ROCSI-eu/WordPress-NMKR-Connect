@@ -59,13 +59,15 @@ def is_vendor_warning_or_notice(line: str) -> bool:
     return VENDOR_SEGMENT_PATTERN.search(normalized_path) is not None
 
 
-def classify_matches(path: str, lookback_minutes: int, now: dt.datetime) -> int:
+def classify_matches(
+    path: str, lookback_minutes: int, now: dt.datetime, complete_file: bool = False
+) -> int:
     cutoff = now - dt.timedelta(minutes=lookback_minutes)
     file_is_recent = dt.datetime.fromtimestamp(
         os.stat(path, follow_symlinks=False).st_mtime, dt.timezone.utc
     ) >= cutoff
 
-    lines = tail_lines(path, 300)
+    lines = read_lines(path) if complete_file else tail_lines(path, 300)
 
     vendor_diagnostic = False
     for line in lines:
@@ -105,8 +107,15 @@ def tail_lines(path: str, limit: int) -> list[str]:
     return [line.decode("utf-8", "replace") for line in raw_lines[-limit:]]
 
 
+def read_lines(path: str) -> list[str]:
+    """Read every newline-delimited logical line from the supplied file."""
+    with open(path, "rb") as log_file:
+        return [line.decode("utf-8", "replace") for line in log_file.readlines()]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--complete-file", action="store_true")
     parser.add_argument("path")
     parser.add_argument("lookback_minutes", type=int)
     args = parser.parse_args()
@@ -116,7 +125,10 @@ def main() -> int:
 
     try:
         return classify_matches(
-            args.path, args.lookback_minutes, dt.datetime.now(dt.timezone.utc)
+            args.path,
+            args.lookback_minutes,
+            dt.datetime.now(dt.timezone.utc),
+            args.complete_file,
         )
     except (OSError, OverflowError, ValueError):
         return 2
