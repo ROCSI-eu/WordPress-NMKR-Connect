@@ -1,10 +1,10 @@
 # Executed evidence — 2026-08-26
 
-## EVD-011 — bounded high-volume sequential synthetic mixed-chain synchronization
+## EVD-011 — bounded higher-volume sequential synthetic mixed-chain synchronization
 
 ### Evidence identity and scope
 
-EVD-011 records one authorized cold campaign and one authorized warm campaign using the fixed `private-2400-v1` profile on 2026-08-26. It is primary evidence for M3-05 and M3-11 and supporting evidence only for M3-09, M3-10, and M3-19. The result validates only the bounded plugin-level sequential synthetic workload disclosed below.
+EVD-011 records one authorized cold campaign and one authorized warm campaign using the fixed `private-2400-v1` profile on 2026-08-26. It is substantial supporting/partial evidence for M3-05 and M3-11 and supporting evidence for M3-09, M3-10, and M3-19. The executed campaign demonstrates the bounded plugin-level sequential synthetic workload disclosed below; it is not acceptance-closing high-traffic or stress evidence.
 
 ### Implementation and exact commits
 
@@ -58,15 +58,17 @@ Staging received the exact manifest-bound release. Manifest, file count, ownersh
 
 ### Requirement assessment
 
-- **M3-05 — Validated**, only within this bounded plugin-level high-volume sequential synthetic synchronization profile.
-- **M3-11 — Validated**, only within this bounded sequential heavy mixed-chain request profile directly exercising Cardano-only, Solana-only, and dual-chain data.
+- **M3-05 — Implemented, validation pending.** EVD-011 provides substantial supporting/partial higher-volume functional evidence, but it did not define or measure a high-traffic load profile.
+- **M3-11 — Implemented, validation pending.** EVD-011 provides substantial supporting/partial mixed-chain evidence directly exercising Cardano-only, Solana-only, and dual-chain data, but it did not execute a defined stress profile.
 - **M3-09, M3-10, and M3-19 — supporting scope only.** EVD-011 strengthens their existing evidence without redefining their primary assessments.
 
 ### Limitations
 
-This was sequential, not concurrent; synthetic, not production; and executed in one controlled environment. It did not seek saturation or a breaking point and establishes no maximum capacity. It makes no claim about live NMKR/upstream capacity, external infrastructure certification, unlimited scale, universal behavior, or future releases. It is not formal certification or penetration testing. Concurrency, saturation, breaking-point, production, upstream, and broader infrastructure testing remain excluded or deferred strengthening, not claims and not blockers for the bounded M3-05/M3-11 conclusions.
+This was sequential, synthetic, non-production execution in one controlled environment. It did not define or measure offered load, request rate, throughput, concurrency, a latency distribution, or resource behaviour under high-traffic conditions. It did not execute a stress profile, seek saturation or a breaking point, or establish maximum capacity. It makes no claim about live NMKR/upstream capacity, external infrastructure certification, unlimited scale, universal behavior, or future releases. It is not formal certification or penetration testing. These limitations prevent EVD-011 from closing M3-05 or M3-11, while preserving its substantial higher-volume functional and mixed-chain support.
 
-M3-08 remains **Planned** because the uptime monitoring record is outstanding. M3-21 remains **Planned** because actual private reviewer-access creation, delivery, support, expiry, and revocation remain outstanding. Milestone 3 remains incomplete until both operational actions are completed.
+M3-05 and M3-11 remain **Implemented, validation pending**. Their future acceptance requires an executed, bounded, safe load/stress profile with a defined offered-load/request-rate model and duration; throughput and latency/error measurements; appropriate plugin/runtime resource observations; explicit ceilings, stop conditions, recovery, and final-state checks; and, for M3-11, direct Cardano/Solana/dual-chain attribution. Concurrency may be one suitable method but is not the only acceptable method. The profile must not create production or uncontrolled live NMKR load.
+
+M3-08 remains **Planned** because the uptime monitoring record is outstanding. M3-21 remains **Planned** because actual private reviewer-access creation, delivery, support, expiry, and revocation remain outstanding. M3-05, M3-08, M3-11, and M3-21 are the remaining open actions, and Milestone 3 remains incomplete.
 
 ### Public/private boundary
 

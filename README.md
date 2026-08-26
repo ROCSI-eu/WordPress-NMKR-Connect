@@ -122,7 +122,7 @@ Analytics modes are **Off**, local custom analytics only, GA4 only, or both. Set
 
 The implementation uses concrete WordPress controls, including plugin-specific capability checks, nonces on privileged requests, input sanitization and allow-list validation, escaped output, prepared dynamic SQL, and no-cache headers on sensitive AJAX responses. Analytics applies UID/event validation, sampling, deduplication and rate limiting; logging helpers redact or avoid secret material in supported paths.
 
-These controls are not an absolute security guarantee. Milestone 3 now includes bounded sequential synthetic load and heavy mixed-chain validation, but this does not establish concurrency, saturation, production/upstream capacity, or universal behavior. Uptime evidence and actual private reviewer-access provisioning remain open. Keep WordPress and dependencies maintained, grant minimal access, use HTTPS, protect credentials, and validate the plugin in a staging environment before production use.
+These controls are not an absolute security guarantee. Milestone 3 now includes a bounded higher-volume sequential synthetic mixed-chain campaign, but that functional-volume result does not establish high-traffic performance or stress acceptance because no offered-load/request-rate model, throughput, latency distribution, or resource behaviour was measured. M3-05 and M3-11 remain **Implemented, validation pending**; M3-08 uptime evidence and M3-21 actual private reviewer-access provisioning remain **Planned**. Milestone 3 remains incomplete. Keep WordPress and dependencies maintained, grant minimal access, use HTTPS, protect credentials, and validate the plugin in a staging environment before production use.
 
 ## Development and testing
 
