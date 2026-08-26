@@ -122,7 +122,7 @@ Analytics modes are **Off**, local custom analytics only, GA4 only, or both. Set
 
 The implementation uses concrete WordPress controls, including plugin-specific capability checks, nonces on privileged requests, input sanitization and allow-list validation, escaped output, prepared dynamic SQL, and no-cache headers on sensitive AJAX responses. Analytics applies UID/event validation, sampling, deduplication and rate limiting; logging helpers redact or avoid secret material in supported paths.
 
-These controls are not an absolute security guarantee. Additional security hardening, WordPress security validation, load/API behaviour testing, and cross-chain verification remain part of the ongoing Milestone 3 work. Keep WordPress and dependencies maintained, grant minimal access, use HTTPS, protect credentials, and validate the plugin in a staging environment before production use.
+These controls are not an absolute security guarantee. Milestone 3 now includes bounded sequential synthetic load and heavy mixed-chain validation, but this does not establish concurrency, saturation, production/upstream capacity, or universal behavior. Uptime evidence and actual private reviewer-access provisioning remain open. Keep WordPress and dependencies maintained, grant minimal access, use HTTPS, protect credentials, and validate the plugin in a staging environment before production use.
 
 ## Development and testing
 
@@ -160,6 +160,7 @@ Detailed procedures and safety boundaries are maintained in:
 - [Phase 15 controlled-sync preflight](docs/testing-phase-15.md)
 - [Phase 16A controlled real-sync harness](docs/testing-phase-16a.md)
 - [Phase 16B.2 run-scoped synchronization checks](docs/testing-phase-16b2.md)
+- [Phase 17 isolated synthetic synchronization harness](docs/testing-phase-17.md)
 
 ## Troubleshooting
 

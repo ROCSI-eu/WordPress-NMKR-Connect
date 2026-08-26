@@ -1,6 +1,6 @@
 # Milestone 3 proof of achievement
 
-This is the public, documentation-only synthesis of [EVD-001 through EVD-003](executed-evidence-2026-08-17.md), [EVD-004](executed-evidence-2026-08-18.md), [EVD-005](executed-evidence-2026-08-20.md), [EVD-007 and EVD-008](executed-evidence-2026-08-21.md), and [EVD-009 and EVD-010](executed-evidence-2026-08-22.md), current implementation controls, public regressions and CI foundations, and the existing user, developer, troubleshooting, Playwright, and numbered testing guides. The exact source baseline assessed was `2b97486a023366669d7744993ad15e86f47070ca`; EVD-007 and EVD-008 are later, separately registered executions against their own exact commit; EVD-009 is a still-later, separately registered exact-head pre-merge and post-merge validation; EVD-010 separately records targeted exact-clean-source and deployed-commit validation at that merged commit. The documentation baseline was not deployed or executed for EVD-007 or EVD-008.
+This is the public, documentation-only synthesis of [EVD-001 through EVD-003](executed-evidence-2026-08-17.md), [EVD-004](executed-evidence-2026-08-18.md), [EVD-005](executed-evidence-2026-08-20.md), [EVD-007 and EVD-008](executed-evidence-2026-08-21.md), [EVD-009 and EVD-010](executed-evidence-2026-08-22.md), and [EVD-011](executed-evidence-2026-08-26.md), current implementation controls, public regressions and CI foundations, and the existing user, developer, troubleshooting, Playwright, and numbered testing guides. The exact source baseline assessed was `2b97486a023366669d7744993ad15e86f47070ca`; EVD-007 and EVD-008 are later, separately registered executions against their own exact commit; EVD-009 is a still-later, separately registered exact-head pre-merge and post-merge validation; EVD-010 separately records targeted exact-clean-source and deployed-commit validation at that merged commit. The documentation baseline was not deployed or executed for EVD-007 or EVD-008.
 
 This assessment produced no new runtime observation, synchronization, benchmark, browser execution, private validation, security attack, participant study, or reviewer account. It links the detailed records instead of reproducing their reports, measurements, guides, or implementation descriptions. “Validated” below means that reviewer evidence supports the stated, bounded requirement; it is not a formal certification or a claim beyond the disclosed scope.
 
@@ -26,17 +26,15 @@ This is specifically a **maintainer/operator workflow usability assessment**. It
 
 ### Bounded operational synchronization
 
-[EVD-001](executed-evidence-2026-08-17.md#evd-001--controlled-mixed-chain-synchronization-and-final-state) is the bounded light-profile foundation. [EVD-008](executed-evidence-2026-08-21.md#evd-008--bounded-repeated-sequential-mixed-chain-traffic) records a completed bounded repeated-traffic campaign: three separately authorized stages of three sequential cycles, 9/9 successful cycles, 1,089 aggregate NMKR API requests, and 900 repeated token-processing operations over the same 10-project, 100-unique-token, 100-detail dataset. Every cycle completed 100/100 items successfully, and the final runtime and database state were clean, terminal, idle, and consistent. EVD-008 remains validated executed evidence for those observations and is supporting/partial evidence for M3-05; it does not validate high traffic because the campaign retained the guarded light profile, ran sequentially, and used cooldowns.
+[EVD-001](executed-evidence-2026-08-17.md#evd-001--controlled-mixed-chain-synchronization-and-final-state) is the bounded light-profile foundation, and [EVD-008](executed-evidence-2026-08-21.md#evd-008--bounded-repeated-sequential-mixed-chain-traffic) remains historically accurate supporting evidence. [EVD-011](executed-evidence-2026-08-26.md) records one cold and one warm `private-2400-v1` campaign. Each sequential campaign processed 24 projects, 2,400 unique tokens, and 2,400 details through 2,497 isolated synthetic requests. Cold state moved from 0/0/0 to 24/2,400/2,400; warm state remained unchanged with no duplicate business rows. History and metrics advanced once per run, provider counters matched the model, and terminalization, diagnostics, and cleanup passed.
 
-EVD-008 was sequential, never concurrent, and used one stable dataset. It is not 900 unique tokens, production traffic, maximum-capacity, saturation, breaking-point, unlimited-scale, or broad infrastructure-capacity evidence, and it gives no universal guarantee for arbitrary datasets, environments, upstream conditions, or future releases.
+Across both campaigns, 4,994 requests and 4,800 token-processing operations were executed over the same 2,400 unique tokens. EVD-011 validates M3-05 only within this bounded plugin-level high-volume sequential synthetic profile.
 
 ### Cardano, Solana, and mixed-chain behavior
 
-EVD-001 directly contained four Cardano-only projects, four Solana-only projects, and two Cardano-and-Solana projects. EVD-008 retained that stable execution-time project profile throughout all nine cycles, alongside 40 Cardano-only, 40 Solana-only, and 20 dual-chain unique tokens per cycle. Its 900 repeated operations comprised 360 Cardano-only, 360 Solana-only, and 180 dual-chain operations. Both chains were directly exercised in every cycle; success for one chain is not substituted for the other.
+EVD-011 directly exercised and preserved 8 Cardano-only, 8 Solana-only, and 8 dual-chain projects, with 800 Cardano-only, 800 Solana-only, and 800 dual-chain unique tokens in both cold and warm runs. It supports the existing M3-09 and M3-10 conclusions and validates M3-11 only within this bounded sequential heavy mixed-chain request profile.
 
-EVD-008 is supporting/partial evidence for M3-11 because both chains were directly represented throughout the bounded nine-cycle sequential repeated-traffic profile. The disclosed classification-snapshot anomaly does not change the stable execution-time attribution or sealed totals. The campaign does not validate heavier API traffic or stress and is not production-capacity, maximum-load, arbitrary-scale, or universal evidence.
-
-The next required action for M3-05 and M3-11 is a bounded plugin-level higher-pressure test using a defined larger synthetic mixed-chain API workload without loading the live NMKR API. It should evaluate pagination, processing, database writes, deduplication, memory, metrics, terminalization, and cleanup under explicit safety controls. Production, upstream, unlimited-scale, and external infrastructure capacity are not plugin deliverables.
+The execution was sequential, not concurrent; synthetic, not production; and limited to one controlled environment. It establishes no saturation or breaking point, maximum capacity, live NMKR/upstream capacity, external infrastructure certification, unlimited scale, universal guarantee, or future-release behavior. Broader testing is deferred strengthening, not a claim or blocker for these bounded conclusions.
 
 ### Performance benchmarks
 
@@ -102,13 +100,13 @@ The environment URL, username, password, authentication state, activation detail
 | M3-02 | Validated | EVD-002 and EVD-006 support representative, non-exhaustive functionality coverage. |
 | M3-03 | Validated | EVD-001, EVD-004, and EVD-005 retain the scoped performance results. |
 | M3-04 | Validated | EVD-006 records the maintainer/operator workflow assessment; no participant study is claimed. |
-| M3-05 | Implemented, validation pending | EVD-008 is validated supporting/partial evidence for repeated aggregate volume and reliability, but its guarded sequential light profile does not establish high traffic; a bounded larger synthetic plugin-level workload remains required. |
+| M3-05 | Validated | EVD-011 validates only the bounded plugin-level high-volume sequential synthetic profile; no concurrent, production/upstream, saturation, maximum-capacity, unlimited-scale, or external infrastructure claim is made. |
 | M3-06 | Validated | EVD-004 applies only under its defined normal conditions. |
 | M3-07 | Validated | EVD-005 applies to the representative single-NFT display under its defined conditions. |
 | M3-08 | Planned | The actual monitoring window has not been assessed or registered. |
-| M3-09 | Validated | EVD-001 directly includes Cardano-only and dual-chain projects. |
-| M3-10 | Validated | EVD-001 directly includes Solana-only and dual-chain projects. |
-| M3-11 | Implemented, validation pending | EVD-008 is validated supporting/partial evidence for repeated mixed-chain reliability, but it does not establish heavier API traffic or stress; the bounded larger synthetic plugin-level workload remains required. |
+| M3-09 | Validated | EVD-001 is primary evidence; EVD-011 supports it with 8 Cardano-only and 8 dual-chain projects and 800 Cardano-only and 800 dual-chain tokens. |
+| M3-10 | Validated | EVD-001 is primary evidence; EVD-011 supports it with 8 Solana-only and 8 dual-chain projects and 800 Solana-only and 800 dual-chain tokens. |
+| M3-11 | Validated | EVD-011 validates only the bounded sequential heavy mixed-chain request profile directly exercising both chains; no concurrent stress, production/upstream, breaking-point, maximum-capacity, or universal claim is made. |
 | M3-12 | Validated | EVD-006 records a scoped implementation/control assessment; no universal vulnerability guarantee is made. |
 | M3-13 | Validated | EVD-003 remains supporting failure/recovery evidence; EVD-006 identified the earlier residual, and EVD-009 records its later implemented and executed closure within the disclosed scope. |
 | M3-14 | Validated | EVD-010 records the retained exact-clean-source/deployment live restricted-role and privileged-AJAX result, limited to its disclosed tested actions, accounts, nonce/CSRF, malformed-Stop, bounded authorized-read, and protected-plugin-state boundary. |
@@ -116,14 +114,13 @@ The environment URL, username, password, authentication state, activation detail
 | M3-16 | Validated | The user documentation is indexed and exact-source reviewed by EVD-006. |
 | M3-17 | Validated | The developer documentation is indexed and exact-source reviewed by EVD-006. |
 | M3-18 | Validated | The troubleshooting documentation, EVD-003, and EVD-006 provide scoped evidence. |
-| M3-19 | Validated | This index and EVD-001 through EVD-010 provide consolidated reviewer-visible reports. |
+| M3-19 | Validated | This index and EVD-001 through EVD-011 provide consolidated reviewer-visible reports. |
 | M3-20 | Validated | EVD-006, EVD-009, and EVD-010 provide bounded security implementation evidence with findings and limitations, not certification. |
 | M3-21 | Planned | Generic access controls are documented; actual private provisioning remains outstanding. |
 
 ## Open actions
 
-- **M3-05 and M3-11:** run a bounded plugin-level higher-pressure validation using a defined larger synthetic mixed-chain API workload. Exercise plugin-controlled pagination, processing, database writes, deduplication, memory, metrics, terminalization, and cleanup without loading the live NMKR API or certifying production, upstream, unlimited-scale, or external infrastructure capacity.
 - **M3-08:** assess and register the actual monitoring start/end, probe, interval/location class, incidents, missing-data handling, calculation, and whether uptime was strictly above 99.9%; no percentage is asserted here.
 - **M3-21:** create, deliver, support, expire, and revoke reviewer access privately and out of band.
 
-Milestone 3 as a whole remains incomplete while the remaining scoped operational actions for M3-05, M3-08, M3-11, and M3-21 remain open.
+Milestone 3 as a whole remains incomplete while the remaining operational actions for M3-08 and M3-21 remain open.

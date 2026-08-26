@@ -14,6 +14,9 @@ After installing the temporary MU provider into the disposable installation, the
 
 Expected mutations are limited to synthetic project/token/detail rows, one history and metrics row per run, and the production lifecycle's temporary options, transients, owner, and exact cron event. Unexpected pre-existing activity, ambiguous Start, provider/state error, PHP diagnostic, timeout, ceiling breach, or cleanup residue is a stop condition; the harness does not repair or force-delete unexpected state.
 
+
+> **Later evidence (2026-08-26):** The statements below describe the earlier execution state. The separately authorized campaign later ran and is registered as [EVD-011](milestone-3/executed-evidence-2026-08-26.md).
+
 ## Fixed profiles
 
 `public-v1` is the public deterministic regression: three projects (Cardano, Solana, dual-chain), 12 unique tokens, three same-project duplicate appearances, nine list requests, 12 details, and 22 total synthetic API requests.
@@ -24,4 +27,4 @@ Expected mutations are limited to synthetic project/token/detail rows, one histo
 
 On clean terminal completion the controller removes only its copied MU provider and stops its local server. Failure preserves WordPress evidence for private diagnosis while stopping controller-owned processes; no raw rows, identifiers, credentials, URLs, paths, cookies, nonces, logs, or payloads are public output.
 
-Only public deterministic regressions were executed for this PR. No private synthetic synchronization or real synchronization was executed, no live NMKR request was made, no NMKR Studio project or token was created, and the 2,400-token cold/warm campaign remains unexecuted. M3-05 and M3-11 remain **Implemented, validation pending**. Future validation requires separately authorized exact-head VM execution; executed evidence belongs in a later documentation PR. Do not claim validation from this harness implementation alone.
+Only public deterministic regressions were executed for this PR. No private synthetic synchronization or real synchronization was executed, no live NMKR request was made, no NMKR Studio project or token was created, and the 2,400-token cold/warm campaign remains unexecuted. M3-05 and M3-11 remain **Implemented, validation pending**. Future validation requires separately authorized exact-head VM execution; executed evidence belongs in a later documentation PR. Do not claim validation from this harness implementation alone. **Later evidence:** the separately authorized campaign subsequently ran on 2026-08-26 and is registered as [EVD-011](milestone-3/executed-evidence-2026-08-26.md); the preceding statements remain the historical PR #77 implementation state.
