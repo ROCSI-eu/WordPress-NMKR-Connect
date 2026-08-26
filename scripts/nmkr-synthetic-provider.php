@@ -32,6 +32,13 @@ function nmkr_synthetic_activation() {
     if ($sentinel!=='NMKR_SYNTHETIC_TEST_ONLY_V1'||!preg_match('/^[a-f0-9]{32}$/D',(string)$execution)||!isset(nmkr_synthetic_profiles()[$profile])||!ctype_digit((string)$expiry)||(int)$expiry<=time()) return false;
     return array('execution_id'=>$execution,'profile_id'=>$profile,'expiry'=>(int)$expiry);
 }
+function nmkr_synthetic_suppress_dashboard_updates() {
+    if (getenv('NMKR_SYNTHETIC_SUPPRESS_CORE_UPDATES')!=='dashboard-only-v1'||nmkr_synthetic_activation()!==false||!function_exists('remove_action')) return false;
+    remove_action('admin_init','_maybe_update_core');
+    remove_action('admin_init','_maybe_update_plugins');
+    remove_action('admin_init','_maybe_update_themes');
+    return true;
+}
 function nmkr_synthetic_state_update($kind,$activation) {
     $run=getenv('NMKR_SYNTHETIC_RUN_DIR'); $path=getenv('NMKR_SYNTHETIC_STATE_FILE');
     if (!$run||!$path||is_link($run)||is_link($path)||!is_dir($run)||realpath(dirname($path))!==realpath($run)) return false;
@@ -63,4 +70,5 @@ function nmkr_synthetic_pre_http($pre,$args,$url) {
     nmkr_synthetic_state_update('external',$a); return nmkr_synthetic_error('synthetic_external_blocked');
 }
 if(function_exists('add_filter')) add_filter('pre_http_request','nmkr_synthetic_pre_http',PHP_INT_MIN,3);
+nmkr_synthetic_suppress_dashboard_updates();
 }

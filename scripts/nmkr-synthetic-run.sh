@@ -83,7 +83,7 @@ mapfile -t debug_info <"$debug_meta"; [[ "${#debug_info[@]}" == 3 ]] || exit 45
 debug_path="${debug_info[0]}"; debug_inode="${debug_info[1]}"; debug_size="${debug_info[2]}"
 debug_source="$(realpath -e -- "$debug_path" 2>/dev/null)"; canonical_run_dir="$(realpath -e -- "$NMKR_SYNTHETIC_RUN_DIR" 2>/dev/null)"
 [[ -n "$debug_source" && -n "$canonical_run_dir" ]] && debug_source_outside_run_dir "$debug_source" "$canonical_run_dir" || exit 45
-env -u NMKR_SYNTHETIC_SENTINEL -u NMKR_SYNTHETIC_EXECUTION_ID -u NMKR_SYNTHETIC_PROFILE -u NMKR_SYNTHETIC_EXPIRY php -S "127.0.0.1:$NMKR_SYNTHETIC_PORT" -t "$NMKR_SYNTHETIC_WP_ROOT" >"$NMKR_SYNTHETIC_SERVER_LOG" 2>&1 & server=$!
+env -u NMKR_SYNTHETIC_SENTINEL -u NMKR_SYNTHETIC_EXECUTION_ID -u NMKR_SYNTHETIC_PROFILE -u NMKR_SYNTHETIC_EXPIRY NMKR_SYNTHETIC_SUPPRESS_CORE_UPDATES=dashboard-only-v1 php -S "127.0.0.1:$NMKR_SYNTHETIC_PORT" -t "$NMKR_SYNTHETIC_WP_ROOT" >"$NMKR_SYNTHETIC_SERVER_LOG" 2>&1 & server=$!
 sleep 1; node "$NMKR_SYNTHETIC_DRIVER"
 capture_state "$NMKR_SYNTHETIC_RUN_DIR/after-state.json" "$NMKR_SYNTHETIC_RUN_DIR/after-state.stderr" || exit 46
 debug_after_inode="$(stat -c %i "$debug_path" 2>/dev/null)"; debug_after_size="$(stat -c %s "$debug_path" 2>/dev/null)"

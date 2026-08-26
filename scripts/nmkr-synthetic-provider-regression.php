@@ -1,6 +1,8 @@
 <?php
 class WP_Error { public $code; function __construct($c,$m){$this->code=$c;} }
 function check($ok,$m){if(!$ok){fwrite(STDERR,"FAIL: $m\n");exit(1);}}
+$removed_actions=array();
+function remove_action($hook,$callback){global $removed_actions;$removed_actions[]=array($hook,$callback);return true;}
 require __DIR__.'/nmkr-synthetic-provider.php';
 $p=nmkr_synthetic_profiles(); check(count($p)===2,'only fixed profiles');
 check($p['public-v1']['projects']===3&&$p['public-v1']['details']===12&&$p['public-v1']['total_requests']===22,'public arithmetic');
@@ -21,5 +23,10 @@ $recorded=json_decode(file_get_contents($state),true); check($recorded['counters
 unlink($state); rmdir($run);
 check(nmkr_synthetic_loopback_url('http://127.0.0.1:8123/wp-admin/',8123)&&!nmkr_synthetic_loopback_url('http://localhost:8123/',8123)&&!nmkr_synthetic_loopback_url('https://127.0.0.1:8123/',8123),'narrow loopback');
 putenv('NMKR_SYNTHETIC_SENTINEL=bad'); check(nmkr_synthetic_activation()===false,'inactive without valid activation');
+$removed_actions=array(); putenv('NMKR_SYNTHETIC_SUPPRESS_CORE_UPDATES=dashboard-only-v1');
+check(nmkr_synthetic_suppress_dashboard_updates()===true,'dashboard suppression enabled only while provider inactive');
+check($removed_actions===array(array('admin_init','_maybe_update_core'),array('admin_init','_maybe_update_plugins'),array('admin_init','_maybe_update_themes')),'only core update callbacks suppressed');
+$removed_actions=array(); putenv('NMKR_SYNTHETIC_SUPPRESS_CORE_UPDATES');
+check(nmkr_synthetic_suppress_dashboard_updates()===false&&$removed_actions===array(),'dashboard suppression remains campaign-scoped');
 $x=nmkr_synthetic_token(nmkr_synthetic_project(0,$p['public-v1']),0)['uid']; $y=nmkr_synthetic_token(nmkr_synthetic_project(1,$p['public-v1']),0)['uid']; check($x!==$y,'cross-project UID conflict prevented');
 echo "Synthetic provider regression: PASS\n";

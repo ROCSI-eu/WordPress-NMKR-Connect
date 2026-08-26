@@ -93,6 +93,13 @@ server_command="$(grep -F 'php -S "127.0.0.1:$NMKR_SYNTHETIC_PORT"' "$runner")"
 for activation in NMKR_SYNTHETIC_SENTINEL NMKR_SYNTHETIC_EXECUTION_ID NMKR_SYNTHETIC_PROFILE NMKR_SYNTHETIC_EXPIRY; do
   [[ "$server_command" == *"-u $activation"* ]] || { echo 'FAIL: server provider environment is active' >&2; exit 1; }
 done
+[[ "$server_command" == *'NMKR_SYNTHETIC_SUPPRESS_CORE_UPDATES=dashboard-only-v1'* ]] || { echo 'FAIL: dashboard core-update suppression missing' >&2; exit 1; }
+provider="$(dirname "$runner")/nmkr-synthetic-provider.php"
+for callback in _maybe_update_core _maybe_update_plugins _maybe_update_themes; do
+  grep -Fq "remove_action('admin_init','$callback')" "$provider" || { echo 'FAIL: dashboard core-update callback remains active' >&2; exit 1; }
+done
+[[ "$(grep -Fc "remove_action('admin_init'" "$provider")" == 3 ]] || { echo 'FAIL: dashboard suppression is broader than required' >&2; exit 1; }
+grep -Fq "nmkr_synthetic_activation()!==false" "$provider" || { echo 'FAIL: dashboard suppression can activate with the provider' >&2; exit 1; }
 grep -Fq "spawn(env.NMKR_SYNTHETIC_WP_CLI" "$driver" && grep -Fq "stdio: ['ignore', workerLog, workerLog], env" "$driver" || { echo 'FAIL: worker activation environment changed' >&2; exit 1; }
 grep -Fq "spawn(env.NMKR_SYNTHETIC_WP_CLI, [\`--path=\${env.NMKR_SYNTHETIC_WP_ROOT}\`, 'cron', 'event', 'run', 'nmkr_execute_sync_background', '--due-now']" "$driver" || { echo 'FAIL: worker path argument is not joined' >&2; exit 1; }
 ! grep -Fq "spawn(env.NMKR_SYNTHETIC_WP_CLI, ['--path', env.NMKR_SYNTHETIC_WP_ROOT, 'cron'" "$driver" || { echo 'FAIL: split worker path arguments accepted' >&2; exit 1; }
