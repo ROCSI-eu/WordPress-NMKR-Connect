@@ -80,8 +80,8 @@ Actual secret values, logs, private URLs, recipient identities, and populated ac
 Complete outside the repository:
 
 1. [ ] Confirm the intended controlled non-production environment and specifically authorized Catalyst assessor.
-2. [ ] Record the exact source SHA selected for the assessment and the exact deployed SHA.
-3. [ ] Establish exact SHA equality or document the method and successful result for exact Git-tree equivalence.
+2. [ ] Record the exact public source baseline declared for the assessment and later EVD-013 record, the exact source SHA selected for the assessment, and the exact deployed SHA.
+3. [ ] Verify that the selected source SHA equals the declared public source baseline, or document the method and successful result for exact Git-tree equivalence to that baseline. Establish exact SHA equality or document the method and successful result for exact Git-tree equivalence.
 4. [ ] Confirm the deployed checkout has a clean tracked worktree and that its deployed tracked files match the selected source tree.
 5. [ ] Stop before account delivery or login verification for any mismatch, dirty tracked state, ambiguous identity, or unexplained local modification.
 6. [ ] Confirm WordPress and the plugin are healthy and no customer data, production credentials, or production access is present.
@@ -107,7 +107,10 @@ Keep this manifest private and populate it outside the repository:
 - requirement ID: [REQUIREMENT ID]
 - planned evidence ID: [PLANNED EVIDENCE ID]
 - generic environment class: [GENERIC ENVIRONMENT CLASS]
+- declared public source baseline: [DECLARED PUBLIC SOURCE BASELINE]
 - selected source SHA: [SELECTED SOURCE SHA]
+- declared-baseline comparison method: [DECLARED BASELINE COMPARISON METHOD]
+- declared-baseline comparison result: [DECLARED BASELINE COMPARISON RESULT]
 - deployed SHA: [DEPLOYED SHA]
 - SHA equality or tree-equivalence method: [IDENTITY COMPARISON METHOD]
 - SHA equality or tree-equivalence result: [IDENTITY COMPARISON RESULT]
@@ -136,6 +139,7 @@ Stop the process if:
 
 - the target environment is production;
 - the selected source SHA or deployed SHA is uncertain;
+- the selected source SHA does not equal the declared public source baseline without proven exact Git-tree equivalence;
 - the SHAs differ without proven exact tree equivalence;
 - the deployed tracked worktree is dirty;
 - deployed tracked files do not match the selected source tree;
@@ -157,6 +161,7 @@ M3-21 may become **Validated** only after all of the following are true:
 
 - the account exists;
 - the selected source SHA and deployed SHA were retained privately;
+- the selected source SHA matched the declared public source baseline, or documented exact Git-tree equivalence passed, and the comparison was retained privately;
 - exact SHA equality or documented exact tree equivalence passed;
 - deployed tracked-worktree cleanliness and deployed-file identity checks passed and were retained privately;
 - private delivery occurred;
