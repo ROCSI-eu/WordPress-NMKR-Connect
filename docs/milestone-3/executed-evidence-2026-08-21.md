@@ -136,6 +136,9 @@ The final dataset remained 10 projects, 100 tokens, and 100 details. The runtime
 
 The pre-campaign classification snapshot differed from the execution-time classification and is not authoritative for chain attribution. The execution-time project and token profiles were stable throughout Cycles 1–9, and the final sealed manifest's 360 Cardano-only, 360 Solana-only, and 180 dual-chain operation totals match the cycle evidence. This classification-snapshot anomaly did not affect the stable execution-time profile, cycle success, request totals, database integrity, or final state. No cause is asserted.
 
+
+> **Later evidence (2026-08-26):** The statements below preserve EVD-008's earlier-state assessment. The separately authorized larger campaign subsequently ran and is registered as [EVD-011](executed-evidence-2026-08-26.md), which provides the scoped acceptance-closing result for M3-05 and M3-11 within the bounded plugin-level high-volume and heavy sequential mixed-chain profiles.
+
 ### Requirement assessment
 
 - **M3-05 remains Implemented, validation pending.** EVD-008 is supporting/partial evidence: it supplies measured aggregate repeated volume, explicit ceilings and cooldown, successful outcomes, performance ranges, integrity checks, and a clean final state, but it retained the guarded light profile and did not establish materially higher processing pressure.
