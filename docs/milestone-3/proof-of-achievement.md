@@ -1,6 +1,6 @@
 # Milestone 3 proof of achievement
 
-This is the public, documentation-only synthesis of [EVD-001 through EVD-003](executed-evidence-2026-08-17.md), [EVD-004](executed-evidence-2026-08-18.md), [EVD-005](executed-evidence-2026-08-20.md), [EVD-007 and EVD-008](executed-evidence-2026-08-21.md), [EVD-009 and EVD-010](executed-evidence-2026-08-22.md), and [EVD-011](executed-evidence-2026-08-26.md), current implementation controls, public regressions and CI foundations, and the existing user, developer, troubleshooting, Playwright, and numbered testing guides. The exact source baseline assessed was `2b97486a023366669d7744993ad15e86f47070ca`; EVD-007 and EVD-008 are later, separately registered executions against their own exact commit; EVD-009 is a still-later, separately registered exact-head pre-merge and post-merge validation; EVD-010 separately records targeted exact-clean-source and deployed-commit validation at that merged commit. The documentation baseline was not deployed or executed for EVD-007 or EVD-008.
+This is the public, documentation-only synthesis of [EVD-001 through EVD-003](executed-evidence-2026-08-17.md), [EVD-004](executed-evidence-2026-08-18.md), [EVD-005](executed-evidence-2026-08-20.md), [EVD-007 and EVD-008](executed-evidence-2026-08-21.md), [EVD-009 and EVD-010](executed-evidence-2026-08-22.md), [EVD-011](executed-evidence-2026-08-26.md), and [EVD-012](executed-evidence-2026-08-27.md), current implementation controls, public regressions and CI foundations, and the existing user, developer, troubleshooting, Playwright, and numbered testing guides. The exact source baseline assessed was `2b97486a023366669d7744993ad15e86f47070ca`; EVD-007 through EVD-011 are later, separately registered executions against the identities stated in their reports. EVD-012 is later external availability evidence for which source and deployed plugin commits are not applicable because no single plugin deployment is claimed across the monitored period.
 
 This assessment produced no new runtime observation, synchronization, benchmark, browser execution, private validation, security attack, participant study, or reviewer account. It links the detailed records instead of reproducing their reports, measurements, guides, or implementation descriptions. “Validated” below means that reviewer evidence supports the stated, bounded requirement; it is not a formal certification or a claim beyond the disclosed scope.
 
@@ -42,6 +42,12 @@ The execution was sequential, not concurrent; synthetic, not production; and lim
 - [EVD-005](executed-evidence-2026-08-20.md) records a representative single-NFT display with 10/10 measurements below two seconds and a maximum of 1534.47 ms; the report retains the broader five-page boundary and original conservative composite result.
 
 Each result remains limited by the method and conditions in its source report.
+
+### Public staging-service availability
+
+[EVD-012](executed-evidence-2026-08-27.md) records `99.911956873%` independently calculated uptime from `2026-08-11T05:16:22Z` through `2026-08-27T08:42:33Z` (`1,394,771` seconds), with `1,228` seconds of downtime across four recovered connection-timeout observations. The result is strictly above the `99.9%` contractual threshold, so M3-08 is **Validated only for this disclosed 16.14-day public staging-service observation window and external `HEAD` monitoring profile**.
+
+The measurement covers the externally observable HTTPS service through a CDN/proxy, not an isolated component. It is environment availability evidence rather than plugin-code or synchronization evidence, and it makes no plugin-correctness, origin-VM, CDN, production, global, lifetime, future-period, SLA, infrastructure-capacity, or universal availability claim. A separate cloud-platform check used a different target and profile and was excluded from the acceptance calculation.
 
 ## 2. Security Implementation Evidence
 
@@ -103,7 +109,7 @@ The environment URL, username, password, authentication state, activation detail
 | M3-05 | Validated | EVD-011 validates only the bounded plugin-level high-volume sequential synthetic profile; no concurrent, production/upstream, saturation, maximum-capacity, unlimited-scale, or external infrastructure claim is made. |
 | M3-06 | Validated | EVD-004 applies only under its defined normal conditions. |
 | M3-07 | Validated | EVD-005 applies to the representative single-NFT display under its defined conditions. |
-| M3-08 | Planned | The actual monitoring window has not been assessed or registered. |
+| M3-08 | Validated | EVD-012 passes strictly above `99.9%` only for its disclosed 16.14-day public staging-service window and external monitor profile; no plugin-code, origin-host, CDN, production, global, lifetime, SLA, infrastructure-capacity, or universal availability claim is made. |
 | M3-09 | Validated | EVD-001 is primary evidence; EVD-011 supports it with 8 Cardano-only and 8 dual-chain projects and 800 Cardano-only and 800 dual-chain tokens. |
 | M3-10 | Validated | EVD-001 is primary evidence; EVD-011 supports it with 8 Solana-only and 8 dual-chain projects and 800 Solana-only and 800 dual-chain tokens. |
 | M3-11 | Validated | EVD-011 validates only the bounded sequential heavy mixed-chain request profile directly exercising both chains; no concurrent stress, production/upstream, breaking-point, maximum-capacity, or universal claim is made. |
@@ -114,13 +120,12 @@ The environment URL, username, password, authentication state, activation detail
 | M3-16 | Validated | The user documentation is indexed and exact-source reviewed by EVD-006. |
 | M3-17 | Validated | The developer documentation is indexed and exact-source reviewed by EVD-006. |
 | M3-18 | Validated | The troubleshooting documentation, EVD-003, and EVD-006 provide scoped evidence. |
-| M3-19 | Validated | This index and EVD-001 through EVD-011 provide consolidated reviewer-visible reports. |
+| M3-19 | Validated | This index and EVD-001 through EVD-012 provide consolidated reviewer-visible reports. |
 | M3-20 | Validated | EVD-006, EVD-009, and EVD-010 provide bounded security implementation evidence with findings and limitations, not certification. |
 | M3-21 | Planned | Generic access controls are documented; actual private provisioning remains outstanding. |
 
 ## Open actions
 
-- **M3-08:** assess and register the actual monitoring start/end, probe, interval/location class, incidents, missing-data handling, calculation, and whether uptime was strictly above 99.9%; no percentage is asserted here.
 - **M3-21:** create, deliver, support, expire, and revoke reviewer access privately and out of band.
 
-Milestone 3 as a whole remains incomplete while the remaining operational actions for M3-08 and M3-21 remain open.
+Only M3-21 remains open. Milestone 3 as a whole remains incomplete until its private reviewer-access provisioning is completed.
