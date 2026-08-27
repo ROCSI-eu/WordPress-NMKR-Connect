@@ -28,11 +28,11 @@ This is specifically a **maintainer/operator workflow usability assessment**. It
 
 [EVD-001](executed-evidence-2026-08-17.md#evd-001--controlled-mixed-chain-synchronization-and-final-state) is the bounded light-profile foundation, and [EVD-008](executed-evidence-2026-08-21.md#evd-008--bounded-repeated-sequential-mixed-chain-traffic) remains historically accurate supporting evidence. [EVD-011](executed-evidence-2026-08-26.md) records one cold and one warm `private-2400-v1` campaign. Each sequential campaign processed 24 projects, 2,400 unique tokens, and 2,400 details through 2,497 isolated synthetic requests. Cold state moved from 0/0/0 to 24/2,400/2,400; warm state remained unchanged with no duplicate business rows. History and metrics advanced once per run, provider counters matched the model, and terminalization, diagnostics, and cleanup passed.
 
-Across both campaigns, 4,994 requests and 4,800 token-processing operations were executed over the same 2,400 unique tokens. EVD-011 is substantial supporting/partial evidence for M3-05: it establishes bounded higher-volume sequential functional processing, but not high-traffic acceptance because it did not define or measure offered load, request rate, throughput, latency distribution, or resource behaviour.
+Across both campaigns, 4,994 requests and 4,800 token-processing operations were executed over the same 2,400 unique tokens. EVD-011 validates M3-05 only within this bounded plugin-level high-volume sequential synthetic profile, covering reliable plugin-controlled pagination, project/token/detail processing, persistence, deduplication, progress, metrics, history, terminalization, and cleanup. The outcome-based requirement does not prescribe concurrency, requests per second, saturation or breaking-point testing, CPU/memory thresholds, throughput targets, latency percentiles, or a particular load-testing tool; exact numeric API-response, NFT-page-load, and uptime targets are stated separately in M3-06, M3-07, and M3-08.
 
 ### Cardano, Solana, and mixed-chain behavior
 
-EVD-011 directly exercised and preserved 8 Cardano-only, 8 Solana-only, and 8 dual-chain projects, with 800 Cardano-only, 800 Solana-only, and 800 dual-chain unique tokens in both cold and warm runs. It supports the existing M3-09 and M3-10 conclusions and is substantial supporting/partial evidence for M3-11, but it did not execute a defined stress profile, seek saturation, or establish a breaking point.
+EVD-011 directly exercised and preserved 8 Cardano-only, 8 Solana-only, and 8 dual-chain projects, with 800 Cardano-only, 800 Solana-only, and 800 dual-chain unique tokens in both cold and warm runs. It supports the existing M3-09 and M3-10 conclusions and validates M3-11 only within this bounded sequential heavy mixed-chain request profile.
 
 The execution was sequential, not concurrent; synthetic, not production; and limited to one controlled environment. It establishes no saturation or breaking point, maximum capacity, live NMKR/upstream capacity, external infrastructure certification, unlimited scale, universal guarantee, or future-release behavior. Broader testing is deferred strengthening, not a claim or blocker for these bounded conclusions.
 
@@ -100,13 +100,13 @@ The environment URL, username, password, authentication state, activation detail
 | M3-02 | Validated | EVD-002 and EVD-006 support representative, non-exhaustive functionality coverage. |
 | M3-03 | Validated | EVD-001, EVD-004, and EVD-005 retain the scoped performance results. |
 | M3-04 | Validated | EVD-006 records the maintainer/operator workflow assessment; no participant study is claimed. |
-| M3-05 | Implemented, validation pending | EVD-011 is substantial supporting/partial higher-volume functional evidence, but it does not establish high-traffic acceptance without a defined measured load profile. |
+| M3-05 | Validated | EVD-011 validates only the bounded plugin-level high-volume sequential synthetic profile; no concurrent, production/upstream, saturation, maximum-capacity, unlimited-scale, or external infrastructure claim is made. |
 | M3-06 | Validated | EVD-004 applies only under its defined normal conditions. |
 | M3-07 | Validated | EVD-005 applies to the representative single-NFT display under its defined conditions. |
 | M3-08 | Planned | The actual monitoring window has not been assessed or registered. |
 | M3-09 | Validated | EVD-001 is primary evidence; EVD-011 supports it with 8 Cardano-only and 8 dual-chain projects and 800 Cardano-only and 800 dual-chain tokens. |
 | M3-10 | Validated | EVD-001 is primary evidence; EVD-011 supports it with 8 Solana-only and 8 dual-chain projects and 800 Solana-only and 800 dual-chain tokens. |
-| M3-11 | Implemented, validation pending | EVD-011 is substantial supporting/partial sequential mixed-chain evidence, but it does not establish stress acceptance without an executed defined stress profile. |
+| M3-11 | Validated | EVD-011 validates only the bounded sequential heavy mixed-chain request profile directly exercising both chains; no concurrent stress, production/upstream, breaking-point, maximum-capacity, or universal claim is made. |
 | M3-12 | Validated | EVD-006 records a scoped implementation/control assessment; no universal vulnerability guarantee is made. |
 | M3-13 | Validated | EVD-003 remains supporting failure/recovery evidence; EVD-006 identified the earlier residual, and EVD-009 records its later implemented and executed closure within the disclosed scope. |
 | M3-14 | Validated | EVD-010 records the retained exact-clean-source/deployment live restricted-role and privileged-AJAX result, limited to its disclosed tested actions, accounts, nonce/CSRF, malformed-Stop, bounded authorized-read, and protected-plugin-state boundary. |
@@ -120,9 +120,7 @@ The environment URL, username, password, authentication state, activation detail
 
 ## Open actions
 
-- **M3-05:** execute and retain a bounded safe measured high-traffic load profile with the acceptance measurements and safety boundaries summarized below.
 - **M3-08:** assess and register the actual monitoring start/end, probe, interval/location class, incidents, missing-data handling, calculation, and whether uptime was strictly above 99.9%; no percentage is asserted here.
-- **M3-11:** execute and retain a bounded safe measured stress profile with direct Cardano/Solana/dual-chain attribution and the acceptance measurements and safety boundaries summarized below.
 - **M3-21:** create, deliver, support, expire, and revoke reviewer access privately and out of band.
 
-Milestone 3 as a whole remains incomplete. The open actions are M3-05 and M3-11 (**Implemented, validation pending**) and M3-08 and M3-21 (**Planned**). M3-05/M3-11 acceptance requires an executed, bounded, safe load/stress profile with a defined offered-load/request-rate model and duration, throughput and latency/error measurements, appropriate plugin/runtime resource observations, explicit ceilings and stop conditions, recovery and final-state checks, and direct Cardano/Solana/dual-chain attribution for M3-11. Concurrency is not the only acceptable method, and the profile must create no production or uncontrolled live NMKR load.
+Milestone 3 as a whole remains incomplete while the remaining operational actions for M3-08 and M3-21 remain open.

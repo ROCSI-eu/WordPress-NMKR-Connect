@@ -137,7 +137,7 @@ The final dataset remained 10 projects, 100 tokens, and 100 details. The runtime
 The pre-campaign classification snapshot differed from the execution-time classification and is not authoritative for chain attribution. The execution-time project and token profiles were stable throughout Cycles 1–9, and the final sealed manifest's 360 Cardano-only, 360 Solana-only, and 180 dual-chain operation totals match the cycle evidence. This classification-snapshot anomaly did not affect the stable execution-time profile, cycle success, request totals, database integrity, or final state. No cause is asserted.
 
 
-> **Later evidence (2026-08-26):** The statements below preserve EVD-008's earlier-state assessment. The separately authorized larger sequential campaign later ran and is registered as [EVD-011](executed-evidence-2026-08-26.md), providing further supporting/partial evidence without closing M3-05 or M3-11.
+> **Later evidence (2026-08-26):** The statements below preserve EVD-008's earlier-state assessment. The separately authorized larger campaign subsequently ran and is registered as [EVD-011](executed-evidence-2026-08-26.md), which provides the scoped acceptance-closing result for M3-05 and M3-11 within the bounded plugin-level high-volume and heavy sequential mixed-chain profiles.
 
 ### Requirement assessment
 
@@ -147,7 +147,7 @@ The pre-campaign classification snapshot differed from the execution-time classi
 
 The validated EVD-008 execution boundary is the disclosed nine-cycle sequential repeated-traffic profile; it does not by itself validate the high-traffic or stress criteria in M3-05 or M3-11. It is not concurrent load, production traffic, a maximum-capacity, saturation, breaking-point, or unlimited-scale test, and it is not formal certification.
 
-The next required action identified at the EVD-008 date was a bounded plugin-level higher-pressure test using synthetic mixed-chain API data, without overloading the live NMKR API. EVD-011 later supplied a larger sequential functional-volume campaign, but current acceptance still requires a defined, measured load/stress profile rather than dataset volume alone. It must not treat production, upstream, unlimited-scale, or external infrastructure capacity as a plugin deliverable.
+The next required action for M3-05 and M3-11 is a bounded plugin-level higher-pressure test using synthetic mixed-chain API data, without overloading the live NMKR API. The defined larger workload should evaluate plugin-controlled pagination, processing, database writes, deduplication, memory, metrics, terminalization, and cleanup. It must not treat production, upstream, unlimited-scale, or external infrastructure capacity as a plugin deliverable.
 
 ### Evidence retention and limitations
 
