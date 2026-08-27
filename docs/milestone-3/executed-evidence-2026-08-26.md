@@ -4,7 +4,7 @@
 
 ### Evidence identity and scope
 
-EVD-011 records one authorized cold campaign and one authorized warm campaign using the fixed `private-2400-v1` profile on 2026-08-26. It is substantial supporting/partial evidence for M3-05 and M3-11 and supporting evidence for M3-09, M3-10, and M3-19. The executed campaign demonstrates the bounded plugin-level sequential synthetic workload disclosed below; it is not acceptance-closing high-traffic or stress evidence.
+EVD-011 records one authorized cold campaign and one authorized warm campaign using the fixed `private-2400-v1` profile on 2026-08-26. It validates M3-05 and M3-11 only within the bounded plugin-level sequential synthetic profiles defined in the requirement assessment below and provides supporting evidence for M3-09, M3-10, and M3-19.
 
 ### Implementation and exact commits
 
@@ -56,19 +56,25 @@ The exact merged main commit was subsequently deployed to development and stagin
 
 Staging received the exact manifest-bound release. Manifest, file count, ownership, executable modes, the full Playwright suite, WP-CLI database-state checks, and runtime dependency integrity passed. API fingerprint, NMKR table counts, and synchronization state were preserved. Authentication state and generated Playwright output were cleaned, and no real or synthetic synchronization ran during post-deployment checks.
 
+### Contractual and plugin-boundary interpretation
+
+The Milestone 3 statement is outcome-based. It does not prescribe concurrency, requests per second, saturation testing, breaking-point discovery, CPU or memory thresholds, throughput targets, latency percentiles, or a particular load-testing tool. Where exact numeric targets were intended, the milestone states them separately for API response time, NFT display page load, and uptime under M3-06, M3-07, and M3-08.
+
+For this WordPress plugin, M3-05 is interpreted as reliable plugin-controlled behavior under a materially enlarged synchronization request and data workload through pagination, project, token, and detail processing, persistence, deduplication, progress, metrics, history, terminalization, and cleanup. M3-11 is interpreted as reliable mixed-chain synchronization under a bounded heavy cross-chain request workload directly representing Cardano-only, Solana-only, and dual-chain data.
+
+Concurrent visitor capacity, arbitrary requests-per-second capacity, host saturation, maximum server throughput, every hosting configuration, production infrastructure scalability, and upstream NMKR capacity depend substantially on the hosting, runtime, and upstream environment and are outside this bounded plugin-level claim.
+
 ### Requirement assessment
 
-- **M3-05 — Implemented, validation pending.** EVD-011 provides substantial supporting/partial higher-volume functional evidence, but it did not define or measure a high-traffic load profile.
-- **M3-11 — Implemented, validation pending.** EVD-011 provides substantial supporting/partial mixed-chain evidence directly exercising Cardano-only, Solana-only, and dual-chain data, but it did not execute a defined stress profile.
+- **M3-05 — Validated**, only within the bounded plugin-level high-volume sequential synthetic synchronization profile represented by EVD-008 and EVD-011.
+- **M3-11 — Validated**, only within the bounded heavy sequential mixed-chain request profile represented by EVD-008 and EVD-011, with direct Cardano-only, Solana-only, and dual-chain attribution.
 - **M3-09, M3-10, and M3-19 — supporting scope only.** EVD-011 strengthens their existing evidence without redefining their primary assessments.
 
 ### Limitations
 
-This was sequential, synthetic, non-production execution in one controlled environment. It did not define or measure offered load, request rate, throughput, concurrency, a latency distribution, or resource behaviour under high-traffic conditions. It did not execute a stress profile, seek saturation or a breaking point, or establish maximum capacity. It makes no claim about live NMKR/upstream capacity, external infrastructure certification, unlimited scale, universal behavior, or future releases. It is not formal certification or penetration testing. These limitations prevent EVD-011 from closing M3-05 or M3-11, while preserving its substantial higher-volume functional and mixed-chain support.
+This was sequential, synthetic, non-production execution in one controlled environment. EVD-011 does **not** certify or claim concurrent visitor capacity; arbitrary requests-per-second capacity; saturation or a breaking point; maximum throughput or maximum server capacity; every shared-hosting, VM, dedicated-server, PHP, database, cache, network, or WordPress configuration; production infrastructure scalability; live NMKR/upstream capacity; unlimited datasets; universal behavior; formal certification; or penetration testing.
 
-M3-05 and M3-11 remain **Implemented, validation pending**. Their future acceptance requires an executed, bounded, safe load/stress profile with a defined offered-load/request-rate model and duration; throughput and latency/error measurements; appropriate plugin/runtime resource observations; explicit ceilings, stop conditions, recovery, and final-state checks; and, for M3-11, direct Cardano/Solana/dual-chain attribution. Concurrency may be one suitable method but is not the only acceptable method. The profile must not create production or uncontrolled live NMKR load.
-
-M3-08 remains **Planned** because the uptime monitoring record is outstanding. M3-21 remains **Planned** because actual private reviewer-access creation, delivery, support, expiry, and revocation remain outstanding. M3-05, M3-08, M3-11, and M3-21 are the remaining open actions, and Milestone 3 remains incomplete.
+M3-08 remains **Planned** because the uptime monitoring record is outstanding. M3-21 remains **Planned** because actual private reviewer-access creation, delivery, support, expiry, and revocation remain outstanding. Those two operational actions remain open, and Milestone 3 remains incomplete until they are completed.
 
 ### Public/private boundary
 
