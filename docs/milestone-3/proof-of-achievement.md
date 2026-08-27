@@ -94,9 +94,9 @@ These links are the evidence index; the underlying instructions are not copied h
 
 ## 4. Testing Environment Access
 
-Reviewer access, when provisioned, will use a controlled non-production environment with synthetic or non-customer data and a least-privilege, time-limited account. The public scope permits read-oriented review of the supplied plugin pages, displays, status, and evidence-relevant controls. It prohibits destructive actions, data deletion, uncontrolled mutation, load/stress activity, credential sharing, and real synchronization unless that action receives separate explicit authorization. The reviewer will receive a support/contact route, a limited activation window, and an expiry/revocation model.
+The [testing-environment access guide](testing-environment-access.md) implements the public procedure and a placeholder-only private-delivery template for controlled, time-limited, non-production assessment access. It defines the environment, account, permitted/prohibited scope, support, expiry, revocation, stop, and completion boundaries.
 
-The environment URL, username, password, authentication state, activation details, and infrastructure identifiers remain private and are delivered out of band. M3-21 remains **Planned** until the actual account and private access are provisioned; this document is not access provision.
+No account, populated private document, delivery event, login result, activation, expiry, or revocation result is asserted by this preparation PR. Those private steps and their later sanitized evidence registration remain the open operational action. M3-21 is **Implemented, validation pending**; documentation readiness is not access provision, and Milestone 3 remains incomplete.
 
 ## Requirement disposition
 
@@ -122,10 +122,10 @@ The environment URL, username, password, authentication state, activation detail
 | M3-18 | Validated | The troubleshooting documentation, EVD-003, and EVD-006 provide scoped evidence. |
 | M3-19 | Validated | This index and EVD-001 through EVD-012 provide consolidated reviewer-visible reports. |
 | M3-20 | Validated | EVD-006, EVD-009, and EVD-010 provide bounded security implementation evidence with findings and limitations, not certification. |
-| M3-21 | Planned | Generic access controls are documented; actual private provisioning remains outstanding. |
+| M3-21 | Implemented, validation pending | The public procedure and private template are ready; actual private provisioning, verification, delivery, support, expiry/revocation, and sanitized evidence registration remain outstanding. |
 
 ## Open actions
 
-- **M3-21:** create, deliver, support, expire, and revoke reviewer access privately and out of band.
+- **M3-21:** privately create, verify, deliver, support, expire, and revoke reviewer access, then add a sanitized executed record to the evidence register.
 
-Only M3-21 remains open. Milestone 3 as a whole remains incomplete until its private reviewer-access provisioning is completed.
+Only M3-21 remains open. Milestone 3 as a whole remains incomplete until private reviewer-access execution is completed and registered.

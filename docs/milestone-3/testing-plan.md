@@ -69,7 +69,9 @@ Source/control assessment cannot substitute for live execution when a claim spec
 
 ## Reviewer environment
 
-Provide reviewers a limited, temporary, controlled environment only when ready. Use synthetic/non-customer data, least-privilege accounts, bounded actions, an out-of-band credential channel, and a clear scope/support/revocation plan. Keep its private URL and credentials out of commits and PR discussion. Prevent destructive actions or isolate them in a disposable copy; monitor and revoke access after the defined period.
+Follow the [testing-environment access guide](testing-environment-access.md). Its public preparation defines the safe procedure, boundaries, placeholder-only delivery template, checklist, and manifest fields; it does not prove access exists. Private provisioning creates the dedicated temporary account in the authorized non-production environment. Private verification confirms login, intended access, and applicable capability restrictions. Private delivery supplies the restricted document only to the authenticated recipient through the intended out-of-band channel. During the defined window, provide the recorded private support route; at its end, expire or revoke access and verify the final state. Later, register only a sanitized executed result after the evidence has been retained.
+
+Credentials, endpoints, recipient and account identities, populated template values, restricted-document locations, authentication state, private evidence, and infrastructure details are excluded from Git history and public discussion. M3-21 remains **Implemented, validation pending** until the private sequence is completed and registered.
 
 ## Stop conditions
 
