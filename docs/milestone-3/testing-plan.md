@@ -69,9 +69,9 @@ Source/control assessment cannot substitute for live execution when a claim spec
 
 ## Reviewer environment
 
-Follow the [testing-environment access guide](testing-environment-access.md). Its public preparation defines the safe procedure, boundaries, placeholder-only delivery template, checklist, and manifest fields; it does not prove access exists. Private provisioning creates the dedicated temporary account in the authorized non-production environment. Private verification confirms login, intended access, and applicable capability restrictions. Private delivery supplies the restricted document only to the authenticated recipient through the intended out-of-band channel. During the defined window, provide the recorded private support route; at its end, expire or revoke access and verify the final state. Later, register only a sanitized executed result after the evidence has been retained.
+Follow the [testing-environment access guide](testing-environment-access.md). Its public preparation defines revalidation or conditional creation/reset of dedicated accounts, three generic capability profiles, deployment and active-plugin identity, controlled one-at-a-time dashboard synchronization, and the placeholder-only package. The private preflight passed, but delivery remains pending. Configure the unlisted Google Drive package as **Anyone with the link — Viewer** and supply it only through the intended Catalyst milestone-submission channel. During the authorized window, provide private support; at its end, revoke access or record the still-active window, then register only a sanitized result after retaining the private evidence.
 
-Credentials, endpoints, recipient and account identities, populated template values, restricted-document locations, authentication state, private evidence, and infrastructure details are excluded from Git history and public discussion. M3-21 remains **Implemented, validation pending** until the private sequence is completed and registered.
+Credentials, endpoints, account identities, populated template values, Drive links, support addresses, authentication state, logs, private evidence, and infrastructure details are excluded from Git history and public discussion. M3-21 remains **Implemented, validation pending** until actual Catalyst submission and EVD-013 registration are completed.
 
 ## Stop conditions
 

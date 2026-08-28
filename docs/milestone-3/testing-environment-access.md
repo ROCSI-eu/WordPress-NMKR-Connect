@@ -2,103 +2,99 @@
 
 ## Purpose and evidence status
 
-This public-safe guide prepares controlled non-production WordPress access for an authorized Catalyst assessment recipient. Documentation readiness is not proof that access was provisioned. M3-21 remains **Implemented, validation pending** until the private execution is completed and a sanitized result is registered. That later executed result is expected to use EVD-013; this preparation does not create or claim EVD-013.
+This public-safe guide prepares controlled non-production WordPress access for anonymous Catalyst assessment. Documentation readiness and the completed private staging preflight are not proof that the access package was submitted. M3-21 remains **Implemented, validation pending** until actual Catalyst submission and later sanitized evidence registration. EVD-013 has not been created.
 
 ## Environment boundary
 
 The owner must use:
 
 - a controlled non-production WordPress environment containing only synthetic or non-customer data;
-- access limited to the specifically authorized Catalyst assessor;
 - no customer data, production credentials, production environment access, or private infrastructure-administration access;
-- the exact source SHA selected for assessment and the exact deployed SHA, recorded privately;
-- a healthy WordPress and plugin state before activation;
-- an idle synchronization state unless an explicitly authorized activity requires otherwise; and
-- no live NMKR synchronization unless it is separately and explicitly authorized.
+- the exact public source baseline declared for assessment, selected source SHA, and deployed SHA, recorded privately;
+- a healthy WordPress and plugin state;
+- a verified binding from the active WordPress plugin file to the expected plugin file inside the verified deployed location;
+- an idle synchronization state before access or any permitted synchronization exercise; and
+- a staging-only, replaceable API credential.
 
-## Account boundary
+## Account and capability boundary
 
-Use a dedicated temporary account and unique temporary password with least privilege sufficient for the disclosed assessment scope. Select the narrowest practical role privately after checking the plugin capability requirements; this guide does not prescribe a WordPress role. If a broad role is operationally necessary, retain an explicit private rationale. Never reuse personal administrator credentials, share credentials, or permit account sharing. Define activation and expiry times and revoke the account after the access window.
+Use a dedicated staging account with current credentials and the narrowest suitable capability profile. An existing dedicated account may be reused only after its current credentials, assigned capability profile, login, and intended plugin-page access have been revalidated. Create an account or reset its password only when no suitable existing account is available, its credentials fail, or its assigned capability profile is unsuitable.
+
+Select one of these generic profiles without publishing account identifiers or populated capability details:
+
+1. **Full staging administration** — complete administration of the staging WordPress site.
+2. **Full NMKR Connect plugin administration** — complete administration of NMKR Connect without general full-site administration.
+3. **Restricted marketing access** — access limited to a selected subset of NMKR Connect features.
+
+Never reuse personal administrator credentials, share credentials, or permit account sharing. Record the authorized assessment window privately and revoke access when that window ends.
 
 ## Permitted scope
 
-Read-oriented access may cover applicable:
+Within ordinary WordPress/plugin dashboard controls and the assigned capability profile, the assessor may:
 
-- plugin administration pages;
-- dashboard and status information;
-- projects and NFT displays;
-- configuration and retained staging logs where their intended WordPress/plugin pages are necessary to the assessment scope;
-- documentation and evidence-relevant controls; and
-- ordinary navigation and non-destructive inspection.
+- navigate and inspect applicable plugin pages, status, projects, NFT displays, configuration, documentation, and evidence-relevant controls;
+- view staging-only configuration or retained staging logs when exposed by an intended page needed for the assessment;
+- start one controlled synchronization, observe its progress and completion, and use the ordinary **Stop** control; and
+- observe ordinary abort behavior when a dashboard-controlled synchronization is stopped or aborts.
+
+Only one synchronization may run at a time. The preconfigured staging-only API credential is solely for this bounded assessment activity.
 
 ## Prohibited scope
 
-Without separate explicit authorization, prohibit:
+Prohibit:
 
-- account or credential sharing;
-- deleting users, posts, media, projects, tokens, options, or database content;
-- installing, deleting, or editing plugins or themes;
-- editing WordPress or server files;
-- changing infrastructure, DNS, CDN, web-server, database, or hosting configuration;
-- starting real synchronization;
-- load, stress, fault, or destructive testing;
-- exposing production credentials, private URLs, database output, customer information, or any staging credential or log beyond the accepted boundary below;
-- copying, sharing, publishing, or reusing visible staging-only credentials or log content outside the assessment; and
-- attempting privilege escalation or access outside the supplied environment.
+- account or credential sharing, privilege escalation, or access outside the supplied environment;
+- concurrent, repetitive, load, stress, fault-injection, destructive, or infrastructure-level synchronization activity;
+- direct database, filesystem, WP-CLI, server, DNS, CDN, hosting, plugin, or theme manipulation;
+- deleting users, posts, media, projects, tokens, options, database content, or other state outside ordinary synchronization behavior;
+- access to production systems, credentials, or customer data; and
+- copying, reusing, publishing, or sharing any visible staging-only credential or log outside the assessment.
 
-## Authorized staging visibility boundary
+The owner accepts the residual non-production exposure risk that a replaceable staging credential or retained staging log may be visible through an intended page during the authorized window. Credential rotation/reset and staging-log cleanup are recommended final-state actions, not prerequisites for delivery. Actual secrets, logs, private URLs, account details, support addresses, infrastructure details, or populated access values must never be committed or pasted into pull requests, CI, issues, public Catalyst fields, or public documentation.
 
-The owner explicitly accepts, for the authorized assessment window, the residual non-production exposure risk that a staging-only, replaceable API credential or retained staging log may be visible to the specifically authorized Catalyst assessor through intended WordPress/plugin pages when that visibility is necessary for the assessment scope. This acceptance does not authorize access by anyone else and does not relax the prohibited scope.
+## Private Google Drive package template
 
-No customer data, production credential, or production environment access may be present. Any visible staging-only credential or log content must remain confined to the assessment: copying, sharing, publishing, or reusing it outside the assessment is prohibited. Rotation or reset of staging credentials and cleanup of retained staging logs are recommended final-state actions after the access window; they are not prerequisites for initial delivery under this accepted boundary.
+> **PRIVATE TEMPLATE — populate only in an unlisted Google Drive folder outside this repository.** Configure the folder and its documents as **Anyone with the link — Viewer**. Supply the unlisted link only through the intended Catalyst milestone-submission channel. Never commit or publish the link or any populated private value. Anonymous link-based Viewer distribution is not individually authenticated recipient delivery.
 
-Actual secret values, logs, private URLs, recipient identities, and populated access details must never be committed or pasted into pull-request discussion, CI, issues, public Catalyst fields, or public documentation.
+The package may separate:
 
-## Private Google Doc template
+1. a public-safe evidence and navigation document; and
+2. a credential-bearing staging-access document containing the private values below.
 
-> **PRIVATE TEMPLATE — copy to a restricted Google Doc outside this repository and populate only there.** Populated credentials and the restricted document URL must never be pasted into GitHub, commits, pull requests, issues, CI, repository files, or public Catalyst fields. Configure access for specifically authorized recipients only, never public or link-wide access.
-
-- **Access purpose:** Controlled, read-oriented Catalyst assessment of the disclosed plugin scope.
+- **Access purpose:** Controlled Catalyst assessment of the disclosed plugin scope.
 - **Environment class:** [PRIVATE NON-PRODUCTION ENVIRONMENT CLASS]
-- **Authorized recipient:** [PRIVATE DELIVERY RECIPIENT]
 - **Login URL:** [PRIVATE ENVIRONMENT LOGIN URL]
-- **Temporary username:** [PRIVATE TEMPORARY USERNAME]
-- **Temporary password:** [PRIVATE TEMPORARY PASSWORD]
-- **Role or capability class:** [ACCOUNT ROLE OR CAPABILITY CLASS]
-- **Activation:** [ACCESS START UTC]
-- **Expiry:** [ACCESS END UTC]
-- **Login instructions:** Open the private login URL, enter the temporary credentials, confirm the disclosed environment, and use only the permitted scope.
-- **Permitted actions:** Read-oriented navigation and non-destructive inspection of the applicable plugin pages, displays, status, configuration presence, documentation, and evidence-relevant controls.
-- **Prohibited actions:** Credential sharing; destructive or mutating actions; real synchronization; load/fault testing; copying, sharing, publishing, or reusing visible staging-only credentials or logs outside the assessment; privilege escalation; or access outside the supplied environment.
-- **Support route:** [PRIVATE SUPPORT CONTACT]
-- **Issue reporting:** Send the time, affected page category, safe reproduction steps, and a sanitized symptom through the private support route. Do not send credentials, secret values, authentication state, or raw private output.
-- **Credential rule:** Do not share the account or credentials. Ask the support contact to authorize any recipient change.
-- **Logout guidance:** Log out after each session and close the browser session; do not retain the password in a shared browser or document.
+- **Account identifier:** [PRIVATE ACCOUNT IDENTIFIER]
+- **Current credential:** [PRIVATE ACCOUNT CREDENTIAL]
+- **Capability profile:** [GENERIC CAPABILITY PROFILE]
+- **Assessment window:** [ACCESS START UTC] to [ACCESS END UTC]
+- **Login instructions:** Use the private login location and supplied account only within the permitted scope.
+- **Permitted actions:** Ordinary navigation and inspection; one-at-a-time dashboard synchronization start, progress observation, completion, Stop, and abort observation.
+- **Prohibited actions:** Credential sharing; concurrent or repetitive synchronization; load, stress, fault-injection, destructive, direct-state, or infrastructure-level activity; reuse or publication of visible staging-only credentials or logs; privilege escalation; or access outside the supplied environment.
+- **Support route:** [PRIVATE SUPPORT ROUTE]
+- **Issue reporting:** Provide safe reproduction steps and a sanitized symptom through the private support route; do not include credentials, authentication state, or raw private output.
+- **Logout guidance:** Log out after each session and do not retain credentials in a shared browser or document.
 
 ## Private execution checklist
 
 Complete outside the repository:
 
-1. [ ] Confirm the intended controlled non-production environment and specifically authorized Catalyst assessor.
-2. [ ] Record the exact public source baseline declared for the assessment and later EVD-013 record, the exact source SHA selected for the assessment, and the exact deployed SHA.
-3. [ ] Verify that the selected source SHA equals the declared public source baseline, or document the method and successful result for exact Git-tree equivalence to that baseline. Establish exact SHA equality or document the method and successful result for exact Git-tree equivalence.
-4. [ ] Confirm the deployed checkout has a clean tracked worktree and that its deployed tracked files match the selected source tree.
-5. [ ] Stop before account delivery or login verification for any mismatch, dirty tracked state, ambiguous identity, or unexplained local modification.
-6. [ ] Confirm WordPress and the plugin are healthy and no customer data, production credentials, or production access is present.
-7. [ ] Create or reset the dedicated temporary account.
-8. [ ] Apply the narrowest practical capability profile.
-9. [ ] Set a unique temporary password.
-10. [ ] Verify successful login privately.
-11. [ ] Verify intended plugin pages are accessible.
-12. [ ] Verify prohibited capabilities are unavailable where applicable.
-13. [ ] Create the restricted private Google Doc.
-14. [ ] Deliver it only to the authorized recipient through the intended private channel.
-15. [ ] Record activation UTC and intended expiry UTC.
-16. [ ] Keep a private support and incident record during the access window.
-17. [ ] Revoke or delete the temporary account after the window.
-18. [ ] Confirm login no longer succeeds after revocation.
-19. [ ] Rotate or reset staging-only credentials and clean up retained staging logs as recommended final-state actions.
-20. [ ] Record final state and any residue or anomaly.
+1. [ ] Confirm the controlled non-production environment and the anonymous Catalyst link-delivery model.
+2. [ ] Record the exact declared public source baseline, selected source SHA, and deployed SHA.
+3. [ ] Verify that the selected source equals the declared baseline, or retain documented exact Git-tree equivalence; then verify selected-source/deployed SHA equality or exact tree equivalence.
+4. [ ] Confirm a clean deployed tracked worktree and that deployed tracked files match the selected source tree.
+5. [ ] Resolve the active WordPress plugin file and verify that it equals the expected plugin file inside the verified deployed location; retain the result privately.
+6. [ ] Confirm WordPress/plugin health, no production or customer data exposure, an idle synchronization state, and presence of the staging-only API configuration.
+7. [ ] Select one generic capability profile and identify a suitable existing dedicated staging account.
+8. [ ] Revalidate the account's current credentials, assigned profile, login, and intended plugin-page access. Create an account or reset credentials only if no suitable account exists, credentials fail, or the profile is unsuitable.
+9. [ ] Verify prohibited capabilities are unavailable where applicable and record the authorized window.
+10. [ ] Prepare the public-safe evidence/navigation document separately from the credential-bearing access document if useful.
+11. [ ] Configure the unlisted Drive folder and documents as **Anyone with the link — Viewer** and confirm no private value appears in the public-safe document.
+12. [ ] Submit the unlisted link only through the intended Catalyst milestone-submission channel.
+13. [ ] During the window, maintain the private support record and allow only the controlled dashboard synchronization behavior defined above.
+14. [ ] At the end of the window, revoke access and confirm login no longer succeeds, or explicitly record that the authorized window remains active.
+15. [ ] Perform recommended credential rotation/reset and staging-log cleanup, then record final state and any anomaly.
+16. [ ] Register a sanitized result only after actual submission and evidence retention; create EVD-013 only then.
 
 ## Private evidence manifest template
 
@@ -109,66 +105,57 @@ Keep this manifest private and populate it outside the repository:
 - generic environment class: [GENERIC ENVIRONMENT CLASS]
 - declared public source baseline: [DECLARED PUBLIC SOURCE BASELINE]
 - selected source SHA: [SELECTED SOURCE SHA]
-- declared-baseline comparison method: [DECLARED BASELINE COMPARISON METHOD]
-- declared-baseline comparison result: [DECLARED BASELINE COMPARISON RESULT]
+- declared-baseline comparison method and result: [DECLARED BASELINE COMPARISON]
 - deployed SHA: [DEPLOYED SHA]
-- SHA equality or tree-equivalence method: [IDENTITY COMPARISON METHOD]
-- SHA equality or tree-equivalence result: [IDENTITY COMPARISON RESULT]
+- selected/deployed equality or tree-equivalence method and result: [DEPLOYMENT IDENTITY COMPARISON]
 - deployed tracked-worktree cleanliness result: [TRACKED WORKTREE CLEANLINESS RESULT]
 - deployed-file identity result: [DEPLOYED FILE IDENTITY RESULT]
+- active WordPress plugin-file binding result: [ACTIVE PLUGIN BINDING RESULT]
+- account disposition, reused or created/reset: [ACCOUNT DISPOSITION]
 - account identifier kept private: [PRIVATE ACCOUNT IDENTIFIER]
-- role or capability class: [ACCOUNT ROLE OR CAPABILITY CLASS]
-- account-created UTC: [ACCOUNT CREATED UTC]
-- login-verified UTC: [LOGIN VERIFIED UTC]
-- delivery UTC: [DELIVERY UTC]
-- delivery-channel class: [DELIVERY CHANNEL CLASS]
-- access-start UTC: [ACCESS START UTC]
-- access-end UTC: [ACCESS END UTC]
+- generic capability profile: [GENERIC CAPABILITY PROFILE]
+- credential revalidation result: [CREDENTIAL REVALIDATION RESULT]
+- login and intended-page verification result: [ACCESS VERIFICATION RESULT]
+- Drive sharing class: [LINK VIEWER SHARING CLASS]
+- Catalyst submission UTC: [CATALYST SUBMISSION UTC]
+- access-start and access-end UTC: [AUTHORIZED WINDOW]
 - support availability: [SUPPORT AVAILABILITY]
-- expiry or revocation UTC: [EXPIRY OR REVOCATION UTC]
-- post-revocation verification result: [POST-REVOCATION VERIFICATION RESULT]
-- anomalies: [ANOMALIES OR NONE]
-- cleanup/final state: [CLEANUP AND FINAL STATE]
+- controlled synchronization observations, if exercised: [DASHBOARD SYNCHRONIZATION RESULT OR NOT EXERCISED]
+- expiry or revocation result: [EXPIRY OR REVOCATION RESULT]
+- anomalies and cleanup/final state: [ANOMALIES AND FINAL STATE]
 - hashes of retained private evidence files: [APPROVED SHA-256 IDENTIFIERS]
 
-The public repository may later publish only sanitized facts and approved SHA-256 identifiers—never private values, evidence locations, or restricted-document locations.
+The public repository may later publish only sanitized facts and approved SHA-256 identifiers—never credentials, private values, evidence locations, Drive links, account details, or private infrastructure information.
 
 ## Stop conditions
 
-Stop the process if:
+Stop before submission or assessment activity if:
 
-- the target environment is production;
-- the selected source SHA or deployed SHA is uncertain;
-- the selected source SHA does not equal the declared public source baseline without proven exact Git-tree equivalence;
-- the SHAs differ without proven exact tree equivalence;
-- the deployed tracked worktree is dirty;
-- deployed tracked files do not match the selected source tree;
-- identity is ambiguous or a local modification is unexplained;
-- sensitive or customer data may be exposed;
-- the intended recipient cannot be authenticated;
-- the account has broader access than intended without documented justification;
-- WordPress or the plugin is unhealthy;
-- synchronization or another mutation is unexpectedly active;
-- login verification fails;
-- revocation cannot be confirmed; or
-- any credential appears in public history.
+- the target is production or contains customer data or production credentials;
+- the baseline, selected source, deployed identity, clean tracked state, or deployed-file identity is uncertain or fails;
+- the active WordPress plugin file does not bind unambiguously to the expected file in the verified deployed location;
+- WordPress/plugin health fails, synchronization is unexpectedly active, or staging-only API configuration is absent;
+- no suitable dedicated account can be revalidated or safely created/reset with the assigned generic profile;
+- login or intended page access fails, or access is broader than authorized without an accepted private rationale;
+- the package is not unlisted Viewer-only, contains unintended private content, or cannot be supplied solely through the intended Catalyst channel;
+- concurrent, repetitive, load, stress, fault, destructive, direct-state, or infrastructure-level activity occurs;
+- cleanup, recovery, Stop, abort, expiry, or revocation leaves an unsafe or ambiguous state; or
+- any credential, log, private link, or populated private value appears publicly.
 
-If public exposure is suspected, stop delivery and follow the owner's private incident and credential-rotation process; do not reproduce the value in a public report.
+If public exposure is suspected, stop and follow the owner's private incident and credential-rotation process without reproducing the value publicly.
 
 ## Completion boundary
 
-M3-21 may become **Validated** only after all of the following are true:
+M3-21 may become **Validated** only after:
 
-- the account exists;
-- the selected source SHA and deployed SHA were retained privately;
-- the selected source SHA matched the declared public source baseline, or documented exact Git-tree equivalence passed, and the comparison was retained privately;
-- exact SHA equality or documented exact tree equivalence passed;
-- deployed tracked-worktree cleanliness and deployed-file identity checks passed and were retained privately;
-- private delivery occurred;
-- login and intended access were verified;
-- the support and expiry model is recorded;
-- the account was revoked, or a still-active authorized assessment window is explicitly documented;
+- declared-baseline, selected-source/deployed identity, tracked-cleanliness, deployed-file identity, and active WordPress plugin-file binding checks passed and were retained privately;
+- a suitable dedicated account and one of the three generic capability profiles were revalidated, or creation/reset was completed because reuse was unsuitable;
+- WordPress/plugin health, idle state, staging-only API configuration, login, and intended page access were verified;
+- the unlisted Viewer package was actually submitted through the intended Catalyst milestone-submission channel;
+- support and the authorized window were recorded;
+- any controlled dashboard synchronization remained within the permitted safeguards and its result was retained when exercised;
+- access was revoked and verified, or a still-active authorized assessment window was explicitly recorded;
 - private evidence was retained; and
-- a sanitized executed record was added to the evidence register.
+- a sanitized executed record, including EVD-013, was created and registered.
 
-Until then, Milestone 3 remains incomplete.
+The package has not yet been submitted, EVD-013 does not yet exist, M3-21 remains **Implemented, validation pending**, and Milestone 3 remains incomplete.
