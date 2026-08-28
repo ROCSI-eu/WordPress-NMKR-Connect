@@ -26,7 +26,7 @@ The assessor requests temporary access through the support route and identifies 
 2. **Full NMKR Connect plugin administration** — complete administration of NMKR Connect without general full-site administration.
 3. **Restricted marketing access** — access limited to a selected subset of NMKR Connect features.
 
-Temporary login details are supplied separately through that support route. They must not be published, forwarded, committed, pasted into public discussion, or retained in public evidence. Never reuse personal administrator credentials or permit account sharing. Access is time-limited and may be rotated or revoked at the end of the authorized window.
+Temporary staging access is publicly offered through the project-selected support route during the authorized assessment window. Temporary login details are supplied separately through that route. They must not be published, forwarded, committed, pasted into public discussion, or retained in public evidence. Never reuse personal administrator credentials or permit account sharing. Access is time-limited and may be rotated or revoked at the end of the authorized window.
 
 ## Permitted scope
 
@@ -50,7 +50,7 @@ Prohibit:
 - access to production systems, credentials, or customer data; and
 - copying, reusing, publishing, or sharing any visible staging-only credential or log outside the assessment.
 
-The owner accepts the residual non-production exposure risk that a replaceable staging credential or retained staging log may be visible through an intended page during the authorized window. Credential rotation/reset and staging-log cleanup are recommended final-state actions, not prerequisites for access. Actual secrets, logs, private URLs, account details, support addresses, infrastructure details, authentication state, or populated access values must never be placed in the public evidence folder or Catalyst form, committed, or pasted into pull requests, CI, issues, or public documentation.
+The owner accepts the residual non-production exposure risk that a replaceable staging credential or retained staging log may be visible through an intended page during the authorized window. Credential rotation/reset and staging-log cleanup are recommended final-state actions, not prerequisites for access. Actual secrets, logs, private URLs, account details, infrastructure details, authentication state, or populated access values must never be placed in the public evidence folder or Catalyst form, committed, or pasted into pull requests, CI, issues, or public documentation. The public Testing Environment Access document and Catalyst form may contain the project-selected support route, but this repository describes it only generically and must not contain its actual address or populated value.
 
 ## Public evidence-navigation folder
 
@@ -61,7 +61,7 @@ Prepare one public-safe Google Drive folder that may be linked from the public C
 3. **Documentation Evidence**; and
 4. **Testing Environment Access**.
 
-The Testing Environment Access document describes the environment class, the three generic capability profiles, the permitted and prohibited scope, and the instruction to request temporary access through the support route. The folder and its documents contain no usernames, passwords, temporary login values, account identifiers, private access links, authentication state, populated support address, or other private values. Public folder submission and private temporary-access delivery are separate events.
+The Testing Environment Access document describes the environment class, the three generic capability profiles, the permitted and prohibited scope, and the instruction to request temporary access through the project-selected support route. That public document may contain the operational support route; this repository contains no actual address or populated support value. The folder and Catalyst form contain no usernames, passwords, temporary login values, account email addresses, account identifiers, private access links, authentication state, private evidence locations, other credentials, or other private access values. Public folder submission and private temporary-access delivery are separate events.
 
 ## Execution checklist
 
@@ -75,14 +75,14 @@ Complete the private steps outside the repository, while keeping the public-fold
 6. [ ] Confirm WordPress/plugin health, no production or customer data exposure, an idle synchronization state, and presence of the staging-only API configuration.
 7. [ ] Prepare and review the four public-safe evidence documents; confirm that the folder and Catalyst form contain no temporary login details or other private values.
 8. [ ] Submit the public folder through the Catalyst Proof of Achievement only when authorized, recording that public submission separately from private access delivery.
-9. [ ] When an assessor requests access through the support route, record the requested generic capability profile and identify a suitable existing dedicated staging account.
-10. [ ] Revalidate privately the account's current credentials, assigned profile, login, and intended plugin-page access. Create an account or reset credentials only if no suitable account exists, credentials fail, or the profile is unsuitable.
-11. [ ] Verify prohibited capabilities are unavailable where applicable and record the authorized window and support availability.
-12. [ ] Supply temporary login details separately through the support route; do not place them in the public folder or form, forward them, or retain them in public evidence.
+9. [ ] Confirm the project-selected public support route is available and operational, record the authorized window and support availability, and revalidate suitable dedicated staging accounts for all three generic capability profiles.
+10. [ ] When an assessor requests access through the support route, record the requested generic capability profile and identify a suitable revalidated dedicated staging account.
+11. [ ] Revalidate privately the selected account's current credentials, assigned profile, login, intended plugin-page access, and prohibited-capability boundary. Create an account or reset credentials only if no suitable account exists, credentials fail, or the profile is unsuitable.
+12. [ ] If access was requested, supply temporary login details separately through the support route and record the handoff privately; otherwise, explicitly record that access was available on request and no request had been received as of evidence registration. Never place login details in the public folder or form, forward them, or retain them in public evidence.
 13. [ ] If synchronization is exercised, allow only one ordinary dashboard synchronization at a time and retain private observations of Start, progress, completion, ordinary Stop, and abort behavior as applicable.
 14. [ ] At the end of the window, revoke or rotate access and confirm the result, or explicitly record privately that the authorized window remains active.
 15. [ ] Perform recommended staging-credential rotation/reset and staging-log cleanup, then record final state and any anomaly.
-16. [ ] Register a sanitized result only after actual public-folder submission, private delivery as requested, and evidence retention; create EVD-013 only then.
+16. [ ] Register a sanitized result only after actual public-folder submission, recording either a requested private handoff or the absence of a request, and retaining the required private evidence; create EVD-013 only then.
 
 ## Private evidence manifest template
 
@@ -95,7 +95,8 @@ Retain privately, without publishing account identifiers or populated access val
 - public folder submission state and time, recorded separately from temporary-access delivery;
 - account disposition (reused or created/reset) and generic capability profile;
 - credential revalidation, login, and intended-page verification results;
-- temporary-access delivery time, authorized window, and support availability;
+- operational public-support-route result, authorized window, and support availability;
+- temporary-access request and private handoff time when a request occurred, or an explicit record that access was available on request and no request had been received as of evidence registration;
 - synchronization observations, including Start, progress, completion, ordinary Stop, and abort behavior, only if exercised;
 - expiry, revocation, rotation, or still-active-window state;
 - anomalies and cleanup/final state; and
@@ -114,7 +115,7 @@ Stop before public-folder submission or private access delivery if:
 - the public folder does not contain exactly the four public-safe evidence documents, or any folder document or Catalyst field contains temporary login details or another private value;
 - no suitable dedicated account can be revalidated or safely created/reset with the requested generic profile;
 - login or intended-page access fails, or access is broader than authorized without an accepted private rationale;
-- temporary login details cannot be delivered separately through the support route within an authorized window;
+- the public support route is unavailable, the authorized window is not documented, or requested temporary login details cannot be delivered separately through the support route;
 - concurrent, repetitive, load, stress, fault-injection, destructive, direct-state, or infrastructure-level activity occurs;
 - cleanup, recovery, Stop, abort, expiry, rotation, or revocation leaves an unsafe or ambiguous state; or
 - any credential, log, private link, account identifier, authentication state, or populated private value appears publicly.
@@ -127,9 +128,10 @@ M3-21 may become **Validated** only after:
 
 - declared-baseline, selected-source/deployed identity, tracked-cleanliness, deployed-file identity, and active WordPress plugin-file binding checks passed and were retained privately;
 - the four-document public-safe evidence folder was reviewed and actually submitted through the Catalyst Proof of Achievement;
-- a suitable dedicated account and requested generic capability profile were revalidated, or creation/reset was completed because reuse was unsuitable;
+- suitable dedicated staging accounts and all three generic capability profiles were revalidated and ready for use, with creation/reset completed where reuse was unsuitable;
 - WordPress/plugin health, idle state, staging-only API configuration, login, and intended-page access were verified;
-- temporary login details were supplied separately through the support route and their delivery time, support, and authorized window were recorded privately;
+- the project-selected public support route was available and operational, and the authorized access window and support availability were recorded;
+- actual credential handoff was recorded privately when a request occurred, or the absence of any request as of evidence registration was recorded explicitly;
 - any synchronization remained within the permitted safeguards and its observations were retained privately when exercised;
 - access was rotated or revoked and verified, or a still-active authorized assessment window was explicitly recorded;
 - private evidence was retained; and
