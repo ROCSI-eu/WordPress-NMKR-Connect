@@ -93,3 +93,7 @@ A separate cloud-platform uptime check covered a different target with a differe
 - No single plugin source or deployed commit is claimed for this time-spanning environmental observation.
 
 Only M3-21 private reviewer-access provisioning remains open. Milestone 3 remains incomplete until that access is privately created, delivered, supported, expired, and revoked as planned.
+
+> **Later evidence (2026-08-28)**
+>
+> [EVD-013](executed-evidence-2026-08-28.md) subsequently recorded submission of the four-document public package and operational on-request access, and M3-21 became Validated within that disclosed controlled non-production access-delivery scope. No assessor request, credential handoff, assessor login, or synchronization exercise is claimed. The current consolidated status is recorded in the [proof of achievement](proof-of-achievement.md) and [evidence register](evidence-register.md).

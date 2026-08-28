@@ -76,6 +76,10 @@ This was sequential, synthetic, non-production execution in one controlled envir
 
 M3-08 remains **Planned** because the uptime monitoring record is outstanding. M3-21 remains **Planned** because actual private reviewer-access creation, delivery, support, expiry, and revocation remain outstanding. Those two operational actions remain open, and Milestone 3 remains incomplete until they are completed.
 
+> **Later evidence (2026-08-28)**
+>
+> [EVD-012](executed-evidence-2026-08-27.md) subsequently validated M3-08 within its disclosed public staging-service monitoring scope, and [EVD-013](executed-evidence-2026-08-28.md) subsequently validated M3-21 within its controlled, on-request, non-production access-delivery scope. The [Proof of Achievement](proof-of-achievement.md) was submitted at 2026-08-28 11:53 UTC, and the current consolidated status is recorded there and in the [evidence register](evidence-register.md). This note supersedes only the later status, not the historical EVD-011 execution record.
+
 ### Public/private boundary
 
 This report publishes only sanitized aggregate results, public commit and PR references, disclosed methods and limitations, and approved SHA-256 identifiers. Private locations, URLs, hostnames, infrastructure identifiers, accounts, credentials, authentication material, raw logs, database output, non-synthetic identifiers, screenshots, traces, videos, HTML reports, and private artifacts remain private.
