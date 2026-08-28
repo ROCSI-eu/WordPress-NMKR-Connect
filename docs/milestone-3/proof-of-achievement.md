@@ -94,9 +94,9 @@ These links are the evidence index; the underlying instructions are not copied h
 
 ## 4. Testing Environment Access
 
-The [testing-environment access guide](testing-environment-access.md) implements the public procedure and placeholder-only template for controlled non-production access. It covers revalidation and conditional creation/reset of dedicated accounts across three generic capability profiles, anonymous link-based Viewer delivery through the intended Catalyst channel, controlled one-at-a-time dashboard synchronization, deployment and active-plugin identity, support, expiry, revocation, stop, and completion boundaries.
+The [testing-environment access guide](testing-environment-access.md) implements the public procedure for controlled non-production access. One public-safe Google Drive folder may be linked from the public Catalyst Proof of Achievement and contains four evidence documents aligned to Reports of Testing Results, Security Implementation Evidence, Documentation Evidence, and Testing Environment Access. Temporary login details are excluded from that folder and the public form and are supplied separately through the support route after the assessor identifies one of three generic capability profiles. Existing dedicated accounts may be reused after credential, capability, login, and intended-page revalidation. Once access is supplied, ordinary one-at-a-time dashboard Start, progress, completion, Stop, and abort observation remain permitted; concurrent, repetitive, load, stress, fault-injection, destructive, direct-state, and infrastructure-level activity remain prohibited.
 
-The private staging preflight revalidated three existing dedicated accounts and the required environment-integrity and health conditions, without publishing private values. The Google Drive package has not been submitted through the Catalyst form, so no delivery event, expiry/revocation result, or EVD-013 is asserted. Actual link submission and later sanitized evidence registration remain open. M3-21 is **Implemented, validation pending**, and Milestone 3 remains incomplete.
+The private staging preflight revalidated three existing dedicated accounts and the required environment-integrity and health conditions, without publishing private values. The public evidence folder has not been submitted through the Catalyst form, so no temporary-access delivery, expiry/revocation result, or EVD-013 is asserted. Actual folder submission, separate support-route delivery when requested, and later sanitized evidence registration remain open. M3-21 is **Implemented, validation pending**, and Milestone 3 remains incomplete.
 
 ## Requirement disposition
 
@@ -122,10 +122,10 @@ The private staging preflight revalidated three existing dedicated accounts and 
 | M3-18 | Validated | The troubleshooting documentation, EVD-003, and EVD-006 provide scoped evidence. |
 | M3-19 | Validated | This index and EVD-001 through EVD-012 provide consolidated reviewer-visible reports. |
 | M3-20 | Validated | EVD-006, EVD-009, and EVD-010 provide bounded security implementation evidence with findings and limitations, not certification. |
-| M3-21 | Implemented, validation pending | The public procedure and private preflight are ready; actual anonymous link submission, assessment-window support/finalization, and sanitized EVD-013 registration remain outstanding. |
+| M3-21 | Implemented, validation pending | The public four-document folder procedure and private preflight are ready; actual folder submission, separate temporary-access delivery through support, assessment-window finalization, and sanitized EVD-013 registration remain outstanding. |
 
 ## Open actions
 
-- **M3-21:** submit the unlisted Viewer package through the intended Catalyst channel, support and finalize the authorized window, then create and register sanitized EVD-013.
+- **M3-21:** submit the public-safe four-document folder through the Catalyst Proof of Achievement, supply temporary login details separately through support when requested, finalize the authorized window, then create and register sanitized EVD-013.
 
 Only M3-21 remains open. Milestone 3 as a whole remains incomplete until private reviewer-access execution is completed and registered.
