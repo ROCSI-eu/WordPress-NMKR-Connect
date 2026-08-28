@@ -2,7 +2,7 @@
 
 ## Purpose and evidence status
 
-This public-safe guide prepares controlled non-production WordPress access for Catalyst assessment. The evidence-navigation folder and every link placed in the Catalyst Proof of Achievement form are public. Documentation readiness and the completed private staging preflight are not proof that the public folder was submitted or that temporary access was supplied. M3-21 remains **Implemented, validation pending**, EVD-013 has not been created, and Milestone 3 remains incomplete.
+This public-safe guide governs controlled non-production WordPress access for Catalyst assessment. The evidence-navigation folder and every link placed in the Catalyst Proof of Achievement form are public. The public four-document folder was submitted at `2026-08-28 11:53 UTC`; the support route and access window were operational, and access was available on request with no request received as of submission. [EVD-013](executed-evidence-2026-08-28.md) records the sanitized delivery result, and M3-21 is **Validated** within that disclosed scope.
 
 ## Environment boundary
 
@@ -137,4 +137,4 @@ M3-21 may become **Validated** only after:
 - private evidence was retained; and
 - a sanitized executed record, including EVD-013, was created and registered.
 
-The public folder has not yet been submitted, no temporary-access delivery is claimed, EVD-013 does not yet exist, M3-21 remains **Implemented, validation pending**, and Milestone 3 remains incomplete.
+The public folder and EVD-013 have been submitted and registered. No temporary credential handoff or synchronization exercise is claimed. The authorized access window remains active, the support route must remain operational, and expiry or reassessment remains `2026-10-01 00:00 UTC`.
