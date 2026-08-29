@@ -2,23 +2,24 @@
 
 ## Purpose and current status
 
-Milestone 4 is **in progress**. It will assess and strengthen the plugin's security boundaries and expand user, developer, FAQ, and troubleshooting documentation. The M4-01 authorization and side-effect analysis is complete against exact baseline `354cd5808c8eebf557a8286452752245901cbd50`; this initial scaffold records its public-safe conclusions and the planned work sequence.
+Milestone 4 is **in progress**. It will assess and strengthen the plugin's security boundaries and expand user, developer, FAQ, and troubleshooting documentation. The M4-01 authorization and side-effect analysis is complete against exact baseline `354cd5808c8eebf557a8286452752245901cbd50`. M4-02 was implemented by PR #86, merged as `a46e78c975647dd9a3398b45c90d602e11249585`, and validated; the remaining packages require separate implementation, review, and evidence.
 
-M4-01 did not implement remediation or complete validation. Confirmed findings remain pending where stated, and later work packages require separate implementation, review, and evidence.
+M4-01 did not implement remediation or complete validation. M4-02 resolved the scoped S-01 remediation, but other confirmed findings remain pending where stated and this does not complete the Milestone 4 audit or delivery.
 
 ## Navigation
 
 - [Security audit plan](security-audit-plan.md) — scope, methodology, trust rules, validation expectations, and package sequence.
 - [Traceability](traceability.md) — contract requirements mapped to request boundaries and evidence targets.
 - [Findings register](findings-register.md) — stable, public-safe classifications and planned responses.
+- [M4-02 executed evidence](executed-evidence-m4-02-2026-08-29.md) — sanitized implementation provenance and validation outcomes for the dashboard mutation-authority remediation.
 
 ## Work-package overview
 
 | Package | Scope | Status/order |
 | --- | --- | --- |
 | `M4-01` | Exact-baseline handler inventory, capability map, side-effect tracing, findings, and remediation decisions | Analysis complete; scaffold established |
-| `M4-02` | Restrict active-metrics and UI-log writes to `nmkr_manage_sync`; align relevant caller/control visibility; add view-only no-side-effect tests | Next implementation PR |
-| `M4-03` | Preserve read polling while requiring `nmkr_manage_sync` for recovery mutations; add lifecycle and state-delta tests | Separate PR after M4-02 |
+| `M4-02` | Restrict active-metrics and UI-log writes to `nmkr_manage_sync`; align relevant caller/control visibility; add view-only no-side-effect tests | Implemented, merged by PR #86, and validated on merged main `a46e78c975647dd9a3398b45c90d602e11249585` |
+| `M4-03` | Preserve read polling while requiring `nmkr_manage_sync` for recovery mutations; add lifecycle and state-delta tests | Next implementation package |
 | `M4-04` | Inspect output contexts and error/notice rendering; change only confirmed unsafe sinks | Planned |
 | `M4-05` | Test analytics rate-limit/deduplication concurrency and payload-abuse bounds before deciding on code changes | Planned, test-first |
 | `M4-06` | Consolidate targeted public-safe security regressions and dependency/static checks | Planned |
@@ -33,10 +34,10 @@ Public evidence is limited to sanitized source changes, public-safe tests and CI
 
 ## Explicit non-claims
 
-This scaffold:
+This milestone record:
 
 - does **not** claim that the security audit is complete;
-- does **not** claim that any finding is resolved;
+- claims resolution only for S-01 within the implemented and validated M4-02 scope;
 - does **not** provide a production security guarantee;
 - does **not** claim Catalyst approval; and
-- records that no real NMKR synchronization was performed for M4-01.
+- records that no real NMKR synchronization was performed for M4-01 or M4-02.
