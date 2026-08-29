@@ -16,7 +16,7 @@ M4-01 did not implement remediation or complete validation. Confirmed findings r
 
 | Package | Scope | Status/order |
 | --- | --- | --- |
-| `M4-01` | Exact-baseline handler inventory, capability map, side-effect tracing, findings, and remediation decisions | Analysis complete; scaffold now being added |
+| `M4-01` | Exact-baseline handler inventory, capability map, side-effect tracing, findings, and remediation decisions | Analysis complete; scaffold established |
 | `M4-02` | Restrict active-metrics and UI-log writes to `nmkr_manage_sync`; align relevant caller/control visibility; add view-only no-side-effect tests | Next implementation PR |
 | `M4-03` | Preserve read polling while requiring `nmkr_manage_sync` for recovery mutations; add lifecycle and state-delta tests | Separate PR after M4-02 |
 | `M4-04` | Inspect output contexts and error/notice rendering; change only confirmed unsafe sinks | Planned |
