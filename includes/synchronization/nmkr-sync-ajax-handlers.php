@@ -98,6 +98,30 @@ function nmkr_fail_nonterminal_sync_history($sync_stats_id, $error_message) {
         && ($history['updated_at'] ?? '') === $timestamp;
 }
 
+/** Re-read and verify an ownerless terminal result after recovery loses a race. */
+function nmkr_get_verified_ownerless_terminal_sync_data() {
+    $current_owner = nmkr_get_sync_owner();
+    $current_sync_data = nmkr_get_sync_data();
+    if ($current_owner || !is_array($current_sync_data)) {
+        return false;
+    }
+
+    $status = strtolower((string) ($current_sync_data['status'] ?? ''));
+    if (in_array($status, array('completed', 'success'), true)) {
+        $outcome = 'completed';
+    } elseif (in_array($status, array('failed', 'error'), true)) {
+        $outcome = 'failed';
+    } elseif ($status === 'stopped') {
+        $outcome = 'stopped';
+    } else {
+        return false;
+    }
+
+    return nmkr_verify_sync_terminal_result($current_sync_data, $outcome)
+        ? $current_sync_data
+        : false;
+}
+
 /** Return a fixed browser-safe message for a synchronization error code. */
 function nmkr_public_sync_error_message($code, $fallback) {
     $messages = array(
@@ -531,16 +555,26 @@ function nmkr_sync_progress_handler() {
             
             // Only mark as error if there are no jobs running
             if (!$has_running_jobs) {
-                update_option('nmkr_sync_error', 'Sync process stalled - no progress after multiple attempts');
-                $error = 'Sync process stalled - no progress after multiple attempts';
-                
                 // Update sync stats with error status
-                if (isset($sync_data['sync_stats_id'])) {
-                    nmkr_fail_nonterminal_sync_history(
+                $history_failed = isset($sync_data['sync_stats_id'])
+                    && nmkr_fail_nonterminal_sync_history(
                         $sync_data['sync_stats_id'],
                         'Sync process stalled - no progress after multiple attempts'
                     );
+
+                if (!$history_failed) {
+                    $terminal_sync_data = nmkr_get_verified_ownerless_terminal_sync_data();
+                    if ($terminal_sync_data !== false) {
+                        $sync_data = $terminal_sync_data;
+                        return true;
+                    }
+                    nmkr_log_data_sync('Stalled synchronization recovery could not verify history transition', 'error');
+                    $error = __('Synchronization recovery could not be verified.', 'nmkr-connect');
+                    return false;
                 }
+
+                update_option('nmkr_sync_error', 'Sync process stalled - no progress after multiple attempts');
+                $error = 'Sync process stalled - no progress after multiple attempts';
                 
                 // Clear the sync data to prevent further issues
                 nmkr_clear_sync_data();
@@ -572,16 +606,26 @@ function nmkr_sync_progress_handler() {
                     )
                 );
                 
-                update_option('nmkr_sync_error', 'Sync process stalled - no updates for an extended period');
-                $error = 'Sync process stalled - no updates for an extended period';
-                
                 // Update sync stats with error status
-                if (isset($sync_data['sync_stats_id'])) {
-                    nmkr_fail_nonterminal_sync_history(
+                $history_failed = isset($sync_data['sync_stats_id'])
+                    && nmkr_fail_nonterminal_sync_history(
                         $sync_data['sync_stats_id'],
                         'Sync process stalled - no updates for an extended period'
                     );
+
+                if (!$history_failed) {
+                    $terminal_sync_data = nmkr_get_verified_ownerless_terminal_sync_data();
+                    if ($terminal_sync_data !== false) {
+                        $sync_data = $terminal_sync_data;
+                        return true;
+                    }
+                    nmkr_log_data_sync('Inactive synchronization recovery could not verify history transition', 'error');
+                    $error = __('Synchronization recovery could not be verified.', 'nmkr-connect');
+                    return false;
                 }
+
+                update_option('nmkr_sync_error', 'Sync process stalled - no updates for an extended period');
+                $error = 'Sync process stalled - no updates for an extended period';
                 
                 // Clear the sync data to prevent further issues
                 nmkr_clear_sync_data();

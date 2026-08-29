@@ -13,6 +13,7 @@ $GLOBALS['nmkr_owner'] = false;
 $GLOBALS['nmkr_sync_data'] = false;
 $GLOBALS['nmkr_history'] = array();
 $GLOBALS['nmkr_concurrent_terminalization'] = false;
+$GLOBALS['nmkr_database_failure'] = false;
 
 class NmkrSyntheticWpdb {
     public $prefix = 'wp_';
@@ -37,8 +38,12 @@ class NmkrSyntheticWpdb {
         $id = (int)($id_match[1] ?? 0);
         if (($GLOBALS['nmkr_concurrent_terminalization']['id'] ?? 0) === $id) {
             $GLOBALS['nmkr_history'][$id] = $GLOBALS['nmkr_concurrent_terminalization']['row'];
+            if (isset($GLOBALS['nmkr_concurrent_terminalization']['sync_data'])) {
+                $GLOBALS['nmkr_sync_data'] = $GLOBALS['nmkr_concurrent_terminalization']['sync_data'];
+            }
             $GLOBALS['nmkr_concurrent_terminalization'] = false;
         }
+        if ($GLOBALS['nmkr_database_failure']) return false;
         if (!isset($GLOBALS['nmkr_history'][$id]) || nmkr_is_sync_terminal_status($GLOBALS['nmkr_history'][$id]['status'] ?? '')) return 0;
         preg_match("/SET status = '([^']*)', end_time = '([^']*)', error_message = '([^']*)', updated_at = '([^']*)'/", $query, $values);
         if (count($values) !== 5) return false;
@@ -64,11 +69,11 @@ function status_header($status) { $GLOBALS['nmkr_calls'][]='status'; }
 function sanitize_text_field($v) { return (string)$v; }
 function wp_unslash($v) { return $v; }
 function get_option($k, $d=false) { $GLOBALS['nmkr_calls'][]='option'; return array_key_exists($k, $GLOBALS['nmkr_options'] ?? array()) ? $GLOBALS['nmkr_options'][$k] : $d; }
-function update_option($k,$v,$a=null) { $GLOBALS['nmkr_calls'][]='option-write'; return true; }
-function delete_option($k) { $GLOBALS['nmkr_calls'][]='option-write'; return true; }
+function update_option($k,$v,$a=null) { $GLOBALS['nmkr_calls'][]='option-write'; $GLOBALS['nmkr_calls'][]='option-write:'.$k; return true; }
+function delete_option($k) { $GLOBALS['nmkr_calls'][]='option-write'; $GLOBALS['nmkr_calls'][]='option-write:'.$k; return true; }
 function get_transient($k) { $GLOBALS['nmkr_calls'][]='transient'; return array_key_exists($k, $GLOBALS['nmkr_transients']) ? $GLOBALS['nmkr_transients'][$k] : false; }
-function set_transient($k,$v,$t=0) { $GLOBALS['nmkr_calls'][]='transient-write'; return true; }
-function delete_transient($k) { $GLOBALS['nmkr_calls'][]='transient-write'; return true; }
+function set_transient($k,$v,$t=0) { $GLOBALS['nmkr_calls'][]='transient-write'; $GLOBALS['nmkr_calls'][]='transient-write:'.$k; return true; }
+function delete_transient($k) { $GLOBALS['nmkr_calls'][]='transient-write'; $GLOBALS['nmkr_calls'][]='transient-write:'.$k; return true; }
 function wp_clear_scheduled_hook($h,$a=array()) { $GLOBALS['nmkr_calls'][]='cron'; }
 function wp_schedule_single_event($t,$h,$a=array()) { $GLOBALS['nmkr_calls'][]='cron'; return true; }
 function nmkr_admit_sync_owner($id) { $GLOBALS['nmkr_calls'][]='admission'; return array(); }
@@ -92,12 +97,18 @@ function nmkr_is_sync_canonically_finished() { return false; }
 function nmkr_is_valid_sync_run_id($id) { return preg_match('/^[a-z0-9-]{8,}$/', $id) === 1; }
 function nmkr_sync_terminal_statuses() { return array('completed','success','failed','error','stopped','cancelled','aborted'); }
 function nmkr_is_sync_terminal_status($status) { return in_array(strtolower((string)$status), nmkr_sync_terminal_statuses(), true); }
-function nmkr_verify_sync_terminal_result() { return false; }
+function nmkr_verify_sync_terminal_result($sync_data, $outcome) {
+    $GLOBALS['nmkr_calls'][]='terminal-verify';
+    $id=(int)($sync_data['sync_stats_id'] ?? 0); $history=$GLOBALS['nmkr_history'][$id] ?? false;
+    $allowed=$outcome==='completed' ? array('completed','success') : ($outcome==='failed' ? array('failed','error') : array('stopped'));
+    return is_array($history) && in_array(strtolower((string)($history['status'] ?? '')),$allowed,true)
+        && (string)($history['end_time'] ?? '') === (string)($sync_data['end_time'] ?? '');
+}
 function nmkr_resume_stopped_sync_recovery($run_id, $sync_stats_id) { $GLOBALS['nmkr_calls'][]='stopped-recovery:'.$run_id.':'.$sync_stats_id; return true; }
 function nmkr_with_ownerless_legacy_recovery($callback) { $GLOBALS['nmkr_calls'][]='ownerless-recovery'; return !empty($GLOBALS['nmkr_execute_recovery']) ? $callback() : true; }
 function nmkr_get_timestamp() { return '2026-01-02 03:04:05'; }
-function nmkr_clear_sync_data() { $GLOBALS['nmkr_calls'][]='cleanup'; }
-function nmkr_clear_sync_jobs_ownerless($reason, $clear_scheduled, $clear_actions) { $GLOBALS['nmkr_calls'][]='cleanup'; }
+function nmkr_clear_sync_data() { $GLOBALS['nmkr_calls'][]='cleanup'; $GLOBALS['nmkr_calls'][]='cleanup-data'; }
+function nmkr_clear_sync_jobs_ownerless($reason, $clear_scheduled, $clear_actions) { $GLOBALS['nmkr_calls'][]='cleanup'; $GLOBALS['nmkr_calls'][]='cleanup-jobs'; }
 
 require __DIR__.'/../includes/synchronization/nmkr-sync-ajax-handlers.php';
 require __DIR__.'/../includes/pages/dashboard/nmkr-dashboard-ajax.php';
@@ -129,6 +140,12 @@ function nmkr_progress_test($name, $nonce, $caps, $post, $owner, $expected, $for
     return array($kind,$status,$data);
 }
 
+function nmkr_assert_no_stall_cleanup($name) {
+    foreach (array('cleanup-data','cleanup-jobs','option-write:nmkr_sync_error','option-write:nmkr_sync_in_progress','transient-write:nmkr_sync_in_progress') as $call) {
+        if (in_array($call,$GLOBALS['nmkr_calls'],true)) throw new Exception($name.'_destructive_'.$call);
+    }
+}
+
 try {
     $GLOBALS['nmkr_history'][48]=array('id'=>48,'status'=>'completed','end_time'=>'2026-01-01 00:00:00','error_message'=>'completed result','updated_at'=>'2026-01-01 00:00:01');
     $terminal_before=$GLOBALS['nmkr_history'][48];
@@ -157,16 +174,42 @@ try {
     if (count(array_filter($GLOBALS['nmkr_calls'],function($call){return $call==='stopped-recovery:synthetic-run-0001:41';})) !== 1) throw new Exception('progress_manager_stopped_duplicate');
     nmkr_progress_test('progress_manager_ownerless',true,array('nmkr_view_dashboard'=>true,'nmkr_manage_sync'=>true),array('recovery'=>'1'),false,array('ownerless-recovery'),array('stopped-recovery','history-write'));
 
-    $GLOBALS['nmkr_options']['nmkr_last_progress_update_time']=1;
-    $GLOBALS['nmkr_options']['nmkr_last_progress_value']=50;
+    $GLOBALS['nmkr_options']=array('nmkr_last_progress_update_time'=>1,'nmkr_last_progress_value'=>50);
     $stale_sync_data=array('sync_stats_id'=>51,'status'=>'processing_tokens','last_update_time'=>1);
-    $GLOBALS['nmkr_history'][51]=array('id'=>51,'status'=>'completed','end_time'=>'2026-01-01 00:00:00','error_message'=>'terminal fields');
-    nmkr_progress_test('terminal_history_recovery',true,array('nmkr_view_dashboard'=>true,'nmkr_manage_sync'=>true),array('recovery'=>'1'),false,array('ownerless-recovery','history-write','cleanup'),array(),$stale_sync_data,true,false);
-    if ($GLOBALS['nmkr_history'][51]['status'] !== 'completed' || $GLOBALS['nmkr_history'][51]['end_time'] !== '2026-01-01 00:00:00' || $GLOBALS['nmkr_history'][51]['error_message'] !== 'terminal fields') throw new Exception('terminal_history_overwritten');
+    $GLOBALS['nmkr_history'][51]=array('id'=>51,'status'=>'processing_tokens','end_time'=>null,'error_message'=>'');
+    nmkr_progress_test('stuck_successful_recovery',true,array('nmkr_view_dashboard'=>true,'nmkr_manage_sync'=>true),array('recovery'=>'1'),false,array('ownerless-recovery','history-write','cleanup-data','cleanup-jobs','option-write:nmkr_sync_error','option-write:nmkr_sync_in_progress','transient-write:nmkr_sync_in_progress'),array(),$stale_sync_data,true,false);
+    if ($GLOBALS['nmkr_history'][51]['status'] !== 'failed') throw new Exception('stuck_successful_history_not_failed');
+
     $stale_sync_data['sync_stats_id']=52;
     $GLOBALS['nmkr_history'][52]=array('id'=>52,'status'=>'processing_tokens','end_time'=>null,'error_message'=>'');
-    nmkr_progress_test('nonterminal_history_recovery',true,array('nmkr_view_dashboard'=>true,'nmkr_manage_sync'=>true),array('check_stalled'=>'1'),false,array('ownerless-recovery','history-write','cleanup'),array(),$stale_sync_data,true,false);
-    if ($GLOBALS['nmkr_history'][52]['status'] !== 'failed' || $GLOBALS['nmkr_history'][52]['end_time'] !== '2026-01-02 03:04:05' || $GLOBALS['nmkr_history'][52]['updated_at'] !== '2026-01-02 03:04:05' || $GLOBALS['nmkr_history'][52]['error_message'] !== 'Sync process stalled - no progress after multiple attempts') throw new Exception('nonterminal_history_not_eligible');
+    $concurrent_data=array('sync_stats_id'=>52,'status'=>'stopped','end_time'=>'2026-01-02 03:04:04','run_id'=>'synthetic-run-0052');
+    $GLOBALS['nmkr_concurrent_terminalization']=array('id'=>52,'row'=>array('id'=>52,'status'=>'stopped','end_time'=>'2026-01-02 03:04:04','error_message'=>'cooperative stop'),'sync_data'=>$concurrent_data);
+    nmkr_progress_test('stuck_concurrent_terminal',true,array('nmkr_view_dashboard'=>true,'nmkr_manage_sync'=>true),array('check_stalled'=>'1'),false,array('ownerless-recovery','history-write','owner','sync-data','terminal-verify'),array(),$stale_sync_data,true);
+    nmkr_assert_no_stall_cleanup('stuck_concurrent_terminal');
+    if ($GLOBALS['nmkr_sync_data'] !== $concurrent_data) throw new Exception('stuck_concurrent_terminal_data_changed');
+
+    $GLOBALS['nmkr_options']['nmkr_last_progress_value']=50;
+    $GLOBALS['nmkr_options']['nmkr_last_progress_update_time']=time();
+    $stale_sync_data=array('sync_stats_id'=>53,'status'=>'processing_tokens','last_update_time'=>1);
+    $GLOBALS['nmkr_history'][53]=array('id'=>53,'status'=>'processing_tokens','end_time'=>null,'error_message'=>'original history');
+    $GLOBALS['nmkr_database_failure']=true;
+    nmkr_progress_test('inactive_database_failure',true,array('nmkr_view_dashboard'=>true,'nmkr_manage_sync'=>true),array('recovery'=>'1'),false,array('ownerless-recovery','history-write','owner','sync-data','data-log'),array('cleanup','option-write:nmkr_sync_error','option-write:nmkr_sync_in_progress','transient-write:nmkr_sync_in_progress'),$stale_sync_data,true,false);
+    $GLOBALS['nmkr_database_failure']=false;
+    nmkr_assert_no_stall_cleanup('inactive_database_failure');
+    if ($GLOBALS['nmkr_history'][53]['status'] !== 'processing_tokens' || $GLOBALS['nmkr_sync_data'] !== $stale_sync_data) throw new Exception('inactive_database_failure_state_changed');
+
+    $stale_sync_data['sync_stats_id']=54;
+    $GLOBALS['nmkr_history'][54]=array('id'=>54,'status'=>'processing_tokens','end_time'=>null,'error_message'=>'');
+    $concurrent_data=array('sync_stats_id'=>54,'status'=>'failed','end_time'=>'2026-01-02 03:04:04','run_id'=>'synthetic-run-0054');
+    $GLOBALS['nmkr_concurrent_terminalization']=array('id'=>54,'row'=>array('id'=>54,'status'=>'failed','end_time'=>'2026-01-02 03:04:04','error_message'=>'worker failure'),'sync_data'=>$concurrent_data);
+    nmkr_progress_test('inactive_concurrent_terminal',true,array('nmkr_view_dashboard'=>true,'nmkr_manage_sync'=>true),array('check_stalled'=>'1'),false,array('ownerless-recovery','history-write','owner','sync-data','terminal-verify'),array(),$stale_sync_data,true);
+    nmkr_assert_no_stall_cleanup('inactive_concurrent_terminal');
+    if ($GLOBALS['nmkr_sync_data'] !== $concurrent_data) throw new Exception('inactive_concurrent_terminal_data_changed');
+
+    $stale_sync_data=array('sync_stats_id'=>55,'status'=>'processing_tokens','last_update_time'=>1);
+    $GLOBALS['nmkr_history'][55]=array('id'=>55,'status'=>'processing_tokens','end_time'=>null,'error_message'=>'');
+    nmkr_progress_test('inactive_successful_recovery',true,array('nmkr_view_dashboard'=>true,'nmkr_manage_sync'=>true),array('recovery'=>'1'),false,array('ownerless-recovery','history-write','cleanup-data','cleanup-jobs','option-write:nmkr_sync_error','option-write:nmkr_sync_in_progress','transient-write:nmkr_sync_in_progress'),array(),$stale_sync_data,true,false);
+    if ($GLOBALS['nmkr_history'][55]['status'] !== 'failed' || $GLOBALS['nmkr_history'][55]['error_message'] !== 'Sync process stalled - no updates for an extended period') throw new Exception('inactive_successful_history_not_failed');
 
     nmkr_test('start_nonce','nmkr_start_sync_handler',false,array(),array('nonce:nmkr_sync_nonce:nonce'),array('cap:nmkr_manage_sync','admission','option','transient','cron'));
     nmkr_test('start_cap','nmkr_start_sync_handler',true,array(),array('cap:nmkr_manage_sync'),array('admission','option','option-write','transient','transient-write','cron'));
