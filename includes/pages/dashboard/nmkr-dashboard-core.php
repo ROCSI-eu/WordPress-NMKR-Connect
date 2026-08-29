@@ -43,8 +43,10 @@ function nmkr_connect_dashboard_page() {
         }
         wp_die( esc_html__( 'Access denied.', 'nmkr-connect' ) );
     }
+    $can_manage_sync = current_user_can( 'nmkr_manage_sync' );
+
     // Proactive stale-state recovery on dashboard load
-    if ( current_user_can( 'nmkr_manage_sync' ) && function_exists('nmkr_detect_and_recover_stale_sync') ) {
+    if ( $can_manage_sync && function_exists('nmkr_detect_and_recover_stale_sync') ) {
         nmkr_detect_and_recover_stale_sync();
     }
     // Log UI status update for dashboard page load
@@ -63,10 +65,10 @@ function nmkr_connect_dashboard_page() {
         // Render dashboard UI elements
         nmkr_render_dashboard_styles();
         nmkr_render_api_status_panel();
-        nmkr_render_sync_data_panel($dashboard_nonce);
+        nmkr_render_sync_data_panel($dashboard_nonce, $can_manage_sync);
         nmkr_render_sync_statistics_panel($initial_stats);
-        nmkr_render_debug_logs_panel(); // Add debug logs panel at the bottom
-        nmkr_render_dashboard_scripts($dashboard_nonce);
+        nmkr_render_debug_logs_panel($can_manage_sync); // Add debug logs panel at the bottom
+        nmkr_render_dashboard_scripts($dashboard_nonce, $can_manage_sync);
         ?>
     </div>
     <?php
@@ -143,4 +145,4 @@ function nmkr_ensure_last_sync_time() {
 }
 
 // Run the ensure function on admin init
-add_action('admin_init', 'nmkr_ensure_last_sync_time'); 
+add_action('admin_init', 'nmkr_ensure_last_sync_time');

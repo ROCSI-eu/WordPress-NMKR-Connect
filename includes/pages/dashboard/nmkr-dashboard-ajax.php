@@ -343,8 +343,8 @@ function nmkr_store_active_metrics_ajax() {
         wp_die();
     }
     
-    // Capability: view dashboard
-    if ( ! current_user_can( 'nmkr_view_dashboard' ) ) {
+    // Capability: manage synchronization and its dashboard-side metrics/log writes.
+    if ( ! current_user_can( 'nmkr_manage_sync' ) ) {
         wp_send_json_error( array( 'message' => __( 'Forbidden', 'nmkr-connect' ) ), 403 );
         wp_die();
     }

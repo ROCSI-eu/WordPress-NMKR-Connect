@@ -759,9 +759,10 @@ function nmkr_render_api_status_panel() {
 /**
  * Render the Sync Data Panel
  * 
- * @param string $dashboard_nonce The nonce for dashboard operations
+ * @param string $dashboard_nonce The nonce for dashboard operations.
+ * @param bool   $can_manage_sync Whether the current user may mutate synchronization state.
  */
-function nmkr_render_sync_data_panel($dashboard_nonce) {
+function nmkr_render_sync_data_panel($dashboard_nonce, $can_manage_sync) {
     ?>
     <!-- Data Synchronization Panel -->
     <div class="panel sync-data" role="region" aria-label="Data Synchronization Controls">
@@ -774,12 +775,14 @@ function nmkr_render_sync_data_panel($dashboard_nonce) {
         
         <div class="sync-controls panel-section">
             <div class="sync-buttons">
+                <?php if ( $can_manage_sync ) : ?>
                 <button id="nmkr-sync-button" class="button button-primary" disabled aria-label="Start Data Synchronization">
                     Start Synchronization
                 </button>
                 <button id="nmkr-stop-sync-button" class="button button-danger" style="display:none;" aria-label="Stop Data Synchronization">
                     Stop Synchronization
                 </button>
+                <?php endif; ?>
             </div>
             
             <input type="hidden" id="nmkr-sync-nonce" value="<?php echo wp_create_nonce('nmkr_sync_nonce'); ?>">
@@ -889,7 +892,7 @@ function nmkr_render_sync_statistics_panel($initial_stats) {
  * Render the Debug Logs Panel
  * Only displayed if log_to_dashboard option is enabled
  */
-function nmkr_render_debug_logs_panel() {
+function nmkr_render_debug_logs_panel($can_manage_sync) {
     // Check if log_to_dashboard is enabled
     $options = get_option('nmkr_connect_options');
     $log_to_dashboard = !empty($options['log_to_dashboard']);
@@ -958,6 +961,7 @@ function nmkr_render_debug_logs_panel() {
              </fieldset>
          </div>
          
+         <?php if ( $can_manage_sync ) : ?>
          <!-- Clear All Logs Button -->
          <div class="clear-logs-controls">
              <?php 
@@ -975,6 +979,7 @@ function nmkr_render_debug_logs_panel() {
                  🧹 Clear All Logs
              </button>
          </div>
+         <?php endif; ?>
          
          <div class="panel-section">
             <!-- Sync Logs Section -->
@@ -989,6 +994,7 @@ function nmkr_render_debug_logs_panel() {
                          $disabled_class = $sync_in_progress ? 'disabled' : '';
                          $tooltip_text = $sync_in_progress ? 'Logs cannot be cleared while sync is in progress.' : 'Clear sync logs';
                          ?>
+                         <?php if ( $can_manage_sync ) : ?>
                          <button type="button" 
                                  class="clear-section-logs-btn <?php echo esc_attr($disabled_class); ?>" 
                                  data-log-type="sync"
@@ -997,6 +1003,7 @@ function nmkr_render_debug_logs_panel() {
                                  data-nonce="<?php echo wp_create_nonce('nmkr_clear_logs_nonce'); ?>">
                              🧹 Clear Logs
                          </button>
+                         <?php endif; ?>
                      </summary>
                     <div class="log-entries">
                                                  <?php if (empty($sync_logs)): ?>
@@ -1035,6 +1042,7 @@ function nmkr_render_debug_logs_panel() {
                          $disabled_class = $sync_in_progress ? 'disabled' : '';
                          $tooltip_text = $sync_in_progress ? 'Logs cannot be cleared while sync is in progress.' : 'Clear API logs';
                          ?>
+                         <?php if ( $can_manage_sync ) : ?>
                          <button type="button" 
                                  class="clear-section-logs-btn <?php echo esc_attr($disabled_class); ?>" 
                                  data-log-type="api"
@@ -1043,6 +1051,7 @@ function nmkr_render_debug_logs_panel() {
                                  data-nonce="<?php echo wp_create_nonce('nmkr_clear_logs_nonce'); ?>">
                              🧹 Clear Logs
                          </button>
+                         <?php endif; ?>
                      </summary>
                     <div class="log-entries">
                                                  <?php if (empty($api_logs)): ?>
@@ -1081,6 +1090,7 @@ function nmkr_render_debug_logs_panel() {
                          $disabled_class = $sync_in_progress ? 'disabled' : '';
                          $tooltip_text = $sync_in_progress ? 'Logs cannot be cleared while sync is in progress.' : 'Clear UI logs';
                          ?>
+                         <?php if ( $can_manage_sync ) : ?>
                          <button type="button" 
                                  class="clear-section-logs-btn <?php echo esc_attr($disabled_class); ?>" 
                                  data-log-type="ui"
@@ -1089,6 +1099,7 @@ function nmkr_render_debug_logs_panel() {
                                  data-nonce="<?php echo wp_create_nonce('nmkr_clear_logs_nonce'); ?>">
                              🧹 Clear Logs
                          </button>
+                         <?php endif; ?>
                      </summary>
                     <div class="log-entries">
                                                  <?php if (empty($ui_logs)): ?>
@@ -1127,6 +1138,7 @@ function nmkr_render_debug_logs_panel() {
                          $disabled_class = $sync_in_progress ? 'disabled' : '';
                          $tooltip_text = $sync_in_progress ? 'Logs cannot be cleared while sync is in progress.' : 'Clear performance logs';
                          ?>
+                         <?php if ( $can_manage_sync ) : ?>
                          <button type="button" 
                                  class="clear-section-logs-btn <?php echo esc_attr($disabled_class); ?>" 
                                  data-log-type="performance"
@@ -1135,6 +1147,7 @@ function nmkr_render_debug_logs_panel() {
                                  data-nonce="<?php echo wp_create_nonce('nmkr_clear_logs_nonce'); ?>">
                              🧹 Clear Logs
                          </button>
+                         <?php endif; ?>
                      </summary>
                     <div class="log-entries">
                                                  <?php if (empty($performance_logs)): ?>
@@ -1185,13 +1198,26 @@ function nmkr_render_debug_logs_panel() {
  *
  * @param string $dashboard_nonce The nonce for dashboard operations
  */
-function nmkr_render_dashboard_scripts($dashboard_nonce) {
+function nmkr_render_dashboard_scripts($dashboard_nonce, $can_manage_sync) {
     ?>
     <script>
         jQuery(document).ready(function($) {
             // Cache nonce values ONCE to avoid repeated DOM queries
             const syncNonce = $('#nmkr-sync-nonce').val();
             const dashboardNonce = $('#nmkr-dashboard-nonce').val();
+            const canManageSync = <?php echo $can_manage_sync ? 'true' : 'false'; ?>;
+
+            // Keep observation polling available while suppressing manager-only telemetry writes.
+            $.ajaxPrefilter(function(options, originalOptions, jqXHR) {
+                const requestData = originalOptions.data || options.data;
+                const action = typeof requestData === 'string'
+                    ? new URLSearchParams(requestData).get('action')
+                    : requestData && requestData.action;
+
+                if (!canManageSync && action === 'nmkr_store_active_metrics') {
+                    jqXHR.abort();
+                }
+            });
             
             // Set default display while loading
             $('#api-status').html('<span class="api-status-loading">Checking connection...</span>');
