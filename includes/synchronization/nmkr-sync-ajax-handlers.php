@@ -54,6 +54,32 @@ function nmkr_public_failed_terminal_progress_response($response_data) {
     return $response_data;
 }
 
+/** Mark an exact nonterminal synchronization history row failed during legacy recovery. */
+function nmkr_fail_nonterminal_sync_history($sync_stats_id, $error_message) {
+    global $wpdb;
+
+    $sync_stats_id = (int) $sync_stats_id;
+    if ($sync_stats_id <= 0) {
+        return false;
+    }
+
+    $table_name = $wpdb->prefix . 'nmkr_sync_stats';
+    $history = $wpdb->get_row(
+        $wpdb->prepare("SELECT id, status, end_time FROM $table_name WHERE id = %d", $sync_stats_id),
+        ARRAY_A
+    );
+    if (!$history || (int) ($history['id'] ?? 0) !== $sync_stats_id
+        || nmkr_is_sync_terminal_status($history['status'] ?? '')) {
+        return false;
+    }
+
+    return nmkr_update_sync_stats($sync_stats_id, array(
+        'status' => 'failed',
+        'end_time' => nmkr_get_timestamp(),
+        'error_message' => $error_message,
+    ));
+}
+
 /** Return a fixed browser-safe message for a synchronization error code. */
 function nmkr_public_sync_error_message($code, $fallback) {
     $messages = array(
@@ -233,12 +259,14 @@ function nmkr_sync_progress_handler() {
         wp_send_json_error( array( 'message' => __( 'Forbidden', 'nmkr-connect' ) ), 403 );
     }
 
+    $can_manage_sync = current_user_can( 'nmkr_manage_sync' );
+
     // Polling is an independently executable recovery trigger for an exact
     // stopped handoff whose dedicated resume option/event could not be
     // established by the consumed worker. Each request performs one bounded
     // attempt and leaves the durable pre-finalizing record intact on failure.
     $recovery_owner = nmkr_get_sync_owner();
-    if (is_array($recovery_owner) && ($recovery_owner['mode'] ?? '') === 'direct'
+    if ($can_manage_sync && is_array($recovery_owner) && ($recovery_owner['mode'] ?? '') === 'direct'
         && ($recovery_owner['state'] ?? '') === 'stop_requested') {
         nmkr_resume_stopped_sync_recovery(
             (string) ($recovery_owner['run_id'] ?? ''),
@@ -255,7 +283,10 @@ function nmkr_sync_progress_handler() {
     
     try {
         // ** ENHANCED ERROR HANDLING: Parameter Validation **
-        $is_recovery = isset($_POST['recovery']) && $_POST['recovery'];
+        $is_recovery = $can_manage_sync && isset($_POST['recovery'])
+            && is_scalar($_POST['recovery']) && !empty($_POST['recovery']);
+        $is_stalled_check = $can_manage_sync && isset($_POST['check_stalled'])
+            && is_scalar($_POST['check_stalled']) && !empty($_POST['check_stalled']);
         
         try {
             $progress_raw = get_transient('nmkr_sync_progress');
@@ -393,7 +424,7 @@ function nmkr_sync_progress_handler() {
     $min_progress_timeout = max(30, min(120, $batch_size * $batch_delay * 3)); // Between 30s-2 minutes
     
             // Verify if process is actually running or has stalled
-        if (($is_recovery || isset($_POST['check_stalled'])) &&
+        if (($is_recovery || $is_stalled_check) &&
             $progress > 0 && $progress < 100 && empty($error)) {
         nmkr_with_ownerless_legacy_recovery(function () use (&$error, &$sync_data, $progress, $has_running_jobs, $batch_size, $batch_delay, $no_jobs_timeout, $no_update_timeout) {
         
@@ -487,11 +518,10 @@ function nmkr_sync_progress_handler() {
                 
                 // Update sync stats with error status
                 if (isset($sync_data['sync_stats_id'])) {
-                    nmkr_update_sync_stats($sync_data['sync_stats_id'], [
-                        'status' => 'failed',
-                        'end_time' => nmkr_get_timestamp(),
-                        'error_message' => 'Sync process stalled - no progress after multiple attempts'
-                    ]);
+                    nmkr_fail_nonterminal_sync_history(
+                        $sync_data['sync_stats_id'],
+                        'Sync process stalled - no progress after multiple attempts'
+                    );
                 }
                 
                 // Clear the sync data to prevent further issues
@@ -529,11 +559,10 @@ function nmkr_sync_progress_handler() {
                 
                 // Update sync stats with error status
                 if (isset($sync_data['sync_stats_id'])) {
-                    nmkr_update_sync_stats($sync_data['sync_stats_id'], [
-                        'status' => 'failed',
-                        'end_time' => nmkr_get_timestamp(),
-                        'error_message' => 'Sync process stalled - no updates for an extended period'
-                    ]);
+                    nmkr_fail_nonterminal_sync_history(
+                        $sync_data['sync_stats_id'],
+                        'Sync process stalled - no updates for an extended period'
+                    );
                 }
                 
                 // Clear the sync data to prevent further issues
