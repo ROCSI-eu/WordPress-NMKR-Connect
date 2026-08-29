@@ -64,20 +64,38 @@ function nmkr_fail_nonterminal_sync_history($sync_stats_id, $error_message) {
     }
 
     $table_name = $wpdb->prefix . 'nmkr_sync_stats';
-    $history = $wpdb->get_row(
-        $wpdb->prepare("SELECT id, status, end_time FROM $table_name WHERE id = %d", $sync_stats_id),
-        ARRAY_A
+    $timestamp = nmkr_get_timestamp();
+    $terminal_statuses = nmkr_sync_terminal_statuses();
+    $terminal_placeholders = implode(', ', array_fill(0, count($terminal_statuses), '%s'));
+    $update_values = array_merge(
+        array('failed', $timestamp, $error_message, $timestamp, $sync_stats_id),
+        $terminal_statuses
     );
-    if (!$history || (int) ($history['id'] ?? 0) !== $sync_stats_id
-        || nmkr_is_sync_terminal_status($history['status'] ?? '')) {
+    $updated = $wpdb->query($wpdb->prepare(
+        "UPDATE $table_name
+         SET status = %s, end_time = %s, error_message = %s, updated_at = %s
+         WHERE id = %d
+           AND (status IS NULL OR LOWER(status) NOT IN ($terminal_placeholders))",
+        $update_values
+    ));
+    if ($updated !== 1) {
         return false;
     }
 
-    return nmkr_update_sync_stats($sync_stats_id, array(
-        'status' => 'failed',
-        'end_time' => nmkr_get_timestamp(),
-        'error_message' => $error_message,
-    ));
+    $history = $wpdb->get_row(
+        $wpdb->prepare(
+            "SELECT id, status, end_time, error_message, updated_at FROM $table_name WHERE id = %d LIMIT 1",
+            $sync_stats_id
+        ),
+        ARRAY_A
+    );
+
+    return is_array($history)
+        && (int) ($history['id'] ?? 0) === $sync_stats_id
+        && ($history['status'] ?? '') === 'failed'
+        && ($history['end_time'] ?? '') === $timestamp
+        && ($history['error_message'] ?? '') === $error_message
+        && ($history['updated_at'] ?? '') === $timestamp;
 }
 
 /** Return a fixed browser-safe message for a synchronization error code. */
