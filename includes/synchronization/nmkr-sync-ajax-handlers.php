@@ -78,7 +78,11 @@ function nmkr_fail_nonterminal_sync_history($sync_stats_id, $error_message) {
            AND (status IS NULL OR LOWER(status) NOT IN ($terminal_placeholders))",
         $update_values
     ));
-    if ($updated !== 1) {
+    // A zero-row result may be a retry after this exact recovery transition
+    // committed but before its runtime cleanup completed. Read back the row so
+    // that exact transition is idempotent without accepting another terminal
+    // outcome. Database errors remain fail-closed.
+    if ($updated !== 0 && $updated !== 1) {
         return false;
     }
 
@@ -93,9 +97,10 @@ function nmkr_fail_nonterminal_sync_history($sync_stats_id, $error_message) {
     return is_array($history)
         && (int) ($history['id'] ?? 0) === $sync_stats_id
         && ($history['status'] ?? '') === 'failed'
-        && ($history['end_time'] ?? '') === $timestamp
         && ($history['error_message'] ?? '') === $error_message
-        && ($history['updated_at'] ?? '') === $timestamp;
+        && !empty($history['end_time'])
+        && ($history['updated_at'] ?? '') === ($history['end_time'] ?? '')
+        && ($updated === 0 || ($history['end_time'] ?? '') === $timestamp);
 }
 
 /** Re-read and verify an ownerless terminal result after recovery loses a race. */
