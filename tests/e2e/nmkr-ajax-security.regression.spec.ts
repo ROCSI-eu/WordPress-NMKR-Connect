@@ -92,6 +92,7 @@ test('@negative privileged AJAX rejects anonymous, nonce, capability, and malfor
     for (const [action, nonce, run_id] of [['nmkr_start_sync',rr.syncNonce,''],['nmkr_sync_progress',rr.syncNonce,''],['nmkr_check_sync_health',rr.syncNonce,''],['nmkr_check_api_status',rr.dashboardNonce,''],['nmkr_stop_sync',rr.syncNonce,'restricted-malformed-run-id']]) {
       deniedCapability(await post(restrictedLogin.context, rr.ajaxUrl, { action, nonce, ...(run_id ? { run_id } : {}) }));
     }
+    deniedCapability(await post(restrictedLogin.context, rr.ajaxUrl, { action:'nmkr_store_active_metrics', nonce:rr.dashboardNonce, 'metrics[average_response_time]':'1.25', 'metrics[api_requests]':'2', 'metrics[memory_usage]':'3.5' }));
   } finally { await restrictedLogin.context.close(); }
   deniedMalformedStop(await post(context, admin.ajaxUrl, { action:'nmkr_stop_sync', nonce:admin.syncNonce, run_id:'not-a-valid-run-id' }));
   expect([...adminLedger, ...restrictedLogin.ledger], 'ajax_security_automatic_ajax_ledger').not.toContain('allowed-automatic-ajax');

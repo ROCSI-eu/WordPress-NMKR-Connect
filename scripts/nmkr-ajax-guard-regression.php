@@ -46,7 +46,7 @@ require __DIR__.'/../includes/pages/dashboard/nmkr-dashboard-ajax.php';
 require __DIR__.'/../includes/pages/dashboard/nmkr-dashboard-ui.php';
 require __DIR__.'/../includes/pages/analytics/nmkr-analytics-ajax.php';
 
-function nmkr_test($name, $handler, $nonce, $caps, $expected, $forbidden) {
+function nmkr_test($name, $handler, $nonce, $caps, $expected, $forbidden, $expected_response = null) {
     $GLOBALS['nmkr_calls']=array(); $GLOBALS['nmkr_nonce_ok']=$nonce; $GLOBALS['nmkr_caps']=$caps;
     $_POST=array('nonce'=>'synthetic');
     if ($name === 'stop_cap') $_POST['run_id']='restricted-malformed-run-id';
@@ -55,6 +55,7 @@ function nmkr_test($name, $handler, $nonce, $caps, $expected, $forbidden) {
     foreach ($expected as $call) if (!in_array($call,$GLOBALS['nmkr_calls'],true)) throw new Exception($name.'_expected_guard_missing');
     foreach ($forbidden as $call) if (in_array($call,$GLOBALS['nmkr_calls'],true)) throw new Exception($name.'_downstream_reached');
     if ($nonce && empty($caps) && ($kind!=='error' || $status!==403)) throw new Exception($name.'_forbidden_shape');
+    if ($expected_response !== null && ($kind !== $expected_response['kind'] || $status !== $expected_response['status'] || $e->data !== $expected_response['data'])) throw new Exception($name.'_response_contract');
 }
 
 try {
@@ -65,7 +66,7 @@ try {
     nmkr_test('api_nonce','nmkr_check_api_status',false,array(),array('nonce:nmkr_dashboard_nonce:nonce'),array('cap:nmkr_view_dashboard','option','api'));
     nmkr_test('api_cap','nmkr_check_api_status',true,array(),array('cap:nmkr_view_dashboard'),array('option','api'));
     nmkr_test('metrics_nonce','nmkr_store_active_metrics_ajax',false,array(),array('nonce:nmkr_dashboard_nonce:nonce'),array('cap:nmkr_manage_sync','transient','transient-write','option','option-write','ui-log'));
-    nmkr_test('metrics_view_only','nmkr_store_active_metrics_ajax',true,array('nmkr_view_dashboard'=>true),array('nonce:nmkr_dashboard_nonce:nonce','cap:nmkr_manage_sync'),array('transient','transient-write','option','option-write','ui-log'));
+    nmkr_test('metrics_view_only','nmkr_store_active_metrics_ajax',true,array('nmkr_view_dashboard'=>true),array('nonce:nmkr_dashboard_nonce:nonce','cap:nmkr_manage_sync'),array('transient','transient-write','option','option-write','ui-log'),array('kind'=>'error','status'=>403,'data'=>array('message'=>'Forbidden')));
 
     $GLOBALS['nmkr_calls']=array(); $GLOBALS['nmkr_nonce_ok']=true; $GLOBALS['nmkr_caps']=array('nmkr_manage_sync'=>true);
     $_POST=array('nonce'=>'synthetic','metrics'=>array('average_response_time'=>'1.25','api_requests'=>'2','memory_usage'=>'3.5'));
