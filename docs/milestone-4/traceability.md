@@ -1,6 +1,6 @@
 # Milestone 4 traceability
 
-This initial matrix maps Milestone 4 requirements to public and private evidence targets. Its analysis baseline is `354cd5808c8eebf557a8286452752245901cbd50`. Statuses describe current knowledge, not remediation or validation completion.
+This initial matrix maps Milestone 4 requirements to public and private evidence targets. Its analysis baseline is `354cd5808c8eebf557a8286452752245901cbd50`. Statuses reflect the evidence available for each trace item and may record completed package-level remediation or validation; they do not imply completion of the full Milestone 4 audit, delivery, or future work packages.
 
 | Trace ID | Contract requirement | Request boundary | Control/evidence target | Public evidence | Private exact-head evidence | Status | Limitations/non-claims |
 | --- | --- | --- | --- | --- | --- | --- | --- |
