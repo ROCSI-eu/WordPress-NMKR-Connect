@@ -100,9 +100,9 @@ function nmkr_fail_nonterminal_sync_history($sync_stats_id, $error_message) {
 
 /** Re-read and verify an ownerless terminal result after recovery loses a race. */
 function nmkr_get_verified_ownerless_terminal_sync_data() {
-    $current_owner = nmkr_get_sync_owner();
-    $current_sync_data = nmkr_get_sync_data();
-    if ($current_owner || !is_array($current_sync_data)) {
+    $current_owner = nmkr_get_uncached_option_value('nmkr_sync_owner', false);
+    $current_sync_data = nmkr_get_uncached_option_value('nmkr_sync_data', false);
+    if ($current_owner !== false || !is_array($current_sync_data)) {
         return false;
     }
 
