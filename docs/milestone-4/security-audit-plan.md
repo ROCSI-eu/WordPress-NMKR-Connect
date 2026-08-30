@@ -56,9 +56,9 @@ Validation must use the smallest sufficient profile. Routine runs keep real sync
 | Package | Scope | Status/order |
 | --- | --- | --- |
 | `M4-01` | Exact-baseline handler inventory, capability map, side-effect tracing, findings, and remediation decisions | Analysis complete; scaffold established |
-| `M4-02` | Restrict active-metrics/UI-log writes to `nmkr_manage_sync`; align relevant caller/control visibility; add view-only no-side-effect tests | Next implementation PR |
-| `M4-03` | Preserve read polling while requiring `nmkr_manage_sync` for recovery mutations; add lifecycle/state-delta tests | Separate PR after M4-02 |
-| `M4-04` | Inspect output contexts and error/notice rendering; change only confirmed unsafe sinks | Planned |
+| `M4-02` | Restrict active-metrics/UI-log writes to `nmkr_manage_sync`; align relevant caller/control visibility; add view-only no-side-effect tests | Implemented, merged, and validated by PR #86 |
+| `M4-03` | Preserve read polling while requiring `nmkr_manage_sync` for recovery mutations; add lifecycle/state-delta tests | Implemented by PR #88, merged, and validated |
+| `M4-04` | Inspect output contexts and error/notice rendering; change only confirmed unsafe sinks | Next planned technical package |
 | `M4-05` | Test analytics rate-limit/deduplication concurrency and payload-abuse bounds before deciding on code changes | Planned, test-first |
 | `M4-06` | Consolidate targeted public-safe security regressions and dependency/static checks | Planned |
 | `M4-07` | Expand user/developer/troubleshooting navigation and produce comprehensive FAQ content | Planned |
