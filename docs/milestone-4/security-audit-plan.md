@@ -59,7 +59,7 @@ Validation must use the smallest sufficient profile. Routine runs keep real sync
 | `M4-02` | Restrict active-metrics/UI-log writes to `nmkr_manage_sync`; align relevant caller/control visibility; add view-only no-side-effect tests | Implemented, merged, and validated by PR #86 |
 | `M4-03` | Preserve read polling while requiring `nmkr_manage_sync` for recovery mutations; add lifecycle/state-delta tests | Implemented by PR #88, merged, and validated |
 | `M4-04` | Inspect output contexts and error/notice rendering; change only confirmed unsafe sinks | Source analysis and [evidence](executed-evidence-m4-04-2026-08-30.md) complete; no confirmed unsafe sink and no runtime change |
-| `M4-05` | Test analytics rate-limit/deduplication concurrency and payload-abuse bounds before deciding on code changes | Next planned technical package; test-first |
+| `M4-05` | Harden analytics admission concurrency and compact payload bounds while preserving intentional public ingestion | Implemented with public-safe regression; private exact-head validation pending |
 | `M4-06` | Consolidate targeted public-safe security regressions and dependency/static checks | Planned |
 | `M4-07` | Expand user/developer/troubleshooting navigation and produce comprehensive FAQ content | Planned |
 | `M4-08` | Private exact-head validation using risk-appropriate profiles; no live NMKR traffic by default | Planned |
@@ -73,3 +73,9 @@ Packages proceed separately so review and evidence stay attributable. Future pac
 Stop the relevant work when the expected baseline or reviewed/deployed head does not match, a required worktree is not clean, a required control or invariant cannot be established, validation is ambiguous or fails, or safe publication would require exposing private material. Do not silently move analysis to a newer baseline.
 
 Do not run real NMKR synchronization by default. Do not commit private URLs, host or VM paths, credentials, nonces, API keys, customer or synchronization data, authentication state, raw logs, database output, screenshots, traces, videos, reports, or private evidence locations. Public reporting must remain defensive, concise, and free of detailed exploit instructions.
+
+## M4-05 implementation boundary
+
+M4-05 confirmed that public analytics deduplication and rate limiting used non-atomic state transitions, deduplication names included request identifiers, compact payload dimensions were not comprehensively bounded, accepted sessions exceeded the `CHAR(36)` contract, and a pre-insert marker could suppress a valid retry. The correction retains intentional anonymous ingestion while using fixed digest names, bounded database-atomic claims, per-anonymized-IP serialization, early transport and recursive metadata bounds, canonical UUID validation, and post-success claim finalization. Rate limiting remains before deduplication because every public request consumes endpoint capacity. Server sampling is authoritative; the browser retains mode, consent, and DNT gates without independently applying the configured rate.
+
+Local insertion failure releases its in-progress claim. In `both` mode, a retry can invoke the best-effort GA4 dispatch again because cross-service exactly-once delivery is outside this package; GA4-only finalization records successful local dispatch invocation, not external receipt. Public synthetic tests used no real NMKR synchronization, NMKR API traffic, external GA4 request, customer data, or private artifacts. This high-risk persistence and concurrency change remains pending exact-head private DEV validation and is not a claim of universal abuse resistance.

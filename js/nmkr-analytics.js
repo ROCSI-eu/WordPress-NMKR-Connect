@@ -2,14 +2,6 @@
   var w = window;
   var cfg = w.NMKR_ANALYTICS || {};
 
-  function clamp01(n) {
-    var x = parseFloat(n);
-    if (isNaN(x)) return 0;
-    if (x < 0) return 0;
-    if (x > 1) return 1;
-    return x;
-  }
-
   function uuidv4() {
     // RFC4122 version 4 compliant UUID
     var cryptoObj = (w.crypto || w.msCrypto);
@@ -41,9 +33,6 @@
     var debug = !!cfg.debug;
     var log = function () { if (debug) { var a = Array.prototype.slice.call(arguments); a.unshift('[NMKR Analytics][dev]'); console.log.apply(console, a); } };
     var warn = function () { if (debug) { var a = Array.prototype.slice.call(arguments); a.unshift('[NMKR Analytics][dev]'); console.warn.apply(console, a); } };
-
-    var sampleRate = clamp01(cfg.sampleRate == null ? 1 : cfg.sampleRate);
-    if (Math.random() > sampleRate) return; // sampling gate (first)
 
     if (cfg.mode === 'off') return;
 
@@ -220,12 +209,10 @@
       setupClicks();
     }
 
-    log('Initialized', { mode: cfg.mode, sampleRate: sampleRate, requiresConsent: !!cfg.requiresConsent, hasConsent: !!cfg.hasConsent, dnt: dnt, transportEnabled: !!cfg.transportEnabled });
+    log('Initialized', { mode: cfg.mode, serverSampleRate: cfg.sampleRate, requiresConsent: !!cfg.requiresConsent, hasConsent: !!cfg.hasConsent, dnt: dnt, transportEnabled: !!cfg.transportEnabled });
   } catch (err) {
     if (w && w.console && cfg && cfg.debug) {
       console.warn('[NMKR Analytics][dev] init error:', err);
     }
   }
 })();
-
-
