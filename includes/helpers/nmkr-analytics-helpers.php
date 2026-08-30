@@ -272,26 +272,41 @@ function nmkr_analytics_dedupe_claim($session_id, $element_id, $event_type, $ttl
     return array('key' => $key, 'token' => $token, 'ttl' => max(1, (int) $ttl_seconds));
 }
 
-/** Fixed-window limiter. The first max_events requests pass; request max_events + 1 is limited. */
+/** Fixed-window limiter backed by durable, compare-and-swap option state. */
 function nmkr_analytics_rate_limited($anon_ip_sha, $window_seconds = 300, $max_events = 120, $now = null) {
     $anon_ip_sha = strtolower((string) $anon_ip_sha);
     if (!preg_match('/^[a-f0-9]{64}$/', $anon_ip_sha)) return true;
     $now = null === $now ? time() : (int) $now;
     $state_key = nmkr_analytics_state_key('rate', array($anon_ip_sha));
-    $lock_key = nmkr_analytics_state_key('ratelock', array($anon_ip_sha));
-    $lock = nmkr_analytics_claim_acquire($lock_key, NMKR_ANALYTICS_CLAIM_TTL, $now);
-    if (false === $lock) return true;
-    try {
-        $state = get_transient($state_key);
-        if (!is_array($state) || !isset($state['start'], $state['count']) || $now >= ((int) $state['start'] + (int) $window_seconds)) {
-            $state = array('start' => $now, 'count' => 0);
+    $window_seconds = max(1, (int) $window_seconds);
+    for ($attempt = 0; $attempt < 8; $attempt++) {
+        $old = nmkr_analytics_option_read($state_key);
+        if (!is_array($old) || !isset($old['start'], $old['count']) || $now >= (int) $old['expires']) {
+            $new = array('start' => $now, 'count' => 1, 'expires' => $now + $window_seconds);
+            if (null === $old) {
+                if (add_option($state_key, $new, '', false)) return 1 > max(0, (int) $max_events);
+            } else {
+                global $wpdb;
+                $updated = $wpdb->query($wpdb->prepare("UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s AND option_value = %s", maybe_serialize($new), $state_key, maybe_serialize($old)));
+                if (1 === $updated) {
+                    wp_cache_delete($state_key, 'options');
+                    return 1 > max(0, (int) $max_events);
+                }
+            }
+        } else {
+            $new = $old;
+            $new['count'] = (int) $old['count'] + 1;
+            global $wpdb;
+            $updated = $wpdb->query($wpdb->prepare("UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s AND option_value = %s", maybe_serialize($new), $state_key, maybe_serialize($old)));
+            if (1 === $updated) {
+                wp_cache_delete($state_key, 'options');
+                return $new['count'] > max(0, (int) $max_events);
+            }
         }
-        $state['count']++;
-        if (!set_transient($state_key, $state, max(1, (int) $window_seconds))) return true;
-        return (int) $state['count'] > max(0, (int) $max_events);
-    } finally {
-        nmkr_analytics_claim_release($lock_key, $lock);
+        usleep(1000 * ($attempt + 1));
     }
+    // Contention is not quota exhaustion. Fail open rather than issue a false 429.
+    return false;
 }
 
 /** Decode a compact transport body with a deliberate plugin-level byte limit. */
@@ -477,10 +492,18 @@ function nmkr_analytics_ingest_common( $body, $source = 'rest' ) {
         return new WP_REST_Response( null, 204 );
     }
 
+    // Make admission durable before invoking either sink. This provides at-most-once
+    // sink invocation even if a worker crashes; sink failure may therefore lose an
+    // event rather than making already-committed work admissible again.
+    if (!nmkr_analytics_claim_finalize($claim['key'], $claim['token'], $claim['ttl'])) {
+        return new WP_REST_Response(null, 500);
+    }
+
     // Resolve mode and GA4 credentials from options (already fetched nearby)
     $options = get_option( 'nmkr_connect_options', array() );
     $mode    = isset( $options['analytics_mode'] ) ? $options['analytics_mode'] : 'custom';
     if ( $mode === 'off' ) {
+        nmkr_analytics_claim_release($claim['key'], $claim['token']);
         return new WP_REST_Response( null, 204 );
     }
 
@@ -563,13 +586,8 @@ function nmkr_analytics_ingest_common( $body, $source = 'rest' ) {
         ];
         $insert = $wpdb->insert( $table, $data, $formats );
         if ( false === $insert ) {
-            nmkr_analytics_claim_release($claim['key'], $claim['token']);
             return new WP_REST_Response( null, 500 );
         }
-    }
-
-    if (!nmkr_analytics_claim_finalize($claim['key'], $claim['token'], $claim['ttl'])) {
-        return new WP_REST_Response(null, 500);
     }
 
     return new WP_REST_Response( null, 204 );

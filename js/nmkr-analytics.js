@@ -24,9 +24,8 @@
     var s4 = function () {
       return Math.floor((1 + Math.random()) * 0x10000).toString(16).substring(1);
     };
-    return (
-      s4() + s4() + '-' + s4() + '-' + s4() + '-' + s4() + '-' + s4() + s4() + s4()
-    );
+    return s4() + s4() + '-' + s4() + '-4' + s4().slice(1) + '-' +
+      ['8', '9', 'a', 'b'][Math.floor(Math.random() * 4)] + s4().slice(1) + '-' + s4() + s4() + s4();
   }
 
   try {
@@ -46,7 +45,7 @@
     var sid = null;
     try {
       sid = w.localStorage.getItem(sidKey);
-      if (!sid) {
+      if (!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(sid || '')) {
         sid = uuidv4();
         w.localStorage.setItem(sidKey, sid);
       }

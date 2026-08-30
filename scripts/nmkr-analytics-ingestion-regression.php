@@ -34,7 +34,7 @@ check($c1['token']!==false&&$c2['token']===false,'one tuple admitted once');
 $c3=nmkr_analytics_dedupe_claim($p['session_id'],'independent','view'); check($c3['token']!==false,'independent tuple');
 check(strlen($c1['key'])===strlen(nmkr_analytics_state_key('dedupe',array('a','b','view')))&&strlen($c1['key'])<96&&strpos($c1['key'],$p['session_id'])===false,'fixed bounded key');
 reset_state(); $ip=str_repeat('a',64); for($i=0;$i<3;$i++)check(nmkr_analytics_rate_limited($ip,10,3,100)===false,'threshold pass'); check(nmkr_analytics_rate_limited($ip,10,3,100)===true,'threshold exact');
-check($GLOBALS['transients'][nmkr_analytics_state_key('rate',array($ip))]['count']===4,'increments retained'); check(nmkr_analytics_rate_limited($ip,10,3,110)===false,'rollover');
+check($GLOBALS['options_store'][nmkr_analytics_state_key('rate',array($ip))]['count']===4,'durable increments retained'); check(nmkr_analytics_rate_limited($ip,10,3,110)===false,'rollover');
 check(nmkr_analytics_rate_limited(str_repeat('b',64),10,1,110)===false,'independent ip');
 check(nmkr_analytics_decode_body('{')['status']===400,'malformed json'); check(nmkr_analytics_decode_body(str_repeat('x',NMKR_ANALYTICS_RAW_BODY_MAX_BYTES+1))['status']===413,'raw bound');
 $n=0;$v=true;nmkr_prepare_analytics_metadata(array('a'=>array('b'=>array('c'=>array('d'=>array('e'=>'x'))))),0,$n,$v);check(!$v,'depth');
@@ -43,10 +43,11 @@ $n=0;$v=true;nmkr_prepare_analytics_metadata(array('x'=>str_repeat('x',257)),0,$
 $m=array();for($i=0;$i<10;$i++)$m['k'.$i]=str_repeat('x',250);$n=0;$v=true;nmkr_prepare_analytics_metadata($m,0,$n,$v);check(!$v,'aggregate');
 reset_state();check(nmkr_analytics_ingest_common(payload())->get_status()===204&&$GLOBALS['inserts']===1,'valid uuid custom');
 foreach(array('bad',str_repeat('a',37),'123e4567-e89b-12d3-a456-426614174000') as $sid){reset_state();$q=payload();$q['session_id']=$sid;check(nmkr_analytics_ingest_common($q)->get_status()===400&&$GLOBALS['inserts']===0&&$GLOBALS['ga4']===0&&count($GLOBALS['options_store'])===0,'invalid uuid before state');}
-reset_state();$GLOBALS['insert_ok']=false;check(nmkr_analytics_ingest_common(payload())->get_status()===500&&count($GLOBALS['options_store'])===0,'insert failure release');$GLOBALS['insert_ok']=true;check(nmkr_analytics_ingest_common(payload())->get_status()===204&&$GLOBALS['inserts']===2,'retry succeeds');check(nmkr_analytics_ingest_common(payload())->get_status()===204&&$GLOBALS['inserts']===2,'duplicate empty 204');
+reset_state();$GLOBALS['insert_ok']=false;check(nmkr_analytics_ingest_common(payload())->get_status()===500&&count($GLOBALS['options_store'])===2,'insert failure retains durable admission');$GLOBALS['insert_ok']=true;check(nmkr_analytics_ingest_common(payload())->get_status()===204&&$GLOBALS['inserts']===1,'retry cannot duplicate sink invocation');
 reset_state();for($i=0;$i<120;$i++)nmkr_analytics_rate_limited(nmkr_hash_ip_address(),300,120,time());check(nmkr_analytics_ingest_common(payload())->get_status()===429&&$GLOBALS['inserts']===0,'empty 429');
 foreach(array('off'=>array(0,0),'custom'=>array(0,1),'ga4'=>array(1,0),'both'=>array(1,1)) as $mode=>$expect){reset_state();$GLOBALS['mode']=$mode;check(nmkr_analytics_ingest_common(payload())->get_status()===204&&array($GLOBALS['ga4'],$GLOBALS['inserts'])===$expect,'sink matrix');}
 $js=file_get_contents(dirname(__DIR__).'/js/nmkr-analytics.js');check(strpos($js,'Math.random() > sampleRate')===false&&strpos(file_get_contents(dirname(__DIR__).'/includes/helpers/nmkr-analytics-helpers.php'),'nmkr_get_analytics_sample_rate')!==false,'server authoritative sampling');
+check(strpos($js,"-4' + s4().slice(1)")!==false&&strpos($js,".test(sid || '')")!==false,'client regenerates non-v4 sessions');
 $rest=file_get_contents(dirname(__DIR__).'/includes/analytics/nmkr-analytics-endpoints.php');$ajax=file_get_contents(dirname(__DIR__).'/includes/ajax/nmkr-ajax-functions.php');check(substr_count($rest,'nmkr_analytics_decode_body')===1&&substr_count($ajax,'nmkr_analytics_decode_body')===1,'transport parity');
 reset_state();check(count($GLOBALS['options_store'])===0&&count($GLOBALS['transients'])===0,'cleanup');
 echo "PASS: analytics ingestion contracts\n";

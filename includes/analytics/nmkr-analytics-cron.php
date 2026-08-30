@@ -21,16 +21,21 @@ if (!defined('ABSPATH')) {
 function nmkr_analytics_purge_old_events() {
     global $wpdb;
 
-    // Claim/lock options are bounded by embedded expiries and removed in a small batch.
+    // Drain expired admission state in ordered chunks within the existing time budget.
     $state_pattern = $wpdb->esc_like('nmkr_ai_') . '%';
-    $state_names = $wpdb->get_col($wpdb->prepare("SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s LIMIT 1000", $state_pattern));
-    foreach ($state_names as $state_name) {
-        $state = nmkr_analytics_option_read($state_name);
-        if (is_array($state) && !empty($state['expires']) && (int) $state['expires'] < time()) {
-            $wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->options} WHERE option_name = %s AND option_value = %s", $state_name, maybe_serialize($state)));
-            wp_cache_delete($state_name, 'options');
+    $state_cursor = '';
+    $state_started = microtime(true);
+    do {
+        $state_names = $wpdb->get_col($wpdb->prepare("SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s AND option_name > %s ORDER BY option_name ASC LIMIT 1000", $state_pattern, $state_cursor));
+        foreach ($state_names as $state_name) {
+            $state_cursor = $state_name;
+            $state = nmkr_analytics_option_read($state_name);
+            if (is_array($state) && !empty($state['expires']) && (int) $state['expires'] < time()) {
+                $wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->options} WHERE option_name = %s AND option_value = %s", $state_name, maybe_serialize($state)));
+                wp_cache_delete($state_name, 'options');
+            }
         }
-    }
+    } while (count($state_names) === 1000 && microtime(true) - $state_started < 10);
     
     // Get retention days from options (fallback to 90 days)
     $options = get_option('nmkr_connect_options', array());
