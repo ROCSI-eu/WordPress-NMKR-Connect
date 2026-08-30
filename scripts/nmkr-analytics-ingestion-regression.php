@@ -49,5 +49,6 @@ foreach(array('off'=>array(0,0),'custom'=>array(0,1),'ga4'=>array(1,0),'both'=>a
 $js=file_get_contents(dirname(__DIR__).'/js/nmkr-analytics.js');check(strpos($js,'Math.random() > sampleRate')===false&&strpos(file_get_contents(dirname(__DIR__).'/includes/helpers/nmkr-analytics-helpers.php'),'nmkr_get_analytics_sample_rate')!==false,'server authoritative sampling');
 check(strpos($js,"-4' + s4().slice(1)")!==false&&strpos($js,".test(sid || '')")!==false,'client regenerates non-v4 sessions');
 $rest=file_get_contents(dirname(__DIR__).'/includes/analytics/nmkr-analytics-endpoints.php');$ajax=file_get_contents(dirname(__DIR__).'/includes/ajax/nmkr-ajax-functions.php');check(substr_count($rest,'nmkr_analytics_decode_body')===1&&substr_count($ajax,'nmkr_analytics_decode_body')===1,'transport parity');
+$uninstall=file_get_contents(dirname(__DIR__).'/nmkr-connect.php');check(strpos($uninstall,"esc_like('nmkr_ai_')")!==false&&strpos($uninstall,'delete_option($analytics_state_name)')!==false,'configured uninstall removes dynamic admission state');
 reset_state();check(count($GLOBALS['options_store'])===0&&count($GLOBALS['transients'])===0,'cleanup');
 echo "PASS: analytics ingestion contracts\n";
