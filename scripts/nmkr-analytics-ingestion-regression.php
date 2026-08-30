@@ -51,6 +51,12 @@ $GLOBALS['options_store'][$dedupe_key]=array('token'=>'expired-token','status'=>
 $GLOBALS['storage_write_fail']=true;
 check(nmkr_analytics_claim_acquire($dedupe_key,30,100)===null,'stale takeover database failure is unavailable');
 $GLOBALS['storage_write_fail']=false;
+$GLOBALS['options_store'][$dedupe_key]=array('token'=>'malformed-token','expires'=>PHP_INT_MAX);
+$repaired_future=nmkr_analytics_claim_acquire($dedupe_key,30,100);
+check(is_string($repaired_future)&&$GLOBALS['options_store'][$dedupe_key]['status']==='claim'&&$GLOBALS['options_store'][$dedupe_key]['token']===$repaired_future,'malformed future claim is CAS repaired');
+$GLOBALS['options_store'][$dedupe_key]=array('token'=>'malformed-token','status'=>'claim');
+$repaired_no_expiry=nmkr_analytics_claim_acquire($dedupe_key,30,100);
+check(is_string($repaired_no_expiry)&&$GLOBALS['options_store'][$dedupe_key]['expires']===130,'malformed claim without expiry is CAS repaired');
 $c3=nmkr_analytics_dedupe_claim($p['session_id'],'independent','view'); check($c3['token']!==false,'independent tuple');
 check(strlen($dedupe_key)===strlen(nmkr_analytics_state_key('dedupe',array('a','b','view')))&&strlen($dedupe_key)<96&&strpos($dedupe_key,$p['session_id'])===false,'fixed bounded key');
 reset_state(); $ip=str_repeat('a',64); for($i=0;$i<3;$i++)check(nmkr_analytics_rate_limit_outcome($ip,10,3,100)==='allowed','threshold pass'); check(nmkr_analytics_rate_limit_outcome($ip,10,3,100)==='quota','threshold exact quota');

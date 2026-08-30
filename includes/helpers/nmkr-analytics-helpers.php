@@ -232,6 +232,16 @@ function nmkr_analytics_option_read($name) {
 }
 
 /** Atomically establish or take over an expired bounded claim. */
+function nmkr_analytics_claim_state_is_valid($state) {
+    return is_array($state)
+        && isset($state['token'], $state['status'], $state['expires'])
+        && is_string($state['token'])
+        && '' !== $state['token']
+        && in_array($state['status'], array('claim', 'done'), true)
+        && is_int($state['expires'])
+        && 0 < $state['expires'];
+}
+
 function nmkr_analytics_claim_acquire($name, $ttl, $now = null) {
     global $wpdb;
     $now = null === $now ? time() : (int) $now;
@@ -239,14 +249,15 @@ function nmkr_analytics_claim_acquire($name, $ttl, $now = null) {
     $value = array('token' => $token, 'status' => 'claim', 'expires' => $now + max(1, (int) $ttl));
     if (add_option($name, $value, '', false)) return $token;
     $old = nmkr_analytics_option_read($name);
-    if (null === $old || !is_array($old) || empty($old['expires'])) return null;
-    if ((int) $old['expires'] >= $now) return false;
+    if (null === $old) return null;
+    if (nmkr_analytics_claim_state_is_valid($old) && $old['expires'] >= $now) return false;
+    // Replace expired or malformed state with a complete claim using a
+    // value-sensitive CAS so recovery cannot overwrite a competing owner.
     $updated = $wpdb->query($wpdb->prepare("UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s AND option_value = %s", maybe_serialize($value), $name, maybe_serialize($old)));
     if (false === $updated) return null;
     if (0 === $updated) {
         $current = nmkr_analytics_option_read($name);
-        $valid_status = is_array($current) && isset($current['status']) && in_array($current['status'], array('claim', 'done'), true);
-        return $valid_status && !empty($current['token']) && !empty($current['expires']) && (int) $current['expires'] >= $now ? false : null;
+        return nmkr_analytics_claim_state_is_valid($current) && $current['expires'] >= $now ? false : null;
     }
     if (1 !== $updated) return null;
     wp_cache_delete($name, 'options');
