@@ -9,12 +9,14 @@ $GLOBALS['insert_ok'] = true;
 $GLOBALS['inserts'] = 0;
 $GLOBALS['ga4'] = 0;
 $GLOBALS['now_mysql'] = '2026-01-01 00:00:00';
+$GLOBALS['rate_lock_available'] = true;
+$GLOBALS['rate_lock_held'] = false;
 class WP_REST_Response { private $status; public function __construct($body=null,$status=200){$this->status=$status;} public function get_status(){return $this->status;} }
 class FakeWpdb {
     public $options='wp_options'; public $prefix='wp_';
     public function prepare($sql,...$args){return array($sql,$args);}
-    public function get_var($q){$n=$q[1][0];return array_key_exists($n,$GLOBALS['options_store'])?maybe_serialize($GLOBALS['options_store'][$n]):null;}
-    public function query($q){$sql=$q[0];$a=$q[1];$n=strpos($sql,'UPDATE ')===0?$a[1]:$a[0];$old=strpos($sql,'UPDATE ')===0?$a[2]:($a[1]??null);if(strpos($sql,'UPDATE ')===0){if(!isset($GLOBALS['options_store'][$n])||maybe_serialize($GLOBALS['options_store'][$n])!==$old)return 0;$GLOBALS['options_store'][$n]=maybe_unserialize($a[0]);return 1;}if(strpos($sql,'DELETE ')===0){if(!isset($GLOBALS['options_store'][$n])||maybe_serialize($GLOBALS['options_store'][$n])!==$old)return 0;unset($GLOBALS['options_store'][$n]);return 1;}return false;}
+    public function get_var($q){if(strpos($q[0],'GET_LOCK')!==false){if(!$GLOBALS['rate_lock_available']||$GLOBALS['rate_lock_held'])return '0';$GLOBALS['rate_lock_held']=true;return '1';}if(strpos($q[0],'RELEASE_LOCK')!==false){$GLOBALS['rate_lock_held']=false;return '1';}$n=$q[1][0];return array_key_exists($n,$GLOBALS['options_store'])?maybe_serialize($GLOBALS['options_store'][$n]):null;}
+    public function query($q){$sql=$q[0];$a=$q[1];$n=strpos($sql,'UPDATE ')===0?$a[1]:$a[0];$old=strpos($sql,'UPDATE ')===0?($a[2]??null):($a[1]??null);if(strpos($sql,'UPDATE ')===0){if(!isset($GLOBALS['options_store'][$n])||(null!==$old&&maybe_serialize($GLOBALS['options_store'][$n])!==$old))return 0;$GLOBALS['options_store'][$n]=maybe_unserialize($a[0]);return 1;}if(strpos($sql,'DELETE ')===0){if(!isset($GLOBALS['options_store'][$n])||maybe_serialize($GLOBALS['options_store'][$n])!==$old)return 0;unset($GLOBALS['options_store'][$n]);return 1;}return false;}
     public function insert($table,$data,$formats){$GLOBALS['inserts']++;return $GLOBALS['insert_ok']?1:false;}
 }
 $GLOBALS['wpdb']=new FakeWpdb();
@@ -26,7 +28,7 @@ function is_user_logged_in(){return false;} function home_url(){return 'https://
 function nmkr_ga4_send_event($a,$b,$c,$d,array $e){$GLOBALS['ga4']++;}
 require dirname(__DIR__).'/includes/helpers/nmkr-analytics-helpers.php';
 function check($ok,$label){if(!$ok){fwrite(STDERR,"FAIL: ".$label."\n");exit(1);}}
-function reset_state(){ $GLOBALS['options_store']=array();$GLOBALS['transients']=array();$GLOBALS['inserts']=0;$GLOBALS['ga4']=0;$GLOBALS['insert_ok']=true;$_SERVER=array('HTTP_HOST'=>'example.invalid','REMOTE_ADDR'=>'192.0.2.1');$_COOKIE=array(); }
+function reset_state(){ $GLOBALS['options_store']=array();$GLOBALS['transients']=array();$GLOBALS['inserts']=0;$GLOBALS['ga4']=0;$GLOBALS['insert_ok']=true;$GLOBALS['rate_lock_available']=true;$GLOBALS['rate_lock_held']=false;$_SERVER=array('HTTP_HOST'=>'example.invalid','REMOTE_ADDR'=>'192.0.2.1');$_COOKIE=array(); }
 function payload(){return array('event_type'=>'view','shortcode'=>'grid','project_uid'=>str_repeat('p',64),'token_uid'=>str_repeat('t',64),'element_id'=>str_repeat('e',128),'session_id'=>'123e4567-e89b-42d3-a456-426614174000','meta'=>array('lang'=>'en'));}
 
 reset_state(); $p=payload(); $c1=nmkr_analytics_dedupe_claim($p['session_id'],$p['element_id'],'view'); $c2=nmkr_analytics_dedupe_claim($p['session_id'],$p['element_id'],'view');
@@ -36,6 +38,7 @@ check(strlen($c1['key'])===strlen(nmkr_analytics_state_key('dedupe',array('a','b
 reset_state(); $ip=str_repeat('a',64); for($i=0;$i<3;$i++)check(nmkr_analytics_rate_limited($ip,10,3,100)===false,'threshold pass'); check(nmkr_analytics_rate_limited($ip,10,3,100)===true,'threshold exact');
 check($GLOBALS['options_store'][nmkr_analytics_state_key('rate',array($ip))]['count']===4,'durable increments retained'); check(nmkr_analytics_rate_limited($ip,10,3,110)===false,'rollover');
 check(nmkr_analytics_rate_limited(str_repeat('b',64),10,1,110)===false,'independent ip');
+$GLOBALS['rate_lock_available']=false;check(nmkr_analytics_rate_limited(str_repeat('c',64),10,3,110)===true,'lock exhaustion fails closed');check($GLOBALS['rate_lock_held']===false,'rate lock not retained');
 check(nmkr_analytics_decode_body('{')['status']===400,'malformed json'); check(nmkr_analytics_decode_body(str_repeat('x',NMKR_ANALYTICS_RAW_BODY_MAX_BYTES+1))['status']===413,'raw bound');
 $n=0;$v=true;nmkr_prepare_analytics_metadata(array('a'=>array('b'=>array('c'=>array('d'=>array('e'=>'x'))))),0,$n,$v);check(!$v,'depth');
 $m=array();for($i=0;$i<=NMKR_ANALYTICS_META_MAX_NODES;$i++)$m['k'.$i]=$i;$n=0;$v=true;nmkr_prepare_analytics_metadata($m,0,$n,$v);check(!$v,'nodes');

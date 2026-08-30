@@ -272,41 +272,35 @@ function nmkr_analytics_dedupe_claim($session_id, $element_id, $event_type, $ttl
     return array('key' => $key, 'token' => $token, 'ttl' => max(1, (int) $ttl_seconds));
 }
 
-/** Fixed-window limiter backed by durable, compare-and-swap option state. */
+/** Fixed-window limiter backed by durable option state serialized by a database advisory lock. */
 function nmkr_analytics_rate_limited($anon_ip_sha, $window_seconds = 300, $max_events = 120, $now = null) {
+    global $wpdb;
     $anon_ip_sha = strtolower((string) $anon_ip_sha);
     if (!preg_match('/^[a-f0-9]{64}$/', $anon_ip_sha)) return true;
     $now = null === $now ? time() : (int) $now;
     $state_key = nmkr_analytics_state_key('rate', array($anon_ip_sha));
+    $lock_name = 'nmkr_ai_rate_' . substr(hash('sha256', $state_key), 0, 50);
     $window_seconds = max(1, (int) $window_seconds);
-    for ($attempt = 0; $attempt < 8; $attempt++) {
+    $locked = $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, %d)', $lock_name, 1));
+    if ('1' !== (string) $locked) return true;
+    try {
         $old = nmkr_analytics_option_read($state_key);
         if (!is_array($old) || !isset($old['start'], $old['count']) || $now >= (int) $old['expires']) {
             $new = array('start' => $now, 'count' => 1, 'expires' => $now + $window_seconds);
             if (null === $old) {
                 if (add_option($state_key, $new, '', false)) return 1 > max(0, (int) $max_events);
-            } else {
-                global $wpdb;
-                $updated = $wpdb->query($wpdb->prepare("UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s AND option_value = %s", maybe_serialize($new), $state_key, maybe_serialize($old)));
-                if (1 === $updated) {
-                    wp_cache_delete($state_key, 'options');
-                    return 1 > max(0, (int) $max_events);
-                }
             }
         } else {
             $new = $old;
             $new['count'] = (int) $old['count'] + 1;
-            global $wpdb;
-            $updated = $wpdb->query($wpdb->prepare("UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s AND option_value = %s", maybe_serialize($new), $state_key, maybe_serialize($old)));
-            if (1 === $updated) {
-                wp_cache_delete($state_key, 'options');
-                return $new['count'] > max(0, (int) $max_events);
-            }
         }
-        usleep(1000 * ($attempt + 1));
+        $updated = $wpdb->query($wpdb->prepare("UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s", maybe_serialize($new), $state_key));
+        wp_cache_delete($state_key, 'options');
+        if (false === $updated) return true;
+        return $new['count'] > max(0, (int) $max_events);
+    } finally {
+        $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lock_name));
     }
-    // Contention is not quota exhaustion. Fail open rather than issue a false 429.
-    return false;
 }
 
 /** Decode a compact transport body with a deliberate plugin-level byte limit. */
