@@ -243,6 +243,7 @@ function nmkr_connect_uninstall() {
         'nmkr_sync_owner',
         'nmkr_sync_last_result',
         'nmkr_sync_last_recovery_at',
+        'nmkr_analytics_cleanup_cursor',
         NMKR_CONNECT_SCHEMA_VERSION_OPTION,
         NMKR_CONNECT_SCHEMA_UPGRADE_LOCK_OPTION
     ];

@@ -239,9 +239,13 @@ function nmkr_analytics_claim_acquire($name, $ttl, $now = null) {
     $value = array('token' => $token, 'status' => 'claim', 'expires' => $now + max(1, (int) $ttl));
     if (add_option($name, $value, '', false)) return $token;
     $old = nmkr_analytics_option_read($name);
-    if (!is_array($old) || empty($old['expires']) || (int) $old['expires'] >= $now) return false;
+    if (null === $old || !is_array($old) || empty($old['expires'])) return null;
+    if ((int) $old['expires'] >= $now) return false;
     $updated = $wpdb->query($wpdb->prepare("UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s AND option_value = %s", maybe_serialize($value), $name, maybe_serialize($old)));
-    if (1 !== $updated) return false;
+    if (1 !== $updated) {
+        $current = nmkr_analytics_option_read($name);
+        return is_array($current) && !empty($current['token']) && !empty($current['expires']) ? false : null;
+    }
     wp_cache_delete($name, 'options');
     return $token;
 }
@@ -286,12 +290,16 @@ function nmkr_analytics_rate_limit_outcome($anon_ip_sha, $window_seconds = 300, 
     try {
         $old = nmkr_analytics_option_read($state_key);
         if (null !== $old && (!is_array($old) || !isset($old['start'], $old['count'], $old['expires']))) {
-            return 'unavailable';
+            $deleted = $wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->options} WHERE option_name = %s AND option_value = %s", $state_key, maybe_serialize($old)));
+            wp_cache_delete($state_key, 'options');
+            if (1 !== $deleted) return 'unavailable';
+            $old = null;
         }
         if (null === $old || $now >= (int) $old['expires']) {
             $new = array('start' => $now, 'count' => 1, 'expires' => $now + $window_seconds);
             if (null === $old) {
                 if (add_option($state_key, $new, '', false)) return 1 > max(0, (int) $max_events) ? 'quota' : 'allowed';
+                return 'unavailable';
             }
         } else {
             $new = $old;
@@ -489,6 +497,9 @@ function nmkr_analytics_ingest_common( $body, $source = 'rest' ) {
         return new WP_REST_Response( null, 503 );
     }
     $claim = nmkr_analytics_dedupe_claim($session_id, $element_id, $event_type);
+    if (null === $claim['token']) {
+        return new WP_REST_Response( null, 503 );
+    }
     if (false === $claim['token']) {
         return new WP_REST_Response( null, 204 );
     }

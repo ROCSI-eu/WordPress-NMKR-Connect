@@ -14,6 +14,7 @@ $GLOBALS['rate_lock_held'] = false;
 $GLOBALS['storage_write_fail'] = false;
 $GLOBALS['before_add'] = null;
 $GLOBALS['before_cas'] = null;
+$GLOBALS['add_fail'] = false;
 class WP_REST_Response { private $status; public function __construct($body=null,$status=200){$this->status=$status;} public function get_status(){return $this->status;} }
 class FakeWpdb {
     public $options='wp_options'; public $prefix='wp_';
@@ -23,7 +24,7 @@ class FakeWpdb {
     public function insert($table,$data,$formats){$GLOBALS['inserts']++;return $GLOBALS['insert_ok']?1:false;}
 }
 $GLOBALS['wpdb']=new FakeWpdb();
-function maybe_serialize($v){return serialize($v);} function maybe_unserialize($v){return unserialize($v);} function add_option($n,$v,$d='',$a=false){if(is_callable($GLOBALS['before_add'])){$hook=$GLOBALS['before_add'];$GLOBALS['before_add']=null;$hook($n,$v);}if(isset($GLOBALS['options_store'][$n]))return false;$GLOBALS['options_store'][$n]=$v;return true;}
+function maybe_serialize($v){return serialize($v);} function maybe_unserialize($v){return unserialize($v);} function add_option($n,$v,$d='',$a=false){if(is_callable($GLOBALS['before_add'])){$hook=$GLOBALS['before_add'];$GLOBALS['before_add']=null;$hook($n,$v);}if($GLOBALS['add_fail']||isset($GLOBALS['options_store'][$n]))return false;$GLOBALS['options_store'][$n]=$v;return true;}
 function wp_cache_delete($n,$g){return true;} function get_transient($n){return $GLOBALS['transients'][$n]??false;} function set_transient($n,$v,$ttl){$GLOBALS['transients'][$n]=$v;return true;}
 function wp_json_encode($v){return json_encode($v);} function sanitize_key($v){return preg_replace('/[^a-z0-9_\-]/','',strtolower($v));} function sanitize_text_field($v){return trim(strip_tags($v));}
 function get_option($n,$d=array()){if($n==='nmkr_connect_options')return array('analytics_mode'=>$GLOBALS['mode'],'analytics_sample_rate'=>1,'analytics_track_logged_in'=>0,'nmkr_ga4_measurement_id'=>'G-PUBLIC','nmkr_ga4_api_secret'=>'synthetic');return $d;}
@@ -31,7 +32,7 @@ function is_user_logged_in(){return false;} function home_url(){return 'https://
 function nmkr_ga4_send_event($a,$b,$c,$d,array $e){$GLOBALS['ga4']++;}
 require dirname(__DIR__).'/includes/helpers/nmkr-analytics-helpers.php';
 function check($ok,$label){if(!$ok){fwrite(STDERR,"FAIL: ".$label."\n");exit(1);}}
-function reset_state(){ $GLOBALS['options_store']=array();$GLOBALS['transients']=array();$GLOBALS['inserts']=0;$GLOBALS['ga4']=0;$GLOBALS['insert_ok']=true;$GLOBALS['rate_lock_available']=true;$GLOBALS['rate_lock_held']=false;$GLOBALS['storage_write_fail']=false;$GLOBALS['before_add']=null;$GLOBALS['before_cas']=null;$_SERVER=array('HTTP_HOST'=>'example.invalid','REMOTE_ADDR'=>'192.0.2.1');$_COOKIE=array(); }
+function reset_state(){ $GLOBALS['options_store']=array();$GLOBALS['transients']=array();$GLOBALS['inserts']=0;$GLOBALS['ga4']=0;$GLOBALS['insert_ok']=true;$GLOBALS['rate_lock_available']=true;$GLOBALS['rate_lock_held']=false;$GLOBALS['storage_write_fail']=false;$GLOBALS['add_fail']=false;$GLOBALS['before_add']=null;$GLOBALS['before_cas']=null;$_SERVER=array('HTTP_HOST'=>'example.invalid','REMOTE_ADDR'=>'192.0.2.1');$_COOKIE=array(); }
 function payload(){return array('event_type'=>'view','shortcode'=>'grid','project_uid'=>str_repeat('p',64),'token_uid'=>str_repeat('t',64),'element_id'=>str_repeat('e',128),'session_id'=>'123e4567-e89b-42d3-a456-426614174000','meta'=>array('lang'=>'en'));}
 
 reset_state(); $p=payload();
@@ -53,6 +54,7 @@ check(nmkr_analytics_rate_limit_outcome(str_repeat('b',64),10,1,110)==='allowed'
 $GLOBALS['rate_lock_held']=true;check(nmkr_analytics_rate_limit_outcome(str_repeat('c',64),10,3,110)==='unavailable','below-limit contention is not quota');$GLOBALS['rate_lock_held']=false;check(nmkr_analytics_rate_limit_outcome(str_repeat('c',64),10,3,110)==='allowed','contender admitted after owner releases lock');
 $GLOBALS['rate_lock_available']=false;check(nmkr_analytics_rate_limit_outcome(str_repeat('d',64),10,3,110)==='unavailable','lock timeout fails unavailable');check($GLOBALS['rate_lock_held']===false,'rate lock not retained');
 reset_state();$failure_ip=str_repeat('e',64);$failure_key=nmkr_analytics_state_key('rate',array($failure_ip));$GLOBALS['options_store'][$failure_key]=array('start'=>100,'count'=>1,'expires'=>120);$GLOBALS['storage_write_fail']=true;check(nmkr_analytics_rate_limit_outcome($failure_ip,10,3,110)==='unavailable','storage failure is not quota');
+reset_state();$repair_ip=str_repeat('f',64);$repair_key=nmkr_analytics_state_key('rate',array($repair_ip));$GLOBALS['options_store'][$repair_key]='malformed';check(nmkr_analytics_rate_limit_outcome($repair_ip,10,3,110)==='allowed'&&$GLOBALS['options_store'][$repair_key]['count']===1,'malformed rate state is repaired under lock');
 check(nmkr_analytics_decode_body('{')['status']===400,'malformed json'); check(nmkr_analytics_decode_body(str_repeat('x',NMKR_ANALYTICS_RAW_BODY_MAX_BYTES+1))['status']===413,'raw bound');
 $n=0;$v=true;nmkr_prepare_analytics_metadata(array('a'=>array('b'=>array('c'=>array('d'=>array('e'=>'x'))))),0,$n,$v);check(!$v,'depth');
 $m=array();for($i=0;$i<=NMKR_ANALYTICS_META_MAX_NODES;$i++)$m['k'.$i]=$i;$n=0;$v=true;nmkr_prepare_analytics_metadata($m,0,$n,$v);check(!$v,'nodes');
@@ -63,11 +65,13 @@ foreach(array('bad',str_repeat('a',37),'123e4567-e89b-12d3-a456-426614174000') a
 reset_state();$GLOBALS['insert_ok']=false;check(nmkr_analytics_ingest_common(payload())->get_status()===500&&count($GLOBALS['options_store'])===2,'insert failure retains durable admission');$GLOBALS['insert_ok']=true;check(nmkr_analytics_ingest_common(payload())->get_status()===204&&$GLOBALS['inserts']===1,'retry cannot duplicate sink invocation');
 reset_state();for($i=0;$i<120;$i++)nmkr_analytics_rate_limit_outcome(nmkr_hash_ip_address(),300,120,time());check(nmkr_analytics_ingest_common(payload())->get_status()===429&&$GLOBALS['inserts']===0,'empty 429');
 reset_state();$GLOBALS['rate_lock_held']=true;check(nmkr_analytics_ingest_common(payload())->get_status()===503&&$GLOBALS['inserts']===0&&$GLOBALS['ga4']===0,'contention returns empty 503 with zero sinks');
+reset_state();$dedupe_failure_rate_key=nmkr_analytics_state_key('rate',array(nmkr_hash_ip_address()));$GLOBALS['options_store'][$dedupe_failure_rate_key]=array('start'=>time(),'count'=>0,'expires'=>time()+300);$GLOBALS['before_add']=function(){$GLOBALS['add_fail']=true;};check(nmkr_analytics_ingest_common(payload())->get_status()===503&&$GLOBALS['inserts']===0&&$GLOBALS['ga4']===0,'ambiguous dedupe creation returns empty 503 with zero sinks');
 reset_state();$ingress_key=nmkr_analytics_state_key('rate',array(nmkr_hash_ip_address()));$GLOBALS['options_store'][$ingress_key]=array('start'=>time(),'count'=>1,'expires'=>time()+300);$GLOBALS['storage_write_fail']=true;check(nmkr_analytics_ingest_common(payload())->get_status()===503&&$GLOBALS['inserts']===0&&$GLOBALS['ga4']===0,'storage ambiguity returns empty 503 with zero sinks');
 foreach(array('off'=>array(0,0),'custom'=>array(0,1),'ga4'=>array(1,0),'both'=>array(1,1)) as $mode=>$expect){reset_state();$GLOBALS['mode']=$mode;check(nmkr_analytics_ingest_common(payload())->get_status()===204&&array($GLOBALS['ga4'],$GLOBALS['inserts'])===$expect,'sink matrix');}
 $js=file_get_contents(dirname(__DIR__).'/js/nmkr-analytics.js');check(strpos($js,'Math.random() > sampleRate')===false&&strpos(file_get_contents(dirname(__DIR__).'/includes/helpers/nmkr-analytics-helpers.php'),'nmkr_get_analytics_sample_rate')!==false,'server authoritative sampling');
 check(strpos($js,"-4' + s4().slice(1)")!==false&&strpos($js,".test(sid || '')")!==false,'client regenerates non-v4 sessions');
 $rest=file_get_contents(dirname(__DIR__).'/includes/analytics/nmkr-analytics-endpoints.php');$ajax=file_get_contents(dirname(__DIR__).'/includes/ajax/nmkr-ajax-functions.php');check(substr_count($rest,'nmkr_analytics_decode_body')===1&&substr_count($ajax,'nmkr_analytics_decode_body')===1,'transport parity');
 $uninstall=file_get_contents(dirname(__DIR__).'/nmkr-connect.php');check(strpos($uninstall,"esc_like('nmkr_ai_')")!==false&&strpos($uninstall,'delete_option($analytics_state_name)')!==false,'configured uninstall removes dynamic admission state');
+$cron=file_get_contents(dirname(__DIR__).'/includes/analytics/nmkr-analytics-cron.php');check(strpos($cron,"get_option(\$state_cursor_option, '')")!==false&&strpos($cron,'update_option($state_cursor_option')!==false,'bounded cleanup persists its ordered cursor');
 reset_state();check(count($GLOBALS['options_store'])===0&&count($GLOBALS['transients'])===0,'cleanup');
 echo "PASS: analytics ingestion contracts\n";
