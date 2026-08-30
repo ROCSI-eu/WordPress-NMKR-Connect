@@ -272,23 +272,26 @@ function nmkr_analytics_dedupe_claim($session_id, $element_id, $event_type, $ttl
     return array('key' => $key, 'token' => $token, 'ttl' => max(1, (int) $ttl_seconds));
 }
 
-/** Fixed-window limiter backed by durable option state serialized by a database advisory lock. */
-function nmkr_analytics_rate_limited($anon_ip_sha, $window_seconds = 300, $max_events = 120, $now = null) {
+/** Fixed-window admission backed by durable option state and a database advisory lock. */
+function nmkr_analytics_rate_limit_outcome($anon_ip_sha, $window_seconds = 300, $max_events = 120, $now = null) {
     global $wpdb;
     $anon_ip_sha = strtolower((string) $anon_ip_sha);
-    if (!preg_match('/^[a-f0-9]{64}$/', $anon_ip_sha)) return true;
+    if (!preg_match('/^[a-f0-9]{64}$/', $anon_ip_sha)) return 'unavailable';
     $now = null === $now ? time() : (int) $now;
     $state_key = nmkr_analytics_state_key('rate', array($anon_ip_sha));
     $lock_name = 'nmkr_ai_rate_' . substr(hash('sha256', $state_key), 0, 50);
     $window_seconds = max(1, (int) $window_seconds);
     $locked = $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, %d)', $lock_name, 1));
-    if ('1' !== (string) $locked) return true;
+    if ('1' !== (string) $locked) return 'unavailable';
     try {
         $old = nmkr_analytics_option_read($state_key);
-        if (!is_array($old) || !isset($old['start'], $old['count']) || $now >= (int) $old['expires']) {
+        if (null !== $old && (!is_array($old) || !isset($old['start'], $old['count'], $old['expires']))) {
+            return 'unavailable';
+        }
+        if (null === $old || $now >= (int) $old['expires']) {
             $new = array('start' => $now, 'count' => 1, 'expires' => $now + $window_seconds);
             if (null === $old) {
-                if (add_option($state_key, $new, '', false)) return 1 > max(0, (int) $max_events);
+                if (add_option($state_key, $new, '', false)) return 1 > max(0, (int) $max_events) ? 'quota' : 'allowed';
             }
         } else {
             $new = $old;
@@ -296,8 +299,8 @@ function nmkr_analytics_rate_limited($anon_ip_sha, $window_seconds = 300, $max_e
         }
         $updated = $wpdb->query($wpdb->prepare("UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s", maybe_serialize($new), $state_key));
         wp_cache_delete($state_key, 'options');
-        if (false === $updated) return true;
-        return $new['count'] > max(0, (int) $max_events);
+        if (1 !== $updated) return 'unavailable';
+        return $new['count'] > max(0, (int) $max_events) ? 'quota' : 'allowed';
     } finally {
         $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lock_name));
     }
@@ -478,8 +481,12 @@ function nmkr_analytics_ingest_common( $body, $source = 'rest' ) {
     $user_id = ( function_exists('nmkr_get_analytics_user_id') ? nmkr_get_analytics_user_id() : 0 );
 
     // 6) Rate-limit & dedupe
-    if ( function_exists('nmkr_analytics_rate_limited') && nmkr_analytics_rate_limited( $ip_hash_hex ) ) {
+    $rate_outcome = nmkr_analytics_rate_limit_outcome( $ip_hash_hex );
+    if ( 'quota' === $rate_outcome ) {
         return new WP_REST_Response( null, 429 );
+    }
+    if ( 'allowed' !== $rate_outcome ) {
+        return new WP_REST_Response( null, 503 );
     }
     $claim = nmkr_analytics_dedupe_claim($session_id, $element_id, $event_type);
     if (false === $claim['token']) {
