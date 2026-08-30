@@ -242,10 +242,13 @@ function nmkr_analytics_claim_acquire($name, $ttl, $now = null) {
     if (null === $old || !is_array($old) || empty($old['expires'])) return null;
     if ((int) $old['expires'] >= $now) return false;
     $updated = $wpdb->query($wpdb->prepare("UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s AND option_value = %s", maybe_serialize($value), $name, maybe_serialize($old)));
-    if (1 !== $updated) {
+    if (false === $updated) return null;
+    if (0 === $updated) {
         $current = nmkr_analytics_option_read($name);
-        return is_array($current) && !empty($current['token']) && !empty($current['expires']) ? false : null;
+        $valid_status = is_array($current) && isset($current['status']) && in_array($current['status'], array('claim', 'done'), true);
+        return $valid_status && !empty($current['token']) && !empty($current['expires']) && (int) $current['expires'] >= $now ? false : null;
     }
+    if (1 !== $updated) return null;
     wp_cache_delete($name, 'options');
     return $token;
 }

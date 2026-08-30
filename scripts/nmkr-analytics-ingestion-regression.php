@@ -12,6 +12,7 @@ $GLOBALS['now_mysql'] = '2026-01-01 00:00:00';
 $GLOBALS['rate_lock_available'] = true;
 $GLOBALS['rate_lock_held'] = false;
 $GLOBALS['storage_write_fail'] = false;
+$GLOBALS['storage_write_fail_name'] = null;
 $GLOBALS['before_add'] = null;
 $GLOBALS['before_cas'] = null;
 $GLOBALS['add_fail'] = false;
@@ -20,7 +21,7 @@ class FakeWpdb {
     public $options='wp_options'; public $prefix='wp_';
     public function prepare($sql,...$args){return array($sql,$args);}
     public function get_var($q){if(strpos($q[0],'GET_LOCK')!==false){if(!$GLOBALS['rate_lock_available']||$GLOBALS['rate_lock_held'])return '0';$GLOBALS['rate_lock_held']=true;return '1';}if(strpos($q[0],'RELEASE_LOCK')!==false){$GLOBALS['rate_lock_held']=false;return '1';}$n=$q[1][0];return array_key_exists($n,$GLOBALS['options_store'])?maybe_serialize($GLOBALS['options_store'][$n]):null;}
-    public function query($q){$sql=$q[0];$a=$q[1];$n=strpos($sql,'UPDATE ')===0?$a[1]:$a[0];$old=strpos($sql,'UPDATE ')===0?($a[2]??null):($a[1]??null);if(strpos($sql,'UPDATE ')===0){if($GLOBALS['storage_write_fail'])return false;if(is_callable($GLOBALS['before_cas'])){$hook=$GLOBALS['before_cas'];$GLOBALS['before_cas']=null;$hook($n);}if(!isset($GLOBALS['options_store'][$n])||(null!==$old&&maybe_serialize($GLOBALS['options_store'][$n])!==$old))return 0;$GLOBALS['options_store'][$n]=maybe_unserialize($a[0]);return 1;}if(strpos($sql,'DELETE ')===0){if(!isset($GLOBALS['options_store'][$n])||maybe_serialize($GLOBALS['options_store'][$n])!==$old)return 0;unset($GLOBALS['options_store'][$n]);return 1;}return false;}
+    public function query($q){$sql=$q[0];$a=$q[1];$n=strpos($sql,'UPDATE ')===0?$a[1]:$a[0];$old=strpos($sql,'UPDATE ')===0?($a[2]??null):($a[1]??null);if(strpos($sql,'UPDATE ')===0){if($GLOBALS['storage_write_fail']||$GLOBALS['storage_write_fail_name']===$n)return false;if(is_callable($GLOBALS['before_cas'])){$hook=$GLOBALS['before_cas'];$GLOBALS['before_cas']=null;$hook($n);}if(!isset($GLOBALS['options_store'][$n])||(null!==$old&&maybe_serialize($GLOBALS['options_store'][$n])!==$old))return 0;$GLOBALS['options_store'][$n]=maybe_unserialize($a[0]);return 1;}if(strpos($sql,'DELETE ')===0){if(!isset($GLOBALS['options_store'][$n])||maybe_serialize($GLOBALS['options_store'][$n])!==$old)return 0;unset($GLOBALS['options_store'][$n]);return 1;}return false;}
     public function insert($table,$data,$formats){$GLOBALS['inserts']++;return $GLOBALS['insert_ok']?1:false;}
 }
 $GLOBALS['wpdb']=new FakeWpdb();
@@ -32,7 +33,7 @@ function is_user_logged_in(){return false;} function home_url(){return 'https://
 function nmkr_ga4_send_event($a,$b,$c,$d,array $e){$GLOBALS['ga4']++;}
 require dirname(__DIR__).'/includes/helpers/nmkr-analytics-helpers.php';
 function check($ok,$label){if(!$ok){fwrite(STDERR,"FAIL: ".$label."\n");exit(1);}}
-function reset_state(){ $GLOBALS['options_store']=array();$GLOBALS['transients']=array();$GLOBALS['inserts']=0;$GLOBALS['ga4']=0;$GLOBALS['insert_ok']=true;$GLOBALS['rate_lock_available']=true;$GLOBALS['rate_lock_held']=false;$GLOBALS['storage_write_fail']=false;$GLOBALS['add_fail']=false;$GLOBALS['before_add']=null;$GLOBALS['before_cas']=null;$_SERVER=array('HTTP_HOST'=>'example.invalid','REMOTE_ADDR'=>'192.0.2.1');$_COOKIE=array(); }
+function reset_state(){ $GLOBALS['options_store']=array();$GLOBALS['transients']=array();$GLOBALS['inserts']=0;$GLOBALS['ga4']=0;$GLOBALS['insert_ok']=true;$GLOBALS['rate_lock_available']=true;$GLOBALS['rate_lock_held']=false;$GLOBALS['storage_write_fail']=false;$GLOBALS['storage_write_fail_name']=null;$GLOBALS['add_fail']=false;$GLOBALS['before_add']=null;$GLOBALS['before_cas']=null;$_SERVER=array('HTTP_HOST'=>'example.invalid','REMOTE_ADDR'=>'192.0.2.1');$_COOKIE=array(); }
 function payload(){return array('event_type'=>'view','shortcode'=>'grid','project_uid'=>str_repeat('p',64),'token_uid'=>str_repeat('t',64),'element_id'=>str_repeat('e',128),'session_id'=>'123e4567-e89b-42d3-a456-426614174000','meta'=>array('lang'=>'en'));}
 
 reset_state(); $p=payload();
@@ -43,9 +44,13 @@ check($c1['token']===false&&$GLOBALS['options_store'][$dedupe_key]['token']==='c
 $c2=nmkr_analytics_dedupe_claim($p['session_id'],$p['element_id'],'view');
 check($c2['token']===false,'active competing claim remains exclusive');
 $GLOBALS['options_store'][$dedupe_key]=array('token'=>'stale-token','status'=>'claim','expires'=>90);
-$GLOBALS['before_cas']=function($name){$GLOBALS['options_store'][$name]['token']='takeover-winner';};
+$GLOBALS['before_cas']=function($name){$GLOBALS['options_store'][$name]=array('token'=>'takeover-winner','status'=>'claim','expires'=>130);};
 check(nmkr_analytics_claim_acquire($dedupe_key,30,100)===false&&$GLOBALS['options_store'][$dedupe_key]['token']==='takeover-winner','controlled stale takeover CAS preserves winner');
 check(nmkr_analytics_claim_release($dedupe_key,'stale-token')===false&&nmkr_analytics_claim_finalize($dedupe_key,'stale-token',60,100)===false,'token ownership rejects stale worker');
+$GLOBALS['options_store'][$dedupe_key]=array('token'=>'expired-token','status'=>'claim','expires'=>90);
+$GLOBALS['storage_write_fail']=true;
+check(nmkr_analytics_claim_acquire($dedupe_key,30,100)===null,'stale takeover database failure is unavailable');
+$GLOBALS['storage_write_fail']=false;
 $c3=nmkr_analytics_dedupe_claim($p['session_id'],'independent','view'); check($c3['token']!==false,'independent tuple');
 check(strlen($dedupe_key)===strlen(nmkr_analytics_state_key('dedupe',array('a','b','view')))&&strlen($dedupe_key)<96&&strpos($dedupe_key,$p['session_id'])===false,'fixed bounded key');
 reset_state(); $ip=str_repeat('a',64); for($i=0;$i<3;$i++)check(nmkr_analytics_rate_limit_outcome($ip,10,3,100)==='allowed','threshold pass'); check(nmkr_analytics_rate_limit_outcome($ip,10,3,100)==='quota','threshold exact quota');
@@ -66,6 +71,7 @@ reset_state();$GLOBALS['insert_ok']=false;check(nmkr_analytics_ingest_common(pay
 reset_state();for($i=0;$i<120;$i++)nmkr_analytics_rate_limit_outcome(nmkr_hash_ip_address(),300,120,time());check(nmkr_analytics_ingest_common(payload())->get_status()===429&&$GLOBALS['inserts']===0,'empty 429');
 reset_state();$GLOBALS['rate_lock_held']=true;check(nmkr_analytics_ingest_common(payload())->get_status()===503&&$GLOBALS['inserts']===0&&$GLOBALS['ga4']===0,'contention returns empty 503 with zero sinks');
 reset_state();$dedupe_failure_rate_key=nmkr_analytics_state_key('rate',array(nmkr_hash_ip_address()));$GLOBALS['options_store'][$dedupe_failure_rate_key]=array('start'=>time(),'count'=>0,'expires'=>time()+300);$GLOBALS['before_add']=function(){$GLOBALS['add_fail']=true;};check(nmkr_analytics_ingest_common(payload())->get_status()===503&&$GLOBALS['inserts']===0&&$GLOBALS['ga4']===0,'ambiguous dedupe creation returns empty 503 with zero sinks');
+reset_state();$cas_payload=payload();$cas_rate_key=nmkr_analytics_state_key('rate',array(nmkr_hash_ip_address()));$cas_dedupe_key=nmkr_analytics_state_key('dedupe',array($cas_payload['session_id'],$cas_payload['element_id'],$cas_payload['event_type']));$GLOBALS['options_store'][$cas_rate_key]=array('start'=>time(),'count'=>0,'expires'=>time()+300);$GLOBALS['options_store'][$cas_dedupe_key]=array('token'=>'expired-token','status'=>'claim','expires'=>time()-1);$GLOBALS['storage_write_fail_name']=$cas_dedupe_key;check(nmkr_analytics_ingest_common($cas_payload)->get_status()===503&&$GLOBALS['inserts']===0&&$GLOBALS['ga4']===0,'dedupe takeover CAS database failure returns empty 503 with zero sinks');
 reset_state();$ingress_key=nmkr_analytics_state_key('rate',array(nmkr_hash_ip_address()));$GLOBALS['options_store'][$ingress_key]=array('start'=>time(),'count'=>1,'expires'=>time()+300);$GLOBALS['storage_write_fail']=true;check(nmkr_analytics_ingest_common(payload())->get_status()===503&&$GLOBALS['inserts']===0&&$GLOBALS['ga4']===0,'storage ambiguity returns empty 503 with zero sinks');
 foreach(array('off'=>array(0,0),'custom'=>array(0,1),'ga4'=>array(1,0),'both'=>array(1,1)) as $mode=>$expect){reset_state();$GLOBALS['mode']=$mode;check(nmkr_analytics_ingest_common(payload())->get_status()===204&&array($GLOBALS['ga4'],$GLOBALS['inserts'])===$expect,'sink matrix');}
 $js=file_get_contents(dirname(__DIR__).'/js/nmkr-analytics.js');check(strpos($js,'Math.random() > sampleRate')===false&&strpos(file_get_contents(dirname(__DIR__).'/includes/helpers/nmkr-analytics-helpers.php'),'nmkr_get_analytics_sample_rate')!==false,'server authoritative sampling');
