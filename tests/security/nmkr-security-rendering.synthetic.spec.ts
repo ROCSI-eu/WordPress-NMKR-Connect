@@ -31,7 +31,7 @@ test('production synchronization and analytics sinks render hostile-shaped value
     class JQ {
       nodes: EventTarget[]; constructor(nodes: EventTarget[]) { this.nodes=nodes; }
       get length(){ return this.nodes.length; }
-      ready(fn:()=>void){ fn(); return this; } val(){ return (this.nodes[0] as HTMLInputElement)?.value || ''; }
+      ready(fn:(jquery:(selector:any, attrs?:any)=>JQ)=>void){ fn((window as any).jQuery); return this; } val(){ return (this.nodes[0] as HTMLInputElement)?.value || ''; }
       off(){ return this; } on(event:string, fn:EventListener){ this.nodes.forEach(n=>n.addEventListener(event,fn)); return this; }
       prop(name:string,v:unknown){ this.nodes.forEach(n=>(n as any)[name]=v); return this; } hide(){ return this.css('display','none'); } show(){ return this.css('display',''); }
       css(name:string,v:string){ this.nodes.forEach(n=>(n as HTMLElement).style.setProperty(name,v)); return this; }
