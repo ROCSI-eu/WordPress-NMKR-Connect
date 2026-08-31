@@ -4,6 +4,10 @@ import path from 'path';
 const hostile = `<img src=x onerror="window.__nmkrMarker()"><svg onload="window.__nmkrMarker()"><a href=x>marker</a><iframe srcdoc=x></iframe>`;
 
 test('production synchronization and analytics sinks render hostile-shaped values as text', async ({ page }) => {
+  const pageErrors: Error[] = [];
+  let reportPageError: () => void = () => {};
+  const pageErrorObserved = new Promise<void>(resolve => { reportPageError = resolve; });
+  page.on('pageerror', error => { pageErrors.push(error); reportPageError(); });
   await page.setContent(`<main>
     <button id="nmkr-sync-button"></button><button id="nmkr-stop-sync-button"></button>
     <input id="nmkr-sync-nonce" value="nonce"><div id="nmkr-sync-progress-bar"></div>
@@ -25,20 +29,21 @@ test('production synchronization and analytics sinks render hostile-shaped value
       return { ok:true, json:async()=>({ success:true, data }) };
     };
     class JQ {
-      nodes: Element[]; constructor(nodes: Element[]) { this.nodes=nodes; }
+      nodes: EventTarget[]; constructor(nodes: EventTarget[]) { this.nodes=nodes; }
+      get length(){ return this.nodes.length; }
       ready(fn:()=>void){ fn(); return this; } val(){ return (this.nodes[0] as HTMLInputElement)?.value || ''; }
       off(){ return this; } on(event:string, fn:EventListener){ this.nodes.forEach(n=>n.addEventListener(event,fn)); return this; }
       prop(name:string,v:unknown){ this.nodes.forEach(n=>(n as any)[name]=v); return this; } hide(){ return this.css('display','none'); } show(){ return this.css('display',''); }
       css(name:string,v:string){ this.nodes.forEach(n=>(n as HTMLElement).style.setProperty(name,v)); return this; }
-      text(v?:unknown){ if(arguments.length){this.nodes.forEach(n=>n.textContent=String(v));return this;} return this.nodes[0]?.textContent||''; }
-      empty(){this.nodes.forEach(n=>n.replaceChildren());return this;} append(child:any){this.nodes.forEach(n=>n.append(...child.nodes));return this;}
-      find(sel:string){return new JQ(this.nodes.flatMap(n=>Array.from(n.querySelectorAll(sel))));} each(fn:Function){this.nodes.forEach((n,i)=>fn.call(n,i,n));return this;}
-      addClass(c:string){this.nodes.forEach(n=>n.classList.add(c));return this;} removeClass(c:string){this.nodes.forEach(n=>n.classList.remove(c));return this;}
+      attr(name:string, value?:unknown){ const elements=this.nodes.filter((n):n is Element=>n instanceof Element); if(arguments.length===1){const result=elements[0]?.getAttribute(name);return result===null?undefined:result;} elements.forEach(n=>n.setAttribute(name,String(value))); return this; }
+      text(v?:unknown){ const nodes=this.nodes.filter((n):n is Node=>n instanceof Node); if(arguments.length){nodes.forEach(n=>n.textContent=String(v));return this;} return nodes[0]?.textContent||''; }
+      empty(){this.nodes.forEach(n=>{if(n instanceof Element)n.replaceChildren();});return this;} append(child:any){this.nodes.forEach(n=>{if(n instanceof Element)n.append(...child.nodes);});return this;}
+      find(sel:string){return new JQ(this.nodes.flatMap(n=>n instanceof Element?Array.from(n.querySelectorAll(sel)):[]));} each(fn:Function){this.nodes.forEach((n,i)=>fn.call(n,i,n));return this;}
+      addClass(c:string){this.nodes.forEach(n=>{if(n instanceof Element)n.classList.add(c);});return this;} removeClass(c:string){this.nodes.forEach(n=>{if(n instanceof Element)n.classList.remove(c);});return this;}
     }
     const jq:any = (sel:any, attrs?:any) => {
-      if(sel===document) return new JQ([document.documentElement]);
       if(typeof sel==='string' && sel.startsWith('<')) { const n=document.createElement(sel.match(/<([a-z]+)/i)![1]); Object.entries(attrs||{}).forEach(([k,v])=>k==='class'?n.className=String(v):n.setAttribute(k,String(v))); return new JQ([n]); }
-      if(sel instanceof Element) return new JQ([sel]); return new JQ(Array.from(document.querySelectorAll(sel)));
+      if(sel instanceof EventTarget) return new JQ([sel]); return new JQ(Array.from(document.querySelectorAll(sel)));
     };
     const runId='12345678-1234-4123-8123-123456789abc';
     jq.ajax=(options:any)=>{
@@ -55,7 +60,11 @@ test('production synchronization and analytics sinks render hostile-shaped value
   await page.click('#nmkr-sync-button');
   await page.addScriptTag({ path: path.resolve('js/admin/nmkr-analytics-dashboard.js') });
   await page.evaluate(() => document.dispatchEvent(new Event('DOMContentLoaded')));
-  await page.waitForFunction(() => document.querySelectorAll('#nmkr-top-projects-root tbody tr').length > 0);
+  await Promise.race([
+    page.waitForFunction(() => document.querySelectorAll('#nmkr-top-projects-root tbody tr').length > 0),
+    pageErrorObserved,
+  ]);
+  expect(pageErrors, pageErrors.map(error => error.stack || error.message).join('\n')).toEqual([]);
   for (const selector of ['#status-message .status-header','#nmkr-top-projects-root tbody td:first-child','#nmkr-top-tokens-root tbody td:first-child']) {
     await expect(page.locator(selector)).toHaveText(hostile);
   }
