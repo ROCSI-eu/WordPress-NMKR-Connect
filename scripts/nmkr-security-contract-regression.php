@@ -33,7 +33,7 @@ function add_options_page($title,$menu,$cap,$slug,$callback) { $GLOBALS['nmkr_pa
 
 final class NmkrContractWpdb {
     public $prefix='wp_'; public $templates=array(); public $params=array(); public $reads=0;
-    function prepare($query, $values=array()) { $values=is_array($values)?$values:array_slice(func_get_args(),1); $this->templates[]=$query; $this->params[]=$values; $GLOBALS['nmkr_ledger'][]='sql-prepare'; return $query; }
+    function prepare($query, $values=array()) { $values=is_array($values)?$values:array_slice(func_get_args(),1); preg_match_all('/%(?:\d+\$)?[sdfFi]/',str_replace('%%','',$query),$placeholders); nmkr_assert(count($placeholders[0])===count($values),'sql_placeholder_count'); $this->templates[]=$query; $this->params[]=$values; $GLOBALS['nmkr_ledger'][]='sql-prepare'; return $query; }
     function get_var($query) { $this->reads++; $GLOBALS['nmkr_ledger'][]='sql-read'; return 0; }
     function get_results($query,$format=null) { $this->reads++; $GLOBALS['nmkr_ledger'][]='sql-read'; return array(array('project_uid'=>'safe','views'=>'1','clicks'=>'0','ctr'=>'0')); }
     function esc_like($v) { return addcslashes($v, '_%\\'); }
