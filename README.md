@@ -18,21 +18,33 @@ NMKR Connect is supported by [Cardano Project Catalyst Fund 13](https://mileston
 
 ## Contents
 
+- [Documentation](#documentation)
 - [Current functionality](#current-functionality)
 - [Requirements](#requirements)
 - [Installation and first use](#installation-and-first-use)
-- [User guide](docs/user-guide.md)
-- [Developer guide](docs/developer-guide.md)
 - [Shortcodes and plans](#shortcodes-and-plans)
 - [Roles and access](#roles-and-access)
 - [Analytics and privacy](#analytics-and-privacy)
 - [Security approach](#security-approach)
 - [Development and testing](#development-and-testing)
 - [Troubleshooting](#troubleshooting)
-- [Troubleshooting guide](docs/troubleshooting.md)
 - [Project layout](#project-layout)
 - [Contributing](#contributing)
 - [License and acknowledgements](#license-and-acknowledgements)
+
+## Documentation
+
+| Reader or task | Start here |
+| --- | --- |
+| Site owners and administrators | [User guide](docs/user-guide.md) |
+| Content and marketing users | [Roles, Projects, Shortcodes, and Analytics guidance](docs/user-guide.md#administration-pages-and-access) |
+| Quick questions across roles | [Comprehensive FAQ](docs/faq.md) |
+| Symptoms, read-only diagnosis, and safe escalation | [Troubleshooting guide](docs/troubleshooting.md) |
+| Developers and contributors | [Developer guide](docs/developer-guide.md) |
+| Maintainers choosing proportional checks | [Validation policy](docs/validation-policy.md) |
+| Security audit, findings, bounded evidence, and limitations | [Milestone 4 hub](docs/milestone-4/README.md) |
+
+The focused guides are authoritative for their procedures. Use links instead of copying operational instructions into issues or pull requests, and keep all public diagnostics sanitized.
 
 ## Current functionality
 
@@ -110,13 +122,15 @@ Access is based on plugin-specific WordPress capabilities rather than role-name 
 - **NMKR Admin** receives full plugin access and can view the dashboard and other plugin pages, change settings, and start or stop synchronization. It does not implicitly receive unrelated site-wide Administrator permissions.
 - **NMKR Marketing** has read/marketing access to Projects, Shortcodes, and Analytics. It cannot access the synchronization dashboard, change plugin settings, or manage synchronization.
 
-Assign roles according to least privilege and restrict access to users who need the corresponding data and controls.
+Assign roles according to least privilege and restrict access to users who need the corresponding data and controls. The exact capability/action mapping is maintained in the [user guide](docs/user-guide.md#capability-and-action-matrix).
 
 ## Analytics and privacy
 
 The analytics dashboard reports views, clicks, click-through rate, time-series data, top projects, top tokens, and a shortcode breakdown. Dashboard requests support preset or custom date ranges and shortcode, project UID, and token UID filters; tables also support the implemented search, sorting, and pagination controls. Filtered time-series, top-project, top-token, and shortcode-breakdown results can be exported as CSV or JSON.
 
 Analytics modes are **Off**, local custom analytics only, GA4 only, or both. Settings also cover local-data retention, sampling, logged-in-user tracking, and whether explicit consent is required. When consent is required, front-end collection waits for the plugin's consent signal. GA4 uses a server-side Measurement Protocol request when a Measurement ID and API secret are configured. Site operators remain responsible for choosing settings, notices, consent handling, and retention appropriate to their users and applicable law.
+
+Front-end analytics ingestion is intentionally public/unauthenticated because ordinary visitors can interact with rendered shortcodes. This is not an administrative mutation boundary. Mode, logged-in-user policy, consent, DNT, sampling, host/origin validation, bounded input handling, rate admission, deduplication, retention, and sink configuration are limited controls rather than universal abuse-prevention or exactly-once-delivery guarantees. See the [FAQ analytics section](docs/faq.md#analytics-privacy-consent-and-ga4).
 
 ## Security approach
 
@@ -164,7 +178,7 @@ Detailed procedures and safety boundaries are maintained in:
 
 ## Troubleshooting
 
-For symptom-based, read-only-first checks and a public-safe escalation template, see the **[NMKR Connect troubleshooting guide](docs/troubleshooting.md)**.
+For symptom-based, read-only-first checks and a public-safe escalation template, see the **[NMKR Connect troubleshooting guide](docs/troubleshooting.md)**. The [FAQ](docs/faq.md) provides shorter cross-role answers and routes each topic to its detailed procedure.
 
 Begin with read-only checks:
 
