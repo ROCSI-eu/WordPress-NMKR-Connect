@@ -45,7 +45,7 @@ The final exact-head Phase 4 CI run passed:
 
 The exact-checkout gate passed in all three jobs. Focused inspection also confirmed the exact eight-file documentation allowlist, complete PR hunks, the one-paragraph post-review correction, public-safe wording, repository-relative links, and intended GitHub-style anchors.
 
-A separate local `git diff --check` was not claimed because the available execution environment could not clone the repository. GitHub patch inspection found no remaining EOF or whitespace-only artifact, and the exact final head passed CI.
+The required `git diff --check 72944bdb7848cb16fc0eb3d108e5602034153aef...c6f2bc2057e3034d2d218d70aee9d1817897ccb7` check was subsequently run in a managed checkout containing the exact implementation baseline and final reviewed head. It returned no output and exited successfully. This closes the Docs/metadata pre-merge-minimum evidence gap identified during review of this closure record.
 
 ## Merge equivalence
 
