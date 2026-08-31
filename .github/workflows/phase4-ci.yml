@@ -20,6 +20,17 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Verify exact checkout
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$(git rev-parse "$EXPECTED_SHA^{tree}")"
+          test -z "$(git status --porcelain=v1)"
+          echo 'Exact checkout: PASS'
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -39,3 +50,54 @@ jobs:
 
       - name: Run public-safe checks
         run: npm run test:public
+
+  synthetic-security-rendering:
+    name: Synthetic security rendering
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify exact checkout
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$(git rev-parse "$EXPECTED_SHA^{tree}")"
+          test -z "$(git status --porcelain=v1)"
+          echo 'Exact checkout: PASS'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Install locked Chromium runner
+        run: npx playwright install --with-deps chromium
+      - run: npm run test:security-rendering
+
+  dependency-audits:
+    name: Dependency audits
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify exact checkout
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$(git rev-parse "$EXPECTED_SHA^{tree}")"
+          test -z "$(git status --porcelain=v1)"
+          echo 'Exact checkout: PASS'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          coverage: none
+          tools: composer:v2
+      - run: npm ci
+      - run: npm run test:dependencies
