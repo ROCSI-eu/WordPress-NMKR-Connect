@@ -40,8 +40,15 @@ test('production synchronization and analytics sinks render hostile-shaped value
       if(typeof sel==='string' && sel.startsWith('<')) { const n=document.createElement(sel.match(/<([a-z]+)/i)![1]); Object.entries(attrs||{}).forEach(([k,v])=>k==='class'?n.className=String(v):n.setAttribute(k,String(v))); return new JQ([n]); }
       if(sel instanceof Element) return new JQ([sel]); return new JQ(Array.from(document.querySelectorAll(sel)));
     };
-    const progress={success:true,data:{progress:1,current_item:marker,in_progress:true,activeRunId:'12345678-1234-4123-8123-123456789abc'}};
-    jq.ajax=()=>{ const chain:any={readyState:4,done(fn:Function){queueMicrotask(()=>fn(progress));return chain;},fail(){return chain;},always(){return chain;},abort(){}}; return chain;};
+    const runId='12345678-1234-4123-8123-123456789abc';
+    jq.ajax=(options:any)=>{
+      const action=options?.data?.action;
+      const response=action==='nmkr_start_sync' ? {success:true,data:{run_id:runId}}
+        : action==='nmkr_sync_progress' ? {success:true,data:{progress:1,current_item:marker,in_progress:true,activeRunId:runId}}
+        : (()=>{ throw new Error(`Unexpected synthetic AJAX action: ${String(action)}`); })();
+      const chain:any={readyState:4,done(fn:Function){queueMicrotask(()=>fn(response));return chain;},fail(){return chain;},always(){return chain;},abort(){}};
+      return chain;
+    };
     jq.post=jq.ajax; window.jQuery=jq; (window as any).$=jq;
   }, hostile);
   await page.addScriptTag({ path: path.resolve('js/nmkr-sync-progress.js') });
