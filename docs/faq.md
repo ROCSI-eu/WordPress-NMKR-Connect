@@ -108,7 +108,7 @@ Share only whether a field is populated, the affected setting name, a sanitized 
 
 ### Who can start synchronization?
 
-A user with `nmkr_manage_sync`, a valid action nonce, and a configured API key, when no active run owns the lifecycle.
+Submitting Start requires `nmkr_manage_sync`, a valid action nonce, and no active run owning the lifecycle. The start handler can admit ownership and queue the background worker before validating API configuration. The worker checks the API key when it runs and fails and cleans up the run if the key is missing. Configure a valid API key before starting if the synchronization is expected to proceed.
 
 ### What is run ownership?
 
