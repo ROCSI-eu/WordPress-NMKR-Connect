@@ -4,6 +4,23 @@ Start with observation, not deletion. Record the exact plugin commit/release whe
 
 For **any advanced recovery**, first confirm the exact environment, make and verify a backup, confirm synchronization is idle or terminal, write an explicit change and rollback plan, and define final-state verification. If any prerequisite is missing, escalate instead of changing state.
 
+Related guidance:
+
+- [Repository documentation hub](../README.md#documentation)
+- [Comprehensive FAQ](faq.md)
+- [User guide](user-guide.md)
+- [Capability and action matrix](user-guide.md#capability-and-action-matrix)
+- [Synchronization procedure](user-guide.md#synchronize-projects-and-tokens)
+- [Developer guide](developer-guide.md)
+
+## Symptom index
+
+- **Installation and configuration:** [activation failure](#1-plugin-activation-failure), [incomplete package](#2-missing-vendorautoloadphp-or-incomplete-package), [settings save/access](#3-settings-access-or-save-failure), [API configuration](#4-nmkr-api-configuration-missing-rejected-or-unavailable)
+- **Synchronization lifecycle:** [cannot start](#5-synchronization-cannot-start), [appears stalled](#6-synchronization-appears-stalled-or-pollingnetwork-errors-occur), [cooperative Stop](#7-cooperative-stop-and-stopped-final-state), [polling/network errors](#8-recoverable-pollingnetwork-errors), [pagination safety](#9-pagination-safety-failure), [persistence failure](#10-persistencedatabase-failure)
+- **Projects and displays:** [missing projects/tokens](#11-projects-or-tokens-absent-after-synchronization), [shortcode output](#12-shortcode-empty-unavailable-or-premium-restricted), [plan restriction](#13-freepremium-restriction)
+- **Access and analytics:** [capability denial](#14-role-or-capability-denial), [analytics not recording](#15-analytics-not-recording), [AJAX/JavaScript/CDN/proxy interference](#16-admin-ajaxphp-javascript-cdn-proxy-or-security-interference)
+- **Diagnostics and escalation:** [debug logging](#17-debug-logging-and-sanitized-diagnostics), [safe escalation checklist](#18-safe-escalation-checklist)
+
 ## 1. Plugin activation failure
 
 - **Symptom:** activation reports a PHP/fatal error, or the plugin page fails immediately.
@@ -45,7 +62,7 @@ For **any advanced recovery**, first confirm the exact environment, make and ver
 - **Symptom:** Start is denied, says a run is active, or returns an AJAX error.
 - **Likely causes:** no `nmkr_manage_sync`, missing/invalid nonce, missing API setup, an existing run owner, stale state under guarded recovery, blocked `admin-ajax.php`, or persistence failure.
 - **Safe checks:** inspect Dashboard status/history and active run indicators; confirm role; reload for a fresh nonce; inspect the AJAX status and sanitized body; confirm no maintenance/outage is underway.
-- **Corrective action:** let an active run finish; correct API/access/AJAX issues; use only the UI's guarded recovery when offered and prerequisites above are met.
+- **Corrective action:** let an active run finish; correct API/access/AJAX issues; use only the UI's guarded recovery when offered, the caller has `nmkr_manage_sync`, and the prerequisites above are met. Ordinary `nmkr_view_dashboard` access permits observation, not state-changing recovery.
 - **Escalation information:** start time, active/idle indication, response status, run terminal state, and sanitized error code.
 - **Actions to avoid:** do not clear owner/status options, trigger parallel requests, or directly invoke worker endpoints.
 
@@ -54,7 +71,7 @@ For **any advanced recovery**, first confirm the exact environment, make and ver
 - **Symptom:** progress changes slowly/stops, “recoverable” polling errors appear, or the browser increases time between checks.
 - **Likely causes:** ongoing paged traversal/detail work, provisional totals, browser/network interruption, adaptive polling backoff, upstream throttling, or a worker/persistence failure.
 - **Safe checks:** note status/current item/last visible change; check `admin-ajax.php` requests and browser console; keep in mind progress is provisional and below 100% until finalization; check whether history reaches a terminal state.
-- **Corrective action:** keep one Dashboard session, restore connectivity, allow automatic retry with exponential backoff capped near 30 seconds, and wait for a terminal result. **Maximum Error Count** is retained/sanitized but does not currently stop transient progress-poll retries. Stop remains available to an authorized user for the trusted active run.
+- **Corrective action:** keep one Dashboard session, restore connectivity, allow automatic retry with exponential backoff capped near 30 seconds, and wait for a terminal result. **Maximum Error Count** is retained/sanitized but does not currently stop transient progress-poll retries. Stop remains available to an authorized user for the trusted active run. Any state-changing recovery requires `nmkr_manage_sync`.
 - **Escalation information:** approximate duration, polling HTTP status pattern, last progress/status, whether Stop was requested, and terminal result.
 - **Actions to avoid:** do not refresh/start repeatedly, assume a provisional percentage is a total, terminate PHP/database processes, or clear state.
 
@@ -125,19 +142,19 @@ For **any advanced recovery**, first confirm the exact environment, make and ver
 
 - **Symptom:** menu/page/action is missing or Access denied appears.
 - **Likely causes:** intended least-privilege boundary, custom role missing a specific NMKR capability, or stale login session.
-- **Safe checks:** compare role matrix in the [user guide](user-guide.md); verify the exact `nmkr_*` capability with an authorized Administrator; sign in again.
+- **Safe checks:** compare the [capability and action matrix](user-guide.md#capability-and-action-matrix); verify the exact `nmkr_*` capability with an authorized Administrator; sign in again.
 - **Corrective action:** assign **NMKR Marketing** for Projects/Shortcodes/Analytics or **NMKR Admin** for Dashboard/settings/sync, or add only the specifically required capability to a maintained custom role.
 - **Escalation information:** role name, requested page/action, capability present/absent (not user identity), and sanitized denial.
-- **Actions to avoid:** do not bypass capability/nonces or grant Administrator solely to hide a denial.
+- **Actions to avoid:** do not bypass capability/nonces or grant Administrator solely to hide a denial. Menu visibility and a valid nonce do not replace server-side capability authorization.
 
 ## 15. Analytics not recording
 
 - **Symptom:** Analytics remains empty or GA4 events do not arrive.
-- **Likely causes:** mode Off/wrong destination, logged-in tracking off, consent required but not signalled, sampling, invalid/missing GA4 fields, endpoint blocked, deduplication/rate limiting, or retention purge.
-- **Safe checks:** review mode, consent and logged-in settings, sample rate, retention, and only the presence/format (not value) of GA4 configuration; inspect sanitized front-end request status.
-- **Corrective action:** select the intended lawful mode, implement the consent signal where required, use valid GA4 configuration, and allow the analytics endpoint through reviewed security/cache rules.
-- **Escalation information:** mode, user login/consent state class, affected shortcode/event class, response status, and sanitized error.
-- **Actions to avoid:** never share GA4 secret, disable consent to force a test, publish visitor/customer data, or delete analytics rows.
+- **Likely causes:** mode Off/wrong destination, logged-in tracking off, consent required but not signalled, DNT, sampling, invalid/missing GA4 fields, endpoint blocked, deduplication/rate admission, or retention purge.
+- **Safe checks:** review mode, consent and logged-in settings, DNT state, sample rate, retention, and only the presence/format (not value) of GA4 configuration; inspect sanitized front-end request status. The endpoint is intentionally public/unauthenticated because visitors can interact with shortcodes; do not treat absence of WordPress authentication as a defect by itself.
+- **Corrective action:** select the intended lawful mode, implement the consent signal where required, use valid GA4 configuration, and allow the bounded analytics endpoint through reviewed security/cache rules. Confirm whether the intended destination is local, GA4, or both.
+- **Escalation information:** mode, user login/consent/DNT state class, affected shortcode/event class, response status, and sanitized error.
+- **Actions to avoid:** never share GA4 secret, disable consent to force a test, publish visitor/customer data, or delete analytics rows. Rate and deduplication controls are bounded mitigations, not universal abuse protection or exactly-once delivery guarantees.
 
 ## 16. `admin-ajax.php`, JavaScript, CDN, proxy, or security interference
 
