@@ -47,6 +47,7 @@ test('production synchronization and analytics sinks render hostile-shaped value
   await page.addScriptTag({ path: path.resolve('js/nmkr-sync-progress.js') });
   await page.click('#nmkr-sync-button');
   await page.addScriptTag({ path: path.resolve('js/admin/nmkr-analytics-dashboard.js') });
+  await page.evaluate(() => document.dispatchEvent(new Event('DOMContentLoaded')));
   await page.waitForFunction(() => document.querySelectorAll('#nmkr-top-projects-root tbody tr').length > 0);
   for (const selector of ['#status-message .status-header','#nmkr-top-projects-root tbody td:first-child','#nmkr-top-tokens-root tbody td:first-child']) {
     await expect(page.locator(selector)).toHaveText(hostile);
