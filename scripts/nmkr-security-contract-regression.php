@@ -42,11 +42,13 @@ $GLOBALS['wpdb']=new NmkrContractWpdb(); $GLOBALS['nmkr_hooks']=array(); $GLOBAL
 
 /* Inventory is derived from the registration statements in tracked production PHP. */
 $registrations=array(); $GLOBALS['nmkr_ajax_hook_candidates']=array();
-foreach (glob(dirname(__DIR__).'/includes/**/*.php') ?: array() as $unused) {} // PHP glob is not recursive.
+$production_php=array(dirname(__DIR__).'/nmkr-connect.php');
 $iterator=new RecursiveIteratorIterator(new RecursiveDirectoryIterator(dirname(__DIR__).'/includes'));
 foreach ($iterator as $file) {
-    if (!$file->isFile() || $file->getExtension() !== 'php') continue;
-    $source=file_get_contents($file->getPathname());
+    if ($file->isFile() && $file->getExtension() === 'php') $production_php[]=$file->getPathname();
+}
+foreach ($production_php as $file) {
+    $source=file_get_contents($file);
     preg_match_all("/add_action\\s*\\(\\s*(?:(['\"])([^'\"]+)\\1|([^,]+))\\s*,/",$source,$all_actions,PREG_SET_ORDER);
     foreach($all_actions as $action_call) {
         nmkr_assert(empty($action_call[3]), 'dynamic_action_hook_unclassified');
