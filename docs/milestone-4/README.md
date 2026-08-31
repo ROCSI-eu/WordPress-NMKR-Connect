@@ -2,9 +2,9 @@
 
 ## Purpose and current status
 
-Milestone 4 is **in progress**. It assesses and strengthens the plugin's security boundaries and expands user, developer, FAQ, and troubleshooting documentation. The M4-01 authorization and side-effect analysis is complete against exact baseline `354cd5808c8eebf557a8286452752245901cbd50`. M4-02 and M4-03 are implemented, merged, and validated within their disclosed scopes. M4-04 source analysis and evidence are complete against exact baseline `fd1ac072aeb37b189c9734e0602a58c8c6b8a30c` (tree `af40fd04381a57883e961b71fddcb2777c1cda50`); no confirmed unsafe rendering or disclosure defect was established, so no runtime remediation was required. M4-05 public-ingestion hardening was implemented by PR #91 against baseline `22cb8cee1c35deb7ba18ce1d0ac76b3f738ab52b`, reviewed and validated at exact head `ba5f934e6285089ba4c4946084d23d877fb122ee`, and post-merge validated on main `4a48dc50498e5de618c794a32b91fea968487eb3`; the validated tree is `4b6694520b2e8325c3a4c676a0cefd725f6bfdd8`. M4-06 public-safe security, rendering, static, and dependency-check consolidation was implemented by PR #93 and completed within its disclosed test/tooling scope on merged main `fecac597ee7260659b1772de0a8c9128aad30770`, tree `cc5c1f3f219069d259ab22cf217df6eca2f4c0ac`.
+Milestone 4 is **in progress**. It assesses and strengthens the plugin's security boundaries and expands user, developer, FAQ, and troubleshooting documentation. The M4-01 authorization and side-effect analysis is complete against exact baseline `354cd5808c8eebf557a8286452752245901cbd50`. M4-02 and M4-03 are implemented, merged, and validated within their disclosed scopes. M4-04 source analysis and evidence are complete against exact baseline `fd1ac072aeb37b189c9734e0602a58c8c6b8a30c` (tree `af40fd04381a57883e961b71fddcb2777c1cda50`); no confirmed unsafe rendering or disclosure defect was established, so no runtime remediation was required. M4-05 public-ingestion hardening was implemented by PR #91 against baseline `22cb8cee1c35deb7ba18ce1d0ac76b3f738ab52b`, reviewed and validated at exact head `ba5f934e6285089ba4c4946084d23d877fb122ee`, and post-merge validated on main `4a48dc50498e5de618c794a32b91fea968487eb3`; the validated tree is `4b6694520b2e8325c3a4c676a0cefd725f6bfdd8`. M4-06 public-safe security, rendering, static, and dependency-check consolidation was implemented by PR #93 and completed within its disclosed test/tooling scope on merged main `fecac597ee7260659b1772de0a8c9128aad30770`, tree `cc5c1f3f219069d259ab22cf217df6eca2f4c0ac`. M4-07 documentation was implemented by PR #96, reviewed and exact-head CI validated at `c6f2bc2057e3034d2d218d70aee9d1817897ccb7`, and merged on main `2b32a6213c38018bc8e013f7f948c08b1b6a9151`; the final and merged tree is `9a48e61ef8b2025a54f58098403202184ef5039c`.
 
-M4-07 now provides the comprehensive FAQ, documentation hub, role/capability matrix, task-oriented cross-links, and clarified synchronization-recovery and public/unauthenticated analytics-ingestion boundaries. Exact final-head CI, merge equivalence, and the executed-evidence record remain for the later M4-07 closure step. M4-08 through M4-10 remain pending as stated below.
+M4-07 provides the comprehensive FAQ, documentation hub, role/capability matrix, task-oriented cross-links, and clarified synchronization-recovery and public/unauthenticated analytics-ingestion boundaries. The [M4-07 executed evidence](executed-evidence-m4-07-2026-08-31.md) records the review correction, final exact-head CI, merge equivalence, Docs/metadata classification, and remaining limitations. M4-08 through M4-10 remain pending as stated below.
 
 The scoped M4-02, M4-03, M4-05, M4-06, and M4-07 outcomes do not complete the Milestone 4 audit or delivery. Other findings and work packages remain pending where stated.
 
@@ -29,8 +29,7 @@ The scoped M4-02, M4-03, M4-05, M4-06, and M4-07 outcomes do not complete the Mi
 - [M4-04 executed evidence](executed-evidence-m4-04-2026-08-30.md) — public-safe source analysis of rendering contexts and client-facing diagnostic disclosure, with no runtime remediation required.
 - [M4-05 executed evidence](executed-evidence-m4-05-2026-08-31.md) — sanitized implementation, review, exact-head validation, merge-equivalence, and post-merge outcomes for public analytics ingestion hardening.
 - [M4-06 executed evidence](executed-evidence-m4-06-2026-08-31.md) — public-safe test/tooling implementation, exact-head CI, merge equivalence, limitations, and evidence closure for the consolidated security and dependency checks.
-
-The M4-07 implementation intentionally does not contain an executed-evidence file. A later focused closure record will capture the exact final implementation head, CI outcome, merge SHA/tree equivalence, Docs/metadata classification, and remaining limitations.
+- [M4-07 executed evidence](executed-evidence-m4-07-2026-08-31.md) — public-safe documentation implementation, review correction, exact-head CI, merge equivalence, validation classification, and limitations.
 
 ## Work-package overview
 
@@ -42,7 +41,7 @@ The M4-07 implementation intentionally does not contain an executed-evidence fil
 | `M4-04` | Inspect output contexts and error/notice rendering; change only confirmed unsafe sinks | Source analysis and evidence complete; no confirmed unsafe sink and no runtime remediation required |
 | `M4-05` | Harden analytics rate-limit/deduplication concurrency, payload bounds, storage alignment, retry ordering, and sampling semantics | Implemented by PR #91, reviewed and exact-head validated, merged, and post-merge validated on main `4a48dc50498e5de618c794a32b91fea968487eb3` |
 | `M4-06` | Consolidate targeted public-safe security regressions and dependency/static checks | Implemented by PR #93; [executed evidence](executed-evidence-m4-06-2026-08-31.md), exact-head CI, resolved findings, and merge equivalence complete within the disclosed public-only test/tooling scope |
-| `M4-07` | Expand user/developer/troubleshooting navigation and produce comprehensive FAQ content | Documentation implementation addressed; exact-head CI, merge equivalence, and closure evidence pending |
+| `M4-07` | Expand user/developer/troubleshooting navigation and produce comprehensive FAQ content | Implemented by PR #96; [executed evidence](executed-evidence-m4-07-2026-08-31.md), final-head review, exact-head CI, and merge equivalence complete within the Docs/metadata scope |
 | `M4-08` | Perform private exact-head validation using risk-appropriate profiles, with no live NMKR traffic by default | Planned milestone-wide package; package-specific validation already exists where recorded |
 | `M4-09` | Consolidate sanitized audit evidence, findings, traceability, limitations, and non-claims | Planned |
 | `M4-10` | Produce the final Milestone 4 report and Proof of Achievement after all required work and evidence | Planned |
@@ -60,6 +59,8 @@ M4-07 is a Docs/metadata package. It adds one role-oriented FAQ and routes site 
 - keeps detailed procedures in the focused guides rather than creating divergent copies.
 
 No runtime code, tests, workflow, dependency, schema, role, capability, endpoint, synchronization, shortcode, analytics, deployment, or private-environment behavior is changed by M4-07.
+
+The implementation was reviewed at final head `c6f2bc2057e3034d2d218d70aee9d1817897ccb7`, passed Phase 4 CI run `33411893816` (run 382), and was merged with expected-head protection as main commit `2b32a6213c38018bc8e013f7f948c08b1b6a9151`. The final and merged trees are identical at `9a48e61ef8b2025a54f58098403202184ef5039c`. See the [M4-07 executed evidence](executed-evidence-m4-07-2026-08-31.md).
 
 ## Evidence boundary
 
