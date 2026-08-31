@@ -165,72 +165,189 @@ function nmkr_truncate_for_analytics($string, $max_length = 255) {
  * @param array $metadata Raw metadata array
  * @return array Sanitized metadata array
  */
-function nmkr_prepare_analytics_metadata($metadata) {
-    if (!is_array($metadata)) {
+function nmkr_prepare_analytics_metadata($metadata, $depth = 0, &$nodes = 0, &$valid = null) {
+    $valid = true;
+    if (!is_array($metadata) || $depth > NMKR_ANALYTICS_META_MAX_DEPTH) {
+        $valid = false;
         return array();
     }
-    
+
     $sanitized = array();
-    
     foreach ($metadata as $key => $value) {
-        // Sanitize key
-        $key = sanitize_key($key);
-        
-        // Sanitize value based on type
-        if (is_string($value)) {
-            $sanitized[$key] = sanitize_text_field($value);
-        } elseif (is_numeric($value)) {
-            $sanitized[$key] = is_float($value) ? floatval($value) : intval($value);
-        } elseif (is_bool($value)) {
-            $sanitized[$key] = (bool) $value;
-        } elseif (is_array($value)) {
-            // Recursively sanitize nested arrays
-            $sanitized[$key] = nmkr_prepare_analytics_metadata($value);
+        $nodes++;
+        if ($nodes > NMKR_ANALYTICS_META_MAX_NODES || strlen((string) $key) > NMKR_ANALYTICS_META_STRING_BYTES) {
+            $valid = false;
+            return array();
         }
-        // Skip other types for safety
+        $key = sanitize_key($key);
+        if ($key === '') {
+            $valid = false;
+            return array();
+        }
+        if (is_string($value)) {
+            if (strlen($value) > NMKR_ANALYTICS_META_STRING_BYTES) {
+                $valid = false;
+                return array();
+            }
+            $sanitized[$key] = sanitize_text_field($value);
+        } elseif (is_int($value) || is_float($value) || is_bool($value) || is_null($value)) {
+            $sanitized[$key] = $value;
+        } elseif (is_array($value)) {
+            $child_valid = true;
+            $sanitized[$key] = nmkr_prepare_analytics_metadata($value, $depth + 1, $nodes, $child_valid);
+            if (!$child_valid) {
+                $valid = false;
+                return array();
+            }
+        } else {
+            $valid = false;
+            return array();
+        }
     }
-    
+    $encoded = wp_json_encode($sanitized);
+    if ($depth === 0 && (!is_string($encoded) || strlen($encoded) > NMKR_ANALYTICS_META_MAX_BYTES)) {
+        $valid = false;
+        return array();
+    }
     return $sanitized;
 }
 
-/**
- * Returns true if the (session_id, element_id, event_type) was already seen in the TTL window.
- */
-function nmkr_analytics_seen_once( $session_id, $element_id, $event_type, $ttl_seconds = 7200 ) {
-    $session_id  = substr( preg_replace('/[^a-zA-Z0-9\-]/', '', (string) $session_id ), 0, 64 );
-    $element_id  = substr( preg_replace('/[^a-zA-Z0-9\:\-\_]/', '', (string) $element_id ), 0, 128 );
-    $event_type  = $event_type === 'click' ? 'click' : 'view';
-    if ( empty( $session_id ) || empty( $element_id ) ) {
-        return false; // cannot dedupe; let higher layers validate
-    }
-    $key = 'nmkr_analytics:' . $session_id . ':' . $element_id . ':' . $event_type;
-    if ( get_transient( $key ) ) {
-        return true;
-    }
-    set_transient( $key, 1, absint( $ttl_seconds ) );
-    return false;
+if (!defined('NMKR_ANALYTICS_RAW_BODY_MAX_BYTES')) define('NMKR_ANALYTICS_RAW_BODY_MAX_BYTES', 8192);
+if (!defined('NMKR_ANALYTICS_META_MAX_DEPTH')) define('NMKR_ANALYTICS_META_MAX_DEPTH', 3);
+if (!defined('NMKR_ANALYTICS_META_MAX_NODES')) define('NMKR_ANALYTICS_META_MAX_NODES', 32);
+if (!defined('NMKR_ANALYTICS_META_STRING_BYTES')) define('NMKR_ANALYTICS_META_STRING_BYTES', 256);
+if (!defined('NMKR_ANALYTICS_META_MAX_BYTES')) define('NMKR_ANALYTICS_META_MAX_BYTES', 2048);
+if (!defined('NMKR_ANALYTICS_CLAIM_TTL')) define('NMKR_ANALYTICS_CLAIM_TTL', 30);
+
+/** Fixed-length, privacy-preserving option name for public-ingestion state. */
+function nmkr_analytics_state_key($kind, array $dimensions) {
+    return 'nmkr_ai_' . substr(preg_replace('/[^a-z0-9_]/', '', strtolower((string) $kind)), 0, 8) . '_' . hash('sha256', "nmkr-connect-analytics-v1\0" . implode("\0", array_map('strval', $dimensions)));
 }
 
-/**
- * Simple sliding window rate limiter per anonymized IP.
- * Returns true if limited; caller should return 429.
- */
-function nmkr_analytics_rate_limited( $anon_ip_sha, $window_seconds = 300, $max_events = 120 ) {
-    $anon_ip_sha = substr( preg_replace('/[^a-f0-9]/', '', strtolower( (string) $anon_ip_sha ) ), 0, 64 );
-    if ( empty( $anon_ip_sha ) ) {
-        return false; // can't rate-limit without a key
+/** Read canonical state directly so persistent object-cache coherence cannot affect admission. */
+function nmkr_analytics_option_read($name) {
+    global $wpdb;
+    $raw = $wpdb->get_var($wpdb->prepare("SELECT option_value FROM {$wpdb->options} WHERE option_name = %s LIMIT 1", $name));
+    return null === $raw ? null : maybe_unserialize($raw);
+}
+
+/** Atomically establish or take over an expired bounded claim. */
+function nmkr_analytics_claim_state_is_valid($state) {
+    return is_array($state)
+        && isset($state['token'], $state['status'], $state['expires'])
+        && is_string($state['token'])
+        && '' !== $state['token']
+        && in_array($state['status'], array('claim', 'done'), true)
+        && is_int($state['expires'])
+        && 0 < $state['expires'];
+}
+
+function nmkr_analytics_claim_acquire($name, $ttl, $now = null) {
+    global $wpdb;
+    $now = null === $now ? time() : (int) $now;
+    $token = bin2hex(random_bytes(16));
+    $value = array('token' => $token, 'status' => 'claim', 'expires' => $now + max(1, (int) $ttl));
+    if (add_option($name, $value, '', false)) return $token;
+    $old = nmkr_analytics_option_read($name);
+    if (null === $old) return null;
+    if (nmkr_analytics_claim_state_is_valid($old) && $old['expires'] >= $now) return false;
+    // Replace expired or malformed state with a complete claim using a
+    // value-sensitive CAS so recovery cannot overwrite a competing owner.
+    $updated = $wpdb->query($wpdb->prepare("UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s AND option_value = %s", maybe_serialize($value), $name, maybe_serialize($old)));
+    if (false === $updated) return null;
+    if (0 === $updated) {
+        $current = nmkr_analytics_option_read($name);
+        return nmkr_analytics_claim_state_is_valid($current) && $current['expires'] >= $now ? false : null;
     }
-    $key   = 'nmkr_analytics_ip:' . $anon_ip_sha;
-    $state = get_site_transient( $key );
-    $now   = time();
-    if ( ! is_array( $state ) || empty( $state['start'] ) || empty( $state['count'] ) || ( $now - (int) $state['start'] ) > $window_seconds ) {
-        $state = [ 'start' => $now, 'count' => 1 ];
-        set_site_transient( $key, $state, $window_seconds );
-        return false;
+    if (1 !== $updated) return null;
+    wp_cache_delete($name, 'options');
+    return $token;
+}
+
+function nmkr_analytics_claim_release($name, $token) {
+    global $wpdb;
+    $state = nmkr_analytics_option_read($name);
+    if (!is_array($state) || !hash_equals((string) $state['token'], (string) $token)) return false;
+    $deleted = $wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->options} WHERE option_name = %s AND option_value = %s", $name, maybe_serialize($state)));
+    wp_cache_delete($name, 'options');
+    return 1 === $deleted;
+}
+
+function nmkr_analytics_claim_finalize($name, $token, $ttl = 7200, $now = null) {
+    global $wpdb;
+    $now = null === $now ? time() : (int) $now;
+    $old = nmkr_analytics_option_read($name);
+    if (!is_array($old) || !hash_equals((string) $old['token'], (string) $token)) return false;
+    $new = array('token' => $token, 'status' => 'done', 'expires' => $now + max(1, (int) $ttl));
+    $updated = $wpdb->query($wpdb->prepare("UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s AND option_value = %s", maybe_serialize($new), $name, maybe_serialize($old)));
+    wp_cache_delete($name, 'options');
+    return 1 === $updated;
+}
+
+function nmkr_analytics_dedupe_claim($session_id, $element_id, $event_type, $ttl_seconds = 7200) {
+    $key = nmkr_analytics_state_key('dedupe', array($session_id, $element_id, $event_type));
+    $token = nmkr_analytics_claim_acquire($key, NMKR_ANALYTICS_CLAIM_TTL);
+    return array('key' => $key, 'token' => $token, 'ttl' => max(1, (int) $ttl_seconds));
+}
+
+/** Validate the complete fixed-window rate state before using its counter. */
+function nmkr_analytics_rate_state_is_valid($state, $window_seconds, $now) {
+    return is_array($state)
+        && isset($state['start'], $state['count'], $state['expires'])
+        && is_int($state['start'])
+        && 0 <= $state['start']
+        && $state['start'] <= $now
+        && is_int($state['count'])
+        && 0 <= $state['count']
+        && is_int($state['expires'])
+        && $state['expires'] === $state['start'] + $window_seconds;
+}
+
+/** Fixed-window admission backed by durable option state and a database advisory lock. */
+function nmkr_analytics_rate_limit_outcome($anon_ip_sha, $window_seconds = 300, $max_events = 120, $now = null) {
+    global $wpdb;
+    $anon_ip_sha = strtolower((string) $anon_ip_sha);
+    if (!preg_match('/^[a-f0-9]{64}$/', $anon_ip_sha)) return 'unavailable';
+    $now = null === $now ? time() : (int) $now;
+    $state_key = nmkr_analytics_state_key('rate', array($anon_ip_sha));
+    $lock_name = 'nmkr_ai_rate_' . substr(hash('sha256', $state_key), 0, 50);
+    $window_seconds = max(1, (int) $window_seconds);
+    $locked = $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, %d)', $lock_name, 1));
+    if ('1' !== (string) $locked) return 'unavailable';
+    try {
+        $old = nmkr_analytics_option_read($state_key);
+        if (null !== $old && !nmkr_analytics_rate_state_is_valid($old, $window_seconds, $now)) {
+            $deleted = $wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->options} WHERE option_name = %s AND option_value = %s", $state_key, maybe_serialize($old)));
+            wp_cache_delete($state_key, 'options');
+            if (1 !== $deleted) return 'unavailable';
+            $old = null;
+        }
+        if (null === $old || $now >= (int) $old['expires']) {
+            $new = array('start' => $now, 'count' => 1, 'expires' => $now + $window_seconds);
+            if (null === $old) {
+                if (add_option($state_key, $new, '', false)) return 1 > max(0, (int) $max_events) ? 'quota' : 'allowed';
+                return 'unavailable';
+            }
+        } else {
+            $new = $old;
+            $new['count'] = (int) $old['count'] + 1;
+        }
+        $updated = $wpdb->query($wpdb->prepare("UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s", maybe_serialize($new), $state_key));
+        wp_cache_delete($state_key, 'options');
+        if (1 !== $updated) return 'unavailable';
+        return $new['count'] > max(0, (int) $max_events) ? 'quota' : 'allowed';
+    } finally {
+        $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lock_name));
     }
-    $state['count']++;
-    set_site_transient( $key, $state, $window_seconds );
-    return ( $state['count'] > $max_events );
+}
+
+/** Decode a compact transport body with a deliberate plugin-level byte limit. */
+function nmkr_analytics_decode_body($raw) {
+    if (!is_string($raw)) return array('status' => 400, 'body' => null);
+    if (strlen($raw) > NMKR_ANALYTICS_RAW_BODY_MAX_BYTES) return array('status' => 413, 'body' => null);
+    $body = json_decode($raw, true);
+    if (JSON_ERROR_NONE !== json_last_error() || !is_array($body) || array_values($body) === $body) return array('status' => 400, 'body' => null);
+    return array('status' => 200, 'body' => $body);
 }
 
 // Do not edit existing helpers above.
@@ -287,21 +404,33 @@ function nmkr_analytics_ingest_common( $body, $source = 'rest' ) {
     if ( ! is_array( $body ) ) {
         return new WP_REST_Response( null, 400 );
     }
-    $event_type = ( isset( $body['event_type'] ) && $body['event_type'] === 'click' ) ? 'click' : 'view';
-    $shortcode  = isset( $body['shortcode'] ) ? strtolower( (string) $body['shortcode'] ) : '';
+    $event_type = isset($body['event_type']) && is_string($body['event_type']) ? $body['event_type'] : '';
+    if (!in_array($event_type, array('view', 'click'), true)) return new WP_REST_Response(null, 400);
+    $shortcode  = isset( $body['shortcode'] ) && is_string($body['shortcode']) ? strtolower($body['shortcode']) : '';
     $allowed_sc = [ 'grid', 'list', 'carousel', 'token', 'project' ];
     if ( ! in_array( $shortcode, $allowed_sc, true ) ) {
         return new WP_REST_Response( null, 400 );
     }
-    $project_uid = isset( $body['project_uid'] ) ? substr( preg_replace('/[^a-zA-Z0-9\-\_]/','', (string) $body['project_uid'] ), 0, 64 ) : '';
-    $token_uid   = isset( $body['token_uid'] )   ? substr( preg_replace('/[^a-zA-Z0-9\-\_]/','', (string) $body['token_uid'] ), 0, 64 ) : '';
-    $element_id  = isset( $body['element_id'] )  ? substr( preg_replace('/[^a-zA-Z0-9\:\-\_]/','', (string) $body['element_id'] ), 0, 128 ) : '';
-    $session_id  = isset( $body['session_id'] )  ? substr( preg_replace('/[^a-zA-Z0-9\-]/','', (string) $body['session_id'] ), 0, 64 ) : '';
+    $project_uid = isset($body['project_uid']) && is_string($body['project_uid']) ? $body['project_uid'] : '';
+    $token_uid   = isset($body['token_uid']) && is_string($body['token_uid']) ? $body['token_uid'] : '';
+    $element_id  = isset($body['element_id']) && is_string($body['element_id']) ? $body['element_id'] : '';
+    $session_id  = isset($body['session_id']) && is_string($body['session_id']) ? strtolower($body['session_id']) : '';
     $ts_client   = isset( $body['ts_client'] )   ? intval( $body['ts_client'] ) : time();
 
-    if ( empty( $element_id ) || empty( $session_id ) ) {
+    if (strlen($project_uid) > 64 || ($project_uid !== '' && !preg_match('/^[a-zA-Z0-9_-]+$/', $project_uid)) ||
+        strlen($token_uid) > 64 || ($token_uid !== '' && !preg_match('/^[a-zA-Z0-9_-]+$/', $token_uid)) ||
+        $element_id === '' || strlen($element_id) > 128 || !preg_match('/^[a-zA-Z0-9:_-]+$/', $element_id) ||
+        !preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/', $session_id)) {
         return new WP_REST_Response( null, 400 );
     }
+
+    $page_url = isset($body['page_url']) && is_string($body['page_url']) ? $body['page_url'] : '';
+    if (strlen($page_url) > 255) return new WP_REST_Response(null, 400);
+    $meta = isset($body['meta']) ? $body['meta'] : array();
+    $nodes = 0;
+    $meta_valid = true;
+    $meta = nmkr_prepare_analytics_metadata($meta, 0, $nodes, $meta_valid);
+    if (!$meta_valid) return new WP_REST_Response(null, 400);
 
     // 2) Settings gates
     if ( function_exists('nmkr_is_analytics_enabled') && ! nmkr_is_analytics_enabled() ) {
@@ -378,13 +507,6 @@ function nmkr_analytics_ingest_common( $body, $source = 'rest' ) {
     // 4) Prepare metadata (server side)
     $ua        = isset( $_SERVER['HTTP_USER_AGENT'] ) ? substr( (string) $_SERVER['HTTP_USER_AGENT'], 0, 255 ) : '';
     $ref       = isset( $_SERVER['HTTP_REFERER'] )     ? substr( (string) $_SERVER['HTTP_REFERER'], 0, 255 ) : '';
-    $page_url  = isset( $body['page_url'] )            ? substr( (string) $body['page_url'], 0, 255 ) : '';
-    $meta      = isset( $body['meta'] ) && is_array( $body['meta'] ) ? $body['meta'] : [];
-    if ( function_exists('nmkr_prepare_analytics_metadata') ) {
-        $meta = nmkr_prepare_analytics_metadata( $meta );
-    } else {
-        $meta = [];
-    }
 
     // 5) Anonymize IP and derive user id if allowed
     $ip_hash_hex = '';
@@ -394,17 +516,33 @@ function nmkr_analytics_ingest_common( $body, $source = 'rest' ) {
     $user_id = ( function_exists('nmkr_get_analytics_user_id') ? nmkr_get_analytics_user_id() : 0 );
 
     // 6) Rate-limit & dedupe
-    if ( function_exists('nmkr_analytics_rate_limited') && nmkr_analytics_rate_limited( $ip_hash_hex ) ) {
+    $rate_outcome = nmkr_analytics_rate_limit_outcome( $ip_hash_hex );
+    if ( 'quota' === $rate_outcome ) {
         return new WP_REST_Response( null, 429 );
     }
-    if ( function_exists('nmkr_analytics_seen_once') && nmkr_analytics_seen_once( $session_id, $element_id, $event_type ) ) {
+    if ( 'allowed' !== $rate_outcome ) {
+        return new WP_REST_Response( null, 503 );
+    }
+    $claim = nmkr_analytics_dedupe_claim($session_id, $element_id, $event_type);
+    if (null === $claim['token']) {
+        return new WP_REST_Response( null, 503 );
+    }
+    if (false === $claim['token']) {
         return new WP_REST_Response( null, 204 );
+    }
+
+    // Make admission durable before invoking either sink. This provides at-most-once
+    // sink invocation even if a worker crashes; sink failure may therefore lose an
+    // event rather than making already-committed work admissible again.
+    if (!nmkr_analytics_claim_finalize($claim['key'], $claim['token'], $claim['ttl'])) {
+        return new WP_REST_Response(null, 500);
     }
 
     // Resolve mode and GA4 credentials from options (already fetched nearby)
     $options = get_option( 'nmkr_connect_options', array() );
     $mode    = isset( $options['analytics_mode'] ) ? $options['analytics_mode'] : 'custom';
     if ( $mode === 'off' ) {
+        nmkr_analytics_claim_release($claim['key'], $claim['token']);
         return new WP_REST_Response( null, 204 );
     }
 
@@ -456,7 +594,6 @@ function nmkr_analytics_ingest_common( $body, $source = 'rest' ) {
         }
     }
 
-    // For PR-3 we only adjust DB insert behavior; GA4 sending happens in PR-4.
     $should_insert_db = ( $mode === 'custom' || $mode === 'both' );
 
     // 8) Insert into DB only if allowed by mode

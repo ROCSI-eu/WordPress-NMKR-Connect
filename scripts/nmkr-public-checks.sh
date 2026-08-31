@@ -79,6 +79,9 @@ php scripts/nmkr-sync-pagination-regression.php
 printf '\n== Public-safe PHP 7.4 compatibility guard ==\n'
 npm run test:php74
 
+printf '\n== Public analytics ingestion regression ==\n'
+php scripts/nmkr-analytics-ingestion-regression.php
+
 printf '\n== Shortcode image-source regression ==\n'
 php scripts/nmkr-shortcode-image-regression.php
 node scripts/nmkr-token-image-fallback-regression.js

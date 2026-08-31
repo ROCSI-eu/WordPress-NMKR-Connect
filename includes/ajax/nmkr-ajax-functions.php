@@ -62,9 +62,17 @@ add_action( 'wp_ajax_nmkr_analytics_event',        'nmkr_analytics_event_ajax' )
 
 function nmkr_analytics_event_ajax() {
     nocache_headers();
-    $raw  = file_get_contents( 'php://input' );
-    $body = json_decode( $raw, true );
-    $resp = nmkr_analytics_ingest_common( $body, 'ajax' );
+    if (isset($_SERVER['CONTENT_LENGTH']) && (int) $_SERVER['CONTENT_LENGTH'] > NMKR_ANALYTICS_RAW_BODY_MAX_BYTES) {
+        status_header(413);
+        exit;
+    }
+    $stream = fopen('php://input', 'rb');
+    $raw = false === $stream ? false : fread($stream, NMKR_ANALYTICS_RAW_BODY_MAX_BYTES + 1);
+    if (is_resource($stream)) fclose($stream);
+    $decoded = nmkr_analytics_decode_body($raw);
+    $resp = 200 === $decoded['status']
+        ? nmkr_analytics_ingest_common($decoded['body'], 'ajax')
+        : new WP_REST_Response(null, $decoded['status']);
     if ( $resp instanceof WP_REST_Response ) {
         status_header( $resp->get_status() );
         exit;

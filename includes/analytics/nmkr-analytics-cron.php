@@ -20,6 +20,27 @@ if (!defined('ABSPATH')) {
  */
 function nmkr_analytics_purge_old_events() {
     global $wpdb;
+
+    // Drain expired admission state in ordered chunks within the existing time budget.
+    $state_pattern = $wpdb->esc_like('nmkr_ai_') . '%';
+    $state_cursor_option = 'nmkr_analytics_cleanup_cursor';
+    $state_cursor = get_option($state_cursor_option, '');
+    $state_cursor = is_string($state_cursor) ? $state_cursor : '';
+    $state_started = microtime(true);
+    do {
+        $state_names = $wpdb->get_col($wpdb->prepare("SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s AND option_name > %s ORDER BY option_name ASC LIMIT 1000", $state_pattern, $state_cursor));
+        foreach ($state_names as $state_name) {
+            $state_cursor = $state_name;
+            $state = nmkr_analytics_option_read($state_name);
+            if (is_array($state) && !empty($state['expires']) && (int) $state['expires'] < time()) {
+                $wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->options} WHERE option_name = %s AND option_value = %s", $state_name, maybe_serialize($state)));
+                wp_cache_delete($state_name, 'options');
+            }
+        }
+    } while (count($state_names) === 1000 && microtime(true) - $state_started < 10);
+    // Resume after the last inspected name on the next run. Wrap only after the
+    // ordered scan reaches the end so a busy prefix cannot starve tail records.
+    update_option($state_cursor_option, count($state_names) < 1000 ? '' : $state_cursor, false);
     
     // Get retention days from options (fallback to 90 days)
     $options = get_option('nmkr_connect_options', array());

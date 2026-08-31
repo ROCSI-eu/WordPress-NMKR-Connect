@@ -2,14 +2,6 @@
   var w = window;
   var cfg = w.NMKR_ANALYTICS || {};
 
-  function clamp01(n) {
-    var x = parseFloat(n);
-    if (isNaN(x)) return 0;
-    if (x < 0) return 0;
-    if (x > 1) return 1;
-    return x;
-  }
-
   function uuidv4() {
     // RFC4122 version 4 compliant UUID
     var cryptoObj = (w.crypto || w.msCrypto);
@@ -32,18 +24,14 @@
     var s4 = function () {
       return Math.floor((1 + Math.random()) * 0x10000).toString(16).substring(1);
     };
-    return (
-      s4() + s4() + '-' + s4() + '-' + s4() + '-' + s4() + '-' + s4() + s4() + s4()
-    );
+    return s4() + s4() + '-' + s4() + '-4' + s4().slice(1) + '-' +
+      ['8', '9', 'a', 'b'][Math.floor(Math.random() * 4)] + s4().slice(1) + '-' + s4() + s4() + s4();
   }
 
   try {
     var debug = !!cfg.debug;
     var log = function () { if (debug) { var a = Array.prototype.slice.call(arguments); a.unshift('[NMKR Analytics][dev]'); console.log.apply(console, a); } };
     var warn = function () { if (debug) { var a = Array.prototype.slice.call(arguments); a.unshift('[NMKR Analytics][dev]'); console.warn.apply(console, a); } };
-
-    var sampleRate = clamp01(cfg.sampleRate == null ? 1 : cfg.sampleRate);
-    if (Math.random() > sampleRate) return; // sampling gate (first)
 
     if (cfg.mode === 'off') return;
 
@@ -57,7 +45,7 @@
     var sid = null;
     try {
       sid = w.localStorage.getItem(sidKey);
-      if (!sid) {
+      if (!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(sid || '')) {
         sid = uuidv4();
         w.localStorage.setItem(sidKey, sid);
       }
@@ -220,12 +208,10 @@
       setupClicks();
     }
 
-    log('Initialized', { mode: cfg.mode, sampleRate: sampleRate, requiresConsent: !!cfg.requiresConsent, hasConsent: !!cfg.hasConsent, dnt: dnt, transportEnabled: !!cfg.transportEnabled });
+    log('Initialized', { mode: cfg.mode, serverSampleRate: cfg.sampleRate, requiresConsent: !!cfg.requiresConsent, hasConsent: !!cfg.hasConsent, dnt: dnt, transportEnabled: !!cfg.transportEnabled });
   } catch (err) {
     if (w && w.console && cfg && cfg.debug) {
       console.warn('[NMKR Analytics][dev] init error:', err);
     }
   }
 })();
-
-

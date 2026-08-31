@@ -243,6 +243,7 @@ function nmkr_connect_uninstall() {
         'nmkr_sync_owner',
         'nmkr_sync_last_result',
         'nmkr_sync_last_recovery_at',
+        'nmkr_analytics_cleanup_cursor',
         NMKR_CONNECT_SCHEMA_VERSION_OPTION,
         NMKR_CONNECT_SCHEMA_UPGRADE_LOCK_OPTION
     ];
@@ -250,6 +251,27 @@ function nmkr_connect_uninstall() {
     foreach ($option_keys as $key) {
         delete_option($key);
         delete_site_option($key);
+    }
+
+    // Admission counters and deduplication records use digest-suffixed option
+    // names, so they cannot be represented in the fixed option whitelist.
+    // Remove them with the analytics table when analytics cleanup is enabled.
+    if ($drop_analytics) {
+        $analytics_state_pattern = $wpdb->esc_like('nmkr_ai_') . '%';
+        $analytics_state_cursor = '';
+
+        do {
+            $analytics_state_names = $wpdb->get_col($wpdb->prepare(
+                "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s AND option_name > %s ORDER BY option_name ASC LIMIT 1000",
+                $analytics_state_pattern,
+                $analytics_state_cursor
+            ));
+
+            foreach ($analytics_state_names as $analytics_state_name) {
+                $analytics_state_cursor = $analytics_state_name;
+                delete_option($analytics_state_name);
+            }
+        } while (count($analytics_state_names) === 1000);
     }
 
     //

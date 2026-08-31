@@ -2,7 +2,7 @@
 
 ## Purpose and current status
 
-Milestone 4 is **in progress**. It will assess and strengthen the plugin's security boundaries and expand user, developer, FAQ, and troubleshooting documentation. The M4-01 authorization and side-effect analysis is complete against exact baseline `354cd5808c8eebf557a8286452752245901cbd50`. M4-02 and M4-03 are implemented, merged, and validated within their disclosed scopes. M4-04 source analysis and evidence are complete against exact baseline `fd1ac072aeb37b189c9734e0602a58c8c6b8a30c` (tree `af40fd04381a57883e961b71fddcb2777c1cda50`); no confirmed unsafe rendering or disclosure defect was established, so no runtime remediation was required. M4-05 is the next planned technical package, and the remaining packages require separate implementation, review, and evidence.
+Milestone 4 is **in progress**. It will assess and strengthen the plugin's security boundaries and expand user, developer, FAQ, and troubleshooting documentation. The M4-01 authorization and side-effect analysis is complete against exact baseline `354cd5808c8eebf557a8286452752245901cbd50`. M4-02 and M4-03 are implemented, merged, and validated within their disclosed scopes. M4-04 source analysis and evidence are complete against exact baseline `fd1ac072aeb37b189c9734e0602a58c8c6b8a30c` (tree `af40fd04381a57883e961b71fddcb2777c1cda50`); no confirmed unsafe rendering or disclosure defect was established, so no runtime remediation was required. M4-05 implements public-ingestion hardening against baseline `22cb8cee1c35deb7ba18ce1d0ac76b3f738ab52b` (tree `24d82eba13df1ef7e5bfbf6a8b6aa6b6e6e68026`), but exact-head private runtime validation remains pending.
 
 M4-01 did not implement remediation or complete validation. The scoped M4-02 and M4-03 resolutions do not complete the Milestone 4 audit or delivery, and other findings remain pending where stated.
 
@@ -23,7 +23,7 @@ M4-01 did not implement remediation or complete validation. The scoped M4-02 and
 | `M4-02` | Restrict active-metrics and UI-log writes to `nmkr_manage_sync`; align relevant caller/control visibility; add view-only no-side-effect tests | Implemented, merged by PR #86, and validated on merged main `a46e78c975647dd9a3398b45c90d602e11249585` |
 | `M4-03` | Preserve read polling while requiring `nmkr_manage_sync` for recovery mutations; add lifecycle and state-delta tests | Implemented by PR #88, merged, and validated on merged main `c69e4ff109948f871201ee396853cbb9f1716a45` |
 | `M4-04` | Inspect output contexts and error/notice rendering; change only confirmed unsafe sinks | Source analysis and evidence complete; no confirmed unsafe sink and no runtime remediation required |
-| `M4-05` | Test analytics rate-limit/deduplication concurrency and payload-abuse bounds before deciding on code changes | Next planned technical package; test-first |
+| `M4-05` | Harden analytics rate-limit/deduplication concurrency, payload bounds, storage alignment, retry ordering, and sampling semantics | Implemented with public-safe regressions; review and private exact-head validation pending |
 | `M4-06` | Consolidate targeted public-safe security regressions and dependency/static checks | Planned |
 | `M4-07` | Expand user/developer/troubleshooting navigation and produce comprehensive FAQ content | Planned |
 | `M4-08` | Perform private exact-head validation using risk-appropriate profiles, with no live NMKR traffic by default | Planned |
