@@ -290,6 +290,19 @@ function nmkr_analytics_dedupe_claim($session_id, $element_id, $event_type, $ttl
     return array('key' => $key, 'token' => $token, 'ttl' => max(1, (int) $ttl_seconds));
 }
 
+/** Validate the complete fixed-window rate state before using its counter. */
+function nmkr_analytics_rate_state_is_valid($state, $window_seconds, $now) {
+    return is_array($state)
+        && isset($state['start'], $state['count'], $state['expires'])
+        && is_int($state['start'])
+        && 0 <= $state['start']
+        && $state['start'] <= $now
+        && is_int($state['count'])
+        && 0 <= $state['count']
+        && is_int($state['expires'])
+        && $state['expires'] === $state['start'] + $window_seconds;
+}
+
 /** Fixed-window admission backed by durable option state and a database advisory lock. */
 function nmkr_analytics_rate_limit_outcome($anon_ip_sha, $window_seconds = 300, $max_events = 120, $now = null) {
     global $wpdb;
@@ -303,7 +316,7 @@ function nmkr_analytics_rate_limit_outcome($anon_ip_sha, $window_seconds = 300, 
     if ('1' !== (string) $locked) return 'unavailable';
     try {
         $old = nmkr_analytics_option_read($state_key);
-        if (null !== $old && (!is_array($old) || !isset($old['start'], $old['count'], $old['expires']))) {
+        if (null !== $old && !nmkr_analytics_rate_state_is_valid($old, $window_seconds, $now)) {
             $deleted = $wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->options} WHERE option_name = %s AND option_value = %s", $state_key, maybe_serialize($old)));
             wp_cache_delete($state_key, 'options');
             if (1 !== $deleted) return 'unavailable';

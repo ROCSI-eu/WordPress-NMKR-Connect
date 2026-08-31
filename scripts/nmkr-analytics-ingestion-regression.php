@@ -64,8 +64,17 @@ check($GLOBALS['options_store'][nmkr_analytics_state_key('rate',array($ip))]['co
 check(nmkr_analytics_rate_limit_outcome(str_repeat('b',64),10,1,110)==='allowed','independent ip');
 $GLOBALS['rate_lock_held']=true;check(nmkr_analytics_rate_limit_outcome(str_repeat('c',64),10,3,110)==='unavailable','below-limit contention is not quota');$GLOBALS['rate_lock_held']=false;check(nmkr_analytics_rate_limit_outcome(str_repeat('c',64),10,3,110)==='allowed','contender admitted after owner releases lock');
 $GLOBALS['rate_lock_available']=false;check(nmkr_analytics_rate_limit_outcome(str_repeat('d',64),10,3,110)==='unavailable','lock timeout fails unavailable');check($GLOBALS['rate_lock_held']===false,'rate lock not retained');
-reset_state();$failure_ip=str_repeat('e',64);$failure_key=nmkr_analytics_state_key('rate',array($failure_ip));$GLOBALS['options_store'][$failure_key]=array('start'=>100,'count'=>1,'expires'=>120);$GLOBALS['storage_write_fail']=true;check(nmkr_analytics_rate_limit_outcome($failure_ip,10,3,110)==='unavailable','storage failure is not quota');
+reset_state();$failure_ip=str_repeat('e',64);$failure_key=nmkr_analytics_state_key('rate',array($failure_ip));$GLOBALS['options_store'][$failure_key]=array('start'=>100,'count'=>1,'expires'=>110);$GLOBALS['storage_write_fail']=true;check(nmkr_analytics_rate_limit_outcome($failure_ip,10,3,110)==='unavailable','storage failure is not quota');
 reset_state();$repair_ip=str_repeat('f',64);$repair_key=nmkr_analytics_state_key('rate',array($repair_ip));$GLOBALS['options_store'][$repair_key]='malformed';check(nmkr_analytics_rate_limit_outcome($repair_ip,10,3,110)==='allowed'&&$GLOBALS['options_store'][$repair_key]['count']===1,'malformed rate state is repaired under lock');
+foreach(array(
+    array('start'=>100,'count'=>-1,'expires'=>110),
+    array('start'=>100,'count'=>'1','expires'=>110),
+    array('start'=>'100','count'=>1,'expires'=>110),
+    array('start'=>111,'count'=>1,'expires'=>121),
+    array('start'=>100,'count'=>1,'expires'=>'110'),
+    array('start'=>100,'count'=>1,'expires'=>111),
+) as $invalid_rate_state){$GLOBALS['options_store'][$repair_key]=$invalid_rate_state;check(nmkr_analytics_rate_limit_outcome($repair_ip,10,3,110)==='allowed'&&$GLOBALS['options_store'][$repair_key]===array('start'=>110,'count'=>1,'expires'=>120),'invalid rate schema is repaired to count one');}
+$GLOBALS['options_store'][$repair_key]=array('start'=>100,'count'=>3,'expires'=>110);check(nmkr_analytics_rate_limit_outcome($repair_ip,10,3,109)==='quota'&&$GLOBALS['options_store'][$repair_key]['count']===4,'valid repaired schema preserves true quota behavior');
 check(nmkr_analytics_decode_body('{')['status']===400,'malformed json'); check(nmkr_analytics_decode_body(str_repeat('x',NMKR_ANALYTICS_RAW_BODY_MAX_BYTES+1))['status']===413,'raw bound');
 $n=0;$v=true;nmkr_prepare_analytics_metadata(array('a'=>array('b'=>array('c'=>array('d'=>array('e'=>'x'))))),0,$n,$v);check(!$v,'depth');
 $m=array();for($i=0;$i<=NMKR_ANALYTICS_META_MAX_NODES;$i++)$m['k'.$i]=$i;$n=0;$v=true;nmkr_prepare_analytics_metadata($m,0,$n,$v);check(!$v,'nodes');
