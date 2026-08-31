@@ -41,12 +41,17 @@ final class NmkrContractWpdb {
 $GLOBALS['wpdb']=new NmkrContractWpdb(); $GLOBALS['nmkr_hooks']=array(); $GLOBALS['nmkr_filters']=array(); $GLOBALS['nmkr_settings']=array(); $GLOBALS['nmkr_pages']=array();
 
 /* Inventory is derived from the registration statements in tracked production PHP. */
-$registrations=array();
+$registrations=array(); $GLOBALS['nmkr_ajax_hook_candidates']=array();
 foreach (glob(dirname(__DIR__).'/includes/**/*.php') ?: array() as $unused) {} // PHP glob is not recursive.
 $iterator=new RecursiveIteratorIterator(new RecursiveDirectoryIterator(dirname(__DIR__).'/includes'));
 foreach ($iterator as $file) {
     if (!$file->isFile() || $file->getExtension() !== 'php') continue;
     $source=file_get_contents($file->getPathname());
+    preg_match_all("/add_action\\s*\\(\\s*(?:(['\"])([^'\"]+)\\1|([^,]+))\\s*,/",$source,$all_actions,PREG_SET_ORDER);
+    foreach($all_actions as $action_call) {
+        nmkr_assert(empty($action_call[3]), 'dynamic_action_hook_unclassified');
+        if(strpos($action_call[2],'wp_ajax_')===0) $GLOBALS['nmkr_ajax_hook_candidates'][]=$action_call[2];
+    }
     preg_match_all("/add_action\\(\\s*['\"](wp_ajax_(?:nopriv_)?[^'\"]+)['\"]\\s*,\\s*['\"]([^'\"]+)['\"]\\s*\\)/",$source,$matches,PREG_SET_ORDER);
     foreach($matches as $m) $registrations[$m[1]]=$m[2];
 }
@@ -59,6 +64,8 @@ $expected=array(); foreach($privileged as $action=>$callback) $expected['wp_ajax
 $expected['wp_ajax_nmkr_analytics_event']='nmkr_analytics_event_ajax';
 $expected['wp_ajax_nopriv_nmkr_analytics_event']='nmkr_analytics_event_ajax'; // intentional public ingestion exception.
 ksort($expected); ksort($registrations);
+sort($GLOBALS['nmkr_ajax_hook_candidates']); $registered_hooks=array_keys($registrations); sort($registered_hooks);
+nmkr_assert($GLOBALS['nmkr_ajax_hook_candidates'] === $registered_hooks, 'ajax_registration_form_unclassified');
 nmkr_assert($registrations === $expected, 'ajax_registration_surface_unclassified');
 foreach($privileged as $action=>$callback) nmkr_assert(!isset($registrations['wp_ajax_nopriv_'.$action]), 'privileged_nopriv_registration');
 
@@ -66,7 +73,10 @@ require dirname(__DIR__).'/includes/pages/settings/nmkr-settings-validation.php'
 require dirname(__DIR__).'/includes/pages/settings/nmkr-settings-core.php';
 nmkr_connect_register_settings(); nmkr_connect_add_settings_page();
 nmkr_assert(in_array(array('nmkr_connect_settings_group','nmkr_connect_options','nmkr_connect_sanitize_options'),$GLOBALS['nmkr_settings'],true),'settings_registration');
-nmkr_assert(nmkr_connect_settings_option_page_capability('manage_options')==='nmkr_manage_settings','settings_capability_filter');
+$capability_filters=$GLOBALS['nmkr_filters']['option_page_capability_nmkr_connect_settings_group'] ?? array();
+nmkr_assert($capability_filters===array('nmkr_connect_settings_option_page_capability'),'settings_capability_filter_registration');
+$settings_capability='manage_options'; foreach($capability_filters as $filter) $settings_capability=call_user_func($filter,$settings_capability);
+nmkr_assert($settings_capability==='nmkr_manage_settings','settings_capability_filter');
 nmkr_assert(in_array(array('nmkr_manage_settings','nmkr-connect-settings','nmkr_connect_settings_page'),$GLOBALS['nmkr_pages'],true),'settings_page_capability');
 $GLOBALS['nmkr_options']['nmkr_connect_options']=array('future_key'=>'preserved','api_key'=>'old'); $GLOBALS['nmkr_ledger']=array();
 $clean=nmkr_connect_sanitize_options(array('sync_profile'=>'hostile','sync_batch_size'=>'9999','sync_batch_delay'=>'-4','analytics_mode'=>'evil','analytics_retention_days'=>'9999','analytics_sample_rate'=>'8','debug_enabled'=>'1','log_to_dashboard'=>'1','log_retention_limit'=>'9999'));

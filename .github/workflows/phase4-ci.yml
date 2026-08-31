@@ -20,6 +20,17 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Verify exact checkout
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$(git rev-parse "$EXPECTED_SHA^{tree}")"
+          test -z "$(git status --porcelain=v1)"
+          echo 'Exact checkout: PASS'
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -45,6 +56,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify exact checkout
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$(git rev-parse "$EXPECTED_SHA^{tree}")"
+          test -z "$(git status --porcelain=v1)"
+          echo 'Exact checkout: PASS'
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -59,6 +80,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify exact checkout
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$(git rev-parse "$EXPECTED_SHA^{tree}")"
+          test -z "$(git status --porcelain=v1)"
+          echo 'Exact checkout: PASS'
       - uses: actions/setup-node@v4
         with:
           node-version: 20

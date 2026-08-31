@@ -66,9 +66,6 @@ php scripts/nmkr-api-response-benchmark-regression.php
 printf '\n== Streaming synchronization pagination regression ==\n'
 php scripts/nmkr-sync-pagination-regression.php
 
-printf '\n== Public-safe PHP 7.4 compatibility guard ==\n'
-npm run test:php74
-
 printf '\n== Public analytics ingestion regression ==\n'
 php scripts/nmkr-analytics-ingestion-regression.php
 

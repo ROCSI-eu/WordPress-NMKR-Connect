@@ -72,4 +72,5 @@ test('production synchronization and analytics sinks render hostile-shaped value
   expect(await page.evaluate(() => window.__nmkrMarkerCount)).toBe(0);
   await expect(page.locator('#status-message .status-header')).toHaveCount(1);
   await expect(page.locator('#nmkr-top-projects-root table, #nmkr-top-tokens-root table')).toHaveCount(2);
+  expect(pageErrors, pageErrors.map(error => error.stack || error.message).join('\n')).toEqual([]);
 });
