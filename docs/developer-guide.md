@@ -8,9 +8,16 @@ This guide describes the current repository for maintainers and prospective cont
 
 Related guidance:
 
+- [Repository documentation hub](../README.md#documentation)
 - [User guide](user-guide.md)
+- [Comprehensive FAQ](faq.md)
 - [Troubleshooting guide](troubleshooting.md)
+- [Validation policy](validation-policy.md)
 - [Playwright guide](testing-playwright.md)
+- [Milestone 4 audit and evidence hub](milestone-4/README.md)
+- [M4-02 dashboard mutation-authority evidence](milestone-4/executed-evidence-m4-02-2026-08-29.md)
+- [M4-03 progress-recovery authority evidence](milestone-4/executed-evidence-m4-03-2026-08-30.md)
+- [M4-05 public-ingestion evidence](milestone-4/executed-evidence-m4-05-2026-08-31.md)
 - [Milestone 3 evidence workspace](milestone-3/README.md)
 - [Phase 17 isolated synthetic harness](testing-phase-17.md)
 
@@ -81,7 +88,7 @@ flowchart TD
 
 A direct run has one active durable owner and a UUID `run_id`. The start handler admits the run and schedules the exact run-scoped event; the cooperative Stop request must name that run and is observed at worker checkpoints. Token pages are traversed sequentially and token UIDs are deduplicated within the run. Discovery progress remains provisional and below 100%; only canonical completed finalization reaches 100%. Completion, Stop, and failure pass through ownership, recovery, cleanup, history, metric, and terminal-state verification paths.
 
-Use the dashboard/AJAX lifecycle. Do not bypass admission or checkpoints by calling worker functions directly or editing database state.
+Ordinary progress polling is observational under `nmkr_view_dashboard`. Start, Stop, cleanup, and state-changing recovery require `nmkr_manage_sync`. Use the dashboard/AJAX lifecycle. Do not bypass admission or checkpoints by calling worker functions directly or editing database state. The bounded M4-02 and M4-03 evidence linked above records the current authority split; it is not universal lifecycle authorization proof.
 
 ### Front-end displays
 
@@ -100,13 +107,17 @@ Ordinary shortcode rendering resolves synchronized local project/token data; it 
 ```mermaid
 flowchart LR
     A[Front-end interaction] --> B[Consent, DNT, sampling and configuration checks]
-    B --> C[Plugin REST endpoint or AJAX fallback]
-    C --> D[Validation, deduplication and rate limiting]
+    B --> C[Public REST endpoint or AJAX fallback]
+    C --> D[Validation, deduplication and rate admission]
     D --> E[Local table, GA4, both, or neither by mode]
     E --> F[Scheduled retention maintenance]
 ```
 
-The front-end collector and common server ingestion enforce configured mode, consent, sampling, allowed event/shortcode shapes, and other ingestion guardrails. `custom` stores locally, `ga4` sends eligible events through the server-side GA4 Measurement Protocol helper, `both` does both, and `off` does neither. Missing GA4 configuration can prevent that destination from being active. The daily retention task deletes old local events in bounded chunks according to the configured retention window.
+Analytics ingestion is intentionally public/unauthenticated because ordinary front-end visitors may interact with rendered shortcodes. It is not an administrative mutation boundary. The common ingestion path enforces the configured mode, logged-in-user policy, consent, DNT, server-authoritative sampling, host/origin checks, allowed event/shortcode shapes, recursive metadata and UID bounds, durable rate counters, and deduplication admission. When logged-in tracking is enabled, accepted events may include a WordPress user ID; do not describe every event as anonymous.
+
+`custom` stores locally, `ga4` sends eligible events through the server-side GA4 Measurement Protocol helper, `both` does both, and `off` does neither. Missing GA4 configuration can prevent that destination from being active. The daily retention task deletes old local events in bounded chunks according to the configured retention window; it does not delete events already sent to GA4.
+
+The M4-05 controls are bounded mitigations, not universal denial-of-service resistance, exactly-once delivery, or coverage for every deployment/cache topology. Durable pre-sink admission supports at-most-once sink invocation within the deduplication window, so a later sink failure may lose the event. Plugin-level request-body bounds do not prevent upstream servers, proxies, or PHP from buffering data before plugin code runs. See the [M4-05 evidence](milestone-4/executed-evidence-m4-05-2026-08-31.md) and [FAQ](faq.md#analytics-privacy-consent-and-ga4).
 
 ## Persistence model
 
@@ -141,7 +152,7 @@ For every change:
 - design and test for least privilege; and
 - use HTTPS and keep API keys, analytics secrets, authentication material, and environment details out of source and diagnostics.
 
-A nonce mitigates CSRF; it is **not authentication**. A hidden or removed UI action still requires server-side authorization. Existing controls do not constitute a security certification or a guarantee that the plugin has no vulnerabilities.
+A nonce mitigates CSRF and demonstrates request intent; it is **not authentication or capability authorization**. A hidden or removed UI action still requires server-side authorization. Existing controls do not constitute a security certification or a guarantee that the plugin has no vulnerabilities.
 
 ## Extension points and compatibility
 
@@ -229,3 +240,11 @@ Treat every commit, CI log, issue, review, and pull-request comment as public. I
 ## Documentation maintenance
 
 When a focused change alters shortcodes, settings, roles/capabilities, menu labels, synchronization behavior, analytics, requirements, test commands, or extension points, update the relevant README, user, developer, troubleshooting, and testing documentation in the same change where practical. Keep authoritative procedures in their focused documents and link to them instead of creating divergent copies.
+
+## Next steps by task
+
+- **Change user-facing behavior:** update the [user guide](user-guide.md), [FAQ](faq.md), and relevant troubleshooting entry.
+- **Change authorization or synchronization state:** trace capabilities, nonces, ownership, polling, recovery, cleanup, tests, and exact-head private validation requirements.
+- **Change analytics ingestion:** trace the public request boundary, admission state, local/GA4 sinks, retention, privacy controls, and M4-05 limitations.
+- **Choose checks:** use the [validation policy](validation-policy.md) before running or requesting private validation.
+- **Assess assurance:** use the [Milestone 4 hub](milestone-4/README.md), findings, traceability, and package evidence without converting bounded results into universal claims.
