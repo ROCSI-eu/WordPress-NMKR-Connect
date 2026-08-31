@@ -8,7 +8,7 @@ This public-safe record documents completion of the scoped M4-05 public analytic
 
 PR #91 preserved intentional anonymous REST and AJAX analytics ingestion while replacing non-atomic admission state with durable option-backed state and explicit failure semantics. Per-anonymized-IP rate counters are serialized with a MariaDB advisory lock. Durable deduplication claims use fixed-length digest keys, value-sensitive compare-and-swap recovery, and pre-sink ownership so a retry cannot duplicate a committed local row or repeat a GA4 dispatch.
 
-The endpoint validates canonical UUIDv4 sessions, compact identifiers, JSON body size, recursive metadata depth, node count, individual string length, and aggregate metadata size. Server-side sampling is authoritative. Quota exhaustion returns an empty `429`; lock timeout, storage failure, malformed or ambiguous admission state, and uncertain ownership fail closed with an empty `503` before deduplication or sinks.
+The endpoint validates canonical UUIDv4 sessions, compact identifiers, JSON body size, recursive metadata depth, node count, individual string length, and aggregate metadata size. Server-side sampling is authoritative. Quota exhaustion returns an empty `429`; lock timeout, storage failure, unsuccessful or ambiguous repair of malformed admission state, other ambiguous admission state, and uncertain ownership fail closed with an empty `503` before deduplication or sinks. Successfully repaired malformed rate or claim state continues through admission rather than returning a `503` merely because the prior state was malformed.
 
 The implementation also persists and wraps bounded cleanup progress, removes expired admission state in bounded batches, repairs malformed rate and claim state through the locked or compare-and-swap admission paths, and includes dynamic admission options in configured uninstall cleanup.
 
@@ -77,7 +77,7 @@ Milestone 4 remains in progress. M4-06 is the next planned package for consolida
 
 This record does not claim universal abuse resistance, denial-of-service immunity, transactional or exactly-once delivery across WordPress and GA4, penetration testing, formal certification, production security assurance, Catalyst delivery or approval, or completion of Milestone 4.
 
-Admission is durable before either sink is invoked. This provides at-most-once sink invocation for a tuple, so a crash or sink failure after admission can lose an analytics event. The plugin's 8 KiB check bounds JSON decoding and sink work but cannot prevent PHP, WordPress, a proxy, or the web server from buffering some or all of a request first. Deployment transport limits remain an independent operational control.
+Admission is durable before either sink is invoked. Within the configured 7,200-second deduplication window, this provides at-most-once sink invocation for a tuple, so a crash or sink failure after admission can lose an analytics event. After an expired claim is cleaned up, the same tuple can be admitted and invoke the sinks again. The plugin's 8 KiB check bounds JSON decoding and sink work but cannot prevent PHP, WordPress, a proxy, or the web server from buffering some or all of a request first. Deployment transport limits remain an independent operational control.
 
 Private validation exercised the approved DEV stack and its MariaDB behavior. It does not establish every persistent-object-cache backend, database engine, proxy, extension, deployment topology, future code path, or hostile traffic pattern.
 
