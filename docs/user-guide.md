@@ -2,6 +2,17 @@
 
 This guide is for WordPress site owners and administrators. It describes the current plugin, not a guarantee about every host, NMKR account, collection size, or upstream API condition. Use the [troubleshooting guide](troubleshooting.md) when a workflow does not complete as expected.
 
+## Start here and next steps
+
+- [Repository overview and documentation hub](../README.md#documentation)
+- [Quick answers across roles](faq.md)
+- [Read-only-first troubleshooting](troubleshooting.md)
+- [Developer architecture and contribution guide](developer-guide.md)
+- [Validation policy for maintainers](validation-policy.md)
+- [Milestone 4 audit, evidence, and limitations](milestone-4/README.md)
+
+Recommended site-owner path: install a complete package, configure the API key, synchronize, publish a Free shortcode, choose analytics/privacy settings, and verify update/uninstall behavior. Content users should begin with the capability matrix below. Support readers should move from the FAQ to the matching troubleshooting symptom rather than changing state first.
+
 ## Install, activate, update, and remove
 
 ### Packaged ZIP
@@ -38,6 +49,20 @@ Access follows capabilities, not a role-name shortcut:
 
 Use **NMKR Marketing** for users who only need display/engagement work and **NMKR Admin** only for users who must configure or synchronize. Custom roles require the corresponding `nmkr_*` capabilities.
 
+### Capability and action matrix
+
+| Capability | Current authority |
+| --- | --- |
+| `nmkr_access_plugin` | Exposes the NMKR Connect menu shell and restricted-user routing. It does not authorize every child page or action by itself. |
+| `nmkr_view_dashboard` | Views Dashboard status, progress, active metrics, final results, and history; permits ordinary observational progress polling. |
+| `nmkr_view_projects` | Views **NMKR Connect → NFT Projects**. |
+| `nmkr_view_shortcodes` | Views **NMKR Connect → Shortcodes**. |
+| `nmkr_view_analytics` | Views the Analytics administration page and its reporting requests. |
+| `nmkr_manage_settings` | Opens and saves **Settings → NMKR Connect**. |
+| `nmkr_manage_sync` | Starts and cooperatively stops synchronization and performs state-changing cleanup or guarded recovery operations. |
+
+A visible menu, page, or button is not the authorization boundary. Server-side capability checks remain authoritative, and restricted users may be routed to their first allowed child page without gaining Dashboard access. A WordPress nonce protects request intent and mitigates CSRF; it is not authentication and does not grant a capability.
+
 ## Configure settings
 
 Only a user with `nmkr_manage_settings` can open or save **Settings → NMKR Connect**. WordPress settings nonces and the capability check protect saving; a rejected save should not be worked around by granting broader permissions than needed.
@@ -72,11 +97,19 @@ Debug controls default off. Enable the minimum necessary on staging, reproduce b
 
 - **Analytics Mode** — Off, Custom (local plugin analytics), GA4, or Both.
 - **GA4 Measurement ID** — optional `G-...` identifier, validated to the implemented format.
-- **GA4 API Secret** — optional secret for server-side GA4 delivery; handle like the NMKR key.
+- **GA4 API Secret** — optional secret for server-side GA4 delivery; handle like the NMKR key. Password-field rendering and sanitization are not an at-rest encryption guarantee.
 - **Data Retention (Days)** — local retention, sanitized to 7–365 days.
 - **Track Logged In Users**, **Require User Consent**, **Sample Rate** (0–1), **Remove Data on Uninstall**, and **Enable Analytics Debug** control collection and maintenance.
 
 When consent is required, collection waits for the plugin consent signal. The site operator remains responsible for notices, consent integration, lawful configuration, and retention. “Off” is the appropriate choice when collection is not wanted.
+
+### Public analytics ingestion boundary
+
+Shortcode view and click events are accepted through an intentionally public/unauthenticated REST endpoint or AJAX fallback because ordinary visitors may interact with front-end shortcodes. This is not an administrative mutation boundary. When **Track Logged In Users** is enabled, accepted events may include a WordPress user ID, so the ingestion boundary should not be described as universally anonymous.
+
+Admission depends on the configured mode and applies logged-in-user policy, consent, DNT, server-authoritative sampling, host/origin checks, event/UID and metadata bounds, durable rate counters, and deduplication. Local and GA4 sinks differ by mode; local retention does not delete data already sent to GA4.
+
+These controls are bounded mitigations. They do not guarantee universal denial-of-service resistance, exactly-once delivery, every cache/deployment topology, or protection against request buffering that occurs before plugin code runs. Durable pre-sink admission can suppress a retry after a later sink failure, so an admitted event may be lost. The site operator remains responsible for lawful notices, consent integration, retention, and GA4 configuration. See the [FAQ analytics section](faq.md#analytics-privacy-consent-and-ga4).
 
 ## Synchronize projects and tokens
 
@@ -84,7 +117,9 @@ When consent is required, collection waits for the plugin consent signal. The si
 2. Start synchronization only when no run is active. The plugin uses run-scoped ownership so another start cannot simply take over an active run.
 3. Keep the Dashboard available to observe status. Temporary polling/network errors cause the browser to continue retrying with exponential backoff capped near 30 seconds; they do not necessarily mean the worker failed. **Maximum Error Count** does not currently terminate these retries.
 4. If necessary, choose **Stop** once. Stop is cooperative and applies only to that run: the worker observes the request at safe checkpoints, records a stopped terminal result, and finalizes state. Do not repeatedly start another run while Stop is settling.
-5. Read the final result and history. A failed or stopped run is not completed; address the reported cause before retrying. Stale/interrupted state has guarded recovery paths, but state-changing recovery belongs in the [troubleshooting guide](troubleshooting.md).
+5. Read the final result and history. A failed or stopped run is not completed; address the reported cause before retrying. Stale/interrupted state has guarded recovery paths, but state-changing recovery requires `nmkr_manage_sync` and belongs in the [troubleshooting guide](troubleshooting.md).
+
+Ordinary progress polling under `nmkr_view_dashboard` is observational. It must not be treated as authority to mutate ownership, history, cleanup, cron, recovery, or final state. A view-only user should preserve the status and escalate to an NMKR Admin or Administrator instead of changing state.
 
 For a direct run, projects are fetched once. Each project's tokens are then requested as sequential numbered pages of 50. First-seen token UIDs are processed while traversal continues, duplicates in that run are ignored, and full page payloads are not deliberately retained until the end. This limits deliberate accumulation but does not promise unlimited scale.
 
@@ -144,4 +179,4 @@ Plan checks are performed at render time. Freemius plan/licensing integration co
 
 Back up, update WordPress and dependencies, and rehearse plugin updates and representative pages on staging before production. After an update, verify activation, settings presence, role access, an idle/terminal synchronization state, Projects, each shortcode in use, and analytics choice. Do not perform an uncontrolled real synchronization solely as an update check.
 
-For help, follow the [read-only-first troubleshooting guide](troubleshooting.md). Share only synthetic identifiers and sanitized error text. Never share keys, secrets, credentials, licence data, cookies/nonces, private addresses, raw logs, database dumps, customer data, or populated environment files.
+For quick boundary questions, use the [FAQ](faq.md). For help, follow the [read-only-first troubleshooting guide](troubleshooting.md). Share only synthetic identifiers and sanitized error text. Never share keys, secrets, credentials, licence data, cookies/nonces, private addresses, raw logs, database dumps, customer data, or populated environment files.
