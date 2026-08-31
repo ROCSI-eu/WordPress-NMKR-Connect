@@ -19,7 +19,7 @@ bad=0
 while IFS= read -r -d '' file; do
   case "$file" in
     .env.tests.example|*.env.example|*.env.sample) ;;
-    .env|.env.*|*/.env|*/.env.*|*auth-state*.json|playwright-report/*|*/playwright-report/*|test-results/*|*/test-results/*|private-validation/*|*/private-validation/*|*.trace.zip|*.webm|*.mp4|*.log|*private-manifest*.json)
+    .env|.env.*|*/.env|*/.env.*|*auth-state*.json|nmkr-connect-auth-*.json|*/nmkr-connect-auth-*.json|.phase2-private/*|*/.phase2-private/*|screenshots/*|*/screenshots/*|videos/*|*/videos/*|traces/*|*/traces/*|playwright-report/*|*/playwright-report/*|test-results/*|*/test-results/*|private-validation/*|*/private-validation/*|*.trace.zip|*.webm|*.mp4|*.log|*private-manifest*.json)
       bad=1 ;;
   esac
 done < <(git ls-files -z)
