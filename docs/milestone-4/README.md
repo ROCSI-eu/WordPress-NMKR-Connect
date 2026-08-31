@@ -44,3 +44,9 @@ This milestone record:
 - does **not** provide a production security guarantee;
 - does **not** claim Catalyst approval; and
 - records that no real NMKR synchronization or live NMKR traffic was performed for M4-01 through M4-05; M4-04 also required no private deployment or browser execution, and M4-05 used no external GA4 traffic.
+
+## M4-06 targeted security-check package (implementation pending final evidence)
+
+M4-06 adds public-safe deterministic contracts for the classified privileged AJAX registration surface and representative guard families, the plugin settings capability/sanitizer boundary, hostile analytics SQL inputs, and three exercised final-rendering sinks. It also adds lightweight tracked-source/static gates and a separate lock-bound dependency-audit job. These are targeted executable assertions, not universal authorization, SQL-injection, XSS, WordPress `options.php`, or dependency-safety guarantees.
+
+The package changes tests, tooling, CI workflow behavior, and planning documentation only. It does not change plugin runtime behavior or dependencies. Dependency results describe committed locks against advisory data available when the job runs, so they are time-dependent. No executed-evidence closure is recorded until the implementation head and CI have been finalized and inspected.

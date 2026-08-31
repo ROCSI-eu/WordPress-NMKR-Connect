@@ -1,21 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-printf '\n== Public-safe Bash syntax checks ==\n'
-shopt -s nullglob
-scripts=(scripts/*.sh)
-if (( ${#scripts[@]} == 0 )); then
-  echo "No scripts/*.sh files found."
-  exit 1
-fi
-
-for script in "${scripts[@]}"; do
-  echo "Checking ${script}"
-  bash -n "${script}"
-done
-
-printf '\n== Public-safe Playwright test discovery ==\n'
-npm run test:e2e -- --list --reporter=list
+printf '\n== Public-safe static checks ==\n'
+bash scripts/nmkr-static-checks.sh
 
 printf '\n== Public-safe Phase 15 preflight regression checks ==\n'
 bash scripts/nmkr-real-sync-preflight-regression.sh
@@ -41,6 +28,9 @@ bash scripts/nmkr-synthetic-run-regression.sh
 
 printf '\n== Privileged AJAX guard regression ==\n'
 php scripts/nmkr-ajax-guard-regression.php
+
+printf '\n== Consolidated targeted security contracts ==\n'
+php scripts/nmkr-security-contract-regression.php
 
 printf '\n== AJAX error-disclosure regressions ==\n'
 php scripts/nmkr-ajax-error-disclosure-regression.php
