@@ -10,7 +10,7 @@ PR #91 preserved intentional anonymous REST and AJAX analytics ingestion while r
 
 The endpoint validates canonical UUIDv4 sessions, compact identifiers, JSON body size, recursive metadata depth, node count, individual string length, and aggregate metadata size. Server-side sampling is authoritative. Quota exhaustion returns an empty `429`; lock timeout, storage failure, malformed or ambiguous admission state, and uncertain ownership fail closed with an empty `503` before deduplication or sinks.
 
-The implementation also persists and wraps bounded cleanup progress, removes expired or malformed admission state in bounded batches, and includes dynamic admission options in configured uninstall cleanup.
+The implementation also persists and wraps bounded cleanup progress, removes expired admission state in bounded batches, repairs malformed rate and claim state through the locked or compare-and-swap admission paths, and includes dynamic admission options in configured uninstall cleanup.
 
 ## Exact public identifiers
 
