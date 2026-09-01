@@ -11,7 +11,7 @@ NMKR Connect is supported by [Cardano Project Catalyst Fund 13](https://mileston
 | Milestone 1 | Delivered | Core plugin and NMKR API integration; local project/token tables; administration dashboard; synchronization progress, errors, and logging; Cardano and Solana compatibility; basic responsive NFT display |
 | Milestone 2 | Delivered | Grid, list, carousel, single-token, and single-project shortcodes; Free/Premium differentiation; role-based access; synchronization and engagement analytics; admin and responsive shortcode improvements; Cardano and Solana feature testing |
 | Milestone 3 | Delivered | Completed bounded functionality, usability, performance, load, API-response, display-performance, uptime, and cross-chain evidence; security hardening and bounded WordPress security validation; expanded testing, user, developer, and troubleshooting documentation; submitted Milestone 3 Proof of Achievement |
-| Milestone 4 | In progress | Security audit analysis and remediation sequence; expanded user manuals, developer guides, FAQ, and troubleshooting content; see the [Milestone 4 scaffold](docs/milestone-4/README.md) |
+| Milestone 4 | In progress | Security audit analysis and remediation sequence; expanded user manuals, developer guides, FAQ, and troubleshooting content; M4-10 reporting content complete at this PR head with final delivery pending; see the [Milestone 4 audit and evidence hub](docs/milestone-4/README.md) |
 | Final milestone | Planned | Community outreach and adoption; reporting and close-out; maintenance and handover; WordPress Plugin Directory submission; early post-launch fixes and support |
 
 “Delivered” describes the implementation delivery status used by this project; it does not assert formal Catalyst approval.
@@ -42,7 +42,7 @@ NMKR Connect is supported by [Cardano Project Catalyst Fund 13](https://mileston
 | Symptoms, read-only diagnosis, and safe escalation | [Troubleshooting guide](docs/troubleshooting.md) |
 | Developers and contributors | [Developer guide](docs/developer-guide.md) |
 | Maintainers choosing proportional checks | [Validation policy](docs/validation-policy.md) |
-| Security audit, findings, bounded evidence, and limitations | [Milestone 4 hub](docs/milestone-4/README.md) |
+| Security audit, findings, bounded evidence, and limitations | [Milestone 4 audit and evidence hub](docs/milestone-4/README.md), [evidence register](docs/milestone-4/evidence-register.md), [final report](docs/milestone-4/final-report.md), and [Proof of Achievement](docs/milestone-4/proof-of-achievement.md) |
 
 The focused guides are authoritative for their procedures. Use links instead of copying operational instructions into issues or pull requests, and keep all public diagnostics sanitized.
 
@@ -155,7 +155,13 @@ It performs Bash syntax checks, Playwright test discovery, synthetic preflight/r
 - Private-environment Phase 2 orchestration for browser, WP-CLI, deployment/readiness, and database validation.
 - Guarded preflight and controlled real-sync tooling for an explicitly authorized private development environment. Do not run a real synchronization as part of ordinary public validation.
 
-Public CI runs `npm ci` and `npm run test:public` with PHP 7.4. It uses no WordPress or deployment credentials, does not deploy, and does not upload private Playwright reports, screenshots, traces, videos, VM logs, or other private artifacts. Its checks are limited to public-safe discovery, syntax, compatibility, and synthetic regression work.
+Phase 4 CI uses three independent public jobs without WordPress or deployment credentials:
+
+1. **Public-safe checks:** verify the exact checkout, set up Node and PHP 7.4, run `npm ci`, and run `npm run test:public`.
+2. **Synthetic security rendering:** verify the exact checkout, install the locked Chromium version, and run `npm run test:security-rendering` with synthetic/local fixtures only. This is not private WordPress/runtime coverage or universal XSS proof.
+3. **Dependency audits:** verify the exact checkout, set up Node and PHP/Composer, run `npm ci`, and run `npm run test:dependencies`. Results are historical, lock-bound, and dependent on advisory data available at execution time; they do not establish perpetual dependency safety.
+
+The jobs do not deploy or upload private Playwright reports, screenshots, traces, videos, VM logs, or other private artifacts. `test:public` does not contain the other two jobs, and Phase 4 CI makes no production-runtime assurance claim.
 
 ### Synchronization pagination and progress safety
 

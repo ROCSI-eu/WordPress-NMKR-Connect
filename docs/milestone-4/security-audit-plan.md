@@ -68,9 +68,9 @@ The [Milestone 4 evidence register](evidence-register.md) is the canonical ledge
 | `M4-07` | Expand user/developer/troubleshooting navigation and produce comprehensive FAQ content | Implemented by PR #96; [executed evidence](executed-evidence-m4-07-2026-08-31.md), review, exact-head CI, and merge equivalence complete |
 | `M4-08` | Private exact-head validation using risk-appropriate profiles; no live NMKR traffic by default | Complete; [executed evidence](executed-evidence-m4-08-2026-09-01.md) records cumulative private DEV validation at exact SHA `204cb395e1a4c9b8de63659a56d9a63dc082ecd8`, tree `54c3c377405803a5f36453a55d81814b5de59fcb` |
 | `M4-09` | Consolidate sanitized audit evidence, findings, traceability, limitations, and non-claims | Evidence consolidation complete in this documentation-only package; see [`M4-EVD-008`](evidence-register.md#m4-evd-008--m4-09-evidence-reconciliation-and-m4-10-handoff) |
-| `M4-10` | Final Milestone 4 report and Proof of Achievement after all required work and evidence | Next and final reporting package |
+| `M4-10` | Final Milestone 4 report and Proof of Achievement after all required work and evidence | Reporting content complete at this exact PR head; merge provenance and final delivery pending the post-merge seal |
 
-Packages proceed separately so review and evidence stay attributable. M4-10 remains open until its own exact-head work and required checks exist; M4-09 evidence consolidation does not itself complete the milestone.
+Packages proceed separately so review and evidence stay attributable. M4-10 reporting content is complete at this exact PR head, but its merge provenance and final Milestone 4 delivery status remain pending the documentation-only post-merge seal.
 
 ## Stop conditions and public-repository safety
 

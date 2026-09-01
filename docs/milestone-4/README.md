@@ -2,9 +2,9 @@
 
 ## Purpose and current status
 
-Milestone 4 is **in progress**. M4-01 through M4-09 are complete within their disclosed package scopes. M4-09 consolidates the historical evidence and current dispositions; M4-10 is the next and sole remaining package, responsible for the final Milestone 4 report and Proof of Achievement.
+Milestone 4 is **in progress**. M4-01 through M4-09 are complete within their disclosed package scopes. M4-10 reporting content is complete at this exact PR head; merge provenance and final Milestone 4 delivery status remain pending a documentation-only post-merge seal.
 
-This M4-09 package is documentation-only. It does not re-execute earlier checks, change runtime behavior, or claim that Milestone 4 delivery, the audit, approval, certification, penetration testing, or production security assurance is complete.
+This M4-10 package is documentation-only and adds no new private/runtime evidence. Required public exact-head CI reruns public-safe checks, synthetic security rendering with local fixtures, and dependency audits to validate the current documentation head; those reruns are not new private/runtime or substantive Milestone 4 execution evidence. M4-10 performs no private WordPress or browser execution, deployment, database or WP-CLI execution, production observation, live NMKR or GA4 traffic, attack testing, or real synchronization, and it does not change runtime behavior or claim that Milestone 4 delivery, external Catalyst approval, certification, penetration testing, or production security assurance is complete. Dependency results remain historical, lock-bound, and advisory-time-dependent.
 
 ## Navigation
 
@@ -20,7 +20,9 @@ This M4-09 package is documentation-only. It does not re-execute earlier checks,
 ### Audit and evidence
 
 - [Security audit plan](security-audit-plan.md) — scope, methodology, trust rules, validation expectations, and package sequence.
-- [Evidence register](evidence-register.md) — canonical M4 evidence ledger, stable evidence IDs, exact provenance, bounded results, limitations, and M4-10 handoff.
+- [Evidence register](evidence-register.md) — canonical M4 evidence ledger, stable evidence IDs, exact provenance, bounded results, and limitations.
+- [Final report](final-report.md) — formal close-out synthesis and acceptance mapping.
+- [Proof of Achievement](proof-of-achievement.md) — concise evidence-oriented synthesis.
 - [Traceability](traceability.md) — contract requirements mapped to stable evidence IDs and current bounded dispositions.
 - [Findings register](findings-register.md) — stable, public-safe classifications, status, and remaining assurance gaps.
 - [M4-02 executed evidence](executed-evidence-m4-02-2026-08-29.md) — dashboard mutation-authority remediation.
@@ -55,7 +57,7 @@ Package-private evidence for M4-02, M4-03, and M4-05 and cumulative M4-08 eviden
 | `M4-07` | FAQ, user/developer/troubleshooting navigation, and documentation accuracy | Documentation assessment/closure complete; [`M4-EVD-006`](evidence-register.md#m4-evd-006--m4-07-documentation-assessment-and-closure) |
 | `M4-08` | Cumulative private exact-head readonly validation | Complete within private DEV scope; [`M4-EVD-007`](evidence-register.md#m4-evd-007--m4-08-cumulative-private-exact-head-validation) |
 | `M4-09` | Evidence consolidation, findings/trace reconciliation, and M4-10 handoff | Documentation-only consolidation complete in this package; [`M4-EVD-008`](evidence-register.md#m4-evd-008--m4-09-evidence-reconciliation-and-m4-10-handoff) |
-| `M4-10` | Final Milestone 4 report and Proof of Achievement | Next and final reporting package |
+| `M4-10` | Final Milestone 4 report and Proof of Achievement | Reporting content complete at this exact PR head; merge provenance and final delivery pending post-merge seal; [`M4-EVD-009`](evidence-register.md#m4-evd-009--m4-10-final-report-and-proof-synthesis) |
 
 ## Current bounded disposition
 
@@ -65,4 +67,4 @@ M4-02, M4-03, and M4-05 resolve `S-01`, `S-02`, and `S-05` within their implemen
 
 Public evidence is limited to sanitized source changes, public-safe tests and CI outcomes, reviewable documentation, exact Git provenance, and defensive conclusions. Private validation uses approved prepared environments and owner-private inputs; private URLs, paths, credentials, authentication state, logs, database output, screenshots, traces, reports, artifacts, manifests, and operational deployment details do not enter the public repository. The [validation policy](../validation-policy.md) controls check selection and exact-head trust. Real NMKR synchronization is excluded by default and was not performed for M4-01 through M4-09; no live NMKR or external GA4 traffic is claimed.
 
-This record does **not** claim universal authorization, side-effect absence, SQL-injection resistance, XSS resistance, dependency safety, external-API exhaustiveness, availability, production security, legal compliance, formal certification, penetration testing, Catalyst approval, completed audit, or completed Milestone 4 delivery.
+This record does **not** claim exhaustive OWASP assessment; universal authorization or side-effect absence; universal SQL-injection or XSS resistance; perpetual dependency safety; external-API exhaustiveness; production security or availability; legal compliance; formal certification; penetration testing; Catalyst approval; or completed Milestone 4 delivery.
