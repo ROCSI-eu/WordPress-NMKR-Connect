@@ -51,6 +51,10 @@ The canonical [pull-request validation policy](../validation-policy.md) determin
 
 Validation must use the smallest sufficient profile. Routine runs keep real synchronization and artifact saving disabled. Failures, ambiguity, identity mismatches, or required-invariant failures block advancement; diagnosis remains in approved private locations.
 
+## Canonical evidence ledger
+
+The [Milestone 4 evidence register](evidence-register.md) is the canonical ledger for stable evidence IDs, exact package provenance, evidence classes, bounded results, limitations, and the M4-10 handoff. Historical executed-evidence records remain authoritative inputs and are not rewritten by consolidation.
+
 ## Work-package sequence
 
 | Package | Scope | Status/order |
@@ -63,10 +67,10 @@ Validation must use the smallest sufficient profile. Routine runs keep real sync
 | `M4-06` | Consolidate targeted public-safe security regressions and dependency/static checks | Implemented by PR #93; [executed evidence](executed-evidence-m4-06-2026-08-31.md), exact-head CI, resolved findings, and merge equivalence complete within the disclosed public-only test/tooling scope |
 | `M4-07` | Expand user/developer/troubleshooting navigation and produce comprehensive FAQ content | Implemented by PR #96; [executed evidence](executed-evidence-m4-07-2026-08-31.md), review, exact-head CI, and merge equivalence complete |
 | `M4-08` | Private exact-head validation using risk-appropriate profiles; no live NMKR traffic by default | Complete; [executed evidence](executed-evidence-m4-08-2026-09-01.md) records cumulative private DEV validation at exact SHA `204cb395e1a4c9b8de63659a56d9a63dc082ecd8`, tree `54c3c377405803a5f36453a55d81814b5de59fcb` |
-| `M4-09` | Consolidate sanitized audit evidence, findings, traceability, limitations, and non-claims | Next package |
-| `M4-10` | Final Milestone 4 report and Proof of Achievement after all required work and evidence | Planned |
+| `M4-09` | Consolidate sanitized audit evidence, findings, traceability, limitations, and non-claims | Evidence consolidation complete in this documentation-only package; see [`M4-EVD-008`](evidence-register.md#m4-evd-008--m4-09-evidence-reconciliation-and-m4-10-handoff) |
+| `M4-10` | Final Milestone 4 report and Proof of Achievement after all required work and evidence | Next and final reporting package |
 
-Packages proceed separately so review and evidence stay attributable. Future packages remain open until their own exact-head work and required checks exist.
+Packages proceed separately so review and evidence stay attributable. M4-10 remains open until its own exact-head work and required checks exist; M4-09 evidence consolidation does not itself complete the milestone.
 
 ## Stop conditions and public-repository safety
 
