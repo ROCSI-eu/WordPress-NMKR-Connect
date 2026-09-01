@@ -9,6 +9,7 @@ This FAQ gives short, role-oriented answers for site owners, administrators, con
 - [Developer guide](developer-guide.md) — architecture, data flows, security boundaries, tests, and contribution workflow.
 - [Validation policy](validation-policy.md) — risk classification and proportional public/private checks.
 - [Milestone 4 hub](milestone-4/README.md) — audit plan, findings, traceability, bounded evidence, limitations, and non-claims.
+- [Milestone 4 Catalyst submission alignment](milestone-4/catalyst-submission-alignment.md) — Statement of Milestones inventory, selected OWASP ASVS mapping, findings summary, and reviewer path.
 - [Milestone 4 evidence register](milestone-4/evidence-register.md) — canonical stable evidence IDs and provenance.
 - [Milestone 4 final report](milestone-4/final-report.md) and [Proof of Achievement](milestone-4/proof-of-achievement.md) — completed M4-10 reporting synthesis and provenance seal.
 
@@ -26,7 +27,7 @@ No. The FAQ explains boundaries and directs readers to the maintained procedure.
 
 ### What does current Milestone 4 evidence prove?
 
-Only the bounded behavior recorded in the linked package evidence. It does not prove universal authorization safety, universal XSS or SQL-injection resistance, dependency safety, production security, unlimited scale, formal certification, Catalyst approval, a completed audit, or completed Milestone 4 delivery.
+Only the bounded behavior recorded in the linked package evidence. It supports the project's completed Milestone 4 delivery within those disclosed scopes; it does not prove universal authorization safety, universal XSS or SQL-injection resistance, dependency safety, production security, unlimited scale, complete ASVS conformance, formal certification, penetration testing, or external Catalyst assessment or approval.
 
 ## Installation, requirements, updates, and removal
 
@@ -297,13 +298,17 @@ Only after explicit authorization, controlled data selection, readiness checks, 
 
 ### Where are current findings and evidence?
 
-Use the [Milestone 4 hub](milestone-4/README.md), canonical [evidence register](milestone-4/evidence-register.md), [findings register](milestone-4/findings-register.md), and [traceability matrix](milestone-4/traceability.md). The linked M4-02 through M4-07 package records distinguish their public CI, synthetic coverage, and package-specific evidence; the [M4-08 record](milestone-4/executed-evidence-m4-08-2026-09-01.md) adds sanitized cumulative private DEV validation.
+Use the [Milestone 4 hub](milestone-4/README.md), canonical [evidence register](milestone-4/evidence-register.md), [findings register](milestone-4/findings-register.md), [traceability matrix](milestone-4/traceability.md), and [Catalyst submission alignment](milestone-4/catalyst-submission-alignment.md). The linked M4-02 through M4-07 package records distinguish their public CI, synthetic coverage, and package-specific evidence; the [M4-08 record](milestone-4/executed-evidence-m4-08-2026-09-01.md) adds sanitized cumulative private DEV validation.
 
 ## Assurance, evidence, and non-claims
 
 ### Is the Milestone 4 audit complete?
 
 Yes, within the project's disclosed bounded scopes. M4-01 through M4-10, including the [final report](milestone-4/final-report.md), [Proof of Achievement](milestone-4/proof-of-achievement.md), and final M4-10 provenance seal, are complete. This project delivery status is not external Catalyst assessment or approval and does not broaden the recorded security, runtime, dependency, compliance, or production claims.
+
+### Which OWASP standard is selected for Milestone 4?
+
+The milestone maps a selected subset of **OWASP Application Security Verification Standard 5.0.0** requirements to exact project trace and evidence IDs. The mapping supports only the recorded boundaries and does not claim complete ASVS conformance, exhaustive OWASP coverage, penetration testing, or certification. See the [Catalyst submission alignment](milestone-4/catalyst-submission-alignment.md#selected-owasp-verification-baseline).
 
 ### Is NMKR Connect certified secure?
 
