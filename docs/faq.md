@@ -10,7 +10,7 @@ This FAQ gives short, role-oriented answers for site owners, administrators, con
 - [Validation policy](validation-policy.md) — risk classification and proportional public/private checks.
 - [Milestone 4 hub](milestone-4/README.md) — audit plan, findings, traceability, bounded evidence, limitations, and non-claims.
 - [Milestone 4 evidence register](milestone-4/evidence-register.md) — canonical stable evidence IDs and provenance.
-- [Milestone 4 final report](milestone-4/final-report.md) and [Proof of Achievement](milestone-4/proof-of-achievement.md) — conditional M4-10 reporting synthesis.
+- [Milestone 4 final report](milestone-4/final-report.md) and [Proof of Achievement](milestone-4/proof-of-achievement.md) — completed M4-10 reporting synthesis and provenance seal.
 
 ### What is NMKR Connect?
 
