@@ -1,6 +1,6 @@
 # Milestone 4 traceability
 
-This consolidated matrix maps Milestone 4 requirements to the stable IDs in the [evidence register](evidence-register.md). Its analysis baseline is `354cd5808c8eebf557a8286452752245901cbd50`. Statuses record bounded package results and remaining assurance; they do not imply universal security or completed delivery.
+This consolidated matrix maps Milestone 4 requirements to the stable IDs in the [evidence register](evidence-register.md). Its analysis baseline is `354cd5808c8eebf557a8286452752245901cbd50`. Statuses record bounded package results and remaining assurance; they do not imply universal security, complete ASVS conformance, certification, production assurance, or external Catalyst assessment or approval. The [Catalyst submission alignment](catalyst-submission-alignment.md) maps the selected OWASP ASVS 5.0.0 requirements and the Statement of Milestones evidence obligations to these trace IDs.
 
 | Trace ID | Contract requirement | Request boundary | Stable evidence | Consolidated status | Limitations/non-claims |
 | --- | --- | --- | --- | --- | --- |

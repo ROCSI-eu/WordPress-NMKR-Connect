@@ -4,6 +4,8 @@
 
 Milestone 4 is **delivered within the project's disclosed bounded scopes**. M4-01 through M4-10 are complete, and the final M4-10 provenance record seals PR #102's reporting content and merged-main validation. This project delivery status is distinct from external Catalyst assessment or approval.
 
+The [Catalyst submission alignment](catalyst-submission-alignment.md) provides a faithful Statement of Milestones inventory, a selected OWASP ASVS 5.0.0 requirement mapping, a plain identified/resolved/open findings summary, documentation-access links, and the submission non-claims.
+
 This M4-10 package is documentation-only and adds no new private/runtime evidence. Recorded public exact-head and merged-main CI ran public-safe checks, synthetic security rendering with local fixtures, and dependency audits; those runs are not new private/runtime or substantive Milestone 4 execution evidence. M4-10 performed no private WordPress or browser execution, deployment, database or WP-CLI execution, production observation, live NMKR or GA4 traffic, attack testing, or real synchronization, and it does not change runtime behavior or claim external Catalyst approval, certification, penetration testing, or production security assurance. Dependency results remain historical, lock-bound, and advisory-time-dependent.
 
 ## Navigation
@@ -19,6 +21,7 @@ This M4-10 package is documentation-only and adds no new private/runtime evidenc
 
 ### Audit and evidence
 
+- [Catalyst submission alignment](catalyst-submission-alignment.md) — Statement of Milestones inventory, selected OWASP ASVS mapping, findings summary, and reviewer path.
 - [Security audit plan](security-audit-plan.md) — scope, methodology, trust rules, validation expectations, and package sequence.
 - [Evidence register](evidence-register.md) — canonical M4 evidence ledger, stable evidence IDs, exact provenance, bounded results, and limitations.
 - [Final report](final-report.md) — formal close-out synthesis and acceptance mapping.
@@ -67,4 +70,4 @@ M4-02, M4-03, and M4-05 resolve `S-01`, `S-02`, and `S-05` within their implemen
 
 Public evidence is limited to sanitized source changes, public-safe tests and CI outcomes, reviewable documentation, exact Git provenance, and defensive conclusions. Private validation uses approved prepared environments and owner-private inputs; private URLs, paths, credentials, authentication state, logs, database output, screenshots, traces, reports, artifacts, manifests, and operational deployment details do not enter the public repository. The [validation policy](../validation-policy.md) controls check selection and exact-head trust. Real NMKR synchronization is excluded by default and was not performed for M4-01 through M4-09; no live NMKR or external GA4 traffic is claimed.
 
-This record does **not** claim exhaustive OWASP assessment; universal authorization or side-effect absence; universal SQL-injection or XSS resistance; perpetual dependency safety; external-API exhaustiveness; production security or availability; legal compliance; formal certification; penetration testing; Catalyst approval; or completed Milestone 4 delivery.
+This record does **not** claim complete ASVS conformance or exhaustive OWASP assessment; universal authorization or side-effect absence; universal SQL-injection or XSS resistance; perpetual dependency safety; external-API exhaustiveness; production security or availability; legal compliance; formal certification; penetration testing; or external Catalyst assessment or approval.
