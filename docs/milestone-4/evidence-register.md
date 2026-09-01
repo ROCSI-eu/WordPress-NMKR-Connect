@@ -2,7 +2,7 @@
 
 ## Purpose and evidence model
 
-This is the canonical public-safe Milestone 4 evidence ledger and the evidence handoff to M4-10. `M4-FND-*` identifies an analysis, implementation, tooling, or documentation foundation and does not, by itself, imply execution. `M4-EVD-*` identifies executed evidence or a completed bounded assessment. Historical package records remain authoritative for their execution details; this register reconciles their current disposition without rewriting them.
+This is the canonical public-safe Milestone 4 evidence ledger and the evidence basis for M4-10. `M4-FND-*` identifies an analysis, implementation, tooling, or documentation foundation and does not, by itself, imply execution. `M4-EVD-*` identifies executed evidence or a completed bounded assessment. Historical package records remain authoritative for their execution details; this register reconciles their current disposition without rewriting them.
 
 Reviewed/source heads, deployed commits, merge commits, evidence-document commits, and Git trees are distinct fields. Package-private M4-02, M4-03, and M4-05 evidence complements, but is not replaced by, cumulative M4-08 evidence. Dependency-audit results are historical, lock-bound, and time-dependent. `Not applicable` means that the field was not part of that evidence class; it does not mean that an unrecorded private activity occurred.
 
@@ -119,15 +119,27 @@ Reviewed/source heads, deployed commits, merge commits, evidence-document commit
 ### `M4-EVD-008` — M4-09 evidence reconciliation and M4-10 handoff
 
 - **Package; mappings:** M4-09; all findings, especially `D-05`; `M4-T-01` through `M4-T-10`.
-- **Class; status:** completed documentation-only evidence reconciliation in this package; M4-10 final reporting remains pending.
+- **Class; status:** completed documentation-only evidence reconciliation; sealed through the M4-09 merge.
 - **Analysis/implementation baseline:** `aae16a77deb08cf7341ba8104f94df6f4928fe74`, tree `5e9b3cfc4259e1528939142c0b78cfcae9cd8602`.
-- **Reviewed/source SHA; deployed SHA:** this M4-09 PR's exact documentation head, recorded by the PR and exact-head CI; Not applicable.
-- **Merged commit/tree:** Not applicable until merge; merge identity must be recorded by the PR/CI history and must not be treated as privately validated runtime evidence.
-- **Public method/CI; sanitized private method:** exact-baseline provenance reconciliation, object/tree verification, changed-link/anchor/table/status/public-safety checks, `git diff --check`, and public CI; Not applicable.
+- **Reviewed/source SHA; deployed SHA:** PR #100 final head `4e63696547499568baca633dce9356db60783acd`, tree `9524bd3c41819f5abc6bf4c9096ac31a02b0fbbb`; Not applicable because M4-09 was documentation-only. Exact-head Phase 4 CI run `33506969819` (run 391) completed successfully.
+- **Merged commit/tree:** merged main `373268f51c83bfdf6ede09c4e362378743df1cf8`, tree `9524bd3c41819f5abc6bf4c9096ac31a02b0fbbb`, is tree-equivalent to the reviewed head. Merged-main Phase 4 CI run `33508134957` (run 392) completed successfully.
+- **Public method/CI; sanitized private method:** exact-baseline provenance reconciliation, object/tree verification, changed-link/anchor/table/status/public-safety checks, `git diff --check`, and the cited public CI; Not applicable.
 - **Date; visibility; retention:** 2026-09-01; public; this repository ledger and PR/CI history are retained.
 - **Bounded result:** stable IDs now connect M4-01 through M4-09 provenance, findings, traceability, evidence classes, current dispositions, limitations, and the M4-10 handoff; `D-05` is resolved for evidence governance/consolidation.
-- **Limitations/non-claims; relationship:** this reconciliation does not re-execute historical validation, validate a later merge, complete M4-10, or complete Milestone 4. M4-10 must consume this ledger for the final report and Proof of Achievement without broadening its claims.
+- **Limitations/non-claims; relationship:** tree equivalence proves M4-09 documentation-content equivalence only, not runtime deployment or private validation. This reconciliation does not re-execute historical validation, complete M4-10, or complete Milestone 4.
+
+### `M4-EVD-009` — M4-10 final report and Proof synthesis
+
+- **Package; mappings:** M4-10; `D-05`, open `S-06`, open `A-01`; `M4-T-09`, `M4-T-10`.
+- **Class; status:** documentation-only synthesis/provenance; reporting content complete at this exact PR head, while merge provenance and final delivery remain pending the post-merge seal.
+- **Analysis/implementation baseline:** merged main `373268f51c83bfdf6ede09c4e362378743df1cf8`, tree `9524bd3c41819f5abc6bf4c9096ac31a02b0fbbb`.
+- **Reviewed/source SHA and tree; deployed SHA:** the exact M4-10 PR head and tree are established by the PR's immutable Git metadata once published and must be inserted by the post-merge provenance seal; Not applicable because this package is documentation-only.
+- **Merged commit/tree and merged-main CI:** Pending the separate documentation-only post-merge provenance seal; no merge or CI fact is asserted before it exists.
+- **Public method/CI; sanitized private method:** focused changed-file, diff, link/anchor, table, identifier, mapping, status, provenance, and public-safety checks; exact-head three-job Phase 4 CI is recorded by the PR lifecycle when available; Not applicable.
+- **Date; visibility; retention:** 2026-09-01; public; repository documents and PR/CI provenance retained.
+- **Bounded result:** the final report and Proof synthesize existing stable evidence and package records, map the acceptance obligations, and preserve findings and limitations.
+- **Limitations/non-claims; relationship:** adds no runtime evidence and performs no synchronization, browser/private/dependency execution, attack testing, deployment, or production observation. M4-08 private DEV validation remains distinct from PR #98, PR #100, this PR, and its later seal.
 
 ## M4-10 handoff
 
-M4-10 is the sole pending Milestone 4 package. It must use the ledger rows and linked historical records as bounded inputs, preserve `S-06` and `A-01` as open assurance gaps, keep historical dependency results time-dependent, and keep the M4-08 runtime identity separate from its later evidence-document merge. M4-10 may produce the final report and Proof of Achievement; M4-09 does not do so and does not claim Milestone 4 delivery, approval, certification, penetration testing, production security, or universal assurance.
+M4-10 reporting content is complete at this exact PR head; merge provenance and final Milestone 4 delivery remain pending its documentation-only post-merge seal. It must use the ledger rows and linked historical records as bounded inputs, preserve `S-06` and `A-01` as open assurance gaps, keep historical dependency results time-dependent, and keep the M4-08 runtime identity separate from its later evidence-document merge. M4-10 may produce the final report and Proof of Achievement; M4-09 does not do so and does not claim Milestone 4 delivery, approval, certification, penetration testing, production security, or universal assurance.

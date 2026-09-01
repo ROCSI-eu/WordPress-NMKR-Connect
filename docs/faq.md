@@ -9,6 +9,8 @@ This FAQ gives short, role-oriented answers for site owners, administrators, con
 - [Developer guide](developer-guide.md) — architecture, data flows, security boundaries, tests, and contribution workflow.
 - [Validation policy](validation-policy.md) — risk classification and proportional public/private checks.
 - [Milestone 4 hub](milestone-4/README.md) — audit plan, findings, traceability, bounded evidence, limitations, and non-claims.
+- [Milestone 4 evidence register](milestone-4/evidence-register.md) — canonical stable evidence IDs and provenance.
+- [Milestone 4 final report](milestone-4/final-report.md) and [Proof of Achievement](milestone-4/proof-of-achievement.md) — conditional M4-10 reporting synthesis.
 
 ### What is NMKR Connect?
 
@@ -295,13 +297,13 @@ Only after explicit authorization, controlled data selection, readiness checks, 
 
 ### Where are current findings and evidence?
 
-Use the [Milestone 4 hub](milestone-4/README.md), [findings register](milestone-4/findings-register.md), and [traceability matrix](milestone-4/traceability.md). The linked M4-02 through M4-07 package records distinguish their public CI, synthetic coverage, and package-specific evidence; the [M4-08 record](milestone-4/executed-evidence-m4-08-2026-09-01.md) adds sanitized cumulative private DEV validation.
+Use the [Milestone 4 hub](milestone-4/README.md), canonical [evidence register](milestone-4/evidence-register.md), [findings register](milestone-4/findings-register.md), and [traceability matrix](milestone-4/traceability.md). The linked M4-02 through M4-07 package records distinguish their public CI, synthetic coverage, and package-specific evidence; the [M4-08 record](milestone-4/executed-evidence-m4-08-2026-09-01.md) adds sanitized cumulative private DEV validation.
 
 ## Assurance, evidence, and non-claims
 
 ### Is the Milestone 4 audit complete?
 
-No. M4-07 documentation and M4-08 cumulative private DEV validation are complete. M4-09 evidence consolidation is the next package, and M4-10 final reporting remains pending.
+Not yet. M4-01 through M4-09 are complete within their disclosed scopes, and the M4-10 [final report](milestone-4/final-report.md) and [Proof of Achievement](milestone-4/proof-of-achievement.md) content are complete at this exact PR head. Final delivery remains pending merge and the documentation-only post-merge provenance seal.
 
 ### Is NMKR Connect certified secure?
 
