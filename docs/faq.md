@@ -303,7 +303,7 @@ Use the [Milestone 4 hub](milestone-4/README.md), canonical [evidence register](
 
 ### Is the Milestone 4 audit complete?
 
-Not yet. M4-01 through M4-09 are complete within their disclosed scopes, and the M4-10 [final report](milestone-4/final-report.md) and [Proof of Achievement](milestone-4/proof-of-achievement.md) content are complete at this exact PR head. Final delivery remains pending merge and the documentation-only post-merge provenance seal.
+Yes, within the project's disclosed bounded scopes. M4-01 through M4-10, including the [final report](milestone-4/final-report.md), [Proof of Achievement](milestone-4/proof-of-achievement.md), and final M4-10 provenance seal, are complete. This project delivery status is not external Catalyst assessment or approval and does not broaden the recorded security, runtime, dependency, compliance, or production claims.
 
 ### Is NMKR Connect certified secure?
 

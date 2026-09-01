@@ -68,9 +68,9 @@ The [Milestone 4 evidence register](evidence-register.md) is the canonical ledge
 | `M4-07` | Expand user/developer/troubleshooting navigation and produce comprehensive FAQ content | Implemented by PR #96; [executed evidence](executed-evidence-m4-07-2026-08-31.md), review, exact-head CI, and merge equivalence complete |
 | `M4-08` | Private exact-head validation using risk-appropriate profiles; no live NMKR traffic by default | Complete; [executed evidence](executed-evidence-m4-08-2026-09-01.md) records cumulative private DEV validation at exact SHA `204cb395e1a4c9b8de63659a56d9a63dc082ecd8`, tree `54c3c377405803a5f36453a55d81814b5de59fcb` |
 | `M4-09` | Consolidate sanitized audit evidence, findings, traceability, limitations, and non-claims | Evidence consolidation complete in this documentation-only package; see [`M4-EVD-008`](evidence-register.md#m4-evd-008--m4-09-evidence-reconciliation-and-m4-10-handoff) |
-| `M4-10` | Final Milestone 4 report and Proof of Achievement after all required work and evidence | Reporting content complete at this exact PR head; merge provenance and final delivery pending the post-merge seal |
+| `M4-10` | Final Milestone 4 report, Proof of Achievement, and provenance seal after all required work and evidence | Complete within its documented evidence/reporting scope; PR #102 provenance sealed by `M4-EVD-009` |
 
-Packages proceed separately so review and evidence stay attributable. M4-10 reporting content is complete at this exact PR head, but its merge provenance and final Milestone 4 delivery status remain pending the documentation-only post-merge seal.
+Packages proceeded separately so review and evidence remain attributable. M4-01 through M4-10 are complete within their disclosed scopes; the documentation-only M4-10 seal records PR #102 provenance without creating an M4-11 package or a recursive sealing requirement.
 
 ## Stop conditions and public-repository safety
 
