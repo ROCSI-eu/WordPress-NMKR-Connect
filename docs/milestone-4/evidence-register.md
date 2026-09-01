@@ -46,7 +46,7 @@ Reviewed/source heads, deployed commits, merge commits, evidence-document commit
 
 ### `M4-EVD-003` — M4-04 rendering/disclosure assessment
 
-- **Package; mappings:** M4-04; `A-01`; `M4-T-07`, `M4-T-08`.
+- **Package; mappings:** M4-04; `A-01`; `M4-T-04`, `M4-T-07`, `M4-T-08`, `M4-T-09`.
 - **Class; status:** completed source-only documentation assessment; no runtime remediation justified.
 - **Analysis/implementation baseline:** `fd1ac072aeb37b189c9734e0602a58c8c6b8a30c`, tree `af40fd04381a57883e961b71fddcb2777c1cda50`.
 - **Reviewed/source SHA; deployed SHA:** evidence PR #90 head `7d0d23e74b72f0d4710b67968a32e4bd6ef0d3f7`; Not applicable.
@@ -70,7 +70,7 @@ Reviewed/source heads, deployed commits, merge commits, evidence-document commit
 
 ### `M4-FND-002` — M4-06 security/static/dependency tooling foundation
 
-- **Package; mappings:** M4-06; `S-06`, `A-01`; `M4-T-01`, `M4-T-04`, `M4-T-06`, `M4-T-07`, `M4-T-08`.
+- **Package; mappings:** M4-06; `S-06`, `A-01`; `M4-T-01`, `M4-T-04`, `M4-T-06`, `M4-T-07`, `M4-T-08`, `M4-T-09`.
 - **Class; status:** test/tooling implementation foundation; complete, but the foundation alone does not imply execution.
 - **Analysis/implementation baseline:** `820b2cfeae0ea26de8078a9ccf3d7fe0a5ca14bd`, tree `26560e630f096bc3e4d6827843aacaeeb2b0a742`.
 - **Reviewed/source SHA; deployed SHA:** PR #93 final head `c50c15770f93dd7c5d7ae2508f0d3be20fc57c0c`; Not applicable.
@@ -94,7 +94,7 @@ Reviewed/source heads, deployed commits, merge commits, evidence-document commit
 
 ### `M4-EVD-006` — M4-07 documentation assessment and closure
 
-- **Package; mappings:** M4-07; `S-07`, `D-02`, `D-03`, `D-04`; `M4-T-10`.
+- **Package; mappings:** M4-07; `S-07`, `D-02`, `D-03`, `D-04`; `M4-T-09`, `M4-T-10`.
 - **Class; status:** completed documentation-only implementation, assessment, correction, and exact-head CI.
 - **Analysis/implementation baseline:** `72944bdb7848cb16fc0eb3d108e5602034153aef`, tree `de7b13e9b960491f8896e388670e2852b63e7f92`.
 - **Reviewed/source SHA; deployed SHA:** PR #96 final reviewed head `c6f2bc2057e3034d2d218d70aee9d1817897ccb7`; Not applicable.
