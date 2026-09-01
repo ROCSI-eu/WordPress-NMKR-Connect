@@ -2,9 +2,9 @@
 
 ## Purpose and current status
 
-Milestone 4 is **in progress**. M4-01 through M4-09 are complete within their disclosed package scopes. M4-10 reporting content is complete at this exact PR head; merge provenance and final Milestone 4 delivery status remain pending a documentation-only post-merge seal.
+Milestone 4 is **delivered within the project's disclosed bounded scopes**. M4-01 through M4-10 are complete, and the final M4-10 provenance record seals PR #102's reporting content and merged-main validation. This project delivery status is distinct from external Catalyst assessment or approval.
 
-This M4-10 package is documentation-only and adds no new private/runtime evidence. Required public exact-head CI reruns public-safe checks, synthetic security rendering with local fixtures, and dependency audits to validate the current documentation head; those reruns are not new private/runtime or substantive Milestone 4 execution evidence. M4-10 performs no private WordPress or browser execution, deployment, database or WP-CLI execution, production observation, live NMKR or GA4 traffic, attack testing, or real synchronization, and it does not change runtime behavior or claim that Milestone 4 delivery, external Catalyst approval, certification, penetration testing, or production security assurance is complete. Dependency results remain historical, lock-bound, and advisory-time-dependent.
+This M4-10 package is documentation-only and adds no new private/runtime evidence. Recorded public exact-head and merged-main CI ran public-safe checks, synthetic security rendering with local fixtures, and dependency audits; those runs are not new private/runtime or substantive Milestone 4 execution evidence. M4-10 performed no private WordPress or browser execution, deployment, database or WP-CLI execution, production observation, live NMKR or GA4 traffic, attack testing, or real synchronization, and it does not change runtime behavior or claim external Catalyst approval, certification, penetration testing, or production security assurance. Dependency results remain historical, lock-bound, and advisory-time-dependent.
 
 ## Navigation
 
@@ -57,11 +57,11 @@ Package-private evidence for M4-02, M4-03, and M4-05 and cumulative M4-08 eviden
 | `M4-07` | FAQ, user/developer/troubleshooting navigation, and documentation accuracy | Documentation assessment/closure complete; [`M4-EVD-006`](evidence-register.md#m4-evd-006--m4-07-documentation-assessment-and-closure) |
 | `M4-08` | Cumulative private exact-head readonly validation | Complete within private DEV scope; [`M4-EVD-007`](evidence-register.md#m4-evd-007--m4-08-cumulative-private-exact-head-validation) |
 | `M4-09` | Evidence consolidation, findings/trace reconciliation, and M4-10 handoff | Documentation-only consolidation complete in this package; [`M4-EVD-008`](evidence-register.md#m4-evd-008--m4-09-evidence-reconciliation-and-m4-10-handoff) |
-| `M4-10` | Final Milestone 4 report and Proof of Achievement | Reporting content complete at this exact PR head; merge provenance and final delivery pending post-merge seal; [`M4-EVD-009`](evidence-register.md#m4-evd-009--m4-10-final-report-and-proof-synthesis) |
+| `M4-10` | Final Milestone 4 report, Proof of Achievement, and provenance seal | Complete within its documentation and reporting scope; PR #102 provenance sealed by [`M4-EVD-009`](evidence-register.md#m4-evd-009--m4-10-final-report-and-proof-synthesis) |
 
 ## Current bounded disposition
 
-M4-02, M4-03, and M4-05 resolve `S-01`, `S-02`, and `S-05` within their implemented and validated scopes. M4-07 resolves its current documentation findings. M4-09 resolves `D-05` for evidence governance and consolidation. `S-06` remains an open broader side-effect-assurance gap, and `A-01` remains an open adversarial-rendering assurance gap beyond the three exercised sinks. M4-10 must preserve those limitations in final reporting.
+M4-02, M4-03, and M4-05 resolve `S-01`, `S-02`, and `S-05` within their implemented and validated scopes. M4-07 resolves its current documentation findings. M4-09 resolves `D-05` for evidence governance and consolidation. `S-06` remains an open broader side-effect-assurance gap, and `A-01` remains an open adversarial-rendering assurance gap beyond the three exercised sinks. M4-10 preserves those limitations in final reporting.
 
 ## Evidence boundary and explicit non-claims
 
