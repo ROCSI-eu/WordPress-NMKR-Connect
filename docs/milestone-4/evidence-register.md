@@ -58,7 +58,7 @@ Reviewed/source heads, deployed commits, merge commits, evidence-document commit
 
 ### `M4-EVD-004` — M4-05 analytics-ingestion evidence
 
-- **Package; mappings:** M4-05; `S-05`; `M4-T-04`, `M4-T-05`, `M4-T-09`.
+- **Package; mappings:** M4-05; `S-05`; `M4-T-05`, `M4-T-09`.
 - **Class; status:** implementation plus public deterministic and package-private execution; resolved/validated within M4-05's bounded contract.
 - **Analysis/implementation baseline:** `22cb8cee1c35deb7ba18ce1d0ac76b3f738ab52b`, tree `24d82eba13df1ef7e5bfbf6a8b6aa6b6e6e68026`.
 - **Reviewed/source SHA; deployed SHA:** PR #91 head `ba5f934e6285089ba4c4946084d23d877fb122ee`; that exact head pre-merge and merged main `4a48dc50498e5de618c794a32b91fea968487eb3` post-merge.
