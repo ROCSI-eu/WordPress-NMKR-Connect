@@ -61,9 +61,9 @@ Validation must use the smallest sufficient profile. Routine runs keep real sync
 | `M4-04` | Inspect output contexts and error/notice rendering; change only confirmed unsafe sinks | Source analysis and [evidence](executed-evidence-m4-04-2026-08-30.md) complete; no confirmed unsafe sink and no runtime change |
 | `M4-05` | Harden analytics admission concurrency and compact payload bounds while preserving intentional public ingestion | Implemented by PR #91; [executed evidence](executed-evidence-m4-05-2026-08-31.md), exact-head review/validation, merge equivalence, and post-merge validation complete |
 | `M4-06` | Consolidate targeted public-safe security regressions and dependency/static checks | Implemented by PR #93; [executed evidence](executed-evidence-m4-06-2026-08-31.md), exact-head CI, resolved findings, and merge equivalence complete within the disclosed public-only test/tooling scope |
-| `M4-07` | Expand user/developer/troubleshooting navigation and produce comprehensive FAQ content | Next planned package |
-| `M4-08` | Private exact-head validation using risk-appropriate profiles; no live NMKR traffic by default | Planned milestone-wide package; package-specific validation remains attributable to its package |
-| `M4-09` | Consolidate sanitized audit evidence, findings, traceability, limitations, and non-claims | Planned |
+| `M4-07` | Expand user/developer/troubleshooting navigation and produce comprehensive FAQ content | Implemented by PR #96; [executed evidence](executed-evidence-m4-07-2026-08-31.md), review, exact-head CI, and merge equivalence complete |
+| `M4-08` | Private exact-head validation using risk-appropriate profiles; no live NMKR traffic by default | Complete; [executed evidence](executed-evidence-m4-08-2026-09-01.md) records cumulative private DEV validation at exact SHA `204cb395e1a4c9b8de63659a56d9a63dc082ecd8`, tree `54c3c377405803a5f36453a55d81814b5de59fcb` |
+| `M4-09` | Consolidate sanitized audit evidence, findings, traceability, limitations, and non-claims | Next package |
 | `M4-10` | Final Milestone 4 report and Proof of Achievement after all required work and evidence | Planned |
 
 Packages proceed separately so review and evidence stay attributable. Future packages remain open until their own exact-head work and required checks exist.
