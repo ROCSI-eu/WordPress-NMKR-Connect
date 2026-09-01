@@ -83,6 +83,7 @@ The [findings register](findings-register.md) remains authoritative. Implemented
 | --- | --- | --- | --- |
 | `S-01` | Confirmed authorization weakness | Resolved within M4-02 scope | `M4-EVD-001`, complemented by `M4-EVD-007` |
 | `S-02` | Confirmed recovery-authority weakness | Resolved within M4-03 scope | `M4-EVD-002`, complemented by `M4-EVD-007` |
+| `S-04` | Authorization-design and control-visibility inconsistency | Resolved within the current M4-02/M4-03 authority semantics | `M4-EVD-001` and `M4-EVD-002`; future capabilities and interfaces remain outside this conclusion |
 | `S-05` | Confirmed concurrency/input-bound weakness | Resolved within M4-05's bounded ingestion contract | `M4-EVD-004`, complemented by `M4-EVD-007` |
 | `S-03` | Guard-parity hypothesis | Rejected on the exact M4-01 baseline; conditional on future registration/alias changes | `M4-FND-001` |
 | `S-06` | Side-effect-assurance gap | Open and narrowed | Representative checks do not prove every callback, helper, dispatch path, or side effect |
