@@ -295,13 +295,13 @@ Only after explicit authorization, controlled data selection, readiness checks, 
 
 ### Where are current findings and evidence?
 
-Use the [Milestone 4 hub](milestone-4/README.md), [findings register](milestone-4/findings-register.md), and [traceability matrix](milestone-4/traceability.md). Package evidence through M4-06 is linked there; M4-07 exact-head and merge evidence belongs in a later closure record.
+Use the [Milestone 4 hub](milestone-4/README.md), [findings register](milestone-4/findings-register.md), and [traceability matrix](milestone-4/traceability.md). The linked M4-02 through M4-07 package records distinguish their public CI, synthetic coverage, and package-specific evidence; the [M4-08 record](milestone-4/executed-evidence-m4-08-2026-09-01.md) adds sanitized cumulative private DEV validation.
 
 ## Assurance, evidence, and non-claims
 
 ### Is the Milestone 4 audit complete?
 
-No. M4-07 improves documentation and navigation. M4-09 evidence consolidation and M4-10 final reporting remain pending.
+No. M4-07 documentation and M4-08 cumulative private DEV validation are complete. M4-09 evidence consolidation is the next package, and M4-10 final reporting remains pending.
 
 ### Is NMKR Connect certified secure?
 
