@@ -4,7 +4,7 @@
 
 Milestone 4 is **in progress**. M4-01 through M4-09 are complete within their disclosed package scopes. M4-10 reporting content is complete at this exact PR head; merge provenance and final Milestone 4 delivery status remain pending a documentation-only post-merge seal.
 
-This M4-10 package is documentation-only. It does not re-execute earlier checks, change runtime behavior, or claim that Milestone 4 delivery, external Catalyst approval, certification, penetration testing, or production security assurance is complete.
+This M4-10 package is documentation-only and adds no new private/runtime evidence. Required public exact-head CI reruns public-safe checks, synthetic security rendering with local fixtures, and dependency audits to validate the current documentation head; those reruns are not new private/runtime or substantive Milestone 4 execution evidence. M4-10 performs no private WordPress or browser execution, deployment, database or WP-CLI execution, production observation, live NMKR or GA4 traffic, attack testing, or real synchronization, and it does not change runtime behavior or claim that Milestone 4 delivery, external Catalyst approval, certification, penetration testing, or production security assurance is complete. Dependency results remain historical, lock-bound, and advisory-time-dependent.
 
 ## Navigation
 

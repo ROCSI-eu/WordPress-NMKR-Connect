@@ -135,10 +135,10 @@ Reviewed/source heads, deployed commits, merge commits, evidence-document commit
 - **Analysis/implementation baseline:** merged main `373268f51c83bfdf6ede09c4e362378743df1cf8`, tree `9524bd3c41819f5abc6bf4c9096ac31a02b0fbbb`.
 - **Reviewed/source SHA and tree; deployed SHA:** the exact M4-10 PR head and tree are established by the PR's immutable Git metadata once published and must be inserted by the post-merge provenance seal; Not applicable because this package is documentation-only.
 - **Merged commit/tree and merged-main CI:** Pending the separate documentation-only post-merge provenance seal; no merge or CI fact is asserted before it exists.
-- **Public method/CI; sanitized private method:** focused changed-file, diff, link/anchor, table, identifier, mapping, status, provenance, and public-safety checks; exact-head three-job Phase 4 CI is recorded by the PR lifecycle when available; Not applicable.
+- **Public method/CI; sanitized private method:** focused changed-file, diff, link/anchor, table, identifier, mapping, status, provenance, and public-safety checks; required public exact-head CI covers public-safe checks, synthetic security rendering with local fixtures, and dependency audits; Not applicable.
 - **Date; visibility; retention:** 2026-09-01; public; repository documents and PR/CI provenance retained.
 - **Bounded result:** the final report and Proof synthesize existing stable evidence and package records, map the acceptance obligations, and preserve findings and limitations.
-- **Limitations/non-claims; relationship:** adds no runtime evidence and performs no synchronization, browser/private/dependency execution, attack testing, deployment, or production observation. M4-08 private DEV validation remains distinct from PR #98, PR #100, this PR, and its later seal.
+- **Limitations/non-claims; relationship:** adds no new private/runtime or substantive Milestone 4 execution evidence. Public CI reruns validate the current documentation head; they do not constitute private WordPress or browser execution, deployment, database or WP-CLI execution, production observation, live NMKR or GA4 traffic, attack testing, or real synchronization. Dependency results remain historical, lock-bound, and advisory-time-dependent. M4-08 private DEV validation remains distinct from PR #98, PR #100, PR #102, and its later seal.
 
 ## M4-10 handoff
 

@@ -40,7 +40,7 @@ M4-08 instead validated runtime SHA `204cb395e1a4c9b8de63659a56d9a63dc082ecd8`, 
 | Validate settings contracts | [`M4-T-06`](traceability.md) | `M4-FND-002`, `M4-EVD-005`, `M4-EVD-007` | Not every settings path or state delta |
 | Limit inappropriate diagnostic disclosure | [`M4-T-07`](traceability.md) | `M4-EVD-003`, `M4-EVD-005`, `M4-EVD-007` | Recorded paths only |
 | Assess final rendering contexts | [`M4-T-08`](traceability.md) | `M4-EVD-003`, `M4-EVD-005`, `M4-EVD-007` | Three adversarial sinks; `A-01` remains open |
-| Maintain attributable evidence | [`M4-T-09`](traceability.md) | `M4-FND-001`, `M4-FND-002`, `M4-EVD-001` through `M4-EVD-009` and all linked package records | Evidence classes and identities are complementary, not interchangeable |
+| Maintain attributable evidence | [`M4-T-09`](traceability.md) | `M4-FND-001`, `M4-FND-002`, `M4-EVD-001` through `M4-EVD-009` and all linked package records | M4-01 through M4-09 provenance consolidated; M4-10 final source/merge/CI provenance pending the seal |
 | Deliver manuals, navigation, final report, and Proof | [`M4-T-10`](traceability.md) | `M4-EVD-006`, `M4-EVD-008`, `M4-EVD-009` | Content complete at PR head; merge/final-delivery seal pending |
 
 ## Security findings disposition
@@ -55,7 +55,7 @@ The maintained set comprises the [user guide](../user-guide.md), [developer guid
 
 Source analysis, implementation foundations, public deterministic/synthetic execution, public exact-head CI, package-specific private validation, cumulative M4-08 private DEV validation, documentation-only assessment/synthesis, and merge-tree equivalence are distinct and cannot substitute for one another. Recorded dependency audits passed the committed lock state and advisory data available at their execution times; they are historical, lock-bound, time-dependent results, not perpetual dependency safety.
 
-This package makes **no** claim of exhaustive OWASP assessment; penetration testing or certification; universal authorization or side-effect absence; universal XSS or SQL-injection resistance; production security, availability, or legal compliance; perpetual dependency safety; live NMKR or GA4 execution; or Catalyst approval. It performed no synchronization, browser/private/dependency execution, attack testing, deployment, or production observation.
+This package makes **no** claim of exhaustive OWASP assessment; penetration testing or certification; universal authorization or side-effect absence; universal XSS or SQL-injection resistance; production security, availability, or legal compliance; perpetual dependency safety; live NMKR or GA4 execution; or Catalyst approval. M4-10 is documentation-only and adds no new private/runtime or substantive Milestone 4 execution evidence. Required public exact-head CI reruns public-safe checks, synthetic security rendering with local fixtures, and dependency audits to validate the current documentation head; those reruns are not private WordPress or browser execution and do not perform deployment, database or WP-CLI execution, production observation, live NMKR or GA4 traffic, attack testing, or real synchronization. Dependency results remain historical, lock-bound, and advisory-time-dependent.
 
 ## Closure and maintenance
 

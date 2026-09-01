@@ -1,6 +1,6 @@
 # Milestone 4 Proof of Achievement
 
-> **This Proof of Achievement is a documentation-only synthesis of the existing Milestone 4 evidence register and linked package records. It does not represent new runtime execution, synchronization, browser execution, private validation, dependency execution, attack testing, deployment, or production observation.**
+> **This Proof of Achievement is a documentation-only synthesis of the existing Milestone 4 evidence register and linked package records. It adds no new private/runtime or substantive Milestone 4 execution evidence. Required public exact-head CI reruns public-safe checks, synthetic security rendering with local fixtures, and dependency audits to validate the current documentation head; those reruns are not private WordPress or browser execution and do not perform deployment, database or WP-CLI execution, production observation, live NMKR or GA4 traffic, attack testing, or real synchronization. Dependency results remain historical, lock-bound, and advisory-time-dependent.**
 
 ## Evidence basis and status
 
@@ -27,7 +27,7 @@ The canonical [evidence register](evidence-register.md), [traceability matrix](t
 - **`M4-T-06`:** `M4-FND-002`, `M4-EVD-005`, and `M4-EVD-007` cover exercised settings contracts, not every path or state delta.
 - **`M4-T-07`:** `M4-EVD-003`, `M4-EVD-005`, and `M4-EVD-007` cover recorded disclosure paths only.
 - **`M4-T-08`:** `M4-EVD-003`, `M4-EVD-005`, and `M4-EVD-007` support the three exercised final-DOM sinks; open `A-01` prevents universal XSS claims.
-- **`M4-T-09`:** `M4-FND-001`, `M4-FND-002`, and `M4-EVD-001` through `M4-EVD-009` preserve package provenance and evidence classes. M4-08's private runtime target is distinct from PR #98, PR #100, this PR, and the later seal.
+- **`M4-T-09`:** `M4-FND-001`, `M4-FND-002`, and `M4-EVD-001` through `M4-EVD-009` preserve package provenance and evidence classes. M4-01 through M4-09 provenance is consolidated, and M4-10 reporting content exists at the current PR head; M4-10 final source-head/tree, merge SHA/tree, and merged-main CI provenance remain pending the documentation-only post-merge seal. M4-08's private runtime target remains distinct from PR #98, PR #100, PR #102, and the later seal.
 - **`M4-T-10`:** `M4-EVD-006`, `M4-EVD-008`, and `M4-EVD-009` support reader documentation, navigation, evidence consolidation, report, and Proof content; merged delivery remains pending.
 
 ## Evidence boundaries and open assurance
