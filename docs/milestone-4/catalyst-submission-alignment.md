@@ -47,12 +47,13 @@ The canonical requirement text and version information are maintained by the [OW
 | --- | --- | --- | --- |
 | `S-01` | Confirmed authorization weakness | Resolved within M4-02 scope by requiring `nmkr_manage_sync` for active-metrics/UI-log mutation while preserving intended observation | `M4-EVD-001`, complemented by `M4-EVD-007` |
 | `S-02` | Confirmed recovery-authority weakness | Resolved within M4-03 scope by keeping polling observational and requiring management authority for recovery mutation | `M4-EVD-002`, complemented by `M4-EVD-007` |
+| `S-04` | Authorization-design and control-visibility inconsistency | Resolved within the current M4-02/M4-03 authority semantics by aligning dashboard control visibility and progress/recovery mutation authority while preserving intended observation access | `M4-EVD-001` and `M4-EVD-002`; future capabilities and interfaces remain outside this conclusion |
 | `S-05` | Confirmed concurrency/input-bound weakness | Resolved within M4-05's bounded public-ingestion contract with durable admission, bounds, recovery, cleanup, and fail-closed ambiguity | `M4-EVD-004`, complemented by `M4-EVD-007` |
 | `S-03` | Guard-parity hypothesis | Rejected on the exact M4-01 baseline; re-review is required if registration or alias behavior changes | `M4-FND-001` |
 | `S-06` | Broader side-effect-assurance gap | Open and narrowed; representative denial/state checks do not prove every callback, helper, dispatch path, or side effect | `M4-EVD-005`, `M4-EVD-007` |
 | `A-01` | Broader adversarial-rendering assurance gap | Open and narrowed beyond the three exercised final-DOM fixtures | `M4-EVD-003`, `M4-EVD-005`, `M4-EVD-007` |
 
-The [findings register](findings-register.md) remains authoritative for all security and documentation findings, including `S-04`, `S-07`, and `D-01` through `D-05`.
+The [findings register](findings-register.md) remains authoritative for all security and documentation findings, including `S-07` and `D-01` through `D-05`.
 
 ## Documentation access
 
