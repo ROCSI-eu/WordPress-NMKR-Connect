@@ -43,6 +43,7 @@ See the [detailed selected-requirement mapping](catalyst-submission-alignment.md
 | --- | --- | --- |
 | `S-01` | Confirmed and resolved within M4-02 scope | `M4-EVD-001`, complemented by `M4-EVD-007` |
 | `S-02` | Confirmed and resolved within M4-03 scope | `M4-EVD-002`, complemented by `M4-EVD-007` |
+| `S-04` | Resolved within the current M4-02/M4-03 authority semantics | `M4-EVD-001` and `M4-EVD-002`; future capabilities and interfaces remain outside this conclusion |
 | `S-05` | Confirmed and resolved within M4-05's bounded contract | `M4-EVD-004`, complemented by `M4-EVD-007` |
 | `S-03` | Rejected on the exact M4-01 baseline | Re-review if registration or alias behavior changes |
 | `S-06` | Open, narrowed side-effect-assurance gap | Representative checks do not prove every callback, helper, dispatch path, or side effect |
