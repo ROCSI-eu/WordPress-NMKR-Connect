@@ -96,7 +96,7 @@ For complete installation, configuration, synchronization, shortcode, role, anal
 
 ## Shortcodes and plans
 
-Only the following shortcode attributes are registered by the current implementations. When an optional UID is omitted, the shortcode resolves a suitable synchronized project or token. For project-based displays, `allow_user_select=\"1\"` (the default) enables the project selector; set it to `\"0\"` to hide the selector.
+Only the following shortcode attributes are registered by the current implementations. When an optional UID is omitted, the shortcode resolves a suitable synchronized project or token. For project-based displays, `allow_user_select="1"` (the default) enables the project selector; set it to `"0"` to hide the selector.
 
 | Shortcode | Purpose | Plan availability | Principal UID/filter parameter |
 | --- | --- | --- | --- |
@@ -109,7 +109,7 @@ Only the following shortcode attributes are registered by the current implementa
 Example:
 
 ```text
-[nmkr-grid project_uid=\"your-project-uid\" allow_user_select=\"0\"]
+[nmkr-grid project_uid="your-project-uid" allow_user_select="0"]
 ```
 
 Free/Premium availability describes the current shortcode gates. Freemius supplies plan/licensing integration; it does not change the MIT licence that applies to this repository.
