@@ -126,4 +126,4 @@ The private staging preflight revalidated three existing dedicated accounts and 
 
 ## Current external state
 
-All M3-01 through M3-21 requirements are validated within their disclosed scopes, and the Milestone 3 Proof of Achievement has been submitted. The access window remains active: keep the public support route operational, supply temporary login details privately if requested, and reassess or expire access by `2026-10-01 00:00 UTC`. Catalyst approval, assessor acceptance, payment approval, and completion of the external assessment process remain pending and are not claimed.
+All M3-01 through M3-21 requirements are validated within their disclosed scopes, and the Milestone 3 Proof of Achievement has been submitted. Milestone 3 has since received Catalyst reviewer sign-off. The access window remains active: keep the public support route operational, supply temporary login details privately if requested, and reassess or expire access by `2026-10-01 00:00 UTC`. Payment approval and any remaining administrative processing are not claimed.
