@@ -1,6 +1,6 @@
 # WordPress NMKR Connect
 
-NMKR Connect is an open-source WordPress plugin for synchronizing Cardano and Solana NFT project and token data through the NMKR API and presenting that data with shortcodes. The project remains under active development; Milestone 3 implementation and evidence delivery are complete within the disclosed scopes, while external Catalyst assessment remains pending.
+NMKR Connect is an open-source WordPress plugin for synchronizing Cardano and Solana NFT project and token data through the NMKR API and presenting that data with shortcodes. The project remains under active development: Milestones 1, 2, and 3 have been delivered and approved through Catalyst reviewer sign-off; Milestone 4 has been delivered and is awaiting Catalyst reviewer sign-off; Milestone 5 is in progress.
 
 ## Catalyst delivery status
 
@@ -8,13 +8,13 @@ NMKR Connect is supported by [Cardano Project Catalyst Fund 13](https://mileston
 
 | Delivery stage | Status | Scope summary |
 | --- | --- | --- |
-| Milestone 1 | Delivered | Core plugin and NMKR API integration; local project/token tables; administration dashboard; synchronization progress, errors, and logging; Cardano and Solana compatibility; basic responsive NFT display |
-| Milestone 2 | Delivered | Grid, list, carousel, single-token, and single-project shortcodes; Free/Premium differentiation; role-based access; synchronization and engagement analytics; admin and responsive shortcode improvements; Cardano and Solana feature testing |
-| Milestone 3 | Delivered | Completed bounded functionality, usability, performance, load, API-response, display-performance, uptime, and cross-chain evidence; security hardening and bounded WordPress security validation; expanded testing, user, developer, and troubleshooting documentation; submitted Milestone 3 Proof of Achievement |
-| Milestone 4 | Delivered within disclosed scopes | Security audit analysis and remediation sequence; expanded user manuals, developer guides, FAQ, and troubleshooting content; final report, Proof of Achievement, and M4-10 provenance seal; see the [Milestone 4 audit and evidence hub](docs/milestone-4/README.md) |
-| Final milestone | Planned | Community outreach and adoption; reporting and close-out; maintenance and handover; WordPress Plugin Directory submission; early post-launch fixes and support |
+| Milestone 1 | Approved | Core plugin and NMKR API integration; local project/token tables; administration dashboard; synchronization progress, errors, and logging; Cardano and Solana compatibility; basic responsive NFT display |
+| Milestone 2 | Approved | Grid, list, carousel, single-token, and single-project shortcodes; Free/Premium differentiation; role-based access; synchronization and engagement analytics; admin and responsive shortcode improvements; Cardano and Solana feature testing |
+| Milestone 3 | Approved | Completed bounded functionality, usability, performance, load, API-response, display-performance, uptime, and cross-chain evidence; security hardening and bounded WordPress security validation; expanded testing, user, developer, and troubleshooting documentation; submitted Milestone 3 Proof of Achievement |
+| Milestone 4 | Delivered | Security audit analysis and remediation sequence; expanded user manuals, developer guides, FAQ, and troubleshooting content; final report, Proof of Achievement, and M4-10 provenance seal; see the [Milestone 4 audit and evidence hub](docs/milestone-4/README.md) |
+| Milestone 5 | In progress | Community outreach and adoption; reporting and close-out; maintenance and handover; WordPress Plugin Directory submission; early post-launch fixes and support |
 
-“Delivered” describes the implementation delivery status used by this project; it does not assert formal Catalyst approval.
+“Approved” means the milestone was delivered and subsequently approved through Catalyst reviewer sign-off. “Delivered” means the milestone has been delivered but formal Catalyst reviewer sign-off remains pending. “In progress” means milestone delivery work is ongoing.
 
 ## Contents
 
@@ -96,7 +96,7 @@ For complete installation, configuration, synchronization, shortcode, role, anal
 
 ## Shortcodes and plans
 
-Only the following shortcode attributes are registered by the current implementations. When an optional UID is omitted, the shortcode resolves a suitable synchronized project or token. For project-based displays, `allow_user_select="1"` (the default) enables the project selector; set it to `"0"` to hide the selector.
+Only the following shortcode attributes are registered by the current implementations. When an optional UID is omitted, the shortcode resolves a suitable synchronized project or token. For project-based displays, `allow_user_select=\"1\"` (the default) enables the project selector; set it to `\"0\"` to hide the selector.
 
 | Shortcode | Purpose | Plan availability | Principal UID/filter parameter |
 | --- | --- | --- | --- |
@@ -109,7 +109,7 @@ Only the following shortcode attributes are registered by the current implementa
 Example:
 
 ```text
-[nmkr-grid project_uid="your-project-uid" allow_user_select="0"]
+[nmkr-grid project_uid=\"your-project-uid\" allow_user_select=\"0\"]
 ```
 
 Free/Premium availability describes the current shortcode gates. Freemius supplies plan/licensing integration; it does not change the MIT licence that applies to this repository.
@@ -136,7 +136,7 @@ Front-end analytics ingestion is intentionally public/unauthenticated because or
 
 The implementation uses concrete WordPress controls, including plugin-specific capability checks, nonces on privileged requests, input sanitization and allow-list validation, escaped output, prepared dynamic SQL, and no-cache headers on sensitive AJAX responses. Analytics applies UID/event validation, sampling, deduplication and rate limiting; logging helpers redact or avoid secret material in supported paths.
 
-These controls are not an absolute security guarantee. Milestone 3 now includes bounded plugin-level high-volume sequential synthetic synchronization and heavy sequential mixed-chain validation through EVD-008 and EVD-011. EVD-012 separately validates M3-08 only for a disclosed 16.14-day observation of an external public non-production HTTPS service through a CDN/proxy; it is environment availability evidence, not plugin-code, origin-host, production, global, lifetime, SLA, or universal availability evidence. These scoped outcomes do not establish concurrent visitor or arbitrary requests-per-second capacity, saturation or a breaking point, maximum throughput or server capacity, broad hosting/runtime/database/cache/network/WordPress coverage, production infrastructure scalability, live NMKR/upstream capacity, unlimited datasets, or universal behavior. All M3-01 through M3-21 requirements are Validated within their disclosed scopes, and the Milestone 3 Proof of Achievement was submitted at 2026-08-28 11:53 UTC. The external Catalyst assessment remains pending, and the controlled testing-access window remains operational until expiry or reassessment on 2026-10-01 00:00 UTC. Keep WordPress and dependencies maintained, grant minimal access, use HTTPS, protect credentials, and validate the plugin in a staging environment before production use.
+These controls are not an absolute security guarantee. Milestone 3 now includes bounded plugin-level high-volume sequential synthetic synchronization and heavy sequential mixed-chain validation through EVD-008 and EVD-011. EVD-012 separately validates M3-08 only for a disclosed 16.14-day observation of an external public non-production HTTPS service through a CDN/proxy; it is environment availability evidence, not plugin-code, origin-host, production, global, lifetime, SLA, or universal availability evidence. These scoped outcomes do not establish concurrent visitor or arbitrary requests-per-second capacity, saturation or a breaking point, maximum throughput or server capacity, broad hosting/runtime/database/cache/network/WordPress coverage, production infrastructure scalability, live NMKR/upstream capacity, unlimited datasets, or universal behavior. All M3-01 through M3-21 requirements are Validated within their disclosed scopes, and the Milestone 3 Proof of Achievement was submitted at 2026-08-28 11:53 UTC. Milestone 3 has since received Catalyst reviewer sign-off. The controlled testing-access window remains operational until expiry or reassessment on 2026-10-01 00:00 UTC. Keep WordPress and dependencies maintained, grant minimal access, use HTTPS, protect credentials, and validate the plugin in a staging environment before production use.
 
 ## Development and testing
 
