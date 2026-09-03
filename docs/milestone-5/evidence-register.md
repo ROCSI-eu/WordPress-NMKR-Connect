@@ -63,19 +63,19 @@ Each evidence record should include:
 - **Status:** VERIFIED
 - **Limitations/non-claims:** analysis and decision evidence only; no WordPress.org submission, acceptance, release validation, or runtime validation claim.
 
-### M5-FND-003 — M5-02 implementation-stage release architecture
+### M5-FND-003 — M5-02 validated release architecture
 
 - **Requirements:** `M5-REQ-010`, `M5-REQ-011`, `M5-REQ-013` as implementation foundations only
 - **Work package:** M5-02
-- **Description:** tracks the implementation of the free release architecture, dependency removal, privacy/lifecycle changes, metadata, and package tooling.
-- **Source/platform:** public GitHub issue #108 and PR #109
-- **Captured UTC:** 2026-09-02
-- **Relevant SHA/version:** final reviewed PR #109 head to be recorded after review completes
+- **Description:** records the reviewed and merged implementation of the free release architecture, dependency removal, privacy/lifecycle changes, metadata, and package tooling, together with its sanitized validation result.
+- **Source/platform:** public GitHub issue #108, PR #109, and private DEV validation
+- **Captured UTC:** 2026-09-03
+- **Relevant SHA/version:** reviewed PR #109 head `f40073d9888ef8b2c4b82bf67f352ff57a1c5d09`; merged main `3712406c38f801fa81a30782991a34e4a028b902`; shared tree `da32cd2b9c6ab41c53526992506d7bd9555d583e`
 - **Public/private class:** public
 - **Public reference:** issue #108 and PR #109
 - **Private corroboration:** YES
-- **Status:** CAPTURED
-- **Limitations/non-claims:** implementation-stage foundation only; exact-head private runtime validation is still pending where required, and independent review, merge, final artifact validation, naming, submission, and directory acceptance remain pending.
+- **Status:** VERIFIED
+- **Limitations/non-claims:** exact-head and post-merge DEV validation and focused release/package checks passed without real NMKR synchronization. Package execution was not repeated on DEV because that VM lacked the `zip` command. This foundation establishes M5-02 completion only; final release publication, name/slug selection, WordPress.org submission, and directory acceptance remain pending under M5-03.
 
 ## Public/private evidence boundary
 

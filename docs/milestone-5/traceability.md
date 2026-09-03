@@ -5,7 +5,7 @@
 
 This matrix maps the accepted final Statement of Milestones requirements to the current internal work-package plan and eventual evidence. It records status, not achievement by implication. Evidence columns remain `TBD` until evidence actually exists.
 
-Current implementation checkpoint: M5-01 policy/code analysis and owner decisions are complete against baseline `283ccb82a57bdce06d2fc3256caa6d03caa72583`; M5-02 release-architecture remediation is implemented in PR #109 but remains pending final review and exact-head validation. Final WordPress.org name/slug selection and directory submission remain blocked on the separate M5-03 release gate; no WordPress.org approval or submission is claimed here.
+Current implementation checkpoint: M5-01 policy/code analysis and owner decisions are complete against baseline `283ccb82a57bdce06d2fc3256caa6d03caa72583`. M5-02 release-architecture remediation is complete: PR #109 head `f40073d9888ef8b2c4b82bf67f352ff57a1c5d09` was reviewed and validated, then merged as `3712406c38f801fa81a30782991a34e4a028b902`; both commits resolve to tree `da32cd2b9c6ab41c53526992506d7bd9555d583e`. Exact-head and post-merge DEV validation and focused release/package checks passed. Package execution was not repeated on DEV because that VM lacked the `zip` command. Final WordPress.org name/slug selection and directory submission remain blocked on the separate M5-03 release gate; no WordPress.org approval or submission is claimed here.
 
 ## Requirement-to-delivery matrix
 
