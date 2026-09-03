@@ -9,7 +9,7 @@ NMKR Connect is supported by [Cardano Project Catalyst Fund 13](https://mileston
 | Delivery stage | Status | Scope summary |
 | --- | --- | --- |
 | Milestone 1 | Approved | Core plugin and NMKR API integration; local project/token tables; administration dashboard; synchronization progress, errors, and logging; Cardano and Solana compatibility; basic responsive NFT display |
-| Milestone 2 | Approved | Grid, list, carousel, single-token, and single-project shortcodes; Free/Premium differentiation; role-based access; synchronization and engagement analytics; admin and responsive shortcode improvements; Cardano and Solana feature testing |
+| Milestone 2 | Approved | Grid, list, carousel, single-token, and single-project shortcodes; five free shortcode displays; role-based access; synchronization and engagement analytics; admin and responsive shortcode improvements; Cardano and Solana feature testing |
 | Milestone 3 | Approved | Completed bounded functionality, usability, performance, load, API-response, display-performance, uptime, and cross-chain evidence; security hardening and bounded WordPress security validation; expanded testing, user, developer, and troubleshooting documentation; submitted Milestone 3 Proof of Achievement |
 | Milestone 4 | Delivered | Security audit analysis and remediation sequence; expanded user manuals, developer guides, FAQ, and troubleshooting content; final report, Proof of Achievement, and M4-10 provenance seal; see the [Milestone 4 audit and evidence hub](docs/milestone-4/README.md) |
 | Milestone 5 | In progress | Community outreach and adoption; reporting and close-out; maintenance and handover; WordPress Plugin Directory submission; early post-launch fixes and support |
@@ -54,7 +54,7 @@ The focused guides are authoritative for their procedures. Use links instead of 
 - Streams sequential token pages of 50, deduplicates token UIDs within each run, reconciles unique totals near completion, and reserves 100% for canonical completed finalization.
 - Shows live metrics for the active run and historical synchronization statistics, including processed-item, API timing, request, duration, and memory information.
 - Provides responsive grid, token-list, carousel, single-token, and single-project displays through the five registered shortcodes documented below.
-- Separates Free displays (grid and token list) from Premium displays (carousel, single token, and single project) through Freemius plan checks.
+- Provides grid, token-list, carousel, single-token, and single-project displays without licence entitlement checks.
 - Provides an administrative dashboard, project browser, shortcode reference, settings, analytics dashboard, and capability-based access for Administrators and the NMKR roles.
 - Records shortcode view and click engagement in the plugin database, sends it to GA4, does both, or disables collection, according to site configuration.
 
@@ -65,23 +65,25 @@ There are currently no registered Gutenberg blocks, Elementor widgets, or separa
 - WordPress 5.8 or later (the latest stable release is recommended)
 - PHP 7.4 or later
 - An NMKR API key with access to the projects to be synchronized
-- Composer when building the plugin from source
+- Node.js/npm only when using the repository's package-build or test commands; the plugin has no Composer runtime package dependency
 
 ## Installation and first use
 
 ### Build from source
 
+From a clean exact checkout, use the repository package builder:
+
 ```bash
 git clone https://github.com/ROCSI-eu/WordPress-NMKR-Connect.git
 cd WordPress-NMKR-Connect
-composer install --no-dev --prefer-dist
+npm run build:package
 ```
 
-Place or symlink the resulting directory under `wp-content/plugins/`, then activate **NMKR Connect** in **WordPress Admin → Plugins**. Composer installs the runtime dependencies in `vendor/`; those dependencies must be present in any packaged plugin directory or ZIP.
+The builder creates the verified self-contained ZIP under `dist/` by default. The release package does not require `vendor/` or a Composer install. For development, an exact source checkout can also be placed or symlinked under `wp-content/plugins/`; use the purpose-built ZIP for release/distribution testing.
 
 ### Install a packaged ZIP
 
-If you have obtained a packaged ZIP that includes `vendor/`, use **WordPress Admin → Plugins → Add New → Upload Plugin**, select the file, and activate it. This repository does not promise that a prebuilt release artifact is available for every revision.
+Use **WordPress Admin → Plugins → Add New → Upload Plugin**, select a trusted NMKR Connect release ZIP, and activate it. The purpose-built ZIP is self-contained; repository-only development and test tooling is excluded. This repository does not promise that a prebuilt release artifact is available for every revision.
 
 ### First-use flow
 
@@ -102,9 +104,9 @@ Only the following shortcode attributes are registered by the current implementa
 | --- | --- | --- | --- |
 | `[nmkr-grid]` | Responsive token grid for a project | Free | `project_uid`; `allow_user_select` |
 | `[nmkr-token-list]` | Searchable/filterable token table for a project | Free | `project_uid`; `allow_user_select` |
-| `[nmkr-carousel]` | Carousel presentation of project tokens | Premium | `project_uid`; `allow_user_select` |
-| `[nmkr-token]` | One token and its details | Premium | `token_uid` |
-| `[nmkr-project]` | One project and its token information | Premium | `project_uid`; `allow_user_select` |
+| `[nmkr-carousel]` | Carousel presentation of project tokens | Free | `project_uid`; `allow_user_select` |
+| `[nmkr-token]` | One token and its details | Free | `token_uid` |
+| `[nmkr-project]` | One project and its token information | Free | `project_uid`; `allow_user_select` |
 
 Example:
 
@@ -112,7 +114,7 @@ Example:
 [nmkr-grid project_uid="your-project-uid" allow_user_select="0"]
 ```
 
-Free/Premium availability describes the current shortcode gates. Freemius supplies plan/licensing integration; it does not change the MIT licence that applies to this repository.
+All five shipped shortcode implementations are free. First-party source is licensed under MIT.
 
 ## Roles and access
 
@@ -223,4 +225,4 @@ Released under the **MIT License**. See [`LICENSE.txt`](LICENSE.txt) for details
 - Built by **Mihai Bărbulescu / ROCSI.eu (Romanian Cyber Space Initiative)** to advance open Web3 tooling.
 - Supported by **Cardano Project Catalyst Fund 13**; see the [project milestone page](https://milestones.projectcatalyst.io/projects/1300195).
 - Thanks to the **NMKR ecosystem**, community contributors, testers, and early adopters.
-- Freemius provides the current Free/Premium plan and licensing integration; grid and token-list displays are Free, while carousel, single-token, and single-project displays require Premium access.
+- All five shortcode displays are included without a licensing SDK or entitlement gate.

@@ -427,12 +427,12 @@ function nmkr_connect_settings_page() {
                 $('#nmkr_log_retention_limit').val('100').prop('disabled', true);
                 
                 // Reset Analytics & Privacy Settings
-                $('#nmkr_analytics_mode').val('custom');
+                $('#nmkr_analytics_mode').val('off');
                 $('#nmkr_ga4_measurement_id').val('');
                 $('#nmkr_ga4_api_secret').val('');
                 $('#nmkr_analytics_retention_days').val('90');
                 $('#nmkr_analytics_track_logged_in').prop('checked', false);
-                $('#nmkr_analytics_require_consent').prop('checked', false);
+                $('#nmkr_analytics_require_consent').prop('checked', true);
                 $('#nmkr_analytics_sample_rate').val('1');
                 $('#nmkr_analytics_remove_on_uninstall').prop('checked', true);
                 $('#nmkr_analytics_debug').prop('checked', false);

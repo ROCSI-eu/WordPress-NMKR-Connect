@@ -2,55 +2,17 @@
 /*
 Plugin Name: NMKR Connect
 Description: WordPress plugin to display and manage Cardano and Solana NFTs via NMKR.
-Version: 0.1
+Version: 1.0.0
+Requires at least: 5.8
+Requires PHP: 7.4
+License: MIT
+License URI: https://opensource.org/license/mit/
 Author: Romanian - European Cyber Space Initiative 🇷🇴 🇪🇺 🌐
 */
 
 // Exit if accessed directly
 if (!defined('ABSPATH')) {
     exit;
-}
-
-// Load Composer's autoloader
-if (file_exists(dirname(__FILE__) . '/vendor/autoload.php')) {
-    require_once dirname(__FILE__) . '/vendor/autoload.php';
-}
-
-// Include Freemius SDK
-require_once dirname(__FILE__) . '/vendor/freemius/wordpress-sdk/start.php';
-require_once dirname(__FILE__) . '/vendor/freemius/wordpress-sdk/includes/class-freemius.php';
-
-// Freemius SDK initialization
-if (!function_exists('wnc_fs')) {
-    function wnc_fs() {
-        global $wnc_fs;
-
-        if (!isset($wnc_fs)) {
-            $wnc_fs = fs_dynamic_init(array(
-                'id'                  => '16536',
-                'slug'                => 'nmkr-connect',
-                'premium_slug'        => 'wp-nmkr-connect-premium',
-                'type'                => 'plugin',
-                'public_key'          => 'pk_b03c53dc177e21a2c8657d9083850',
-                'is_premium'          => true,
-                'has_addons'          => false,
-                'has_paid_plans'      => true,
-                'menu'                => array(
-                    'slug'           => 'nmkr-connect-dashboard',
-                    'account'        => true,
-                    'contact'        => true,
-                    'support'        => true,
-                ),
-            ));
-        }
-
-        return $wnc_fs;
-    }
-
-    // Init Freemius.
-    wnc_fs();
-    // Signal that SDK was initiated.
-    do_action('wnc_fs_loaded');
 }
 
 // Define plugin constants
@@ -96,6 +58,17 @@ function nmkr_connect_activate() {
         $options['sync_interval_increase'] = $balanced_profile['sync_interval_increase'];
         $options['sync_interval_decrease'] = $balanced_profile['sync_interval_decrease'];
         $options['sync_max_errors'] = $balanced_profile['sync_max_errors'];
+    }
+
+    // Analytics is opt-in. Preserve explicit settings on existing installations.
+    if (!isset($options['analytics_mode'])) {
+        $options['analytics_mode'] = 'off';
+    }
+    if (!isset($options['analytics_require_consent'])) {
+        $options['analytics_require_consent'] = 1;
+    }
+    if (!isset($options['analytics_remove_on_uninstall'])) {
+        $options['analytics_remove_on_uninstall'] = 1;
     }
 
     // Set defaults for Debug Settings - explicitly disabled
@@ -169,6 +142,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/analytics/nmkr-analytics-endp
 
 // Register deactivation hook
 function nmkr_connect_deactivate() {
+    wp_clear_scheduled_hook('nmkr_analytics_purge_daily');
     // Clean up volatile sync state on deactivation
     delete_option('nmkr_sync_status');
     delete_option('nmkr_sync_in_progress');
@@ -196,6 +170,11 @@ register_deactivation_hook(__FILE__, 'nmkr_connect_deactivate');
 // Register uninstall hook
 function nmkr_connect_uninstall() {
     global $wpdb;
+
+    wp_clear_scheduled_hook('nmkr_analytics_purge_daily');
+    if (function_exists('nmkr_roles_uninstall_caps')) {
+        nmkr_roles_uninstall_caps();
+    }
 
     //
     // A. Drop NMKR custom tables
@@ -294,8 +273,6 @@ function nmkr_connect_uninstall() {
 }
 register_uninstall_hook(__FILE__, 'nmkr_connect_uninstall');
 
-// Hook to plugin uninstall with Freemius
-add_action('fs_after_uninstall_nmkr-connect', 'nmkr_connect_uninstall');
 
 // Enqueue the lazy loading script for token images
 function nmkr_enqueue_lazy_loading_script() {
@@ -493,11 +470,13 @@ function nmkr_enqueue_analytics_frontend() {
     $script_rel = 'js/nmkr-analytics.js';
     $script_ver = @filemtime($base_dir . $script_rel) ?: '1.0';
 
+    $options = get_option('nmkr_connect_options', array());
+    $mode = isset($options['analytics_mode']) ? $options['analytics_mode'] : 'off';
+    if ($mode === 'off') { return; }
+
     wp_enqueue_script('nmkr-analytics', $base_url . $script_rel, array(), $script_ver, true);
 
-    $options = get_option('nmkr_connect_options', array());
-    $mode = isset($options['analytics_mode']) ? $options['analytics_mode'] : 'custom';
-    $requiresConsent = isset($options['analytics_require_consent']) ? (bool)$options['analytics_require_consent'] : false;
+    $requiresConsent = isset($options['analytics_require_consent']) ? (bool)$options['analytics_require_consent'] : true;
     $sampleRate = isset($options['analytics_sample_rate']) ? floatval($options['analytics_sample_rate']) : 1.0;
     if ($sampleRate < 0) { $sampleRate = 0; }
     if ($sampleRate > 1) { $sampleRate = 1; }
@@ -529,3 +508,13 @@ function nmkr_enqueue_analytics_frontend() {
 
     wp_localize_script('nmkr-analytics', 'NMKR_ANALYTICS', $config);
 }
+
+
+/** Add suggested disclosure text to the WordPress Privacy Policy Guide. */
+function nmkr_connect_add_privacy_policy_content() {
+    if (!function_exists('wp_add_privacy_policy_content')) { return; }
+    $text = '<p>' . esc_html__('NMKR Connect analytics is disabled by default. If an administrator enables local analytics, interaction events, page context, token or project identifiers, session identifiers, consent state, and (for opted-in logged-in tracking) a WordPress user ID are stored in this site’s database for the configured retention period. If GA4 mode is deliberately selected and valid credentials are configured, event data is sent to Google Analytics. The plugin does not expose the GA4 API secret to visitors.', 'nmkr-connect') . '</p>';
+    $text .= '<p>' . esc_html__('The plugin communicates with NMKR Studio when an administrator configures and runs synchronization. Public displays may load token media from remote NMKR, IPFS, or configured gateway locations, which can disclose a visitor’s IP address and request metadata to those providers. Site administrators are responsible for choosing appropriate settings, consent handling, disclosures, and retention. This suggested text does not claim legal compliance.', 'nmkr-connect') . '</p>';
+    wp_add_privacy_policy_content('NMKR Connect', wp_kses_post(wpautop($text)));
+}
+add_action('admin_init', 'nmkr_connect_add_privacy_policy_content');

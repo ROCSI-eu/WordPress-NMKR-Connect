@@ -83,7 +83,7 @@ nmkr_assert(in_array(array('nmkr_manage_settings','nmkr-connect-settings','nmkr_
 $GLOBALS['nmkr_options']['nmkr_connect_options']=array('future_key'=>'preserved','api_key'=>'old'); $GLOBALS['nmkr_ledger']=array();
 $clean=nmkr_connect_sanitize_options(array('sync_profile'=>'hostile','sync_batch_size'=>'9999','sync_batch_delay'=>'-4','analytics_mode'=>'evil','analytics_retention_days'=>'9999','analytics_sample_rate'=>'8','debug_enabled'=>'1','log_to_dashboard'=>'1','log_retention_limit'=>'9999'));
 nmkr_assert($clean['future_key']==='preserved' && $clean['sync_profile']==='balanced' && $clean['sync_batch_size']===10 && $clean['sync_batch_delay']===1,'settings_allowlist_clamps');
-nmkr_assert($clean['analytics_mode']==='custom' && $clean['analytics_retention_days']===365 && $clean['analytics_sample_rate']===1.0,'settings_analytics_clamps');
+nmkr_assert($clean['analytics_mode']==='off' && $clean['analytics_retention_days']===365 && $clean['analytics_sample_rate']===1.0,'settings_analytics_clamps');
 nmkr_assert($GLOBALS['nmkr_ledger']===array('log-trim:1000'),'settings_log_retention_model');
 /* This models plugin dispatch denial, not WordPress options.php internals. */
 $before=$GLOBALS['nmkr_options']; $GLOBALS['nmkr_ledger']=array(); $allowed=false; if($allowed) nmkr_connect_sanitize_options(array());

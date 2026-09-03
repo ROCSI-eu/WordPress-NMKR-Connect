@@ -1,9 +1,11 @@
 # Milestone 5 traceability
 
-**Status:** PLANNED\
+**Status:** IN PROGRESS\
 **Document type:** Canonical final-milestone requirement map
 
 This matrix maps the accepted final Statement of Milestones requirements to the current internal work-package plan and eventual evidence. It records status, not achievement by implication. Evidence columns remain `TBD` until evidence actually exists.
+
+Current implementation checkpoint: M5-01 policy/code analysis and owner decisions are complete against baseline `283ccb82a57bdce06d2fc3256caa6d03caa72583`; M5-02 release-architecture remediation is implemented in PR #109 but remains pending final review and exact-head validation. Final WordPress.org name/slug selection and directory submission remain blocked on the separate M5-03 release gate; no WordPress.org approval or submission is claimed here.
 
 ## Requirement-to-delivery matrix
 
@@ -18,8 +20,8 @@ This matrix maps the accepted final Statement of Milestones requirements to the 
 | `M5-REQ-007` | Collect/analyze adoption metrics, user feedback, and engagement results | Consolidated adoption/community report with source definitions and limitations | NOT STARTED | M5-08 | TBD |
 | `M5-REQ-008` | Produce and submit PCR detailing milestones, outputs, and achievements | Submitted PCR link/record accessible to reviewers | NOT STARTED | M5-09, M5-10 | TBD |
 | `M5-REQ-009` | Produce and submit public PCV covering journey, technical achievements, learning, challenges, and impact | Public PCV link and Catalyst submission record | NOT STARTED | M5-09, M5-10 | TBD |
-| `M5-REQ-010` | Final developer/user handover documentation is public, current, technically reviewed, and maintainable | Public documentation links, final review/validation record, exact source provenance | IN PLANNING | M5-08 | TBD |
-| `M5-REQ-011` | Public source is updated and accessible | Final public repository SHA/tree/release links | IN PLANNING | M5-02, M5-03, M5-08 | TBD |
+| `M5-REQ-010` | Final developer/user handover documentation is public, current, technically reviewed, and maintainable | Public documentation links, final review/validation record, exact source provenance | IN PROGRESS | M5-08 | TBD |
+| `M5-REQ-011` | Public source is updated and accessible | Final public repository SHA/tree/release links | IN PROGRESS | M5-02, M5-03, M5-08 | TBD |
 | `M5-REQ-012` | Provide initial post-launch support to early adopters and record examples | Public-safe support-case summaries and response/resolution records | NOT STARTED | M5-06, M5-08 | TBD |
 | `M5-REQ-013` | Submit NMKR Connect to WordPress Plugin Directory in accordance with official requirements | Submission receipt/status/reviewer correspondence or directory record, with no claim beyond actual status | NOT SUBMITTED | M5-01, M5-02, M5-03 | TBD |
 | `M5-REQ-014` | Allocate resources for early bug fixes/minor feature adjustments based on post-launch evidence | Issue/decision trail and selected post-launch work | NOT STARTED | M5-06, M5-07 | TBD |

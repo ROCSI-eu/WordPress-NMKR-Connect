@@ -140,3 +140,38 @@ function nmkr_roles_ensure_caps() {
 }
 
 
+
+/** Remove only roles and capabilities installed by NMKR Connect. */
+function nmkr_roles_uninstall_caps() {
+    $spec        = nmkr_roles_caps_spec();
+    $owned_roles = array_keys( $spec['roles'] );
+
+    // Remove plugin-owned role assignments before deleting their definitions so
+    // reinstalling the plugin cannot restore privileges from stale user meta.
+    $user_ids = get_users(
+        array(
+            'role__in' => $owned_roles,
+            'fields'   => 'ID',
+        )
+    );
+    foreach ( $user_ids as $user_id ) {
+        $user = new WP_User( $user_id );
+        foreach ( $owned_roles as $role_key ) {
+            if ( in_array( $role_key, (array) $user->roles, true ) ) {
+                $user->remove_role( $role_key );
+            }
+        }
+    }
+
+    foreach ( $owned_roles as $role_key ) {
+        remove_role( $role_key );
+    }
+    foreach ( wp_roles()->roles as $role_key => $unused ) {
+        $role = get_role( $role_key );
+        if ( ! $role ) { continue; }
+        foreach ( $spec['caps'] as $cap ) {
+            $role->remove_cap( $cap );
+        }
+    }
+    delete_option( 'nmkr_caps_version' );
+}

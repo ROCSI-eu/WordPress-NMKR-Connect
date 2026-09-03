@@ -1,6 +1,6 @@
 # Milestone 5 delivery plan
 
-**Status:** PLANNED\
+**Status:** IN PROGRESS\
 **Document type:** Living execution plan\
 **Planning baseline:** `c375ddf76dfb8965f568253f2e3563eb3c339f6f`
 
@@ -10,8 +10,8 @@ This plan may change as exact-code analysis, WordPress.org reviewer feedback, re
 
 | Package | Objective | Prerequisites | Expected Codex mode | Initial risk | DEV/runtime expectation | External dependency | Completion gate | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `M5-01` | Audit current code/distribution against WordPress.org release requirements and choose the smallest compliant architecture | Exact current `main`; clean/verified source state | `CODEX — ANALYSIS ONLY` | High | None for analysis | Current WordPress.org rules; possible product/legal decision | Blocking/non-blocking findings, decisions, exact scope, and later acceptance checks recorded | PLANNED |
-| `M5-02` | Implement the smallest coherent free/release packaging changes required by M5-01 | M5-01 decisions | `CODEX — CODE MODIFICATION` | High until scope known | Risk-based exact-head DEV/package validation; no real NMKR traffic by default | Dependency/package tooling | Installable package passes focused checks and M5-01 acceptance gates | NOT STARTED |
+| `M5-01` | Audit current code/distribution against WordPress.org release requirements and choose the smallest compliant architecture | Exact current `main`; clean/verified source state | `CODEX — ANALYSIS ONLY` | High | None for analysis | Current WordPress.org rules; possible product/legal decision | Blocking/non-blocking findings, decisions, exact scope, and later acceptance checks recorded | COMPLETE — issue #107 records the analysis and owner decisions; name/slug remains an explicit deferred release gate |
+| `M5-02` | Implement the smallest coherent free/release packaging changes required by M5-01 | M5-01 decisions | `CODEX — CODE MODIFICATION` | High until scope known | Risk-based exact-head DEV/package validation; no real NMKR traffic by default | Dependency/package tooling | Installable package passes focused checks and M5-01 acceptance gates | IN PROGRESS — implemented on PR #109; independent review and required exact-head validation remain pending |
 | `M5-03` | Publish an installable GitHub release and submit the WordPress.org candidate; handle reviewer feedback | M5-02 validated release candidate | Code/docs only if reviewer feedback requires it | Medium/High | Exact-head validation for runtime-affecting reviewer changes | GitHub Releases; WordPress.org review queue/SVN | Release provenance captured; submission evidence recorded; reviewer loop tracked accurately | NOT STARTED |
 | `M5-04` | Prepare the canonical plugin landing page and measurement contract/baselines | Release identity/URL decisions from M5-01/02 | External website work; repo docs as needed | Medium | No plugin DEV unless plugin code changes | Website analytics/consent configuration | Exact landing URL, metric definitions, baseline timestamp/window, privacy boundary, and evidence capture method recorded | NOT STARTED |
 | `M5-05` | Launch targeted marketing across at least two channels and conduct community engagement | M5-03 usable release path; M5-04 measurement ready | No Codex unless supporting repo changes are needed | Medium | None normally | Community channels, campaign accounts, event platform | Campaign launched with evidence; >=10 event attendees targeted and measured without fabricated counts | NOT STARTED |

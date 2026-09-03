@@ -158,11 +158,11 @@ function nmkr_connect_sanitize_options($input) {
     // Analytics Mode
     if (isset($input['analytics_mode'])) {
         $valid_modes = array('off', 'custom', 'ga4', 'both');
-        $sanitized_input['analytics_mode'] = in_array($input['analytics_mode'], $valid_modes, true) ? $input['analytics_mode'] : 'custom';
+        $sanitized_input['analytics_mode'] = in_array($input['analytics_mode'], $valid_modes, true) ? $input['analytics_mode'] : 'off';
     } elseif (isset($existing_options['analytics_mode'])) {
         $sanitized_input['analytics_mode'] = $existing_options['analytics_mode'];
     } else {
-        $sanitized_input['analytics_mode'] = 'custom'; // Default value
+        $sanitized_input['analytics_mode'] = 'off'; // Safe default
     }
     
     // Analytics Retention Days
@@ -257,10 +257,10 @@ function nmkr_get_default_settings() {
         'performance_debug_enabled' => 0,
         'log_throttle_enabled' => 0,
         'log_retention_limit' => 100,
-        'analytics_mode' => 'custom',
+        'analytics_mode' => 'off',
         'analytics_retention_days' => 90,
         'analytics_track_logged_in' => 0,
-        'analytics_require_consent' => 0,
+        'analytics_require_consent' => 1,
         'analytics_sample_rate' => 1.0,
         'analytics_remove_on_uninstall' => 1,
         'analytics_debug' => 0

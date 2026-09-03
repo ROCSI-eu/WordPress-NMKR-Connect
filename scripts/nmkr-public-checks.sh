@@ -72,3 +72,6 @@ php scripts/nmkr-analytics-ingestion-regression.php
 printf '\n== Shortcode image-source regression ==\n'
 php scripts/nmkr-shortcode-image-regression.php
 node scripts/nmkr-token-image-fallback-regression.js
+
+printf '\n== Release-readiness regressions ==\n'
+php scripts/nmkr-release-regression.php

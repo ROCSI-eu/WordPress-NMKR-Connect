@@ -18,80 +18,81 @@ playwright_line="$(grep -nF -- 'run negative npm --prefix "$ROOT" run test:e2e:a
 grep -Eq -- 'reap_active; .*rm -rf' "$RUNNER" || fail
 grep -Fq -- 'kill -TERM -- "-$ACTIVE_PGID"' "$RUNNER" || fail
 
-# Exercise the ignored-runtime gate with an expected generated layout and a
-# deterministic Composer stand-in. The same gate must reject changed package
-# content without printing filenames or fixture paths.
+# Exercise the lock-aware runtime gate with the dependency-free release layout.
+# A clean deployment without vendor/ must pass when composer.lock has no runtime
+# packages; if generated vendor files exist, they must match a clean no-dev
+# reconstruction exactly and remain free of symlinks or unexpected content.
 integrity_root="$(mktemp -d)"
-mkdir -p "$integrity_root/plugin/vendor/composer" "$integrity_root/plugin/vendor/freemius/wordpress-sdk/includes" "$integrity_root/plugin/node_modules/example" "$integrity_root/bin"
+mkdir -p "$integrity_root/plugin/node_modules/example" "$integrity_root/bin"
 printf '/vendor/\n/node_modules/\n' >"$integrity_root/plugin/.gitignore"
-printf '{}\n' >"$integrity_root/plugin/composer.json"
-printf '{}\n' >"$integrity_root/plugin/composer.lock"
+cat >"$integrity_root/plugin/composer.json" <<'JSON'
+{"name":"nmkr/nmkr-connect","type":"wordpress-plugin","license":"MIT","require":{"php":">=7.4"}}
+JSON
+cat >"$integrity_root/plugin/composer.lock" <<'JSON'
+{"packages":[],"packages-dev":[]}
+JSON
+printf 'test-only\n' >"$integrity_root/plugin/node_modules/example/index.js"
+git -C "$integrity_root/plugin" init -q
+git -C "$integrity_root/plugin" add .gitignore composer.json composer.lock
+git -C "$integrity_root/plugin" -c user.email=public@example.invalid -c user.name=PublicTest commit -q -m init
+cat >"$integrity_root/bin/composer" <<'SH'
+#!/usr/bin/env bash
+set -e
+root="${1#--working-dir=}"
+case " $* " in
+  *' validate '*) exit 0 ;;
+  *' install '*)
+    mkdir -p "$root/vendor/composer"
+    printf 'expected\n' >"$root/vendor/autoload.php"
+    cat >"$root/vendor/composer/installed.php" <<'PHP'
+<?php return array(
+  'root' => array('name' => 'nmkr/nmkr-connect', 'pretty_version' => 'reconstructed-root'),
+  'versions' => array(
+    'nmkr/nmkr-connect' => array('pretty_version' => 'reconstructed-root', 'version' => 'dev-main', 'reference' => 'different-vcs-context', 'type' => 'wordpress-plugin', 'install_path' => __DIR__ . '/../../'),
+  ),
+);
+PHP
+    ;;
+esac
+SH
+chmod 700 "$integrity_root/bin/composer"
+
+integrity_output="$(PATH="$integrity_root/bin:$PATH" bash "$ROOT/scripts/nmkr-ajax-runtime-integrity.sh" "$integrity_root/plugin" 2>&1)" || fail
+[[ -z "$integrity_output" ]] || fail
+
+mkdir -p "$integrity_root/plugin/vendor/composer"
 printf 'expected\n' >"$integrity_root/plugin/vendor/autoload.php"
 cat >"$integrity_root/plugin/vendor/composer/installed.php" <<'PHP'
 <?php return array(
   'root' => array('name' => 'nmkr/nmkr-connect', 'pretty_version' => 'deployed-root'),
   'versions' => array(
     'nmkr/nmkr-connect' => array('pretty_version' => 'deployed-root', 'version' => 'dev-main', 'reference' => 'deployed-vcs', 'type' => 'wordpress-plugin', 'install_path' => __DIR__ . '/../../'),
-    'freemius/wordpress-sdk' => array('pretty_version' => '2.12.2', 'version' => '2.12.2.0', 'reference' => 'expected-reference', 'type' => 'library', 'install_path' => __DIR__ . '/../freemius/wordpress-sdk', 'dev_requirement' => false),
   ),
 );
 PHP
-printf 'expected\n' >"$integrity_root/plugin/vendor/freemius/wordpress-sdk/start.php"
-printf 'expected\n' >"$integrity_root/plugin/vendor/freemius/wordpress-sdk/includes/class-freemius.php"
-printf 'test-only\n' >"$integrity_root/plugin/node_modules/example/index.js"
-git -C "$integrity_root/plugin" init -q
-git -C "$integrity_root/plugin" add .gitignore composer.json composer.lock
-cat >"$integrity_root/bin/composer" <<'SH'
-#!/usr/bin/env bash
-set -e
-root="${1#--working-dir=}"
-case " $* " in
-  *' install '*)
-    mkdir -p "$root/vendor/composer" "$root/vendor/freemius/wordpress-sdk/includes"
-    printf 'expected\n' >"$root/vendor/autoload.php"
-    cat >"$root/vendor/composer/installed.php" <<'PHP'
-<?php return array(
-  'root' => array('name' => 'nmkr/nmkr-connect', 'pretty_version' => 'reconstructed-root', 'reference' => 'different-vcs-context'),
-  'versions' => array(
-    'nmkr/nmkr-connect' => array('pretty_version' => 'reconstructed-root', 'version' => 'dev-main', 'reference' => 'different-vcs-context', 'type' => 'wordpress-plugin', 'install_path' => __DIR__ . '/different-root'),
-    'freemius/wordpress-sdk' => array('pretty_version' => '2.12.2', 'version' => '2.12.2.0', 'reference' => 'expected-reference', 'type' => 'library', 'install_path' => __DIR__ . '/../freemius/wordpress-sdk', 'dev_requirement' => false),
-  ),
-);
-PHP
-    printf 'expected\n' >"$root/vendor/freemius/wordpress-sdk/start.php"
-    printf 'expected\n' >"$root/vendor/freemius/wordpress-sdk/includes/class-freemius.php"
-    ;;
-esac
-SH
-chmod 700 "$integrity_root/bin/composer"
 integrity_output="$(PATH="$integrity_root/bin:$PATH" bash "$ROOT/scripts/nmkr-ajax-runtime-integrity.sh" "$integrity_root/plugin" 2>&1)" || fail
 [[ -z "$integrity_output" ]] || fail
-sed -i "s#__DIR__ . '/../freemius/wordpress-sdk'#__DIR__ . '/../missing/../freemius/wordpress-sdk'#" "$integrity_root/plugin/vendor/composer/installed.php"
+
+printf 'modified\n' >"$integrity_root/plugin/vendor/autoload.php"
 if integrity_output="$(PATH="$integrity_root/bin:$PATH" bash "$ROOT/scripts/nmkr-ajax-runtime-integrity.sh" "$integrity_root/plugin" 2>&1)"; then fail; fi
 [[ -z "$integrity_output" ]] || fail
-sed -i "s#__DIR__ . '/../missing/../freemius/wordpress-sdk'#__DIR__ . '/../freemius/wordpress-sdk'#" "$integrity_root/plugin/vendor/composer/installed.php"
-printf 'modified\n' >"$integrity_root/plugin/vendor/freemius/wordpress-sdk/start.php"
-if integrity_output="$(PATH="$integrity_root/bin:$PATH" bash "$ROOT/scripts/nmkr-ajax-runtime-integrity.sh" "$integrity_root/plugin" 2>&1)"; then fail; fi
-[[ -z "$integrity_output" ]] || fail
-printf 'expected\n' >"$integrity_root/plugin/vendor/freemius/wordpress-sdk/start.php"
-sed -i 's/expected-reference/stale-reference/' "$integrity_root/plugin/vendor/composer/installed.php"
-if integrity_output="$(PATH="$integrity_root/bin:$PATH" bash "$ROOT/scripts/nmkr-ajax-runtime-integrity.sh" "$integrity_root/plugin" 2>&1)"; then fail; fi
-[[ -z "$integrity_output" ]] || fail
-sed -i 's/stale-reference/expected-reference/' "$integrity_root/plugin/vendor/composer/installed.php"
-sed -i 's/version'"'"' => '"'"'2.12.2.0/version'"'"' => '"'"'2.11.0.0/' "$integrity_root/plugin/vendor/composer/installed.php"
-if integrity_output="$(PATH="$integrity_root/bin:$PATH" bash "$ROOT/scripts/nmkr-ajax-runtime-integrity.sh" "$integrity_root/plugin" 2>&1)"; then fail; fi
-[[ -z "$integrity_output" ]] || fail
-sed -i 's/version'"'"' => '"'"'2.11.0.0/version'"'"' => '"'"'2.12.2.0/' "$integrity_root/plugin/vendor/composer/installed.php"
-sed -i "s#__DIR__ . '/../freemius/wordpress-sdk'#__DIR__ . '/../freemius/missing-sdk'#" "$integrity_root/plugin/vendor/composer/installed.php"
-if integrity_output="$(PATH="$integrity_root/bin:$PATH" bash "$ROOT/scripts/nmkr-ajax-runtime-integrity.sh" "$integrity_root/plugin" 2>&1)"; then fail; fi
-[[ -z "$integrity_output" ]] || fail
-sed -i "s#__DIR__ . '/../freemius/missing-sdk'#__DIR__ . '/../freemius/wordpress-sdk'#" "$integrity_root/plugin/vendor/composer/installed.php"
+printf 'expected\n' >"$integrity_root/plugin/vendor/autoload.php"
+
 marker="$integrity_root/installed-side-effect"
 sed -i "s#<?php return#<?php file_put_contents('$marker', 'executed'); return#" "$integrity_root/plugin/vendor/composer/installed.php"
 if integrity_output="$(PATH="$integrity_root/bin:$PATH" bash "$ROOT/scripts/nmkr-ajax-runtime-integrity.sh" "$integrity_root/plugin" 2>&1)"; then fail; fi
 [[ -z "$integrity_output" && ! -e "$marker" ]] || fail
 sed -i "s#<?php file_put_contents('$marker', 'executed'); return#<?php return#" "$integrity_root/plugin/vendor/composer/installed.php"
+
 printf 'unexpected\n' >"$integrity_root/plugin/vendor/unexpected.php"
+if integrity_output="$(PATH="$integrity_root/bin:$PATH" bash "$ROOT/scripts/nmkr-ajax-runtime-integrity.sh" "$integrity_root/plugin" 2>&1)"; then fail; fi
+[[ -z "$integrity_output" ]] || fail
+rm -f "$integrity_root/plugin/vendor/unexpected.php"
+
+rm -rf "$integrity_root/plugin/vendor"
+cat >"$integrity_root/plugin/composer.lock" <<'JSON'
+{"packages":[{"name":"example/runtime"}],"packages-dev":[]}
+JSON
 if integrity_output="$(PATH="$integrity_root/bin:$PATH" bash "$ROOT/scripts/nmkr-ajax-runtime-integrity.sh" "$integrity_root/plugin" 2>&1)"; then fail; fi
 [[ -z "$integrity_output" ]] || fail
 rm -rf -- "$integrity_root"

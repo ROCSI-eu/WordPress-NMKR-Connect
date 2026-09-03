@@ -610,13 +610,13 @@ function nmkr_log_retention_limit_field_callback() {
 
 // Analytics & Privacy Section Callback
 function nmkr_connect_analytics_section_callback() {
-    echo '<p>' . __('Configure analytics tracking and privacy settings for user engagement data.', 'nmkr-connect') . '</p>';
+    echo '<p>' . __('Analytics is optional and disabled by default. Local mode stores events in this WordPress database; GA4 modes send configured event data to Google. Review consent, retention, and uninstall settings for your site.', 'nmkr-connect') . '</p>';
 }
 
 // Analytics Mode Field Callback
 function nmkr_analytics_mode_field_callback() {
     $options = get_option('nmkr_connect_options');
-    $analytics_mode = isset($options['analytics_mode']) ? $options['analytics_mode'] : 'custom';
+    $analytics_mode = isset($options['analytics_mode']) ? $options['analytics_mode'] : 'off';
     ?>
     <select name="nmkr_connect_options[analytics_mode]" id="nmkr_analytics_mode">
         <option value="off" <?php selected('off', $analytics_mode); ?>><?php _e('Off', 'nmkr-connect'); ?></option>
@@ -670,7 +670,7 @@ function nmkr_analytics_track_logged_in_field_callback() {
 // Require Consent Field Callback
 function nmkr_analytics_require_consent_field_callback() {
     $options = get_option('nmkr_connect_options');
-    $analytics_require_consent = isset($options['analytics_require_consent']) ? $options['analytics_require_consent'] : false;
+    $analytics_require_consent = isset($options['analytics_require_consent']) ? $options['analytics_require_consent'] : true;
     ?>
     <input type="checkbox" 
            name="nmkr_connect_options[analytics_require_consent]" 
@@ -768,7 +768,7 @@ function nmkr_ga4_api_secret_field_callback() {
            class="regular-text"
     />
     <p class="description">
-        <?php _e('GA4 API Secret. Stored as an option and used server-side; not exposed to the frontend.', 'nmkr-connect'); ?>
+        <?php _e('GA4 API Secret. Used server-side only when a GA4 mode and valid configuration are deliberately selected; it is never displayed or logged.', 'nmkr-connect'); ?>
     </p>
     <?php
 }

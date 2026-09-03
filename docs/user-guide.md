@@ -17,23 +17,23 @@ Recommended site-owner path: install a complete package, configure the API key, 
 
 ### Packaged ZIP
 
-Obtain the ZIP from a trusted release source and confirm that it is intended for the version you plan to deploy. In **Plugins → Add New → Upload Plugin**, select the ZIP, choose **Install Now**, and then activate **NMKR Connect**. A usable package must contain `vendor/autoload.php` and the bundled Freemius SDK below `vendor/`; an archive made directly from source without Composer dependencies is incomplete.
+Obtain the ZIP from a trusted release source and confirm that it is intended for the version you plan to deploy. In **Plugins → Add New → Upload Plugin**, select the ZIP, choose **Install Now**, and then activate **NMKR Connect**. Use the purpose-built package produced by `npm run build:package`; it is self-contained and does not require a `vendor/` directory.
 
 ### Build from source
 
-Composer is required to assemble runtime dependencies:
+From a clean exact checkout, use the repository package builder:
 
 ```bash
 git clone https://github.com/ROCSI-eu/WordPress-NMKR-Connect.git
 cd WordPress-NMKR-Connect
-composer install --no-dev --prefer-dist
+npm run build:package
 ```
 
-Install the resulting directory under `wp-content/plugins/`, or create a ZIP containing that directory, including `vendor/`. Do not commit or distribute populated environment files.
+The default build creates `dist/nmkr-connect-1.0.0.zip`. Install that verified ZIP through WordPress, or use an exact source checkout directly for development. No Composer install or packaged `vendor/` directory is required by the current plugin runtime. Do not commit or distribute populated environment files.
 
 Activation creates or upgrades the plugin tables, installs NMKR roles/capabilities, supplies defaults, attempts safe stale-synchronization recovery, and schedules analytics retention maintenance. Test activation on staging first and make a verified backup before an update.
 
-Deactivation clears volatile synchronization state but is not uninstall. Deleting the plugin through WordPress invokes `nmkr_connect_uninstall()`, which drops the `nmkr_projects`, `nmkr_tokens`, `nmkr_token_details`, `nmkr_sync_stats`, and `nmkr_sync_metrics` tables. It also deletes its fixed option/site-option whitelist (`nmkr_api_key`, `nmkr_last_sync_time`, `nmkr_sync_status`, `nmkr_connect_options`, the four `nmkr_*_logs` keys, the listed synchronization status/progress/count/error/time/owner/result/recovery keys, and the schema-version and schema-upgrade-lock keys) and fixed transient/site-transient whitelist (`nmkr_sync_in_progress`, `nmkr_last_sync_error`, `nmkr_current_sync_stats_live`, `nmkr_current_sync_stats_summary`, `nmkr_stop_sync_requested`, `nmkr_sync_batch_state`, and `nmkr_api_connection_status`). When **Remove Data on Uninstall** was selected before deletion, uninstall also drops the `nmkr_analytics` table and removes dynamic analytics admission options. This is not a guarantee that roles/capabilities, scheduled hooks, other plugin-owned state, or every option or transient is removed. Deletion is destructive: make and verify a backup and confirm retention requirements before proceeding.
+Deactivation clears volatile synchronization state but is not uninstall. Deleting the plugin through WordPress invokes `nmkr_connect_uninstall()`, which drops the `nmkr_projects`, `nmkr_tokens`, `nmkr_token_details`, `nmkr_sync_stats`, and `nmkr_sync_metrics` tables. It also deletes its fixed option/site-option whitelist (`nmkr_api_key`, `nmkr_last_sync_time`, `nmkr_sync_status`, `nmkr_connect_options`, the four `nmkr_*_logs` keys, the listed synchronization status/progress/count/error/time/owner/result/recovery keys, and the schema-version and schema-upgrade-lock keys) and fixed transient/site-transient whitelist (`nmkr_sync_in_progress`, `nmkr_last_sync_error`, `nmkr_current_sync_stats_live`, `nmkr_current_sync_stats_summary`, `nmkr_stop_sync_requested`, `nmkr_sync_batch_state`, and `nmkr_api_connection_status`). When **Remove Data on Uninstall** was selected before deletion, uninstall also drops the `nmkr_analytics` table and removes dynamic analytics admission options. The recurring analytics cleanup hook and plugin-owned roles/capabilities are also removed; unrelated roles and capabilities are not touched. Deletion is destructive: make and verify a backup and confirm retention requirements before proceeding.
 
 ## Administration pages and access
 
@@ -149,31 +149,31 @@ UID examples below are synthetic. These are the only registered attributes; ther
 - **Omission/selector:** the latest available project is selected when the UID is omitted, while a `nmkr_project` URL selection takes precedence over the attribute; the selector is enabled unless the value is exactly `"0"`.
 - **Empty output:** no project/token rows, a UID that is not synchronized, a failed/incomplete run, or front-end script/theme interference.
 
-### `[nmkr-carousel]` — Premium
+### `[nmkr-carousel]` — Free
 
 - **Purpose:** carousel of tokens for one synchronized project.
 - **Attributes:** `project_uid` (default empty), `allow_user_select` (default `"1"`).
 - **Example:** `[nmkr-carousel project_uid="demo-project-003" allow_user_select="0"]`
 - **Omission/selector:** the latest available project is selected when omitted, while a `nmkr_project` URL selection takes precedence over the attribute; exactly `"0"` hides the selector.
-- **Empty/unavailable output:** no suitable project/tokens, unknown UID, incomplete synchronization, front-end JavaScript conflict, or no Premium entitlement. Free access returns the Premium-required message rather than the carousel.
+- **Empty/unavailable output:** no suitable project/tokens, unknown UID, incomplete synchronization, front-end JavaScript conflict,.
 
-### `[nmkr-token]` — Premium
+### `[nmkr-token]` — Free
 
 - **Purpose:** details for one token.
 - **Attributes:** `token_uid` only (default empty).
 - **Example:** `[nmkr-token token_uid="demo-token-001"]`
 - **Omission/selector:** when omitted, the shortcode selects the latest project and prefers its first buyable token, falling back to the first token in the implemented 50-row lookup. It has no user selector attribute.
-- **Empty/unavailable output:** no project/token fallback, token not found, missing synchronized details, or no Premium entitlement.
+- **Empty/unavailable output:** no project/token fallback, token not found, missing synchronized details,.
 
-### `[nmkr-project]` — Premium
+### `[nmkr-project]` — Free
 
 - **Purpose:** one project's details, counters, links, and a featured token when available.
 - **Attributes:** `project_uid` (default empty), `allow_user_select` (default `"1"`).
 - **Example:** `[nmkr-project project_uid="demo-project-004" allow_user_select="1"]`
 - **Omission/selector:** the latest project is selected when omitted, while a `nmkr_project` URL selection takes precedence over the attribute; exactly `"0"` hides the selector.
-- **Empty/unavailable output:** no synchronized projects, selected project not found, absent featured token data, or no Premium entitlement.
+- **Empty/unavailable output:** no synchronized projects, selected project not found, absent featured token data,.
 
-Plan checks are performed at render time. Freemius plan/licensing integration controls Premium access; do not post licence information in content or support requests.
+All five shortcode implementations are available without a licence entitlement check.
 
 ## Maintenance and support
 

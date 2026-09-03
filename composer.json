@@ -2,14 +2,8 @@
     "name": "nmkr/nmkr-connect",
     "description": "WordPress plugin to display and manage Cardano and Solana NFTs via NMKR",
     "type": "wordpress-plugin",
-    "license": "GPL-3.0-or-later",
+    "license": "MIT",
     "require": {
-        "php": ">=7.4",
-        "freemius/wordpress-sdk": "^2.8.1"
-    },
-    "autoload": {
-        "psr-4": {
-            "NMKR\\": "includes/"
-        }
+        "php": ">=7.4"
     }
-} 
+}

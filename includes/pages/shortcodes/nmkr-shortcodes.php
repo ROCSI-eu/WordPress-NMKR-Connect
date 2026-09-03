@@ -1,23 +1,4 @@
 <?php
-// Helper: premium upsell message.
-// Guarded so first include wins and duplicates are ignored.
-if ( ! function_exists( 'nmkr_premium_required_message' ) ) {
-    /**
-     * Returns a localized, escaped upsell HTML snippet pointing to Freemius upgrade URL.
-     *
-     * @return string
-     */
-    function nmkr_premium_required_message() {
-        $message = esc_html__( 'This feature requires the Premium plan.', 'nmkr-connect' );
-        $upgrade = sprintf(
-            '<a href="%s">%s</a>',
-            esc_url( wnc_fs()->get_upgrade_url() ),
-            esc_html__( 'Upgrade now', 'nmkr-connect' )
-        );
-        // Translators: %1$s is the message, %2$s is the 'Upgrade now' link.
-        return sprintf( '<p>%1$s %2$s</p>', $message, $upgrade );
-    }
-}
 // Function to render the NMKR Shortcodes page
 function nmkr_display_shortcodes_page() {
     if ( ! current_user_can( 'nmkr_view_shortcodes' ) ) {
@@ -39,7 +20,6 @@ function nmkr_display_shortcodes_page() {
             </div>
         </div>
 
-        <?php if ( wnc_fs()->can_use_premium_code() || wnc_fs()->is_plan( 'free' ) ) : ?>
             <div class="panel">
                 <h2 class="center-text">[nmkr-grid]</h2>
                 <div class="nmkr-info-box">
@@ -67,24 +47,7 @@ function nmkr_display_shortcodes_page() {
                     <p><code>[nmkr-token-list project_uid="123abc"]</code><br>Will display tokens from the project with the specified UID.</p>
                 </div>
             </div>
-        <?php else : ?>
-            <!-- Free plan users only see grid and list with limited access message -->
-            <div class="panel">
-                <h2 class="center-text">[nmkr-grid]</h2>
-                <div class="panel-section">
-                    <p class="center-text"><em>This feature is available in the Free plan.</em></p>
-                </div>
-            </div>
 
-            <div class="panel">
-                <h2 class="center-text">[nmkr-token-list]</h2>
-                <div class="panel-section">
-                    <p class="center-text"><em>This feature is available in the Free plan.</em></p>
-                </div>
-            </div>
-        <?php endif; ?>
-
-        <?php if ( wnc_fs()->can_use_premium_code() ) : ?>
             <div class="panel">
                 <h2 class="center-text">[nmkr-carousel]</h2>
                 <div class="nmkr-info-box">
@@ -126,29 +89,6 @@ function nmkr_display_shortcodes_page() {
                     <p><code>[nmkr-project project_uid="123abc"]</code><br>Will display details of the project with the specified UID.</p>
                 </div>
             </div>
-        <?php else : ?>
-            <!-- Premium features with limited access message -->
-            <div class="panel">
-                <h2 class="center-text">[nmkr-carousel]</h2>
-                <div class="panel-section">
-                    <?php echo nmkr_premium_required_message(); ?>
-                </div>
-            </div>
-
-            <div class="panel">
-                <h2 class="center-text">[nmkr-token]</h2>
-                <div class="panel-section">
-                    <?php echo nmkr_premium_required_message(); ?>
-                </div>
-            </div>
-
-            <div class="panel">
-                <h2 class="center-text">[nmkr-project]</h2>
-                <div class="panel-section">
-                    <?php echo nmkr_premium_required_message(); ?>
-                </div>
-            </div>
-        <?php endif; ?>
 
         <style>
             /* Global Panel Styling */
