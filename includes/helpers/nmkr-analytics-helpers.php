@@ -84,7 +84,7 @@ function nmkr_generate_session_id() {
  */
 function nmkr_is_analytics_enabled() {
     $options = get_option('nmkr_connect_options', array());
-    $analytics_mode = isset($options['analytics_mode']) ? $options['analytics_mode'] : 'custom';
+    $analytics_mode = isset($options['analytics_mode']) ? $options['analytics_mode'] : 'off';
     
     return $analytics_mode !== 'off';
 }
@@ -96,7 +96,7 @@ function nmkr_is_analytics_enabled() {
  */
 function nmkr_analytics_requires_consent() {
     $options = get_option('nmkr_connect_options', array());
-    return isset($options['analytics_require_consent']) ? $options['analytics_require_consent'] : false;
+    return isset($options['analytics_require_consent']) ? (bool) $options['analytics_require_consent'] : true;
 }
 
 /**
@@ -540,7 +540,7 @@ function nmkr_analytics_ingest_common( $body, $source = 'rest' ) {
 
     // Resolve mode and GA4 credentials from options (already fetched nearby)
     $options = get_option( 'nmkr_connect_options', array() );
-    $mode    = isset( $options['analytics_mode'] ) ? $options['analytics_mode'] : 'custom';
+    $mode    = isset( $options['analytics_mode'] ) ? $options['analytics_mode'] : 'off';
     if ( $mode === 'off' ) {
         nmkr_analytics_claim_release($claim['key'], $claim['token']);
         return new WP_REST_Response( null, 204 );

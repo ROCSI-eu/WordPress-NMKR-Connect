@@ -258,13 +258,23 @@ if ! DEPLOYED_STATUS="$(git -C "$DEPLOYED_REAL" -c core.fileMode=true status --p
   mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"
 fi
 [[ -z "$DEPLOYED_STATUS" ]] || { mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
-DEPLOYED_IGNORED_FILE="$RUN_DIR/deployed-ignored-files.nul"
-if ! git -C "$DEPLOYED_REAL" ls-files --others --ignored --exclude-standard -z >"$DEPLOYED_IGNORED_FILE" 2>>"$DIAGNOSTIC_FILE"; then
-  rm -f "$DEPLOYED_IGNORED_FILE"
-  mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"
-fi
-chmod 600 "$DEPLOYED_IGNORED_FILE"
-python3 - "$DEPLOYED_REAL" "$DEPLOYED_IGNORED_FILE" <<'PY' || { rm -f "$DEPLOYED_IGNORED_FILE"; mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
+[[ "$SOURCE_COMMIT" == "$DEPLOYED_COMMIT" ]] || { mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
+
+# Current M5 deployments carry Composer metadata and use the same lock-aware
+# ignored-runtime verifier as Phase 2. The fallback preserves legacy synthetic
+# preflight fixtures that intentionally omit current release metadata/helper files.
+if [[ -f "$REPO_ROOT/scripts/nmkr-ajax-runtime-integrity.sh" && -f "$DEPLOYED_REAL/composer.json" && -f "$DEPLOYED_REAL/composer.lock" ]]; then
+  if ! bash "$REPO_ROOT/scripts/nmkr-ajax-runtime-integrity.sh" "$DEPLOYED_REAL" >>"$DIAGNOSTIC_FILE" 2>&1; then
+    mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"
+  fi
+else
+  DEPLOYED_IGNORED_FILE="$RUN_DIR/deployed-ignored-files.nul"
+  if ! git -C "$DEPLOYED_REAL" ls-files --others --ignored --exclude-standard -z >"$DEPLOYED_IGNORED_FILE" 2>>"$DIAGNOSTIC_FILE"; then
+    rm -f "$DEPLOYED_IGNORED_FILE"
+    mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"
+  fi
+  chmod 600 "$DEPLOYED_IGNORED_FILE"
+  python3 - "$DEPLOYED_REAL" "$DEPLOYED_IGNORED_FILE" <<'PY' || { rm -f "$DEPLOYED_IGNORED_FILE"; mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
 import os, sys
 root, ignored_file = sys.argv[1:3]
 with open(ignored_file, 'rb') as handle:
@@ -302,8 +312,8 @@ for relpath in required:
     if not os.path.isfile(full):
         raise SystemExit(1)
 PY
-rm -f "$DEPLOYED_IGNORED_FILE"
-[[ "$SOURCE_COMMIT" == "$DEPLOYED_COMMIT" ]] || { mark_fail DEPLOYMENT_INTEGRITY_STATUS; fail_gate "deployment-integrity" "$DIAGNOSTIC_FILE"; }
+  rm -f "$DEPLOYED_IGNORED_FILE"
+fi
 DEPLOYMENT_INTEGRITY_STATUS="PASS"
 
 ORIGIN_SHA256="$(python3 - "${NMKR_REAL_SYNC_ALLOWED_ORIGIN:-}" "${WP_BASE_URL:-}" <<'PY'

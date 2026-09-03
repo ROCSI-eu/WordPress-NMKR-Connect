@@ -32,7 +32,9 @@
     "test:real-sync:preflight": "bash scripts/nmkr-real-sync-preflight.sh",
     "test:real-sync:phase16a:regression": "bash scripts/nmkr-real-sync-phase16a-regression.sh",
     "test:synthetic:provider": "php scripts/nmkr-synthetic-provider-regression.php",
-    "test:synthetic:controller": "bash scripts/nmkr-synthetic-run-regression.sh"
+    "test:synthetic:controller": "bash scripts/nmkr-synthetic-run-regression.sh",
+    "test:release": "php scripts/nmkr-release-regression.php",
+    "build:package": "bash scripts/nmkr-build-package.sh"
   },
   "devDependencies": {
     "@playwright/test": "^1.53.0",

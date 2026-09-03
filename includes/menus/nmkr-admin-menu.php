@@ -93,7 +93,7 @@ add_action( 'admin_init', function () {
  * Restrict visible NMKR submenus for users who cannot view the Dashboard
  * (e.g., nmkr-marketing). We allowlist only Projects, Shortcodes, Analytics.
  *
- * This runs late to override third-party injections (e.g., Freemius).
+ * This runs late so the plugin controls its own submenu ordering.
  */
 add_action( 'admin_menu', function () {
 	if ( ! is_admin() ) {

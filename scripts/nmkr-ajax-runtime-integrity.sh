@@ -19,13 +19,9 @@ root = os.path.realpath(root)
 with open(ignored_path, "rb") as handle:
     paths = [item.decode("utf-8", "surrogateescape") for item in handle.read().split(b"\0") if item]
 
-allowed_file = "vendor/autoload.php"
-allowed_prefixes = ("vendor/composer/", "vendor/freemius/wordpress-sdk/")
 required = (
     "vendor/autoload.php",
     "vendor/composer/installed.php",
-    "vendor/freemius/wordpress-sdk/start.php",
-    "vendor/freemius/wordpress-sdk/includes/class-freemius.php",
 )
 
 def safe_regular_file(relative):
@@ -38,19 +34,35 @@ def safe_regular_file(relative):
             return False
     return os.path.isfile(current) and os.path.commonpath((root, os.path.realpath(current))) == root
 
-if not paths:
-    raise SystemExit(1)
 for relative in paths:
-    if relative != allowed_file and not relative.startswith(allowed_prefixes):
+    if not relative.startswith("vendor/"):
         raise SystemExit(1)
     if not safe_regular_file(relative):
         raise SystemExit(1)
-for relative in required:
-    if not safe_regular_file(relative):
-        raise SystemExit(1)
+if paths:
+    for relative in required:
+        if not safe_regular_file(relative):
+            raise SystemExit(1)
 PY
 
 composer --working-dir="$ROOT" validate --no-check-publish --no-interaction --no-ansi >/dev/null 2>&1
+runtime_package_count="$(php -r '
+$contents = @file_get_contents($argv[1]);
+if ($contents === false) exit(1);
+try {
+    $lock = json_decode($contents, true, 512, JSON_THROW_ON_ERROR);
+} catch (Throwable $error) {
+    exit(1);
+}
+if (!is_array($lock) || !isset($lock["packages"]) || !is_array($lock["packages"])) exit(1);
+echo count($lock["packages"]);
+' "$ROOT/composer.lock")" || exit 1
+[[ "$runtime_package_count" =~ ^[0-9]+$ ]] || exit 1
+if [[ ! -s "$ignored" ]]; then
+    [[ "$runtime_package_count" -eq 0 ]] || exit 1
+    exit 0
+fi
+
 cp -- "$ROOT/composer.json" "$ROOT/composer.lock" "$private/"
 composer --working-dir="$private" install --no-dev --prefer-dist --no-interaction --no-progress --no-ansi >/dev/null 2>&1
 python3 - "$ROOT/vendor" "$private/vendor" <<'PY'
@@ -207,7 +219,7 @@ final class InstalledParser {
 function canonical_install_path($value, $vendorRoot) {
     $prefix = '__composer_dir__';
     if (!is_string($value) || strncmp($value, $prefix . '/', strlen($prefix) + 1) !== 0 ||
-        strpos($value, "\\0") !== false || strpos($value, '\\') !== false) {
+        strpos($value, "\0") !== false || strpos($value, '\\') !== false) {
         throw new RuntimeException('unsupported install path');
     }
     $relative = substr($value, strlen($prefix) + 1);
@@ -249,9 +261,6 @@ function normalized_installed($path, $vendorRoot) {
         if (!is_string($package) || !is_array($metadata)) throw new RuntimeException('unexpected package');
         if (!array_key_exists('install_path', $metadata)) throw new RuntimeException('missing install path');
         $metadata['install_path'] = canonical_install_path($metadata['install_path'], $vendorRoot);
-        if ($package === 'freemius/wordpress-sdk' && $metadata['install_path'] !== 'freemius/wordpress-sdk') {
-            throw new RuntimeException('unexpected Freemius install destination');
-        }
         ksort($metadata);
     }
     unset($metadata);

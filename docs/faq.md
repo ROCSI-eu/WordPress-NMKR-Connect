@@ -33,15 +33,15 @@ Only the bounded behavior recorded in the linked package evidence. It supports t
 
 ### What are the minimum requirements?
 
-WordPress 5.8 or later, PHP 7.4 or later, an authorized NMKR API key, and Composer when building from source. The latest stable WordPress and maintained dependencies are recommended.
+WordPress 5.8 or later, PHP 7.4 or later, and an authorized NMKR API key. Node.js/npm are needed only for repository validation or the purpose-built source packaging workflow; Composer is used for manifest/dependency validation, not to assemble runtime dependencies.
 
 ### Why can a raw GitHub source ZIP fail to activate?
 
-The runtime requires Composer-managed files, including `vendor/autoload.php` and the bundled Freemius SDK. A source archive without `vendor/` is not a complete installable package. See [Install, activate, update, and remove](user-guide.md#install-activate-update-and-remove).
+The runtime has no Composer package dependency or `vendor/` requirement. Use the verified purpose-built release package rather than an automatic source archive. See [Install, activate, update, and remove](user-guide.md#install-activate-update-and-remove).
 
 ### Do I need Composer?
 
-Yes when building from source. A trusted packaged ZIP may already include the required runtime dependencies. The repository does not promise a prebuilt ZIP for every revision.
+Not to run or package the current plugin. The runtime has no Composer package dependency and no `vendor/` requirement. Maintainers may still use Composer for manifest/dependency validation; the purpose-built release package is created with `npm run build:package` from a clean exact source tree.
 
 ### How should I update the plugin?
 
@@ -175,9 +175,9 @@ Yes within the current implementation and documented data paths. That does not g
 | --- | --- | --- |
 | `[nmkr-grid]` | Free | `project_uid`, `allow_user_select` |
 | `[nmkr-token-list]` | Free | `project_uid`, `allow_user_select` |
-| `[nmkr-carousel]` | Premium | `project_uid`, `allow_user_select` |
-| `[nmkr-token]` | Premium | `token_uid` |
-| `[nmkr-project]` | Premium | `project_uid`, `allow_user_select` |
+| `[nmkr-carousel]` | Free | `project_uid`, `allow_user_select` |
+| `[nmkr-token]` | Free | `token_uid` |
+| `[nmkr-project]` | Free | `project_uid`, `allow_user_select` |
 
 There are no registered shortcode `limit`, ordering, pagination, template, styling, chain, or query attributes. See [Shortcodes](user-guide.md#shortcodes) for the detailed behavior.
 
@@ -195,7 +195,7 @@ It selects the latest project and prefers its first buyable token, then falls ba
 
 ### Why is output empty or unavailable?
 
-Common causes are no synchronized data, an unknown UID, an incomplete run, unavailable media/details, a front-end conflict, or a Premium shortcode without Premium entitlement.
+Common causes are no synchronized data, an unknown UID, an incomplete run, unavailable media/details, a front-end conflict,.
 
 ## Analytics, privacy, consent, and GA4
 

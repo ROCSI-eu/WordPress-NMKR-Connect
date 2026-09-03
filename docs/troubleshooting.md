@@ -15,9 +15,9 @@ Related guidance:
 
 ## Symptom index
 
-- **Installation and configuration:** [activation failure](#1-plugin-activation-failure), [incomplete package](#2-missing-vendorautoloadphp-or-incomplete-package), [settings save/access](#3-settings-access-or-save-failure), [API configuration](#4-nmkr-api-configuration-missing-rejected-or-unavailable)
+- **Installation and configuration:** [activation failure](#1-plugin-activation-failure), [incomplete package](#2-incomplete-source-built-package), [settings save/access](#3-settings-access-or-save-failure), [API configuration](#4-nmkr-api-configuration-missing-rejected-or-unavailable)
 - **Synchronization lifecycle:** [cannot start](#5-synchronization-cannot-start), [appears stalled](#6-synchronization-appears-stalled-or-pollingnetwork-errors-occur), [cooperative Stop](#7-cooperative-stop-and-stopped-final-state), [polling/network errors](#8-recoverable-pollingnetwork-errors), [pagination safety](#9-pagination-safety-failure), [persistence failure](#10-persistencedatabase-failure)
-- **Projects and displays:** [missing projects/tokens](#11-projects-or-tokens-absent-after-synchronization), [shortcode output](#12-shortcode-empty-unavailable-or-premium-restricted), [plan restriction](#13-freepremium-restriction)
+- **Projects and displays:** [missing projects/tokens](#11-projects-or-tokens-absent-after-synchronization), [shortcode output](#12-shortcode-empty-or-unavailable), [availability](#13-shortcode-availability)
 - **Access and analytics:** [capability denial](#14-role-or-capability-denial), [analytics not recording](#15-analytics-not-recording), [AJAX/JavaScript/CDN/proxy interference](#16-admin-ajaxphp-javascript-cdn-proxy-or-security-interference)
 - **Diagnostics and escalation:** [debug logging](#17-debug-logging-and-sanitized-diagnostics), [safe escalation checklist](#18-safe-escalation-checklist)
 
@@ -28,16 +28,16 @@ Related guidance:
 - **Safe checks:** compare requirements in the [user guide](user-guide.md), confirm the package check below, and review sanitized WordPress error text.
 - **Corrective action:** test on staging and retry activation only after correcting the identified prerequisite.
 - **Escalation information:** exact source commit, versions, package origin/build method, missing relative path, and sanitized error.
-- **Actions to avoid:** do not download individual vendor files, edit bootstrap requires, suppress fatal errors, or expose filesystem paths/configuration publicly.
+- **Actions to avoid:** do not copy individual files into a damaged package, edit bootstrap requires, suppress fatal errors, or expose filesystem paths/configuration publicly.
 
-## 2. Missing `vendor/autoload.php` or incomplete package
+## 2. Incomplete source-built package
 
-- **Symptom:** activation names a missing Composer/Freemius file, or the source archive activates with a fatal include error.
-- **Likely causes:** a Git source archive was installed without Composer, `vendor/` was excluded from a custom ZIP, or the upload was damaged.
-- **Safe checks:** inspect the package locally and confirm `vendor/autoload.php` and `vendor/freemius/wordpress-sdk/start.php` exist without publishing a full filesystem listing.
-- **Corrective action:** obtain a complete trusted release, or rebuild from the exact source with `composer install --no-dev --prefer-dist`, package the resulting `vendor/`, and test on staging.
+- **Symptom:** a custom/source-built ZIP is missing plugin files, fails activation, or differs from the expected release layout.
+- **Likely causes:** a partial source tree was packaged, repository-only files were manually mixed into the ZIP, required plugin PHP/assets were omitted, or the upload was damaged.
+- **Safe checks:** inspect the archive locally and confirm it has one top-level plugin directory containing `nmkr-connect.php`, `readme.txt`, and the expected package manifest without publishing a full filesystem listing.
+- **Corrective action:** obtain a complete trusted release, or rebuild from a clean exact source checkout with `npm run build:package` and test the generated ZIP on staging. The current runtime does not require `vendor/` or `composer install`.
 - **Escalation information:** exact source commit, build command, package source, and the missing relative path only.
-- **Actions to avoid:** do not assemble vendor piecemeal, copy dependencies from an unrelated release, or publish private paths/environment files.
+- **Actions to avoid:** do not assemble runtime files piecemeal, copy files from an unrelated release, or publish private paths/environment files.
 
 ## 3. Settings access or save failure
 
@@ -120,23 +120,15 @@ Related guidance:
 - **Escalation information:** chain class, synthetic dataset description, expected versus observed counts, final status, and sanitized message.
 - **Actions to avoid:** do not insert/edit project or token rows, publish real UIDs, or equate a stopped/failed run with complete data.
 
-## 12. Shortcode empty, unavailable, or Premium-restricted
+## 12. Shortcode empty or unavailable
 
-- **Symptom:** blank/error message, “not found,” no selector/data, or “This feature requires the Premium plan.”
-- **Likely causes:** misspelled shortcode/registered attribute, unsynchronized UID/data, omitted UID with no fallback project/buyable token, `allow_user_select="0"`, Premium shortcode on Free plan, or theme/script conflict.
-- **Safe checks:** compare the five names and attributes in the [user guide](user-guide.md); test the exact shortcode on a staging page with synthetic IDs; confirm completed sync and plan state without sharing licence data; inspect console/network.
-- **Corrective action:** correct only registered attributes, synchronize available data, choose an existing UID privately, use grid/list on Free, or restore reviewed entitlement through the provider. Isolate theme/plugin conflicts on staging.
-- **Escalation information:** shortcode with fake identifiers, plan class (Free/Premium only), browser/theme class, console error text sanitized, and expected/actual result.
-- **Actions to avoid:** do not invent query/chain/limit attributes, expose real UIDs/licence data, bypass plan checks, or edit shortcode PHP.
+- **Symptom:** blank/error message, “not found,” or no selector/data.
+- **Likely causes:** a misspelled shortcode or attribute, unsynchronized data, unknown UID, missing fallback data, locked selection, or a theme/script conflict.
+- **Safe checks:** reproduce with fake identifiers on staging and compare the documented public parameters.
 
-## 13. Free/Premium restriction
+## 13. Shortcode availability
 
-- **Symptom:** carousel, single-token, or single-project output shows the Premium-required message while grid/list works.
-- **Likely causes:** expected plan gating, inactive/unrecognized Premium entitlement, or the wrong installation/account context.
-- **Safe checks:** confirm only the Free/Premium plan class and exact shortcode; verify that `[nmkr-grid]` or `[nmkr-token-list]` can use the same synchronized project.
-- **Corrective action:** use a Free shortcode or resolve entitlement through the normal Freemius account/support workflow, then retest without exposing licence details.
-- **Escalation information:** plugin commit/release, shortcode name, expected plan class, and sanitized message.
-- **Actions to avoid:** do not share licence information, alter plan checks, or copy Premium code/files between installations.
+All five implementations are free and contain no entitlement gate. If one display works while another does not, compare their parameters and required synchronized data rather than a licence state.
 
 ## 14. Role or capability denial
 

@@ -26,12 +26,12 @@ Related guidance:
 Verified requirements and tools are:
 
 - WordPress 5.8 or later and PHP 7.4 or later;
-- Composer for PHP/runtime dependencies;
-- Node.js and npm for repository validation and Playwright tooling;
+- Composer for manifest/dependency validation only; the current plugin has no Composer runtime package dependency;
+- Node.js and npm for repository validation, package scripts, and Playwright tooling;
 - Chromium only for private Playwright browser execution; and
 - an independently prepared WordPress test installation for runtime tests.
 
-The public CI workflow currently uses Node.js 20 and PHP 7.4. Run `composer install` (or the production-oriented command in the [README](../README.md#build-from-source)) to provide Freemius and the other Composer-managed files under `vendor/`; the bootstrap requires the Freemius files there. A raw source archive without Composer dependencies is therefore not a complete installable runtime package. `npm ci` installs the locked Node test dependencies.
+The public CI workflow currently uses Node.js 20 and PHP 7.4. Run `composer validate --strict` for metadata validation. The plugin has no Composer runtime package dependency and its purpose-built ZIP is produced with `npm run build:package` from a clean exact source tree. `npm ci` installs the locked Node test dependencies.
 
 The repository does not provide a self-contained Docker, Local, or `wp-env` WordPress environment. Browser, WP-CLI, and runtime tests require a separately prepared installation. Never put its addresses, paths, credentials, or populated environment values in repository files or public output.
 
@@ -39,7 +39,7 @@ The repository does not provide a self-contained Docker, Local, or `wp-env` Word
 
 | Path | Current responsibility |
 | --- | --- |
-| [`nmkr-connect.php`](../nmkr-connect.php) | Bootstrap and Freemius initialization; plugin constants; activation defaults, schema and roles; explicit module includes; deactivation cleanup; registered uninstall callback; asset and shortcode initialization. |
+| [`nmkr-connect.php`](../nmkr-connect.php) | Bootstrap; plugin constants; activation defaults, schema and roles; explicit module includes; deactivation cleanup; registered uninstall callback; asset and shortcode initialization. |
 | [`includes/api/`](../includes/api/) | NMKR HTTP request construction, response handling, throttling, and project/token/detail retrieval helpers. |
 | [`includes/database/`](../includes/database/) | Custom-table schema creation and verified upgrades, plus project, token, detail, history, and metric persistence helpers. |
 | [`includes/synchronization/`](../includes/synchronization/) | Run admission/ownership, worker lifecycle, sequential pagination, progress, checkpoints, metrics, failures, recovery, and terminalization; it also contains synchronization AJAX handlers. |
@@ -53,7 +53,7 @@ The repository does not provide a self-contained Docker, Local, or `wp-env` Word
 | [`scripts/`](../scripts/) | Public-safe regressions, private-environment orchestration, WP-CLI checks, and guarded controlled-sync validation. |
 | [`docs/`](./) and [`.github/workflows/`](../.github/workflows/) | Operational/testing documentation and public CI. |
 
-`composer.json` declares a PSR-4 `NMKR\\` mapping for `includes/`, and Composer's autoloader is loaded when present. That does **not** replace today's bootstrap: `nmkr-connect.php` still manually `require_once`s the procedural modules in load order.
+`composer.json` retains project metadata plus the PHP and license requirements used by validation; it has no autoload section and no runtime package dependency. `nmkr-connect.php` explicitly `require_once`s the procedural modules in load order, and the release package does not require `vendor/`.
 
 ## Core data flows
 
@@ -160,11 +160,11 @@ Only the following deliberate hooks and ordinary WordPress registrations should 
 
 | Hook/registration | Kind | Purpose | Caveat |
 | --- | --- | --- | --- |
-| `wnc_fs_loaded` | Action | Signals that the Freemius SDK has been initialized. | Runs early during bootstrap; callbacks must tolerate plugin activation/update contexts and must not expose licensing data. |
+
 | `nmkr_ipfs_gateway_base` | Filter | Supplies the optional base used for a one-time IPFS token-image fallback. | The default is empty. Return a trusted, credential-free HTTPS base; shared public gateways can be slow, rate-limited, blocked, or unavailable. The helper validates and normalizes the base to end in `/ipfs/`, but consumers remain responsible for availability, privacy, and compatibility. |
 | `nmkr_marketing_allowed_submenus` | Filter | Adjusts the submenu slug allowlist visible to restricted users. | Visibility is not authorization. Never use this to grant access; page and AJAX capability checks must remain authoritative. |
 | WordPress plugin lifecycle hooks | Core registrations | Activation establishes schema/defaults/capabilities; deactivation clears volatile state; uninstall performs configured cleanup. | Do not call callbacks directly or assume uninstall removes every possible plugin-owned state key. |
-| `init` shortcode registrations | Core registrations | Registers `[nmkr-grid]`, `[nmkr-token-list]`, `[nmkr-carousel]`, `[nmkr-token]`, and `[nmkr-project]`. | Preserve registered attributes, escaping, plan gates, local-data behavior, and compatibility when altering callbacks. |
+| `init` shortcode registrations | Core registrations | Registers `[nmkr-grid]`, `[nmkr-token-list]`, `[nmkr-carousel]`, `[nmkr-token]`, and `[nmkr-project]`. | Preserve availability, registered attributes, escaping, local-data behavior, and compatibility when altering callbacks. |
 
 Synthetic filter examples:
 

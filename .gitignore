@@ -3,6 +3,8 @@ node_modules/
 composer.phar
 composer-setup.php
 *.zip
+*.zip.sha256
+/dist/
 .idea/
 .DS_Store
 .env

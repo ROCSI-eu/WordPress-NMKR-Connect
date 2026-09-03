@@ -5,15 +5,15 @@
 
 Risks are hypotheses until verified. Decisions should record the evidence/analysis that made them necessary and may be revised when new facts emerge.
 
-## Initial risk register
+## Risk register
 
 | ID | Type | Item | Initial impact | Status | Planned resolution/mitigation |
 | --- | --- | --- | --- | --- | --- |
-| `M5-R01` | WordPress.org | Current local Premium-gated architecture may conflict with current directory trialware/serviceware rules | Critical | OPEN — requires exact-code/current-rule analysis | M5-01 |
-| `M5-R02` | Naming | `NMKR Connect` / `nmkr-connect` may require trademark/project-name authorization or a safer slug/name strategy | Critical | OPEN | M5-01 owner/product/legal decision after current-rule verification |
-| `M5-R03` | Licensing | Repository/plugin/dependency license metadata may be inconsistent or require redistribution clarification | High | OPEN | M5-01 exact distribution audit |
-| `M5-R04` | Packaging | Raw source archives may not contain runtime Composer dependencies required for an installable plugin | High | OPEN | M5-01/M5-02 reproducible package path |
-| `M5-R05` | Privacy/policy | NMKR/Freemius/GA4/other external-service behavior/disclosure/consent must be verified for the directory package | High | OPEN | M5-01 trace external calls and disclosures |
+| `M5-R01` | WordPress.org | Current local Premium-gated architecture may conflict with current directory trialware/serviceware rules | Critical | MITIGATED ON PR #109 — all five shipped shortcodes are free and the local entitlement/upsell architecture is removed; exact-head review/validation still pending | Complete M5-02 review/validation before merge; keep future paid features additive and separately distributed |
+| `M5-R02` | Naming | `NMKR Connect` / `nmkr-connect` may require trademark/project-name authorization or a safer slug/name strategy | Critical | OPEN / DEFERRED BY OWNER | Finalize before M5-03 submission after NMKR outreach and WordPress.org eligibility review; use a non-brand-leading fallback if required |
+| `M5-R03` | Licensing | Repository/plugin/dependency license metadata may be inconsistent or require redistribution clarification | High | MITIGATED ON PR #109 — owner chose MIT for first-party free-plugin code and release metadata is aligned; review/merge pending | Preserve accurate third-party notices and verify final package metadata |
+| `M5-R04` | Packaging | Raw source archives may not contain runtime Composer dependencies required for an installable plugin | High | MITIGATED ON PR #109 — Freemius/runtime Composer packages are removed and purpose-built package tooling verifies extracted contents | Complete exact-head package/runtime validation and publish only the verified release artifact |
+| `M5-R05` | Privacy/policy | NMKR/Freemius/GA4/other external-service behavior/disclosure/consent must be verified for the directory package | High | MITIGATED ON PR #109 — Freemius is removed; analytics defaults Off with fail-safe consent defaults and disclosure/privacy guidance; validation pending | Complete exact-head validation of analytics/privacy/lifecycle behavior and preserve deliberate opt-in configuration |
 | `M5-R06` | External schedule | WordPress.org reviewer backlog/turnaround may extend the launch timeline | High | EXTERNAL | Submit a compliant candidate early; run GitHub release/adoption in parallel where messaging is accurate |
 | `M5-R07` | Measurement | GitHub release download counters do not necessarily establish distinct human downloaders | Medium/High | OPEN LIMITATION | Define two-layer evidence/methodology in M5-04/M5-08 |
 | `M5-R08` | Measurement | WordPress.org active-install figures may be bucketed/rounded and unavailable until listing is live | Medium | EXTERNAL | Record public bucket plus privacy-safe corroboration if needed |
@@ -22,7 +22,7 @@ Risks are hypotheses until verified. Decisions should record the evidence/analys
 | `M5-R11` | Post-launch | Acceptance/evidence language expects an implemented early fix/minor adjustment but a genuine issue may not immediately emerge | Medium/High | OPEN | Observe real usage; never manufacture a change; seek Catalyst clarification if necessary |
 | `M5-R12` | Close-out | PCR/PCV prepared too early could contain stale or unsupported metrics/status | Medium | CONTROLLED | Gate final drafting/recording on M5-08 evidence maturity |
 
-## Initial decisions
+## Decisions
 
 | ID | Decision | Rationale | Status |
 | --- | --- | --- | --- |
@@ -33,7 +33,14 @@ Risks are hypotheses until verified. Decisions should record the evidence/analys
 | `M5-D05` | Keep personal/private adopter/support/analytics data out of the public repository; publish aggregates/redacted summaries | Public-repository safety and privacy | ACCEPTED |
 | `M5-D06` | Defer final PCR/PCV drafting/recording until material M5 results are known | Prevent stale/unsupported close-out claims | ACCEPTED |
 | `M5-D07` | Start M5 execution with WordPress.org/release-readiness analysis before modification | Current release architecture has unresolved high-impact policy/packaging questions | ACCEPTED |
+| `M5-D08` | Make all five currently shipped shortcodes free in the WordPress.org plugin; future Premium functionality must be new/additive and separately distributed | Avoid local paid gates over shipped directory functionality | ACCEPTED — issue #107 |
+| `M5-D09` | Remove Freemius entirely from the free/WordPress.org plugin | Keeps the free package self-contained and avoids directory entitlement/update ambiguity | ACCEPTED — issue #107 |
+| `M5-D10` | Defer the final public name/slug decision; prefer `NMKR Connect` / `nmkr-connect` only if WordPress.org eligibility is established, otherwise use a non-brand-leading fallback | WordPress.org slug/brand eligibility cannot be satisfied by ordinary permission alone | ACCEPTED — issue #107; release gate remains open |
+| `M5-D11` | Retain MIT for first-party free-plugin code and reconcile metadata/notices consistently | Preserves permissive first-party licensing while remaining compatible with the intended distribution model | ACCEPTED — issue #107 |
+| `M5-D12` | Retain local analytics and optional GA4, but default analytics Off and require deliberate administrator enablement with safe consent/privacy handling | Preserves optional analytics while minimizing default collection and disclosure risk | ACCEPTED — issue #107 |
+| `M5-D13` | Clean up plugin-owned roles/capabilities and recurring analytics cron on uninstall, while preserving the explicit analytics uninstall-data choice | Avoid unnecessary plugin-owned residue without inventing broader destructive cleanup | ACCEPTED — issue #107 |
+| `M5-D14` | Use `1.0.0` as the first public production/WordPress.org release version | Treats Milestone 5 as the first stable public release rather than an early prototype | ACCEPTED — issue #107 |
 
 ## Update format
 
-When adding a risk or decision, include date, exact relevant baseline where technical, evidence/findings link, owner decision if required, and the work-package impact. Do not delete resolved risks; mark them resolved/superseded so the rationale remains auditable.
+When adding a risk or decision, include date, exact relevant baseline where technical, evidence/findings link, owner decision if required, and the work-package impact. Do not delete resolved risks; mark them resolved/superseded so the rationale remains auditable. Never recycle a risk or decision ID for a different subject.
