@@ -1,6 +1,6 @@
 <?php
 /**
- * NMKR Connect Dashboard AJAX Handlers
+ * Connector for NMKR Dashboard AJAX Handlers
  *
  * AJAX handlers specific to the dashboard functionality.
  *
@@ -37,7 +37,7 @@ function nmkr_check_api_status() {
     
     // Capability: view dashboard
     if ( ! current_user_can( 'nmkr_view_dashboard' ) ) {
-        wp_send_json_error( array( 'message' => __( 'Forbidden', 'nmkr-connect' ) ), 403 );
+        wp_send_json_error( array( 'message' => __( 'Forbidden', 'connector-for-nmkr' ) ), 403 );
         wp_die();
     }
     
@@ -149,7 +149,7 @@ function nmkr_get_sync_statistics_ajax() {
     
     // Capability: view dashboard
     if ( ! current_user_can( 'nmkr_view_dashboard' ) ) {
-        wp_send_json_error( array( 'message' => __( 'Forbidden', 'nmkr-connect' ) ), 403 );
+        wp_send_json_error( array( 'message' => __( 'Forbidden', 'connector-for-nmkr' ) ), 403 );
         wp_die();
     }
     
@@ -218,7 +218,7 @@ function nmkr_get_sync_statistics_ajax() {
                 'memory_usage' => $performance_data['memory_used'] ?? 0,
                 
                 // Add formatting and styling classes
-                'response_time_class' => array_key_exists('average_time', $performance_data) && $performance_data['average_time'] !== null ? nmkr_get_response_time_color_class($performance_data['average_time']) : 'status-neutral',
+                'response_time_class' => array_key_exists('average_time', $performance_data) && $performance_data['average_response_time'] !== null ? nmkr_get_response_time_color_class($performance_data['average_time']) : 'status-neutral',
                 'memory_class' => nmkr_get_memory_color_class($performance_data['memory_used'] ?? 0)
             );
             
@@ -345,7 +345,7 @@ function nmkr_store_active_metrics_ajax() {
     
     // Capability: manage synchronization and its dashboard-side metrics/log writes.
     if ( ! current_user_can( 'nmkr_manage_sync' ) ) {
-        wp_send_json_error( array( 'message' => __( 'Forbidden', 'nmkr-connect' ) ), 403 );
+        wp_send_json_error( array( 'message' => __( 'Forbidden', 'connector-for-nmkr' ) ), 403 );
         wp_die();
     }
     
@@ -422,7 +422,7 @@ function nmkr_clear_all_logs_ajax() {
     
     // Check user capabilities
     if ( ! current_user_can( 'nmkr_manage_sync' ) ) {
-        wp_send_json_error( array( 'message' => __( 'Forbidden', 'nmkr-connect' ) ), 403 );
+        wp_send_json_error( array( 'message' => __( 'Forbidden', 'connector-for-nmkr' ) ), 403 );
         wp_die();
     }
     
@@ -445,7 +445,7 @@ function nmkr_clear_all_logs_ajax() {
         wp_send_json_success(['message' => 'All logs cleared successfully']);
     } catch (Exception $e) {
         error_log('NMKR log-clear operation failed: ' . $e->getMessage());
-        wp_send_json_error(['message' => __('Logs could not be cleared.', 'nmkr-connect'), 'error_code' => 'log_clear_failed']);
+        wp_send_json_error(['message' => __('Logs could not be cleared.', 'connector-for-nmkr'), 'error_code' => 'log_clear_failed']);
     }
     
     wp_die();
@@ -465,7 +465,7 @@ function nmkr_clear_section_logs_ajax() {
     
     // Check user capabilities
     if ( ! current_user_can( 'nmkr_manage_sync' ) ) {
-        wp_send_json_error( array( 'message' => __( 'Forbidden', 'nmkr-connect' ) ), 403 );
+        wp_send_json_error( array( 'message' => __( 'Forbidden', 'connector-for-nmkr' ) ), 403 );
         wp_die();
     }
     
@@ -495,7 +495,7 @@ function nmkr_clear_section_logs_ajax() {
         wp_send_json_success(['message' => ucfirst($log_type) . ' logs cleared successfully', 'log_type' => $log_type]);
     } catch (Exception $e) {
         error_log('NMKR section log-clear operation failed: ' . $e->getMessage());
-        wp_send_json_error(['message' => __('The selected logs could not be cleared.', 'nmkr-connect'), 'error_code' => 'section_log_clear_failed']);
+        wp_send_json_error(['message' => __('The selected logs could not be cleared.', 'connector-for-nmkr'), 'error_code' => 'section_log_clear_failed']);
     }
     
     wp_die();
