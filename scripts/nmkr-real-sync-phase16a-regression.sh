@@ -213,7 +213,7 @@ reset_active_plugin
 deployment_refusal "override source checkout" NMKR_DEPLOYED_PLUGIN_PATH="$ROOT"
 OTHER="$TMP/other-deploy"; git clone -q "$ROOT" "$OTHER"; git -C "$OTHER" checkout -q "$(git -C "$ROOT" rev-parse HEAD)"
 deployment_refusal "override other checkout" NMKR_DEPLOYED_PLUGIN_PATH="$OTHER"
-WP_PARENT="$TMP/wp-parent"; mkdir -p "$WP_PARENT/wp-content/plugins/connector-for-nmkr"; git -C "$WP_PARENT/wp-content/plugins" init -q; printf 'parent\n' >"$WP_PARENT/wp-content/plugins/connector-for-nmkr/fixture.txt"; git -C "$WP_PARENT/wp-content/plugins" add nmkr-connect/fixture.txt; git -C "$WP_PARENT/wp-content/plugins" -c user.email=a@b.invalid -c user.name=a commit -q -m parent
+WP_PARENT="$TMP/wp-parent"; mkdir -p "$WP_PARENT/wp-content/plugins/connector-for-nmkr"; git -C "$WP_PARENT/wp-content/plugins" init -q; printf 'parent\n' >"$WP_PARENT/wp-content/plugins/connector-for-nmkr/fixture.txt"; git -C "$WP_PARENT/wp-content/plugins" add connector-for-nmkr/fixture.txt; git -C "$WP_PARENT/wp-content/plugins" -c user.email=a@b.invalid -c user.name=a commit -q -m parent
 deployment_refusal "active plugin git top-level parent" WP_PATH="$WP_PARENT"
 pass "active deployed checkout gate rejects stale dirty wrong override and parent worktree cases"
 
