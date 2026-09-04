@@ -112,7 +112,7 @@ function nmkr_ensure_last_sync_time() {
             );
             
             if ($last_successful_sync && !empty($last_successful_sync['end_time'])) {
-                // Create the option from the metrics data if it doesn't exist yet
+                // Create the option from the stats data if it doesn't exist yet
                 if (empty(get_option('nmkr_last_sync_time', ''))) {
                     update_option('nmkr_last_sync_time', $last_successful_sync['end_time']);
                 }
