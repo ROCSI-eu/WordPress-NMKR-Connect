@@ -1,8 +1,8 @@
 <?php
 /**
- * NMKR Connect AJAX Functions
+ * Connector for NMKR AJAX Functions
  *
- * This file contains AJAX handlers for NMKR Connect plugin.
+ * This file contains AJAX handlers for Connector for NMKR plugin.
  *
  * @package NMKR_Connect
  */
@@ -27,7 +27,7 @@ add_action('init', 'nmkr_register_ajax_functions');
 function nmkr_get_api_status() {
     // Check for admin capabilities
     if ( ! current_user_can( 'nmkr_view_dashboard' ) ) {
-        wp_send_json_error( array( 'message' => __( 'Forbidden', 'nmkr-connect' ) ), 403 );
+        wp_send_json_error( array( 'message' => __( 'Forbidden', 'connector-for-nmkr' ) ), 403 );
         return;
     }
     
