@@ -1,0 +1,53 @@
+name: M5-03 temporary text-domain sweep
+
+on:
+  push:
+    branches:
+      - m5-03-connector-for-nmkr-identity
+
+permissions:
+  contents: write
+
+jobs:
+  sweep:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Replace legacy gettext-domain literals only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          changed = []
+          for path in [Path('nmkr-connect.php'), *sorted(Path('includes').rglob('*.php'))]:
+              text = path.read_text(encoding='utf-8')
+              updated = text.replace("'nmkr-connect'", "'connector-for-nmkr'")
+              updated = updated.replace('"nmkr-connect"', '"connector-for-nmkr"')
+              if updated != text:
+                  path.write_text(updated, encoding='utf-8')
+                  changed.append(str(path))
+
+          print(f'text_domain_files_changed={len(changed)}')
+          for path in changed:
+              print(f'text_domain_changed={path}')
+          PY
+          rm -f .github/workflows/m5-03-domain-sweep.yml
+          if grep -RInE "['\"]nmkr-connect['\"]" nmkr-connect.php includes --include='*.php'; then
+            echo 'Legacy exact text-domain literal remains.' >&2
+            exit 1
+          fi
+      - name: Commit mechanical sweep and remove temporary workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m 'chore: complete Connector for NMKR text-domain sweep'
+          git push origin HEAD:m5-03-connector-for-nmkr-identity
