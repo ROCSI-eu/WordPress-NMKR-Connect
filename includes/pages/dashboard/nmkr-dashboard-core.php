@@ -1,8 +1,8 @@
 <?php
 /**
- * NMKR Connect Dashboard Core
+ * Connector for NMKR Dashboard Core
  *
- * Core functionality for the NMKR Connect Dashboard
+ * Core functionality for the Connector for NMKR Dashboard
  *
  * @package NMKR_Connect
  */
@@ -30,7 +30,7 @@ require_once plugin_dir_path(dirname(dirname(dirname(__FILE__)))) . 'includes/he
 require_once plugin_dir_path(dirname(dirname(dirname(__FILE__)))) . 'includes/helpers/nmkr-utility-functions.php';
 
 /**
- * Main function to render the NMKR Connect Dashboard page.
+ * Main function to render the Connector for NMKR Dashboard page.
  * 
  * This function initializes the dashboard structure and includes all necessary components,
  * delegating to specialized functions for stats, UI, and Ajax functionality.
@@ -38,10 +38,10 @@ require_once plugin_dir_path(dirname(dirname(dirname(__FILE__)))) . 'includes/he
 function nmkr_connect_dashboard_page() {
     if ( ! current_user_can( 'nmkr_view_dashboard' ) ) {
         if ( function_exists( 'nmkr_render_access_denied_page' ) ) {
-            nmkr_render_access_denied_page( __( 'Dashboard', 'nmkr-connect' ) );
+            nmkr_render_access_denied_page( __( 'Dashboard', 'connector-for-nmkr' ) );
             return;
         }
-        wp_die( esc_html__( 'Access denied.', 'nmkr-connect' ) );
+        wp_die( esc_html__( 'Access denied.', 'connector-for-nmkr' ) );
     }
     $can_manage_sync = current_user_can( 'nmkr_manage_sync' );
 
@@ -59,7 +59,7 @@ function nmkr_connect_dashboard_page() {
     $dashboard_nonce = wp_create_nonce('nmkr_dashboard_nonce');
     ?>
     <div class="wrap nmkr-dashboard">
-        <h1 class="center-text">NMKR Connect Dashboard</h1>
+        <h1 class="center-text">Connector for NMKR Dashboard</h1>
 
         <?php 
         // Render dashboard UI elements
@@ -112,7 +112,7 @@ function nmkr_ensure_last_sync_time() {
             );
             
             if ($last_successful_sync && !empty($last_successful_sync['end_time'])) {
-                // Create the option from the stats data if it doesn't exist yet
+                // Create the option from the metrics data if it doesn't exist yet
                 if (empty(get_option('nmkr_last_sync_time', ''))) {
                     update_option('nmkr_last_sync_time', $last_successful_sync['end_time']);
                 }
