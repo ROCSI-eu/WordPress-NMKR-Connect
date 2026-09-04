@@ -27,7 +27,7 @@ function nmkr_shortcode_carousel($atts) {
     // Resolve the active project
     $active_project_uid = nmkr_get_active_project_uid_single( $atts );
     if ( empty( $active_project_uid ) ) {
-        return '<p>' . esc_html__( 'No projects available. Please synchronize with NMKR Studio first.', 'nmkr-connect' ) . '</p>';
+        return '<p>' . esc_html__( 'No projects available. Please synchronize with NMKR Studio first.', 'connector-for-nmkr' ) . '</p>';
     }
 
     // Optional attribute to lock selection
@@ -40,7 +40,7 @@ function nmkr_shortcode_carousel($atts) {
     $selected_project = $wpdb->get_row($wpdb->prepare("SELECT * FROM $projects_table WHERE project_uid = %s", $active_project_uid));
 
     if (!$selected_project) {
-        return '<p>' . esc_html__( 'Project not found.', 'nmkr-connect' ) . '</p>';
+        return '<p>' . esc_html__( 'Project not found.', 'connector-for-nmkr' ) . '</p>';
     }
 
     // Get project counters
@@ -56,7 +56,7 @@ function nmkr_shortcode_carousel($atts) {
     // Get tokens using joined query
     $tokens = nmkr_get_project_tokens_joined( $active_project_uid );
     if ( empty( $tokens ) ) {
-        return '<p>' . esc_html__( 'No tokens found for this project.', 'nmkr-connect' ) . '</p>';
+        return '<p>' . esc_html__( 'No tokens found for this project.', 'connector-for-nmkr' ) . '</p>';
     }
 
     // Enqueue frontend analytics scaffold
@@ -354,11 +354,11 @@ function nmkr_shortcode_carousel($atts) {
         
         // Project counters
         $output .= '<div class="nmkr-project-counters">';
-        $output .= '<div class="nmkr-counter-item"><strong>' . esc_html__('Total','nmkr-connect') . ':</strong> ' . esc_html($counters->total_tokens) . '</div>';
-        $output .= '<div class="nmkr-counter-item"><strong>' . esc_html__('Minted','nmkr-connect') . ':</strong> ' . esc_html($counters->minted_count) . '</div>';
-        $output .= '<div class="nmkr-counter-item"><strong>' . esc_html__('Sold','nmkr-connect') . ':</strong> ' . esc_html($counters->sold_count) . '</div>';
-        $output .= '<div class="nmkr-counter-item"><strong>' . esc_html__('Reserved','nmkr-connect') . ':</strong> ' . esc_html($counters->reserved_active_count) . '</div>';
-        $output .= '<div class="nmkr-counter-item"><strong>' . esc_html__('Available','nmkr-connect') . ':</strong> ' . esc_html($counters->available_count) . '</div>';
+        $output .= '<div class="nmkr-counter-item"><strong>' . esc_html__('Total','connector-for-nmkr') . ':</strong> ' . esc_html($counters->total_tokens) . '</div>';
+        $output .= '<div class="nmkr-counter-item"><strong>' . esc_html__('Minted','connector-for-nmkr') . ':</strong> ' . esc_html($counters->minted_count) . '</div>';
+        $output .= '<div class="nmkr-counter-item"><strong>' . esc_html__('Sold','connector-for-nmkr') . ':</strong> ' . esc_html($counters->sold_count) . '</div>';
+        $output .= '<div class="nmkr-counter-item"><strong>' . esc_html__('Reserved','connector-for-nmkr') . ':</strong> ' . esc_html($counters->reserved_active_count) . '</div>';
+        $output .= '<div class="nmkr-counter-item"><strong>' . esc_html__('Available','connector-for-nmkr') . ':</strong> ' . esc_html($counters->available_count) . '</div>';
         $output .= '</div>';
         
         if (!empty($selected_project->project_url)) {
@@ -416,14 +416,14 @@ function nmkr_shortcode_carousel($atts) {
                 $output .= '<a href="' . esc_url($token->payment_gateway_link) . '"'
                     . ' class="nmkr-buy-button"'
                     . ' target="_blank" rel="noopener noreferrer"'
-                    . ' aria-label="' . esc_attr__( 'Buy token with NMKR Pay', 'nmkr-connect' ) . '"'
+                    . ' aria-label="' . esc_attr__( 'Buy token with NMKR Pay', 'connector-for-nmkr' ) . '"'
                     . ' data-nmkr-evt="click" data-nmkr-cta="buy" data-nmkr-shortcode="carousel"'
                     . ' data-nmkr-project-uid="' . esc_attr($active_project_uid) . '"'
                     . ' data-nmkr-token-uid="' . esc_attr(!empty($token->token_uid) ? $token->token_uid : '') . '"'
                     . ' data-nmkr-id="carousel:' . esc_attr(!empty($token->token_uid) ? $token->token_uid : $active_project_uid) . '"'
                     . '>'
                     . '<span aria-hidden="true">💳</span> '
-                    . esc_html__( 'Buy with NMKR Pay', 'nmkr-connect' )
+                    . esc_html__( 'Buy with NMKR Pay', 'connector-for-nmkr' )
                     . '</a>';
             }
             $output .= '</div>';
