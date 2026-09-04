@@ -218,7 +218,7 @@ function nmkr_get_sync_statistics_ajax() {
                 'memory_usage' => $performance_data['memory_used'] ?? 0,
                 
                 // Add formatting and styling classes
-                'response_time_class' => array_key_exists('average_time', $performance_data) && $performance_data['average_response_time'] !== null ? nmkr_get_response_time_color_class($performance_data['average_time']) : 'status-neutral',
+                'response_time_class' => array_key_exists('average_time', $performance_data) && $performance_data['average_time'] !== null ? nmkr_get_response_time_color_class($performance_data['average_time']) : 'status-neutral',
                 'memory_class' => nmkr_get_memory_color_class($performance_data['memory_used'] ?? 0)
             );
             
