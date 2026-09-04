@@ -218,10 +218,10 @@ function nmkr_connect_fetch_nfts_page($project_uid, $page_size, $page_number, $c
     $page_size = (int) $page_size;
     $page_number = (int) $page_number;
     if ($project_uid === '' || strlen($project_uid) > 200 || preg_match('/^[A-Za-z0-9_-]+$/', $project_uid) !== 1) {
-        return new WP_Error('nmkr_token_page_invalid_project', __('The token page project identifier is invalid.', 'nmkr-connect'));
+        return new WP_Error('nmkr_token_page_invalid_project', __('The token page project identifier is invalid.', 'connector-for-nmkr'));
     }
     if ($page_size !== 50 || $page_number < 1) {
-        return new WP_Error('nmkr_token_page_invalid_paging', __('The token page request parameters are invalid.', 'nmkr-connect'));
+        return new WP_Error('nmkr_token_page_invalid_paging', __('The token page request parameters are invalid.', 'connector-for-nmkr'));
     }
     $key = nmkr_sync_api_key(); if ($key === '') return new WP_Error('api_key_not_set', 'API key not set');
     return nmkr_sync_http_json_execute('token_list', NMKR_API_URL . '/GetNfts/' . rawurlencode($project_uid) . '/all/' . $page_size . '/' . $page_number, nmkr_sync_api_args($key, 45), 'nmkr_sync_list_shape', $context);
