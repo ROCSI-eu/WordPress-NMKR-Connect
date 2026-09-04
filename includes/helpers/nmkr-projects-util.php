@@ -102,7 +102,7 @@ function nmkr_get_active_project_uid_single( $atts ) {
  */
 function nmkr_render_project_selector_simple( $projects, $active_uid ) {
     if ( empty( $projects ) ) {
-        return '<p>' . esc_html__( 'No projects available.', 'nmkr-connect' ) . '</p>';
+        return '<p>' . esc_html__( 'No projects available.', 'connector-for-nmkr' ) . '</p>';
     }
 
     $scheme = is_ssl() ? 'https://' : 'http://';
@@ -118,7 +118,7 @@ function nmkr_render_project_selector_simple( $projects, $active_uid ) {
         }
         ?>
         <label for="nmkr_project" style="margin-right:6px;">
-            <?php esc_html_e( 'Select a Project:', 'nmkr-connect' ); ?>
+            <?php esc_html_e( 'Select a Project:', 'connector-for-nmkr' ); ?>
         </label>
         <select id="nmkr_project" name="nmkr_project" onchange="this.form.submit()" style="min-width:260px;">
             <?php foreach ( $projects as $p ): ?>
@@ -137,7 +137,7 @@ function nmkr_render_project_selector_simple( $projects, $active_uid ) {
                 </option>
             <?php endforeach; ?>
         </select>
-        <noscript><button type="submit"><?php esc_html_e('Go', 'nmkr-connect'); ?></button></noscript>
+        <noscript><button type="submit"><?php esc_html_e('Go', 'connector-for-nmkr'); ?></button></noscript>
     </form>
     <?php
     return ob_get_clean();
