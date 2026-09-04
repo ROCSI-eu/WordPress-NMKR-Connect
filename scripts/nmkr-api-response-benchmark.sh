@@ -25,7 +25,7 @@ if not os.access(p,os.R_OK|os.W_OK|os.X_OK): raise SystemExit(1)
 print(p)
 PY
 )" || fail private-directory
-DEPLOYED="$(python3 - "$NMKR_DEPLOYED_PLUGIN_PATH" "$WP_PATH" "${NMKR_PLUGIN_SLUG:-nmkr-connect/nmkr-connect.php}" 2>/dev/null <<'PY'
+DEPLOYED="$(python3 - "$NMKR_DEPLOYED_PLUGIN_PATH" "$WP_PATH" "${NMKR_PLUGIN_SLUG:-connector-for-nmkr/nmkr-connect.php}" 2>/dev/null <<'PY'
 import os,sys
 p,wp,slug=sys.argv[1:]; p=os.path.realpath(p); active=os.path.realpath(os.path.join(wp,'wp-content','plugins',slug.split('/')[0]))
 if p!=active or not os.path.isdir(p): raise SystemExit(1)
@@ -44,7 +44,7 @@ check_git(){
 check_git || fail identity
 WP_BIN="${WP_CLI_BIN:-wp}"; TIMEOUT_BIN="$(command -v timeout 2>/dev/null || true)"
 [[ -n "$TIMEOUT_BIN" ]] || fail configuration
-"$WP_BIN" --path="$WP_PATH" plugin is-active "${NMKR_PLUGIN_SLUG:-nmkr-connect/nmkr-connect.php}" >/dev/null 2>&1 || fail plugin-binding
+"$WP_BIN" --path="$WP_PATH" plugin is-active "${NMKR_PLUGIN_SLUG:-connector-for-nmkr/nmkr-connect.php}" >/dev/null 2>&1 || fail plugin-binding
 LOCK="$RESULT_ROOT/.nmkr-api-benchmark.lock"; RUN_DIR="$RESULT_ROOT/run-$(date -u +%Y%m%dT%H%M%SZ)-$$"
 ( set -o noclobber; : >"$LOCK" ) 2>/dev/null || fail lock
 chmod 600 "$LOCK" 2>/dev/null || { rm -f -- "$LOCK" 2>/dev/null || true; fail lock; }

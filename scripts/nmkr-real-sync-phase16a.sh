@@ -122,13 +122,13 @@ validate_target_integrity() {
   local expected_digest="${1:-}"
   validate_origin_guard "$expected_digest" >/dev/null
   wp_cli core is-installed >/dev/null 2>>"$DIAGNOSTIC_FILE" || fail wordpress-ready
-  wp_cli plugin is-active "${NMKR_PLUGIN_SLUG:-nmkr-connect/nmkr-connect.php}" >/dev/null 2>>"$DIAGNOSTIC_FILE" || fail plugin-active
+  wp_cli plugin is-active "${NMKR_PLUGIN_SLUG:-connector-for-nmkr/nmkr-connect.php}" >/dev/null 2>>"$DIAGNOSTIC_FILE" || fail plugin-active
   validate_admin_capability
   validate_target_git >/dev/null 2>>"$DIAGNOSTIC_FILE" || fail deployment-integrity
 }
 
 resolve_deployed_real() {
-  python3 - "$REPO_ROOT" "${WP_PATH:-}" "${NMKR_PLUGIN_SLUG:-nmkr-connect/nmkr-connect.php}" "${NMKR_DEPLOYED_PLUGIN_PATH:-}" <<'PY'
+  python3 - "$REPO_ROOT" "${WP_PATH:-}" "${NMKR_PLUGIN_SLUG:-connector-for-nmkr/nmkr-connect.php}" "${NMKR_DEPLOYED_PLUGIN_PATH:-}" <<'PY'
 import os, sys
 repo, wp, slug, override = sys.argv[1:5]
 def bad(): raise SystemExit(1)
@@ -289,7 +289,7 @@ final_authorize() {
   CURRENT_ORIGIN_DIGEST="$(validate_origin_guard)"
   NMKR_PHASE16A_CURRENT_ORIGIN_DIGEST="$CURRENT_ORIGIN_DIGEST" validate_receipt final "$RECEIPT" "$CONSUMED" "$DEPLOYED_REAL" "$RUN_DIR/receipt.sha256" >"$RUN_DIR/final-receipt.json" || fail receipt
   wp_cli core is-installed >/dev/null 2>>"$DIAGNOSTIC_FILE" || fail wordpress-ready
-  wp_cli plugin is-active "${NMKR_PLUGIN_SLUG:-nmkr-connect/nmkr-connect.php}" >/dev/null 2>>"$DIAGNOSTIC_FILE" || fail plugin-active
+  wp_cli plugin is-active "${NMKR_PLUGIN_SLUG:-connector-for-nmkr/nmkr-connect.php}" >/dev/null 2>>"$DIAGNOSTIC_FILE" || fail plugin-active
   validate_admin_capability
   capture_state "$RUN_DIR/pre.json"
   python3 - "$RUN_DIR/pre.json" <<'PY' || fail pre-state
@@ -346,7 +346,7 @@ CURRENT_ORIGIN_DIGEST="$(validate_origin_guard)"
 NMKR_PHASE16A_CURRENT_ORIGIN_DIGEST="$CURRENT_ORIGIN_DIGEST" validate_receipt initial "$RECEIPT" "$CONSUMED" "$DEPLOYED_REAL" "$RUN_DIR/receipt.sha256" >"$RUN_DIR/initial-receipt.json" || fail receipt
 
 wp_cli core is-installed >/dev/null 2>>"$DIAGNOSTIC_FILE" || fail wordpress-ready
-wp_cli plugin is-active "${NMKR_PLUGIN_SLUG:-nmkr-connect/nmkr-connect.php}" >/dev/null 2>>"$DIAGNOSTIC_FILE" || fail plugin-active
+wp_cli plugin is-active "${NMKR_PLUGIN_SLUG:-connector-for-nmkr/nmkr-connect.php}" >/dev/null 2>>"$DIAGNOSTIC_FILE" || fail plugin-active
 validate_admin_capability
 
 cat >"$RUN_DIR/controller.env" <<ENV
@@ -356,7 +356,7 @@ RECEIPT=$(printf '%q' "$RECEIPT")
 CONSUMED=$(printf '%q' "$CONSUMED")
 DEPLOYED_REAL=$(printf '%q' "$DEPLOYED_REAL")
 LOCK=$(printf '%q' "$LOCK")
-NMKR_PLUGIN_SLUG=$(printf '%q' "${NMKR_PLUGIN_SLUG:-nmkr-connect/nmkr-connect.php}")
+NMKR_PLUGIN_SLUG=$(printf '%q' "${NMKR_PLUGIN_SLUG:-connector-for-nmkr/nmkr-connect.php}")
 WP_BASE_URL=$(printf '%q' "${WP_BASE_URL:-}")
 NMKR_REAL_SYNC_ALLOWED_ORIGIN=$(printf '%q' "${NMKR_REAL_SYNC_ALLOWED_ORIGIN:-}")
 WP_ADMIN_USER=$(printf '%q' "${WP_ADMIN_USER:-}")
