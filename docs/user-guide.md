@@ -1,4 +1,4 @@
-# NMKR Connect user guide
+# Connector for NMKR user guide
 
 This guide is for WordPress site owners and administrators. It describes the current plugin, not a guarantee about every host, NMKR account, collection size, or upstream API condition. Use the [troubleshooting guide](troubleshooting.md) when a workflow does not complete as expected.
 
@@ -17,7 +17,7 @@ Recommended site-owner path: install a complete package, configure the API key, 
 
 ### Packaged ZIP
 
-Obtain the ZIP from a trusted release source and confirm that it is intended for the version you plan to deploy. In **Plugins → Add New → Upload Plugin**, select the ZIP, choose **Install Now**, and then activate **NMKR Connect**. Use the purpose-built package produced by `npm run build:package`; it is self-contained and does not require a `vendor/` directory.
+Obtain the ZIP from a trusted release source and confirm that it is intended for the version you plan to deploy. In **Plugins → Add New → Upload Plugin**, select the ZIP, choose **Install Now**, and then activate **Connector for NMKR**. Use the purpose-built package produced by `npm run build:package`; it is self-contained and does not require a `vendor/` directory.
 
 ### Build from source
 
@@ -29,7 +29,7 @@ cd WordPress-NMKR-Connect
 npm run build:package
 ```
 
-The default build creates `dist/nmkr-connect-1.0.0.zip`. Install that verified ZIP through WordPress, or use an exact source checkout directly for development. No Composer install or packaged `vendor/` directory is required by the current plugin runtime. Do not commit or distribute populated environment files.
+The default build creates `dist/connector-for-nmkr-1.0.0.zip`. Install that verified ZIP through WordPress, or use an exact source checkout directly for development. No Composer install or packaged `vendor/` directory is required by the current plugin runtime. Do not commit or distribute populated environment files.
 
 Activation creates or upgrades the plugin tables, installs NMKR roles/capabilities, supplies defaults, attempts safe stale-synchronization recovery, and schedules analytics retention maintenance. Test activation on staging first and make a verified backup before an update.
 
@@ -37,7 +37,7 @@ Deactivation clears volatile synchronization state but is not uninstall. Deletin
 
 ## Administration pages and access
 
-The exact top-level menu is **NMKR Connect**. Its plugin submenus are **Dashboard**, **NFT Projects**, **Shortcodes**, and **Analytics** (unless the analytics UI is disabled by the build). Configuration is separately located at **Settings → NMKR Connect**; the Plugins screen also provides a **Settings** action link.
+The exact top-level menu is **Connector for NMKR**. Its plugin submenus are **Dashboard**, **NFT Projects**, **Shortcodes**, and **Analytics** (unless the analytics UI is disabled by the build). Configuration is separately located at **Settings → Connector for NMKR**; the Plugins screen also provides a **Settings** action link.
 
 Access follows capabilities, not a role-name shortcut:
 
@@ -53,19 +53,19 @@ Use **NMKR Marketing** for users who only need display/engagement work and **NMK
 
 | Capability | Current authority |
 | --- | --- |
-| `nmkr_access_plugin` | Exposes the NMKR Connect menu shell and restricted-user routing. It does not authorize every child page or action by itself. |
+| `nmkr_access_plugin` | Exposes the Connector for NMKR menu shell and restricted-user routing. It does not authorize every child page or action by itself. |
 | `nmkr_view_dashboard` | Views Dashboard status, progress, active metrics, final results, and history; permits ordinary observational progress polling. |
-| `nmkr_view_projects` | Views **NMKR Connect → NFT Projects**. |
-| `nmkr_view_shortcodes` | Views **NMKR Connect → Shortcodes**. |
+| `nmkr_view_projects` | Views **Connector for NMKR → NFT Projects**. |
+| `nmkr_view_shortcodes` | Views **Connector for NMKR → Shortcodes**. |
 | `nmkr_view_analytics` | Views the Analytics administration page and its reporting requests. |
-| `nmkr_manage_settings` | Opens and saves **Settings → NMKR Connect**. |
+| `nmkr_manage_settings` | Opens and saves **Settings → Connector for NMKR**. |
 | `nmkr_manage_sync` | Starts and cooperatively stops synchronization and performs state-changing cleanup or guarded recovery operations. |
 
 A visible menu, page, or button is not the authorization boundary. Server-side capability checks remain authoritative, and restricted users may be routed to their first allowed child page without gaining Dashboard access. A WordPress nonce protects request intent and mitigates CSRF; it is not authentication and does not grant a capability.
 
 ## Configure settings
 
-Only a user with `nmkr_manage_settings` can open or save **Settings → NMKR Connect**. WordPress settings nonces and the capability check protect saving; a rejected save should not be worked around by granting broader permissions than needed.
+Only a user with `nmkr_manage_settings` can open or save **Settings → Connector for NMKR**. WordPress settings nonces and the capability check protect saving; a rejected save should not be worked around by granting broader permissions than needed.
 
 ### API Settings
 
@@ -113,7 +113,7 @@ These controls are bounded mitigations. They do not guarantee universal denial-o
 
 ## Synchronize projects and tokens
 
-1. Save a valid API key and open **NMKR Connect → Dashboard**.
+1. Save a valid API key and open **Connector for NMKR → Dashboard**.
 2. Start synchronization only when no run is active. The plugin uses run-scoped ownership so another start cannot simply take over an active run.
 3. Keep the Dashboard available to observe status. Temporary polling/network errors cause the browser to continue retrying with exponential backoff capped near 30 seconds; they do not necessarily mean the worker failed. **Maximum Error Count** does not currently terminate these retries.
 4. If necessary, choose **Stop** once. Stop is cooperative and applies only to that run: the worker observes the request at safe checkpoints, records a stopped terminal result, and finalizes state. Do not repeatedly start another run while Stop is settling.
@@ -127,7 +127,7 @@ Progress is an estimate while pages are still being discovered. The plugin recon
 
 ## NFT Projects and chain data
 
-**NMKR Connect → NFT Projects** browses locally synchronized NMKR project records and their token counts/details. Synchronization stores the project and token identifiers and descriptive/status/media/payment data returned through the NMKR integration. Displays can represent Cardano and Solana pricing/data (including ADA and SOL price badges where present); Cardano-specific policy links appear only when applicable data exists. Absence in WordPress can mean the project was not returned for the configured account, a run did not complete, or the relevant token details were unavailable.
+**Connector for NMKR → NFT Projects** browses locally synchronized NMKR project records and their token counts/details. Synchronization stores the project and token identifiers and descriptive/status/media/payment data returned through the NMKR integration. Displays can represent Cardano and Solana pricing/data (including ADA and SOL price badges where present); Cardano-specific policy links appear only when applicable data exists. Absence in WordPress can mean the project was not returned for the configured account, a run did not complete, or the relevant token details were unavailable.
 
 ## Shortcodes
 

@@ -1,4 +1,4 @@
-# NMKR Connect troubleshooting guide
+# Connector for NMKR troubleshooting guide
 
 Start with observation, not deletion. Record the exact plugin commit/release when known, WordPress/PHP versions, affected page or shortcode, synchronization status, and sanitized error text. Never casually delete options, transients, history/metrics rows, owner state, tables, or plugin files.
 
@@ -41,7 +41,7 @@ Related guidance:
 
 ## 3. Settings access or save failure
 
-- **Symptom:** **Settings → NMKR Connect** is absent/denied or values do not save.
+- **Symptom:** **Settings → Connector for NMKR** is absent/denied or values do not save.
 - **Likely causes:** missing `nmkr_manage_settings`, expired session/settings nonce, security middleware, invalid values being clamped/rejected, or a persistence failure.
 - **Safe checks:** confirm the assigned role/capabilities; reload and sign in again; inspect the browser network response; compare allowed ranges in the [user guide](user-guide.md).
 - **Corrective action:** have an Administrator assign the least-privilege **NMKR Admin** role/capability, retry with a fresh page, and correct invalid input. Investigate proxy/security rules on staging if the request is blocked.

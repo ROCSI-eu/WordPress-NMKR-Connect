@@ -1,8 +1,8 @@
-# NMKR Connect developer guide
+# Connector for NMKR developer guide
 
 ## Purpose and scope
 
-NMKR Connect is a WordPress plugin that retrieves Cardano and Solana NFT project and token data through NMKR, persists synchronized data in WordPress, exposes five shortcode displays, and provides administration, synchronization, role/capability, and optional engagement-analytics features. The code is organized primarily as procedural, `nmkr_`-prefixed PHP modules with administration and front-end JavaScript assets.
+Connector for NMKR is a WordPress plugin that retrieves Cardano and Solana NFT project and token data through NMKR, persists synchronized data in WordPress, exposes five shortcode displays, and provides administration, synchronization, role/capability, and optional engagement-analytics features. The code is organized primarily as procedural, `nmkr_`-prefixed PHP modules with administration and front-end JavaScript assets.
 
 This guide describes the current repository for maintainers and prospective contributors. It is an onboarding map, not an exhaustive API reference or a guarantee that internal functions, hooks, constants, tables, options, or lifecycle behavior form a stable public API. Those implementation contracts—especially synchronization and persistence state—must not be changed casually.
 
@@ -61,13 +61,13 @@ The repository does not provide a self-contained Docker, Local, or `wp-env` Word
 
 ```mermaid
 flowchart LR
-    A[Settings → NMKR Connect] --> B[WordPress Settings API]
+    A[Settings → Connector for NMKR] --> B[WordPress Settings API]
     B --> C[Capability and settings nonce]
     C --> D[nmkr_connect_sanitize_options]
     D --> E[nmkr_connect_options]
 ```
 
-The page is registered with `add_options_page()` under **Settings → NMKR Connect**. WordPress's Settings API supplies the save request and settings nonce, the option-page capability is mapped to `nmkr_manage_settings`, the page checks that capability, and the registered sanitization callback validates the submitted option values.
+The page is registered with `add_options_page()` under **Settings → Connector for NMKR**. WordPress's Settings API supplies the save request and settings nonce, the option-page capability is mapped to `nmkr_manage_settings`, the page checks that capability, and the registered sanitization callback validates the submitted option values.
 
 ### Synchronization
 

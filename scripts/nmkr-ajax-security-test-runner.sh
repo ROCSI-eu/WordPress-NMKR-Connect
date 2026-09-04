@@ -47,8 +47,8 @@ run(){
 run deployed-runtime "$ROOT/scripts/nmkr-ajax-runtime-integrity.sh" "$DEPLOYED"
 command -v "$WP_CLI_BIN" >/dev/null 2>&1 || fail wordpress
 run wordpress "$WP_CLI_BIN" --path="$WP_ROOT" core is-installed --quiet
-run wordpress "$WP_CLI_BIN" --path="$WP_ROOT" plugin is-active "${NMKR_PLUGIN_SLUG:-nmkr-connect/nmkr-connect.php}"
-NMKR_DEPLOYED_PLUGIN_PATH="$DEPLOYED" NMKR_PLUGIN_SLUG="${NMKR_PLUGIN_SLUG:-nmkr-connect/nmkr-connect.php}" run deployed-source "$WP_CLI_BIN" --path="$WP_ROOT" eval '
+run wordpress "$WP_CLI_BIN" --path="$WP_ROOT" plugin is-active "${NMKR_PLUGIN_SLUG:-connector-for-nmkr/nmkr-connect.php}"
+NMKR_DEPLOYED_PLUGIN_PATH="$DEPLOYED" NMKR_PLUGIN_SLUG="${NMKR_PLUGIN_SLUG:-connector-for-nmkr/nmkr-connect.php}" run deployed-source "$WP_CLI_BIN" --path="$WP_ROOT" eval '
 $active=realpath(WP_PLUGIN_DIR."/".getenv("NMKR_PLUGIN_SLUG"));$expected=realpath(getenv("NMKR_DEPLOYED_PLUGIN_PATH")."/nmkr-connect.php");exit($active!==false&&$expected!==false&&hash_equals($expected,$active)?0:1);'
 WP_BASE_URL="$WP_BASE_URL" run wordpress "$WP_CLI_BIN" --path="$WP_ROOT" eval 'exit(untrailingslashit(home_url())===untrailingslashit(getenv("WP_BASE_URL"))?0:1);'
 WP_ADMIN_USER="$WP_ADMIN_USER" NMKR_MARKETING_USER="$NMKR_MARKETING_USER" run accounts "$WP_CLI_BIN" --path="$WP_ROOT" eval '

@@ -47,7 +47,7 @@ function nmkr_is_verified_failed_terminal_for_progress($sync_data, $has_active_d
 
 /** Replace a verified failed terminal's private diagnostic with public-safe copy. */
 function nmkr_public_failed_terminal_progress_response($response_data) {
-    $response_data['error'] = __('Synchronization failed. Review the private server diagnostics for details.', 'nmkr-connect');
+    $response_data['error'] = __('Synchronization failed. Review the private server diagnostics for details.', 'connector-for-nmkr');
     $response_data['current_item'] = '';
     $response_data['error_code'] = 'sync_terminal_failed';
     unset($response_data['technical_details']);
@@ -130,16 +130,16 @@ function nmkr_get_verified_ownerless_terminal_sync_data() {
 /** Return a fixed browser-safe message for a synchronization error code. */
 function nmkr_public_sync_error_message($code, $fallback) {
     $messages = array(
-        'sync_already_owned' => __('A synchronization is already in progress.', 'nmkr-connect'),
-        'sync_finalization_pending' => __('Synchronization finalization is still pending.', 'nmkr-connect'),
-        'direct_stop_requires_cooperative_worker' => __('The active synchronization must be stopped cooperatively.', 'nmkr-connect'),
-        'sync_owner_mismatch' => __('Synchronization ownership no longer matches this run.', 'nmkr-connect'),
-        'invalid_run_id' => __('An exact synchronization run identifier is required.', 'nmkr-connect'),
-        'sync_owner_recovery_required' => __('Synchronization ownership requires recovery.', 'nmkr-connect'),
-        'sync_stop_cleanup_failed' => __('Synchronization cleanup could not be verified.', 'nmkr-connect'),
-        'sync_stop_history_cleanup_failed' => __('Synchronization cleanup could not be verified.', 'nmkr-connect'),
-        'sync_stop_cleanup_pending' => __('Synchronization finalization is still pending.', 'nmkr-connect'),
-        'sync_stopped_finalization_pending' => __('Synchronization finalization is still pending.', 'nmkr-connect'),
+        'sync_already_owned' => __('A synchronization is already in progress.', 'connector-for-nmkr'),
+        'sync_finalization_pending' => __('Synchronization finalization is still pending.', 'connector-for-nmkr'),
+        'direct_stop_requires_cooperative_worker' => __('The active synchronization must be stopped cooperatively.', 'connector-for-nmkr'),
+        'sync_owner_mismatch' => __('Synchronization ownership no longer matches this run.', 'connector-for-nmkr'),
+        'invalid_run_id' => __('An exact synchronization run identifier is required.', 'connector-for-nmkr'),
+        'sync_owner_recovery_required' => __('Synchronization ownership requires recovery.', 'connector-for-nmkr'),
+        'sync_stop_cleanup_failed' => __('Synchronization cleanup could not be verified.', 'connector-for-nmkr'),
+        'sync_stop_history_cleanup_failed' => __('Synchronization cleanup could not be verified.', 'connector-for-nmkr'),
+        'sync_stop_cleanup_pending' => __('Synchronization finalization is still pending.', 'connector-for-nmkr'),
+        'sync_stopped_finalization_pending' => __('Synchronization finalization is still pending.', 'connector-for-nmkr'),
     );
     return isset($messages[$code]) ? $messages[$code] : $fallback;
 }
@@ -152,7 +152,7 @@ function nmkr_start_sync_handler() {
     check_ajax_referer('nmkr_sync_nonce', 'nonce');
     
     if ( ! current_user_can( 'nmkr_manage_sync' ) ) {
-        wp_send_json_error( array( 'message' => __( 'Forbidden', 'nmkr-connect' ) ), 403 );
+        wp_send_json_error( array( 'message' => __( 'Forbidden', 'connector-for-nmkr' ) ), 403 );
     }
 
     $admitted_run_id = '';
@@ -161,10 +161,10 @@ function nmkr_start_sync_handler() {
         $run_id = wp_generate_uuid4();
         $owner = nmkr_admit_sync_owner($run_id);
         if (!is_array($owner)) {
-            $owner_error = is_wp_error($owner) ? $owner : new WP_Error('sync_admission_failed', __('Synchronization admission failed.', 'nmkr-connect'));
+            $owner_error = is_wp_error($owner) ? $owner : new WP_Error('sync_admission_failed', __('Synchronization admission failed.', 'connector-for-nmkr'));
             $conflict = in_array($owner_error->get_error_code(), array('sync_already_owned', 'sync_finalization_pending'), true);
             wp_send_json_error(array(
-                'message' => nmkr_public_sync_error_message($owner_error->get_error_code(), __('Synchronization admission failed.', 'nmkr-connect')),
+                'message' => nmkr_public_sync_error_message($owner_error->get_error_code(), __('Synchronization admission failed.', 'connector-for-nmkr')),
                 'error_code' => $owner_error->get_error_code(),
             ), $conflict ? 409 : 503);
             return;
@@ -221,7 +221,7 @@ function nmkr_start_sync_handler() {
                 $status_code = 409;
             }
             wp_send_json_error(array(
-                'message' => __('Failed to schedule synchronization.', 'nmkr-connect'),
+                'message' => __('Failed to schedule synchronization.', 'connector-for-nmkr'),
                 'error_code' => $error_code,
             ), $status_code);
             return;
@@ -248,7 +248,7 @@ function nmkr_start_sync_handler() {
         nmkr_log_data_sync('Synchronization start initialization failed.', 'error', array('error_code' => $error_code));
         nmkr_log_ui_status('UI: Synchronization start initialization failed', 'error');
         wp_send_json_error(array(
-            'message' => __('Synchronization could not be initialized safely.', 'nmkr-connect'),
+            'message' => __('Synchronization could not be initialized safely.', 'connector-for-nmkr'),
             'error_code' => $error_code,
         ), $status_code);
     }
@@ -261,7 +261,7 @@ function nmkr_cleanup_sync_jobs_handler() {
     check_ajax_referer('nmkr_sync_nonce', 'nonce');
     
     if ( ! current_user_can( 'nmkr_manage_sync' ) ) {
-        wp_send_json_error( array( 'message' => __( 'Forbidden', 'nmkr-connect' ) ), 403 );
+        wp_send_json_error( array( 'message' => __( 'Forbidden', 'connector-for-nmkr' ) ), 403 );
     }
     
     $context = isset($_POST['context']) ? sanitize_text_field($_POST['context']) : 'manual_cleanup';
@@ -272,7 +272,7 @@ function nmkr_cleanup_sync_jobs_handler() {
     });
     if (is_wp_error($result)) {
         wp_send_json_error(array(
-            'message' => nmkr_public_sync_error_message($result->get_error_code(), __('Synchronization cleanup failed.', 'nmkr-connect')),
+            'message' => nmkr_public_sync_error_message($result->get_error_code(), __('Synchronization cleanup failed.', 'connector-for-nmkr')),
             'error_code' => $result->get_error_code(),
         ), in_array($result->get_error_code(), array('direct_stop_requires_cooperative_worker', 'sync_finalization_pending'), true) ? 409 : 503);
     }
@@ -285,7 +285,7 @@ function nmkr_cleanup_sync_jobs_handler() {
         ));
     } else {
         wp_send_json_error(array(
-            'message' => __('Synchronization cleanup failed.', 'nmkr-connect'),
+            'message' => __('Synchronization cleanup failed.', 'connector-for-nmkr'),
             'error_code' => isset($result['error_code']) ? $result['error_code'] : 'sync_cleanup_failed',
         ));
     }
@@ -303,7 +303,7 @@ function nmkr_sync_progress_handler() {
     check_ajax_referer('nmkr_sync_nonce', 'nonce');
     
     if ( ! current_user_can( 'nmkr_view_dashboard' ) ) {
-        wp_send_json_error( array( 'message' => __( 'Forbidden', 'nmkr-connect' ) ), 403 );
+        wp_send_json_error( array( 'message' => __( 'Forbidden', 'connector-for-nmkr' ) ), 403 );
     }
 
     $can_manage_sync = current_user_can( 'nmkr_manage_sync' );
@@ -407,7 +407,7 @@ function nmkr_sync_progress_handler() {
             if (ob_get_length()) { ob_clean(); }
             if ($__nmkr_prev_display_errors !== false) { @ini_set('display_errors', $__nmkr_prev_display_errors); }
             wp_send_json_error(array(
-                'message' => __('Synchronization status is temporarily unavailable.', 'nmkr-connect'),
+                'message' => __('Synchronization status is temporarily unavailable.', 'connector-for-nmkr'),
                 'error_code' => 'option_retrieval_failed'
             ));
             return;
@@ -574,7 +574,7 @@ function nmkr_sync_progress_handler() {
                         return true;
                     }
                     nmkr_log_data_sync('Stalled synchronization recovery could not verify history transition', 'error');
-                    $error = __('Synchronization recovery could not be verified.', 'nmkr-connect');
+                    $error = __('Synchronization recovery could not be verified.', 'connector-for-nmkr');
                     return false;
                 }
 
@@ -625,7 +625,7 @@ function nmkr_sync_progress_handler() {
                         return true;
                     }
                     nmkr_log_data_sync('Inactive synchronization recovery could not verify history transition', 'error');
-                    $error = __('Synchronization recovery could not be verified.', 'nmkr-connect');
+                    $error = __('Synchronization recovery could not be verified.', 'connector-for-nmkr');
                     return false;
                 }
 
@@ -767,7 +767,7 @@ function nmkr_sync_progress_handler() {
         if (ob_get_length()) { ob_clean(); }
         if ($__nmkr_prev_display_errors !== false) { @ini_set('display_errors', $__nmkr_prev_display_errors); }
         wp_send_json_error(array(
-            'message' => __('Synchronization encountered a critical error.', 'nmkr-connect'),
+            'message' => __('Synchronization encountered a critical error.', 'connector-for-nmkr'),
             'error_code' => 'sync_critical_error',
             'progress' => $progress
         ));
@@ -826,7 +826,7 @@ function nmkr_sync_progress_handler() {
 function nmkr_stop_sync_handler() {
     check_ajax_referer('nmkr_sync_nonce', 'nonce');
     if (!current_user_can('nmkr_manage_sync')) {
-        wp_send_json_error(array('message' => __('Forbidden', 'nmkr-connect')), 403);
+        wp_send_json_error(array('message' => __('Forbidden', 'connector-for-nmkr')), 403);
     }
     $run_id = isset($_POST['run_id']) ? sanitize_text_field(wp_unslash($_POST['run_id'])) : '';
     $owner = nmkr_get_sync_owner();
@@ -834,10 +834,10 @@ function nmkr_stop_sync_handler() {
     // stale browser request fall through into destructive legacy cleanup.
     if ($run_id !== '') {
         if (!nmkr_is_valid_sync_run_id($run_id) || !is_array($owner)) {
-            wp_send_json_error(array('message' => __('Synchronization ownership no longer matches this run.', 'nmkr-connect'), 'error_code' => 'sync_owner_mismatch'), 409);
+            wp_send_json_error(array('message' => __('Synchronization ownership no longer matches this run.', 'connector-for-nmkr'), 'error_code' => 'sync_owner_mismatch'), 409);
         }
         $result = nmkr_request_exact_sync_stop($run_id, 'user_requested');
-        if (is_wp_error($result)) wp_send_json_error(array('message' => nmkr_public_sync_error_message($result->get_error_code(), __('Synchronization could not be stopped.', 'nmkr-connect')), 'error_code' => $result->get_error_code()), 409);
+        if (is_wp_error($result)) wp_send_json_error(array('message' => nmkr_public_sync_error_message($result->get_error_code(), __('Synchronization could not be stopped.', 'connector-for-nmkr')), 'error_code' => $result->get_error_code()), 409);
         if ($result === true) wp_send_json_success(array('run_id' => $run_id, 'owner_state' => 'released', 'completed' => true, 'terminal_outcome' => 'cancelled'));
         if (is_array($result) && ($result['state'] ?? '') === 'stop_requested') {
             $recovered = nmkr_resume_stopped_sync_recovery($run_id, (int) ($result['sync_stats_id'] ?? ($owner['sync_stats_id'] ?? 0)));
@@ -846,13 +846,13 @@ function nmkr_stop_sync_handler() {
             }
             wp_send_json_success(array('run_id' => $run_id, 'owner_state' => 'stop_requested', 'stop_pending' => true, 'completed' => false));
         }
-        wp_send_json_error(array('message' => __('Synchronization ownership no longer matches this run.', 'nmkr-connect'), 'error_code' => 'sync_owner_mismatch'), 409);
+        wp_send_json_error(array('message' => __('Synchronization ownership no longer matches this run.', 'connector-for-nmkr'), 'error_code' => 'sync_owner_mismatch'), 409);
     }
     if (is_array($owner)) {
-        wp_send_json_error(array('message' => __('An exact synchronization run identifier is required.', 'nmkr-connect'), 'error_code' => 'invalid_run_id'), 400);
+        wp_send_json_error(array('message' => __('An exact synchronization run identifier is required.', 'connector-for-nmkr'), 'error_code' => 'invalid_run_id'), 400);
     }
     if ($owner !== false) {
-        wp_send_json_error(array('message' => __('Synchronization ownership requires recovery.', 'nmkr-connect'), 'error_code' => 'sync_owner_recovery_required'), 409);
+        wp_send_json_error(array('message' => __('Synchronization ownership requires recovery.', 'connector-for-nmkr'), 'error_code' => 'sync_owner_recovery_required'), 409);
     }
     // Legacy ownerless Stop remains supported, but it is never selected for a direct run.
     $force = !empty($_POST['force']);
@@ -861,10 +861,10 @@ function nmkr_stop_sync_handler() {
     });
     if (is_wp_error($result)) {
         $code = $result->get_error_code();
-        wp_send_json_error(array('message' => nmkr_public_sync_error_message($code, __('Synchronization could not be stopped.', 'nmkr-connect')), 'error_code' => $code), 409);
+        wp_send_json_error(array('message' => nmkr_public_sync_error_message($code, __('Synchronization could not be stopped.', 'connector-for-nmkr')), 'error_code' => $code), 409);
     }
     if (is_array($result) && !empty($result['success'])) wp_send_json_success($result);
-    wp_send_json_error(array('message' => __('Synchronization cleanup could not be verified.', 'nmkr-connect'), 'error_code' => 'sync_stop_cleanup_failed'), 503);
+    wp_send_json_error(array('message' => __('Synchronization cleanup could not be verified.', 'connector-for-nmkr'), 'error_code' => 'sync_stop_cleanup_failed'), 503);
 
 }
 
@@ -875,13 +875,13 @@ function nmkr_restart_sync_batch_handler() {
     check_ajax_referer('nmkr_sync_nonce', 'nonce');
     
     if ( ! current_user_can( 'nmkr_manage_sync' ) ) {
-        wp_send_json_error( array( 'message' => __( 'Forbidden', 'nmkr-connect' ) ), 403 );
+        wp_send_json_error( array( 'message' => __( 'Forbidden', 'connector-for-nmkr' ) ), 403 );
     }
     
     // No supported batch admission lifecycle exists. Keep the endpoint for
     // compatibility, but never let option-shaped data activate this engine.
     wp_send_json_error(array(
-        'message' => __('Batch restart is unavailable.', 'nmkr-connect'),
+        'message' => __('Batch restart is unavailable.', 'connector-for-nmkr'),
         'error_code' => 'batch_mode_unsupported',
     ), 409);
     return;
@@ -952,7 +952,7 @@ function nmkr_force_stop_sync_handler() {
         check_ajax_referer('nmkr_sync_nonce', 'nonce');
         
         if ( ! current_user_can( 'nmkr_manage_sync' ) ) {
-            wp_send_json_error( array( 'message' => __( 'Forbidden', 'nmkr-connect' ) ), 403 );
+            wp_send_json_error( array( 'message' => __( 'Forbidden', 'connector-for-nmkr' ) ), 403 );
             wp_die();
         }
         
@@ -996,7 +996,7 @@ function nmkr_force_stop_sync_handler() {
         } catch (Exception $e) {
             nmkr_log_data_sync('Force stop execution failed: ' . $e->getMessage(), 'error');
             wp_send_json_error(array(
-                'message' => __('Synchronization could not be force stopped.', 'nmkr-connect'),
+                'message' => __('Synchronization could not be force stopped.', 'connector-for-nmkr'),
                 'error_code' => 'force_stop_execution_failed'
             ));
             wp_die();
@@ -1046,7 +1046,7 @@ function nmkr_force_stop_sync_handler() {
             nmkr_log_ui_status('UI: Force stop failed, showing error message to user', 'error');
             
             wp_send_json_error(array(
-                'message' => nmkr_public_sync_error_message(isset($result['error_code']) ? $result['error_code'] : '', __('Synchronization could not be force stopped.', 'nmkr-connect')),
+                'message' => nmkr_public_sync_error_message(isset($result['error_code']) ? $result['error_code'] : '', __('Synchronization could not be force stopped.', 'connector-for-nmkr')),
                 'error_code' => isset($result['error_code']) ? $result['error_code'] : 'force_stop_failed',
                 'context' => $context
             ), in_array(isset($result['error_code']) ? $result['error_code'] : '', array('direct_stop_requires_cooperative_worker', 'sync_finalization_pending'), true) ? 409 : 500);
@@ -1064,7 +1064,7 @@ function nmkr_force_stop_sync_handler() {
         nmkr_log_ui_status('UI: Critical error during force stop - displaying generic error message', 'error');
         
         wp_send_json_error(array(
-            'message' => __('Synchronization could not be force stopped.', 'nmkr-connect'),
+            'message' => __('Synchronization could not be force stopped.', 'connector-for-nmkr'),
             'error_code' => 'force_stop_handler_failure'
         ));
     }
@@ -1081,7 +1081,7 @@ function nmkr_check_sync_health_handler() {
     check_ajax_referer('nmkr_sync_nonce', 'nonce');
     
     if ( ! current_user_can( 'nmkr_view_dashboard' ) ) {
-        wp_send_json_error( array( 'message' => __( 'Forbidden', 'nmkr-connect' ) ), 403 );
+        wp_send_json_error( array( 'message' => __( 'Forbidden', 'connector-for-nmkr' ) ), 403 );
     }
     
     // Log UI status update for health check request

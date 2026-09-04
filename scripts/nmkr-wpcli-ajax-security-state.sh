@@ -3,7 +3,7 @@ set -Eeuo pipefail
 fail(){ printf 'ajax_security_state_failed\n' >&2; exit 1; }
 [[ -n "${WP_PATH:-}" ]] || fail
 WP_CLI_BIN="${WP_CLI_BIN:-wp}"; command -v "$WP_CLI_BIN" >/dev/null 2>&1 || fail
-PLUGIN="${NMKR_PLUGIN_SLUG:-nmkr-connect/nmkr-connect.php}"
+PLUGIN="${NMKR_PLUGIN_SLUG:-connector-for-nmkr/nmkr-connect.php}"
 "$WP_CLI_BIN" --path="$WP_PATH" core is-installed --quiet >/dev/null 2>&1 || fail
 "$WP_CLI_BIN" --path="$WP_PATH" plugin is-active "$PLUGIN" >/dev/null 2>&1 || fail
 MODE="${1:-digest}"; [[ "$MODE" == digest || "$MODE" == sync || "$MODE" == idle ]] || fail
