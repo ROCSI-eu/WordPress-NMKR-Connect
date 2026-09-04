@@ -3,7 +3,7 @@ set -euo pipefail
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$root"
 test -z "$(git status --porcelain=v1)" || { echo 'Package source must be an exact clean tree.' >&2; exit 1; }
-slug=${NMKR_PACKAGE_DIR:-nmkr-connect}
+slug=${NMKR_PACKAGE_DIR:-connector-for-nmkr}
 [[ "$slug" =~ ^[a-z0-9][a-z0-9._-]*$ ]] || { echo 'Invalid package directory name.' >&2; exit 1; }
 out=${1:-"$root/dist"}
 mkdir -p "$out"
