@@ -1,6 +1,6 @@
 <?php
 /**
- * Connector for NMKR - Settings Sections Module
+ * NMKR Connect - Settings Sections Module
  *
  * Defines all settings sections and field callbacks for the settings page.
  *
@@ -329,19 +329,19 @@ function nmkr_debug_enabled_field_callback() {
            <?php checked(1, $debug_enabled); ?>
     />
     <p class="description">
-        <?php esc_html_e('Enable this to unlock the logging controls below. This setting does not write logs by itself; select at least one logging destination and one log category for logs to be written.', 'connector-for-nmkr'); ?>
+        <?php esc_html_e('Enable this to unlock the logging controls below. This setting does not write logs by itself; select at least one logging destination and one log category for logs to be written.', 'nmkr-connect'); ?>
     </p>
     <div id="nmkr-dashboard-sync-logging-status"
          class="<?php echo esc_attr($dashboard_sync_logging_active ? 'notice notice-success inline' : 'notice notice-warning inline'); ?>"
          style="margin-top: 10px; padding: 8px 12px;">
         <p style="margin: 0;">
-            <strong><?php esc_html_e('Dashboard Sync Logging:', 'connector-for-nmkr'); ?></strong>
+            <strong><?php esc_html_e('Dashboard Sync Logging:', 'nmkr-connect'); ?></strong>
             <span id="nmkr-dashboard-sync-logging-status-text">
                 <?php
                 echo esc_html(
                     $dashboard_sync_logging_active
-                        ? __('Dashboard Sync Logging is active. Sync logs will be stored for the Dashboard Debug Logs panel.', 'connector-for-nmkr')
-                        : __('Dashboard Sync Logging is not active. To see sync logs in the Dashboard, enable Debug Logging Controls, Enable Logging to Dashboard Logs, and Enable Data Synchronization Logging.', 'connector-for-nmkr')
+                        ? __('Dashboard Sync Logging is active. Sync logs will be stored for the Dashboard Debug Logs panel.', 'nmkr-connect')
+                        : __('Dashboard Sync Logging is not active. To see sync logs in the Dashboard, enable Debug Logging Controls, Enable Logging to Dashboard Logs, and Enable Data Synchronization Logging.', 'nmkr-connect')
                 );
                 ?>
             </span>
@@ -360,8 +360,8 @@ function nmkr_debug_enabled_field_callback() {
             const logRetentionLimitInput = document.getElementById('nmkr_log_retention_limit');
             const dashboardSyncLoggingStatus = document.getElementById('nmkr-dashboard-sync-logging-status');
             const dashboardSyncLoggingStatusText = document.getElementById('nmkr-dashboard-sync-logging-status-text');
-            const dashboardSyncLoggingActiveText = <?php echo wp_json_encode(__('Dashboard Sync Logging is active. Sync logs will be stored for the Dashboard Debug Logs panel.', 'connector-for-nmkr')); ?>;
-            const dashboardSyncLoggingInactiveText = <?php echo wp_json_encode(__('Dashboard Sync Logging is not active. To see sync logs in the Dashboard, enable Debug Logging Controls, Enable Logging to Dashboard Logs, and Enable Data Synchronization Logging.', 'connector-for-nmkr')); ?>;
+            const dashboardSyncLoggingActiveText = <?php echo wp_json_encode(__('Dashboard Sync Logging is active. Sync logs will be stored for the Dashboard Debug Logs panel.', 'nmkr-connect')); ?>;
+            const dashboardSyncLoggingInactiveText = <?php echo wp_json_encode(__('Dashboard Sync Logging is not active. To see sync logs in the Dashboard, enable Debug Logging Controls, Enable Logging to Dashboard Logs, and Enable Data Synchronization Logging.', 'nmkr-connect')); ?>;
             
             if (!debugCheckbox || !logToDebugFileCheckbox || !logToDashboardCheckbox ||
                 !syncDebugCheckbox || !apiDebugCheckbox || !uiDebugCheckbox ||
@@ -373,17 +373,25 @@ function nmkr_debug_enabled_field_callback() {
             // Function to update the state of all dependent checkboxes
             function updateDependentCheckboxes() {
                 if (debugCheckbox.checked) {
+                    // Enable destination toggles when master debug is enabled
                     logToDebugFileCheckbox.disabled = false;
                     logToDashboardCheckbox.disabled = false;
+                    
+                    // Enable log retention limit input when debug is enabled
                     logRetentionLimitInput.disabled = false;
+                    
+                    // Check if at least one destination is selected
                     const hasDestination = logToDebugFileCheckbox.checked || logToDashboardCheckbox.checked;
+                    
                     if (hasDestination) {
+                        // Enable log type checkboxes when master debug is on AND at least one destination is selected
                         syncDebugCheckbox.disabled = false;
                         apiDebugCheckbox.disabled = false;
                         uiDebugCheckbox.disabled = false;
                         performanceDebugCheckbox.disabled = false;
                         logThrottleCheckbox.disabled = false;
                     } else {
+                        // Disable and uncheck log type checkboxes when no destination is selected
                         syncDebugCheckbox.disabled = true;
                         syncDebugCheckbox.checked = false;
                         apiDebugCheckbox.disabled = true;
@@ -396,11 +404,15 @@ function nmkr_debug_enabled_field_callback() {
                         logThrottleCheckbox.checked = false;
                     }
                 } else {
+                    // If master debug is disabled, disable and uncheck all dependent options
                     logToDebugFileCheckbox.disabled = true;
                     logToDebugFileCheckbox.checked = false;
                     logToDashboardCheckbox.disabled = true;
                     logToDashboardCheckbox.checked = false;
+                    
+                    // Disable log retention limit input when debug is disabled
                     logRetentionLimitInput.disabled = true;
+                    
                     syncDebugCheckbox.disabled = true;
                     syncDebugCheckbox.checked = false;
                     apiDebugCheckbox.disabled = true;
@@ -421,7 +433,10 @@ function nmkr_debug_enabled_field_callback() {
                     : dashboardSyncLoggingInactiveText;
             }
             
+            // Initial state
             updateDependentCheckboxes();
+            
+            // Add event listeners for changes
             debugCheckbox.addEventListener('change', updateDependentCheckboxes);
             logToDebugFileCheckbox.addEventListener('change', updateDependentCheckboxes);
             logToDashboardCheckbox.addEventListener('change', updateDependentCheckboxes);
@@ -460,7 +475,7 @@ function nmkr_log_to_dashboard_field_callback() {
            <?php checked(1, $log_to_dashboard); ?>
     />
     <p class="description">
-        <?php esc_html_e('Enable this option to store debug logs in the WordPress database. This destination is required to view sync logs in the Dashboard Debug Logs panel.', 'connector-for-nmkr'); ?>
+        <?php esc_html_e('Enable this option to store debug logs in the WordPress database. This destination is required to view sync logs in the Dashboard Debug Logs panel.', 'nmkr-connect'); ?>
     </p>
     <?php if ($log_to_dashboard): ?>
         <p style="margin-top: 10px;">
@@ -485,7 +500,9 @@ function nmkr_api_debug_enabled_field_callback() {
            <?php checked(1, $api_debug_enabled); ?>
            <?php disabled(!$debug_enabled || !$has_destination, true); ?>
     />
-    <p class="description">Enable this option to write API connection status logs.</p>
+    <p class="description">
+        Enable this option to write API connection status logs.
+    </p>
     <?php
 }
 
@@ -504,7 +521,7 @@ function nmkr_sync_debug_enabled_field_callback() {
            <?php disabled(!$debug_enabled || !$has_destination, true); ?>
     />
     <p class="description">
-        <?php esc_html_e('Enable this option to write data synchronization logs, including sync start, progress, completion, stop, and error entries.', 'connector-for-nmkr'); ?>
+        <?php esc_html_e('Enable this option to write data synchronization logs, including sync start, progress, completion, stop, and error entries.', 'nmkr-connect'); ?>
     </p>
     <?php
 }
@@ -523,7 +540,9 @@ function nmkr_ui_debug_enabled_field_callback() {
            <?php checked(1, $ui_debug_enabled); ?>
            <?php disabled(!$debug_enabled || !$has_destination, true); ?>
     />
-    <p class="description">Enable this option to write user interface status logs.</p>
+    <p class="description">
+        Enable this option to write user interface status logs.
+    </p>
     <?php
 }
 
@@ -541,7 +560,9 @@ function nmkr_performance_debug_enabled_field_callback() {
            <?php checked(1, $performance_debug_enabled); ?>
            <?php disabled(!$debug_enabled || !$has_destination, true); ?>
     />
-    <p class="description">Enable this option to write performance tracking logs.</p>
+    <p class="description">
+        Enable this option to write performance tracking logs.
+    </p>
     <?php
 }
 
@@ -559,7 +580,9 @@ function nmkr_log_throttle_enabled_field_callback() {
            <?php checked(1, $log_throttle_enabled); ?>
            <?php disabled(!$debug_enabled || !$has_destination, true); ?>
     />
-    <p class="description">Enable this option to reduce repetitive logs during sync, such as retries and progress updates. Improves performance and reduces debug.log clutter.</p>
+    <p class="description">
+        Enable this option to reduce repetitive logs during sync, such as retries and progress updates. Improves performance and reduces debug.log clutter.
+    </p>
     <?php
 }
 
@@ -579,13 +602,15 @@ function nmkr_log_retention_limit_field_callback() {
            class="small-text"
            <?php disabled(!$debug_enabled, true); ?>
     />
-    <p class="description">Specify how many log entries to keep per log type in the Dashboard. Applies only to database logs. Default is 100.</p>
+    <p class="description">
+        Specify how many log entries to keep per log type in the Dashboard. Applies only to database logs. Default is 100.
+    </p>
     <?php
 }
 
 // Analytics & Privacy Section Callback
 function nmkr_connect_analytics_section_callback() {
-    echo '<p>' . __('Analytics is optional and disabled by default. Local mode stores events in this WordPress database; GA4 modes send configured event data to Google. Review consent, retention, and uninstall settings for your site.', 'connector-for-nmkr') . '</p>';
+    echo '<p>' . __('Analytics is optional and disabled by default. Local mode stores events in this WordPress database; GA4 modes send configured event data to Google. Review consent, retention, and uninstall settings for your site.', 'nmkr-connect') . '</p>';
 }
 
 // Analytics Mode Field Callback
@@ -594,87 +619,165 @@ function nmkr_analytics_mode_field_callback() {
     $analytics_mode = isset($options['analytics_mode']) ? $options['analytics_mode'] : 'off';
     ?>
     <select name="nmkr_connect_options[analytics_mode]" id="nmkr_analytics_mode">
-        <option value="off" <?php selected('off', $analytics_mode); ?>><?php _e('Off', 'connector-for-nmkr'); ?></option>
-        <option value="custom" <?php selected('custom', $analytics_mode); ?>><?php _e('Custom (Plugin DB only)', 'connector-for-nmkr'); ?></option>
-        <option value="ga4" <?php selected('ga4', $analytics_mode); ?>><?php _e('GA4 only (no DB)', 'connector-for-nmkr'); ?></option>
-        <option value="both" <?php selected('both', $analytics_mode); ?>><?php _e('Both (GA4 + Plugin DB)', 'connector-for-nmkr'); ?></option>
+        <option value="off" <?php selected('off', $analytics_mode); ?>><?php _e('Off', 'nmkr-connect'); ?></option>
+        <option value="custom" <?php selected('custom', $analytics_mode); ?>><?php _e('Custom (Plugin DB only)', 'nmkr-connect'); ?></option>
+        <option value="ga4" <?php selected('ga4', $analytics_mode); ?>><?php _e('GA4 only (no DB)', 'nmkr-connect'); ?></option>
+        <option value="both" <?php selected('both', $analytics_mode); ?>><?php _e('Both (GA4 + Plugin DB)', 'nmkr-connect'); ?></option>
     </select>
-    <p class="description"><?php _e('off: no tracking; custom: store events in plugin DB only; ga4: send to Google Analytics 4 only; both: GA4 + plugin DB.', 'connector-for-nmkr'); ?></p>
+    <p class="description">
+        <?php _e('off: no tracking; custom: store events in plugin DB only; ga4: send to Google Analytics 4 only; both: GA4 + plugin DB.', 'nmkr-connect'); ?>
+    </p>
     <?php
 }
 
+// Analytics Retention Days Field Callback
 function nmkr_analytics_retention_days_field_callback() {
     $options = get_option('nmkr_connect_options');
     $analytics_retention_days = isset($options['analytics_retention_days']) ? $options['analytics_retention_days'] : 90;
     ?>
-    <input type="number" name="nmkr_connect_options[analytics_retention_days]" id="nmkr_analytics_retention_days" value="<?php echo esc_attr($analytics_retention_days); ?>" min="7" max="365" step="1" class="small-text" />
-    <p class="description"><?php _e('Number of days to retain analytics data before automatic cleanup.', 'connector-for-nmkr'); ?></p>
+    <input type="number" 
+           name="nmkr_connect_options[analytics_retention_days]" 
+           id="nmkr_analytics_retention_days"
+           value="<?php echo esc_attr($analytics_retention_days); ?>"
+           min="7"
+           max="365"
+           step="1"
+           class="small-text"
+    />
+    <p class="description">
+        <?php _e('Number of days to retain analytics data before automatic cleanup.', 'nmkr-connect'); ?>
+    </p>
     <?php
 }
 
+// Track Logged In Users Field Callback
 function nmkr_analytics_track_logged_in_field_callback() {
     $options = get_option('nmkr_connect_options');
     $analytics_track_logged_in = isset($options['analytics_track_logged_in']) ? $options['analytics_track_logged_in'] : false;
     ?>
-    <input type="checkbox" name="nmkr_connect_options[analytics_track_logged_in]" id="nmkr_analytics_track_logged_in" value="1" <?php checked(1, $analytics_track_logged_in); ?> />
-    <p class="description"><?php _e('Track engagement events for logged-in users (user_id will be stored).', 'connector-for-nmkr'); ?></p>
+    <input type="checkbox" 
+           name="nmkr_connect_options[analytics_track_logged_in]" 
+           id="nmkr_analytics_track_logged_in"
+           value="1"
+           <?php checked(1, $analytics_track_logged_in); ?>
+    />
+    <p class="description">
+        <?php _e('Track engagement events for logged-in users (user_id will be stored).', 'nmkr-connect'); ?>
+    </p>
     <?php
 }
 
+// Require Consent Field Callback
 function nmkr_analytics_require_consent_field_callback() {
     $options = get_option('nmkr_connect_options');
     $analytics_require_consent = isset($options['analytics_require_consent']) ? $options['analytics_require_consent'] : true;
     ?>
-    <input type="checkbox" name="nmkr_connect_options[analytics_require_consent]" id="nmkr_analytics_require_consent" value="1" <?php checked(1, $analytics_require_consent); ?> />
-    <p class="description"><?php _e('Require explicit user consent before tracking any analytics events.', 'connector-for-nmkr'); ?></p>
+    <input type="checkbox" 
+           name="nmkr_connect_options[analytics_require_consent]" 
+           id="nmkr_analytics_require_consent"
+           value="1"
+           <?php checked(1, $analytics_require_consent); ?>
+    />
+    <p class="description">
+        <?php _e('Require explicit user consent before tracking any analytics events.', 'nmkr-connect'); ?>
+    </p>
     <?php
 }
 
+// Sample Rate Field Callback
 function nmkr_analytics_sample_rate_field_callback() {
     $options = get_option('nmkr_connect_options');
     $analytics_sample_rate = isset($options['analytics_sample_rate']) ? $options['analytics_sample_rate'] : 1.0;
     ?>
-    <input type="number" name="nmkr_connect_options[analytics_sample_rate]" id="nmkr_analytics_sample_rate" value="<?php echo esc_attr($analytics_sample_rate); ?>" min="0" max="1" step="0.01" class="small-text" />
-    <p class="description"><?php _e('0 disables; 1.0 = 100% of events.', 'connector-for-nmkr'); ?></p>
+    <input type="number" 
+           name="nmkr_connect_options[analytics_sample_rate]" 
+           id="nmkr_analytics_sample_rate"
+           value="<?php echo esc_attr($analytics_sample_rate); ?>"
+           min="0"
+           max="1"
+           step="0.01"
+           class="small-text"
+    />
+    <p class="description">
+        <?php _e('0 disables; 1.0 = 100% of events.', 'nmkr-connect'); ?>
+    </p>
     <?php
 }
 
+// Remove on Uninstall Field Callback
 function nmkr_analytics_remove_on_uninstall_field_callback() {
     $options = get_option('nmkr_connect_options');
     $analytics_remove_on_uninstall = isset($options['analytics_remove_on_uninstall']) ? $options['analytics_remove_on_uninstall'] : true;
     ?>
-    <input type="checkbox" name="nmkr_connect_options[analytics_remove_on_uninstall]" id="nmkr_analytics_remove_on_uninstall" value="1" <?php checked(1, $analytics_remove_on_uninstall); ?> />
-    <p class="description"><?php _e('Remove all analytics data when the plugin is uninstalled.', 'connector-for-nmkr'); ?></p>
+    <input type="checkbox" 
+           name="nmkr_connect_options[analytics_remove_on_uninstall]" 
+           id="nmkr_analytics_remove_on_uninstall"
+           value="1"
+           <?php checked(1, $analytics_remove_on_uninstall); ?>
+    />
+    <p class="description">
+        <?php _e('Remove all analytics data when the plugin is uninstalled.', 'nmkr-connect'); ?>
+    </p>
     <?php
 }
 
+// Analytics Debug Field Callback
 function nmkr_analytics_debug_field_callback() {
     $options = get_option('nmkr_connect_options');
     $analytics_debug = isset($options['analytics_debug']) ? $options['analytics_debug'] : false;
     ?>
-    <input type="checkbox" name="nmkr_connect_options[analytics_debug]" id="nmkr_analytics_debug" value="1" <?php checked(1, $analytics_debug); ?> />
-    <p class="description"><?php _e('Enable debug logging for analytics events (requires debug logging to be enabled).', 'connector-for-nmkr'); ?></p>
+    <input type="checkbox" 
+           name="nmkr_connect_options[analytics_debug]" 
+           id="nmkr_analytics_debug"
+           value="1"
+           <?php checked(1, $analytics_debug); ?>
+    />
+    <p class="description">
+        <?php _e('Enable debug logging for analytics events (requires debug logging to be enabled).', 'nmkr-connect'); ?>
+    </p>
     <?php
 }
 
+// GA4 Measurement ID Field Callback
 function nmkr_ga4_measurement_id_field_callback() {
     $options = get_option('nmkr_connect_options');
     $measurement_id = isset($options['nmkr_ga4_measurement_id']) ? $options['nmkr_ga4_measurement_id'] : '';
     ?>
-    <input type="text" name="nmkr_connect_options[nmkr_ga4_measurement_id]" id="nmkr_ga4_measurement_id" value="<?php echo esc_attr($measurement_id); ?>" class="regular-text" placeholder="G-XXXXXXXXXX" />
-    <p class="description"><?php _e('Google Analytics 4 Measurement ID (e.g., G-XXXXXXXXXX).', 'connector-for-nmkr'); ?></p>
+    <input type="text"
+           name="nmkr_connect_options[nmkr_ga4_measurement_id]"
+           id="nmkr_ga4_measurement_id"
+           value="<?php echo esc_attr($measurement_id); ?>"
+           class="regular-text"
+           placeholder="G-XXXXXXXXXX"
+    />
+    <p class="description">
+        <?php _e('Google Analytics 4 Measurement ID (e.g., G-XXXXXXXXXX).', 'nmkr-connect'); ?>
+    </p>
     <?php
 }
 
+// GA4 API Secret Field Callback
 function nmkr_ga4_api_secret_field_callback() {
     $options = get_option('nmkr_connect_options');
     $api_secret = isset($options['nmkr_ga4_api_secret']) ? $options['nmkr_ga4_api_secret'] : '';
     ?>
-    <input type="password" name="nmkr_connect_options[nmkr_ga4_api_secret]" id="nmkr_ga4_api_secret" value="<?php echo esc_attr($api_secret); ?>" class="regular-text" />
-    <p class="description"><?php _e('GA4 API Secret. Used server-side only when a GA4 mode and valid configuration are deliberately selected; it is never displayed or logged.', 'connector-for-nmkr'); ?></p>
+    <input type="password"
+           name="nmkr_connect_options[nmkr_ga4_api_secret]"
+           id="nmkr_ga4_api_secret"
+           value="<?php echo esc_attr($api_secret); ?>"
+           class="regular-text"
+    />
+    <p class="description">
+        <?php _e('GA4 API Secret. Used server-side only when a GA4 mode and valid configuration are deliberately selected; it is never displayed or logged.', 'nmkr-connect'); ?>
+    </p>
     <?php
 }
 
+/**
+ * Get synchronization profiles with their predefined settings
+ * 
+ * @return array An array of synchronization profiles with their settings
+ */
 function nmkr_get_sync_profiles() {
     return array(
         'light' => array(
@@ -713,6 +816,9 @@ function nmkr_get_sync_profiles() {
                 'sync_max_errors' => 2
             )
         ),
-        'custom' => array('name' => 'Custom (Manually configured)', 'settings' => array())
+        'custom' => array(
+            'name' => 'Custom (Manually configured)',
+            'settings' => array()
+        )
     );
 }
