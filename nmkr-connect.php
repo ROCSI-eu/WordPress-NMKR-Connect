@@ -1,13 +1,14 @@
 <?php
 /*
-Plugin Name: NMKR Connect
-Description: WordPress plugin to display and manage Cardano and Solana NFTs via NMKR.
+Plugin Name: Connector for NMKR
+Description: WordPress plugin to synchronize and display NMKR Studio projects and tokens.
 Version: 1.0.0
 Requires at least: 5.8
 Requires PHP: 7.4
 License: MIT
 License URI: https://opensource.org/license/mit/
 Author: Romanian - European Cyber Space Initiative 🇷🇴 🇪🇺 🌐
+Text Domain: connector-for-nmkr
 */
 
 // Exit if accessed directly
@@ -360,55 +361,55 @@ function nmkr_enqueue_admin_assets($hook) {
                 // Reuse existing dashboard nonce; endpoints will check this in PR-2+
                 'nonce'    => wp_create_nonce( 'nmkr_dashboard_nonce' ),
                 'i18n' => array(
-                'title'         => esc_html__( 'Analytics', 'nmkr-connect' ),
-                'loading'       => esc_html__( 'Loading…', 'nmkr-connect' ),
-                'noData'        => esc_html__( 'No data yet for the selected range.', 'nmkr-connect' ),
-                'invalidRange'  => esc_html__( 'Custom range must be ≤ 365 days.', 'nmkr-connect' ),
-                'apply'         => esc_html__( 'Apply', 'nmkr-connect' ),
-                'from'          => esc_html__( 'From', 'nmkr-connect' ),
-                'to'            => esc_html__( 'To', 'nmkr-connect' ),
-                'range'         => esc_html__( 'Range', 'nmkr-connect' ),
-                'shortcodeType' => esc_html__( 'Shortcode type', 'nmkr-connect' ),
-                'views'         => esc_html__( 'Views', 'nmkr-connect' ),
-                'clicks'        => esc_html__( 'Clicks', 'nmkr-connect' ),
-                'ctr'           => esc_html__( 'CTR', 'nmkr-connect' ),
-                'sort'          => esc_html__( 'Sort', 'nmkr-connect' ),
-                'topProjects'   => esc_html__( 'Top Projects', 'nmkr-connect' ),
-                'topTokens'     => esc_html__( 'Top Tokens',   'nmkr-connect' ),
-                'uid'           => esc_html__( 'UID',          'nmkr-connect' ),
-                'searchUid'     => esc_html__( 'Search UID prefix', 'nmkr-connect' ),
-                'search'        => esc_html__( 'Search',       'nmkr-connect' ),
-                'reset'         => esc_html__( 'Reset',        'nmkr-connect' ),
-                'prev'          => esc_html__( 'Prev',         'nmkr-connect' ),
-                'next'          => esc_html__( 'Next',         'nmkr-connect' ),
-                'page'          => esc_html__( 'Page',         'nmkr-connect' ),
-                'of'            => esc_html__( 'of',           'nmkr-connect' ),
-                'noResults'     => esc_html__( 'No results found.', 'nmkr-connect' ),
-                'error'         => esc_html__( 'Something went wrong.', 'nmkr-connect' ),
-                'exports'       => esc_html__( 'Exports', 'nmkr-connect' ),
-                'exportWhat'    => esc_html__( 'Data', 'nmkr-connect' ),
-                'exportFormat'  => esc_html__( 'Format', 'nmkr-connect' ),
-                'timeseries'    => esc_html__( 'Timeseries', 'nmkr-connect' ),
-                'breakdown'     => esc_html__( 'Shortcode Breakdown', 'nmkr-connect' ),
-                'csv'           => esc_html__( 'CSV', 'nmkr-connect' ),
-                'json'          => esc_html__( 'JSON', 'nmkr-connect' ),
-                'download'      => esc_html__( 'Download', 'nmkr-connect' ),
-                'currentView'   => esc_html__( 'Current view/page', 'nmkr-connect' ),
-                'noteExport'    => esc_html__( 'Exports reflect current filters; top lists export the current page.', 'nmkr-connect' ),
+                'title'         => esc_html__( 'Analytics', 'connector-for-nmkr' ),
+                'loading'       => esc_html__( 'Loading…', 'connector-for-nmkr' ),
+                'noData'        => esc_html__( 'No data yet for the selected range.', 'connector-for-nmkr' ),
+                'invalidRange'  => esc_html__( 'Custom range must be ≤ 365 days.', 'connector-for-nmkr' ),
+                'apply'         => esc_html__( 'Apply', 'connector-for-nmkr' ),
+                'from'          => esc_html__( 'From', 'connector-for-nmkr' ),
+                'to'            => esc_html__( 'To', 'connector-for-nmkr' ),
+                'range'         => esc_html__( 'Range', 'connector-for-nmkr' ),
+                'shortcodeType' => esc_html__( 'Shortcode type', 'connector-for-nmkr' ),
+                'views'         => esc_html__( 'Views', 'connector-for-nmkr' ),
+                'clicks'        => esc_html__( 'Clicks', 'connector-for-nmkr' ),
+                'ctr'           => esc_html__( 'CTR', 'connector-for-nmkr' ),
+                'sort'          => esc_html__( 'Sort', 'connector-for-nmkr' ),
+                'topProjects'   => esc_html__( 'Top Projects', 'connector-for-nmkr' ),
+                'topTokens'     => esc_html__( 'Top Tokens',   'connector-for-nmkr' ),
+                'uid'           => esc_html__( 'UID',          'connector-for-nmkr' ),
+                'searchUid'     => esc_html__( 'Search UID prefix', 'connector-for-nmkr' ),
+                'search'        => esc_html__( 'Search',       'connector-for-nmkr' ),
+                'reset'         => esc_html__( 'Reset',        'connector-for-nmkr' ),
+                'prev'          => esc_html__( 'Prev',         'connector-for-nmkr' ),
+                'next'          => esc_html__( 'Next',         'connector-for-nmkr' ),
+                'page'          => esc_html__( 'Page',         'connector-for-nmkr' ),
+                'of'            => esc_html__( 'of',           'connector-for-nmkr' ),
+                'noResults'     => esc_html__( 'No results found.', 'connector-for-nmkr' ),
+                'error'         => esc_html__( 'Something went wrong.', 'connector-for-nmkr' ),
+                'exports'       => esc_html__( 'Exports', 'connector-for-nmkr' ),
+                'exportWhat'    => esc_html__( 'Data', 'connector-for-nmkr' ),
+                'exportFormat'  => esc_html__( 'Format', 'connector-for-nmkr' ),
+                'timeseries'    => esc_html__( 'Timeseries', 'connector-for-nmkr' ),
+                'breakdown'     => esc_html__( 'Shortcode Breakdown', 'connector-for-nmkr' ),
+                'csv'           => esc_html__( 'CSV', 'connector-for-nmkr' ),
+                'json'          => esc_html__( 'JSON', 'connector-for-nmkr' ),
+                'download'      => esc_html__( 'Download', 'connector-for-nmkr' ),
+                'currentView'   => esc_html__( 'Current view/page', 'connector-for-nmkr' ),
+                'noteExport'    => esc_html__( 'Exports reflect current filters; top lists export the current page.', 'connector-for-nmkr' ),
                 ),
                 'shortcodeTypes' => array(
-                    array('value' => '',         'label' => esc_html__( 'All shortcodes', 'nmkr-connect' )),
-                    array('value' => 'grid',     'label' => esc_html__( 'Grid', 'nmkr-connect' )),
-                    array('value' => 'list',     'label' => esc_html__( 'List', 'nmkr-connect' )),
-                    array('value' => 'carousel', 'label' => esc_html__( 'Carousel', 'nmkr-connect' )),
-                    array('value' => 'token',    'label' => esc_html__( 'Single Token', 'nmkr-connect' )),
-                    array('value' => 'project',  'label' => esc_html__( 'Single Project', 'nmkr-connect' )),
+                    array('value' => '',         'label' => esc_html__( 'All shortcodes', 'connector-for-nmkr' )),
+                    array('value' => 'grid',     'label' => esc_html__( 'Grid', 'connector-for-nmkr' )),
+                    array('value' => 'list',     'label' => esc_html__( 'List', 'connector-for-nmkr' )),
+                    array('value' => 'carousel', 'label' => esc_html__( 'Carousel', 'connector-for-nmkr' )),
+                    array('value' => 'token',    'label' => esc_html__( 'Single Token', 'connector-for-nmkr' )),
+                    array('value' => 'project',  'label' => esc_html__( 'Single Project', 'connector-for-nmkr' )),
                 ),
                 'ranges' => array(
-                    array('value' => '24h',   'label' => esc_html__( 'Last 24 hours', 'nmkr-connect' )),
-                    array('value' => '7d',    'label' => esc_html__( 'Last 7 days', 'nmkr-connect' )),
-                    array('value' => '30d',   'label' => esc_html__( 'Last 30 days', 'nmkr-connect' )),
-                    array('value' => 'custom','label' => esc_html__( 'Custom range', 'nmkr-connect' )),
+                    array('value' => '24h',   'label' => esc_html__( 'Last 24 hours', 'connector-for-nmkr' )),
+                    array('value' => '7d',    'label' => esc_html__( 'Last 7 days', 'connector-for-nmkr' )),
+                    array('value' => '30d',   'label' => esc_html__( 'Last 30 days', 'connector-for-nmkr' )),
+                    array('value' => 'custom','label' => esc_html__( 'Custom range', 'connector-for-nmkr' )),
                 ),
                 'defaults' => array(
                     'range'   => '7d',
@@ -513,8 +514,8 @@ function nmkr_enqueue_analytics_frontend() {
 /** Add suggested disclosure text to the WordPress Privacy Policy Guide. */
 function nmkr_connect_add_privacy_policy_content() {
     if (!function_exists('wp_add_privacy_policy_content')) { return; }
-    $text = '<p>' . esc_html__('NMKR Connect analytics is disabled by default. If an administrator enables local analytics, interaction events, page context, token or project identifiers, session identifiers, consent state, and (for opted-in logged-in tracking) a WordPress user ID are stored in this site’s database for the configured retention period. If GA4 mode is deliberately selected and valid credentials are configured, event data is sent to Google Analytics. The plugin does not expose the GA4 API secret to visitors.', 'nmkr-connect') . '</p>';
-    $text .= '<p>' . esc_html__('The plugin communicates with NMKR Studio when an administrator configures and runs synchronization. Public displays may load token media from remote NMKR, IPFS, or configured gateway locations, which can disclose a visitor’s IP address and request metadata to those providers. Site administrators are responsible for choosing appropriate settings, consent handling, disclosures, and retention. This suggested text does not claim legal compliance.', 'nmkr-connect') . '</p>';
-    wp_add_privacy_policy_content('NMKR Connect', wp_kses_post(wpautop($text)));
+    $text = '<p>' . esc_html__('Connector for NMKR analytics is disabled by default. If an administrator enables local analytics, interaction events, page context, token or project identifiers, session identifiers, consent state, and (for opted-in logged-in tracking) a WordPress user ID are stored in this site’s database for the configured retention period. If GA4 mode is deliberately selected and valid credentials are configured, event data is sent to Google Analytics. The plugin does not expose the GA4 API secret to visitors.', 'connector-for-nmkr') . '</p>';
+    $text .= '<p>' . esc_html__('The plugin communicates with NMKR Studio when an administrator configures and runs synchronization. Public displays may load token media from remote NMKR, IPFS, or configured gateway locations, which can disclose a visitor’s IP address and request metadata to those providers. Site administrators are responsible for choosing appropriate settings, consent handling, disclosures, and retention. This suggested text does not claim legal compliance.', 'connector-for-nmkr') . '</p>';
+    wp_add_privacy_policy_content('Connector for NMKR', wp_kses_post(wpautop($text)));
 }
 add_action('admin_init', 'nmkr_connect_add_privacy_policy_content');
