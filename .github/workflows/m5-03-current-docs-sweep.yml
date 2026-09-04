@@ -1,0 +1,98 @@
+name: M5-03 temporary current-docs identity sweep
+
+on:
+  push:
+    branches:
+      - m5-03-connector-for-nmkr-identity
+
+permissions:
+  contents: write
+
+jobs:
+  sweep:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Align current user/developer documentation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace(path, replacements):
+              text = path.read_text(encoding='utf-8')
+              original = text
+              for old, new in replacements:
+                  text = text.replace(old, new)
+              if text != original:
+                  path.write_text(text, encoding='utf-8')
+                  print(f'doc_identity_changed={path}')
+
+          readme = Path('README.md')
+          marker = "NMKR Connect is an open-source WordPress plugin for synchronizing Cardano and Solana NFT project and token data through the NMKR API and presenting that data with shortcodes. The project remains under active development: Milestones 1, 2, and 3 have been delivered and approved through Catalyst reviewer sign-off; Milestone 4 has been delivered and is awaiting Catalyst reviewer sign-off; Milestone 5 is in progress.\n"
+          note = "\nThe repository and Catalyst project retain the historical **NMKR Connect** identity. The owner-selected public WordPress release identity is **Connector for NMKR**, with `connector-for-nmkr` as the candidate WordPress.org slug/text domain until the directory assigns or rejects it.\n"
+          text = readme.read_text(encoding='utf-8')
+          if note.strip() not in text:
+              if marker not in text:
+                  raise SystemExit('README identity marker not found')
+              text = text.replace(marker, marker + note, 1)
+              readme.write_text(text, encoding='utf-8')
+              print('doc_identity_changed=README.md')
+          replace(readme, [
+              ('trusted NMKR Connect release ZIP', 'trusted Connector for NMKR release ZIP'),
+              ('**Settings → NMKR Connect**', '**Settings → Connector for NMKR**'),
+              ('Open the NMKR Connect dashboard', 'Open the Connector for NMKR dashboard'),
+          ])
+
+          replace(Path('docs/user-guide.md'), [
+              ('# NMKR Connect user guide', '# Connector for NMKR user guide'),
+              ('activate **NMKR Connect**', 'activate **Connector for NMKR**'),
+              ('dist/nmkr-connect-1.0.0.zip', 'dist/connector-for-nmkr-1.0.0.zip'),
+              ('The exact top-level menu is **NMKR Connect**.', 'The exact top-level menu is **Connector for NMKR**.'),
+              ('**Settings → NMKR Connect**', '**Settings → Connector for NMKR**'),
+              ('**NMKR Connect →', '**Connector for NMKR →'),
+              ('NMKR Connect menu shell', 'Connector for NMKR menu shell'),
+          ])
+
+          replace(Path('docs/developer-guide.md'), [
+              ('# NMKR Connect developer guide', '# Connector for NMKR developer guide'),
+              ('NMKR Connect is a WordPress plugin that retrieves', 'Connector for NMKR is a WordPress plugin that retrieves'),
+              ('Settings → NMKR Connect', 'Settings → Connector for NMKR'),
+          ])
+
+          replace(Path('docs/troubleshooting.md'), [
+              ('# NMKR Connect troubleshooting guide', '# Connector for NMKR troubleshooting guide'),
+              ('**Settings → NMKR Connect**', '**Settings → Connector for NMKR**'),
+          ])
+
+          replace(Path('docs/faq.md'), [
+              ('# NMKR Connect FAQ', '# Connector for NMKR FAQ'),
+              ('### What is NMKR Connect?', '### What is Connector for NMKR?'),
+              ('NMKR Connect is a WordPress plugin that synchronizes', 'Connector for NMKR is a WordPress plugin that synchronizes'),
+              ('top-level **NMKR Connect** menu', 'top-level **Connector for NMKR** menu'),
+              ('**Settings → NMKR Connect', '**Settings → Connector for NMKR'),
+          ])
+          PY
+          rm -f .github/workflows/m5-03-current-docs-sweep.yml
+          if grep -RInF 'Settings → NMKR Connect' README.md docs/user-guide.md docs/developer-guide.md docs/troubleshooting.md docs/faq.md; then
+            echo 'Stale current settings UI name remains.' >&2
+            exit 1
+          fi
+          if grep -RInF 'dist/nmkr-connect-1.0.0.zip' README.md docs/user-guide.md docs/developer-guide.md docs/troubleshooting.md docs/faq.md; then
+            echo 'Stale current package filename remains.' >&2
+            exit 1
+          fi
+      - name: Commit documentation alignment and remove temporary workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m 'docs: align current guides with release identity'
+          git push origin HEAD:m5-03-connector-for-nmkr-identity
