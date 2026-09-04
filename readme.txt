@@ -51,4 +51,5 @@ No. The owner-selected release identity is “Connector for NMKR” with `connec
 == Changelog ==
 
 = 1.0.0 =
+* Uses the public release identity Connector for NMKR with `connector-for-nmkr` as the candidate WordPress.org slug and text domain.
 * Initial public production candidate: five free shortcodes, no licensing SDK, opt-in analytics, targeted lifecycle cleanup, privacy disclosures, and reproducible package tooling.
