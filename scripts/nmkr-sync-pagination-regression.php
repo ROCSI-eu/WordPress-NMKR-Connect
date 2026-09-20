@@ -135,7 +135,11 @@ $attempted = 0; $attempt_failed = 0; $detail_failed = 0;
 nmkr_account_fatal_token_persistence_attempt($attempted, $attempt_failed, $detail_failed);
 assert_true($attempted === 1 && $attempt_failed === 1 && $detail_failed === 1,
     'a first fatal persistence attempt produces truthful processed and failed counters');
-$fatal_branch = substr($core_source, strpos($core_source, 'if (nmkr_is_fatal_token_persistence_error($result))'), 600);
+$fatal_branch_start = strpos($core_source, 'if (nmkr_is_fatal_token_persistence_error($result))');
+$fatal_branch_end = strpos($core_source, '$total_tokens++;', $fatal_branch_start);
+assert_true($fatal_branch_start !== false && $fatal_branch_end !== false && $fatal_branch_end > $fatal_branch_start,
+    'production fatal routing branch remains discoverable before ordinary token accounting');
+$fatal_branch = substr($core_source, $fatal_branch_start, $fatal_branch_end - $fatal_branch_start);
 assert_true(strpos($fatal_branch, 'nmkr_account_fatal_token_persistence_attempt') !== false
     && strpos($fatal_branch, 'return $result;') !== false,
     'production fatal routing accounts for the attempt before propagation');
