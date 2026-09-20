@@ -39,7 +39,7 @@ test.describe('NMKR Connect shortcodes page regression', () => {
 
     const shortcodesDashboard = page.locator('.wrap.nmkr-dashboard');
     await expect(shortcodesDashboard).toBeAttached();
-    await expect(page.getByRole('heading', { name: 'NMKR Connect - Shortcodes' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Connector for NMKR - Shortcodes' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Available Shortcodes' })).toBeVisible();
     await expect(page.locator('.nmkr-info-box').first()).toBeAttached();
 
