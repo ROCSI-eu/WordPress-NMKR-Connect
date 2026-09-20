@@ -25,6 +25,9 @@ function nmkr_is_valid_sync_run_id($run_id) {
     return is_string($run_id) && preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $run_id) === 1;
 }
 function nmkr_sync_finalization_resume_pending($sync_stats_id) { return $GLOBALS['resume_pending'] === (int) $sync_stats_id; }
+function nmkr_sync_finalization_resume_event_scheduled($sync_stats_id) {
+    return wp_next_scheduled('nmkr_resume_sync_finalization', array((int) $sync_stats_id)) !== false;
+}
 function nmkr_get_heartbeat_age() {
     $heartbeat = (int) get_option('nmkr_sync_heartbeat', 0);
     return $heartbeat > 0 ? time() - $heartbeat : -1;
@@ -99,6 +102,7 @@ reset_health_fixture();
 $GLOBALS['owner'] = direct_owner($run, 'finalizing', 43, 400);
 $GLOBALS['sync_data'] = array('run_id' => $run, 'sync_stats_id' => 43, 'status' => 'finalizing');
 $GLOBALS['resume_pending'] = 43;
+$GLOBALS['cron']['nmkr_resume_sync_finalization:' . json_encode(array(43))] = time() + 30;
 $health = nmkr_check_sync_health();
 check(!$health['is_stalled'] && $health['finalization_pending'] && $health['has_running_jobs'],
     'finalizing direct run uses exact resume evidence rather than legacy batch cron');
@@ -107,14 +111,24 @@ reset_health_fixture();
 $GLOBALS['owner'] = direct_owner($run, 'finalizing', 45, 400);
 $GLOBALS['sync_data'] = array('run_id' => $run, 'sync_stats_id' => 45, 'status' => 'processing_tokens');
 $GLOBALS['resume_pending'] = 45;
+$GLOBALS['cron']['nmkr_resume_sync_finalization:' . json_encode(array(45))] = time() + 30;
 $health = nmkr_check_sync_health();
 check(!$health['is_stalled'] && $health['finalization_pending'] && $health['has_running_jobs'],
     'exact durable finalization handoff is healthy before status publication');
 
 reset_health_fixture();
+$GLOBALS['owner'] = direct_owner($run, 'finalizing', 47, 400);
+$GLOBALS['sync_data'] = array('run_id' => $run, 'sync_stats_id' => 47, 'status' => 'finalizing');
+$GLOBALS['resume_pending'] = 47;
+$health = nmkr_check_sync_health();
+check($health['is_stalled'] && $health['finalization_pending'] && !$health['has_running_jobs'],
+    'stale finalization resume option without an exact callback is not executable evidence');
+
+reset_health_fixture();
 $GLOBALS['owner'] = direct_owner($run, 'finalizing', 46, 400);
 $GLOBALS['sync_data'] = array('run_id' => '22222222-2222-4222-8222-222222222222', 'sync_stats_id' => 46, 'status' => 'processing_tokens');
 $GLOBALS['resume_pending'] = 46;
+$GLOBALS['cron']['nmkr_resume_sync_finalization:' . json_encode(array(46))] = time() + 30;
 $health = nmkr_check_sync_health();
 check($health['is_stalled'] && !$health['finalization_pending'],
     'finalization handoff evidence cannot cross the exact run boundary');

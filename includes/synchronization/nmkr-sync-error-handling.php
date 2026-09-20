@@ -464,6 +464,7 @@ function nmkr_classify_direct_sync_health($owner, $sync_data, $last_progress_upd
     $is_stalled = false;
     $stall_reason = '';
     $finalization_pending = false;
+    $finalization_scheduled = false;
 
     if ($state === 'queued') {
         $worker_scheduled = wp_next_scheduled('nmkr_execute_sync_background', array($run_id)) !== false;
@@ -490,15 +491,19 @@ function nmkr_classify_direct_sync_health($owner, $sync_data, $last_progress_upd
         $finalization_pending = $exact_finalization && $sync_stats_id > 0
             && function_exists('nmkr_sync_finalization_resume_pending')
             && nmkr_sync_finalization_resume_pending($sync_stats_id);
+        $finalization_scheduled = $finalization_pending
+            && function_exists('nmkr_sync_finalization_resume_event_scheduled')
+            && nmkr_sync_finalization_resume_event_scheduled($sync_stats_id);
         // The durable resume record is written before sync_data publishes its
-        // finalizing status. Treat that exact handoff as executable evidence.
+        // finalizing status. Treat it as executable only while its exact
+        // callback remains scheduled.
         $exact_finalizing = $exact_finalization
-            && (($sync_data['status'] ?? '') === 'finalizing' || $finalization_pending);
-        $has_running_jobs = $exact_finalizing && ($finalization_pending || $owner_fresh);
+            && (($sync_data['status'] ?? '') === 'finalizing' || $finalization_scheduled);
+        $has_running_jobs = $exact_finalizing && ($finalization_scheduled || $owner_fresh);
         if (!$exact_finalizing) {
             $is_stalled = true;
             $stall_reason = 'Direct synchronization finalization state does not match its exact owner.';
-        } elseif (!$finalization_pending && !$owner_fresh) {
+        } elseif (!$finalization_scheduled && !$owner_fresh) {
             $is_stalled = true;
             $stall_reason = sprintf(
                 'Direct synchronization finalization has no fresh owner or resume evidence for at least %d seconds.',
