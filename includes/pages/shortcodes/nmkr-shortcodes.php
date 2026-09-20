@@ -3,20 +3,20 @@
 function nmkr_display_shortcodes_page() {
     if ( ! current_user_can( 'nmkr_view_shortcodes' ) ) {
         if ( function_exists( 'nmkr_render_access_denied_page' ) ) {
-            nmkr_render_access_denied_page( __( 'Shortcodes', 'nmkr-connect' ) );
+            nmkr_render_access_denied_page( __( 'Shortcodes', 'connector-for-nmkr' ) );
             return;
         }
-        wp_die( esc_html__( 'Access denied.', 'nmkr-connect' ) );
+        wp_die( esc_html__( 'Access denied.', 'connector-for-nmkr' ) );
     }
     ?>
     <div class="wrap nmkr-dashboard">
-        <h1 class="center-text">NMKR Connect - Shortcodes</h1>
+        <h1 class="center-text">Connector for NMKR - Shortcodes</h1>
 
         <div class="panel">
             <h2 class="center-text">Available Shortcodes</h2>
             <div class="nmkr-info-box">
                 <span class="dashicons dashicons-shortcode"></span>
-                <p>Below are the shortcodes available in the NMKR Connect plugin. You can use these shortcodes to display NFT projects and tokens on your site.</p>
+                <p>Below are the shortcodes available in the Connector for NMKR plugin. You can use these shortcodes to display NFT projects and tokens on your site.</p>
             </div>
         </div>
 

@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2024–2025
+Copyright (c) 2024–2026
 Mihai Bărbulescu and Cyber Space Initiative SRL (ROCSI.eu)
 and contributors
 
@@ -28,27 +28,17 @@ ADDITIONAL NOTICES (NON-RESTRICTIVE CLARIFICATIONS)
 
 These notes are for clarity only and do not add conditions beyond the MIT License.
 
-1) Open-source + commercial support
-   This project is open-source under MIT. Optional license keys may be offered
-   to deliver in-dashboard updates, support, and/or additional assets. Such
-   keys do not alter your MIT rights to the Software itself.
-
-2) Third-party components
-   The Software may bundle or depend on third-party libraries (e.g., under
-   the “vendor/” directory) that are licensed under their own terms. Those
-   licenses remain in full force and govern their respective components.
-   See the corresponding LICENSE files shipped with each dependency.
-
-3) Trademarks
+1) Trademarks
    “WordPress”, “Gutenberg”, “Elementor”, “NMKR”, and other names may be
    trademarks of their respective owners. Trademarks are not licensed under
    the MIT terms above.
 
-4) Contributions
+2) Contributions
    By submitting a contribution, you agree to license your contribution under
    the MIT License and represent that you have the right to do so. You retain
    the copyright to your individual contributions.
 
-5) Telemetry (if enabled)
-   Any diagnostic/usage data collection is opt-in and governed by the project’s
-   privacy documentation. Telemetry is not a condition of the MIT License.
+3) Analytics and telemetry (if enabled)
+   Any diagnostic or usage-data collection is opt-in and governed by the
+   project’s privacy documentation. Analytics or telemetry is not a condition
+   of the MIT License.

@@ -6,7 +6,7 @@ test.describe('NMKR Connect WordPress admin smoke test', () => {
     const baseUrl = await loginToWpAdmin(page);
     const dashboardPath = env('NMKR_DASHBOARD_PATH', '/wp-admin/admin.php?page=nmkr-connect-dashboard');
     const settingsPath = env('NMKR_SETTINGS_PATH', '/wp-admin/options-general.php?page=nmkr-connect-settings');
-    const pluginSlug = env('NMKR_PLUGIN_SLUG', 'nmkr-connect/nmkr-connect.php');
+    const pluginSlug = env('NMKR_PLUGIN_SLUG', 'connector-for-nmkr/nmkr-connect.php');
     const runRealSync = env('RUN_REAL_SYNC', 'false') === 'true';
 
     await page.goto(urlFor(baseUrl, '/wp-admin/plugins.php'));

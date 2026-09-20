@@ -6,7 +6,7 @@
  * of NMKR synchronization processes.
  *
  * @package NMKR Connect
- * @since 1.0.0
+ * @since 0.25.0
  */
 
 // Exit if accessed directly
@@ -337,7 +337,7 @@ function nmkr_resume_sync_finalization($sync_stats_id) {
         }
     }
     $error_message = $outcome === 'stopped'
-        ? __('Synchronization stopped by user.', 'nmkr-connect')
+        ? __('Synchronization stopped by user.', 'connector-for-nmkr')
         : (string) ($record['error_message'] ?? '');
     $result = nmkr_sync_data_complete($outcome === 'completed', $error_message, $record, true);
     if (is_array($result) && ($result['status'] ?? '') === $outcome) {

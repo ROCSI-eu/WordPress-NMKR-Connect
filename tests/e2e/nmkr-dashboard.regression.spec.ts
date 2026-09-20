@@ -70,7 +70,7 @@ test.describe('NMKR Connect dashboard page regression', () => {
 
     const dashboard = page.locator('.wrap.nmkr-dashboard');
     await expect(dashboard).toBeAttached();
-    await expect(page.getByRole('heading', { name: 'NMKR Connect Dashboard' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Connector for NMKR Dashboard' })).toBeVisible();
 
     const apiPanel = page.locator('.api-status-panel');
     await expect(apiPanel).toBeAttached();

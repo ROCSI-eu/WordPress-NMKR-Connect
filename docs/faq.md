@@ -1,4 +1,4 @@
-# NMKR Connect FAQ
+# Connector for NMKR FAQ
 
 This FAQ gives short, role-oriented answers for site owners, administrators, content users, developers, maintainers, and support readers. It links to the authoritative procedures instead of duplicating them.
 
@@ -13,9 +13,9 @@ This FAQ gives short, role-oriented answers for site owners, administrators, con
 - [Milestone 4 evidence register](milestone-4/evidence-register.md) — canonical stable evidence IDs and provenance.
 - [Milestone 4 final report](milestone-4/final-report.md) and [Proof of Achievement](milestone-4/proof-of-achievement.md) — completed M4-10 reporting synthesis and provenance seal.
 
-### What is NMKR Connect?
+### What is Connector for NMKR?
 
-NMKR Connect is a WordPress plugin that synchronizes Cardano and Solana NFT project and token data through the NMKR API, stores the synchronized data locally, and renders it through five shortcodes. It also provides role-based administration, synchronization status and history, and optional engagement analytics.
+Connector for NMKR is a WordPress plugin that synchronizes Cardano and Solana NFT project and token data through the NMKR API, stores the synchronized data locally, and renders it through five shortcodes. It also provides role-based administration, synchronization status and history, and optional engagement analytics.
 
 ### Which guide should I read first?
 
@@ -59,7 +59,7 @@ Back up the database and any deployment files needed for rollback. Confirm reten
 
 ### Where are the plugin pages?
 
-The top-level **NMKR Connect** menu contains **Dashboard**, **NFT Projects**, **Shortcodes**, and **Analytics** when that UI is available. Configuration is separately under **Settings → NMKR Connect**.
+The top-level **Connector for NMKR** menu contains **Dashboard**, **NFT Projects**, **Shortcodes**, and **Analytics** when that UI is available. Configuration is separately under **Settings → Connector for NMKR**.
 
 ### What can the built-in roles do?
 
@@ -93,7 +93,7 @@ Ordinary progress observation uses `nmkr_view_dashboard`. State-changing start, 
 
 ### Where should I enter the NMKR API key?
 
-Only in **Settings → NMKR Connect → API Settings**, over HTTPS, using an account with `nmkr_manage_settings`.
+Only in **Settings → Connector for NMKR → API Settings**, over HTTPS, using an account with `nmkr_manage_settings`.
 
 ### Is the API key encrypted at rest by the plugin?
 

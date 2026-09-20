@@ -2,6 +2,8 @@
 
 NMKR Connect is an open-source WordPress plugin for synchronizing Cardano and Solana NFT project and token data through the NMKR API and presenting that data with shortcodes. The project remains under active development: Milestones 1, 2, and 3 have been delivered and approved through Catalyst reviewer sign-off; Milestone 4 has been delivered and is awaiting Catalyst reviewer sign-off; Milestone 5 is in progress.
 
+The repository and Catalyst project retain the historical **NMKR Connect** identity. The owner-selected public WordPress release identity is **Connector for NMKR**, with `connector-for-nmkr` as the candidate WordPress.org slug/text domain until the directory assigns or rejects it.
+
 ## Catalyst delivery status
 
 NMKR Connect is supported by [Cardano Project Catalyst Fund 13](https://milestones.projectcatalyst.io/projects/1300195).
@@ -42,6 +44,7 @@ NMKR Connect is supported by [Cardano Project Catalyst Fund 13](https://mileston
 | Symptoms, read-only diagnosis, and safe escalation | [Troubleshooting guide](docs/troubleshooting.md) |
 | Developers and contributors | [Developer guide](docs/developer-guide.md) |
 | Maintainers choosing proportional checks | [Validation policy](docs/validation-policy.md) |
+| Maintainers planning releases and version bumps | [Versioning and release policy](docs/versioning.md) |
 | Security audit, findings, bounded evidence, and limitations | [Milestone 4 audit and evidence hub](docs/milestone-4/README.md), [evidence register](docs/milestone-4/evidence-register.md), [final report](docs/milestone-4/final-report.md), and [Proof of Achievement](docs/milestone-4/proof-of-achievement.md) |
 
 The focused guides are authoritative for their procedures. Use links instead of copying operational instructions into issues or pull requests, and keep all public diagnostics sanitized.
@@ -83,13 +86,13 @@ The builder creates the verified self-contained ZIP under `dist/` by default. Th
 
 ### Install a packaged ZIP
 
-Use **WordPress Admin → Plugins → Add New → Upload Plugin**, select a trusted NMKR Connect release ZIP, and activate it. The purpose-built ZIP is self-contained; repository-only development and test tooling is excluded. This repository does not promise that a prebuilt release artifact is available for every revision.
+Use **WordPress Admin → Plugins → Add New → Upload Plugin**, select a trusted Connector for NMKR release ZIP, and activate it. The purpose-built ZIP is self-contained; repository-only development and test tooling is excluded. This repository does not promise that a prebuilt release artifact is available for every revision.
 
 ### First-use flow
 
 1. Install and activate the plugin.
-2. Open **Settings → NMKR Connect**, enter the NMKR API key, review the synchronization settings, and save.
-3. Open the NMKR Connect dashboard and start synchronization. Follow its progress and final result; do not close or restart a run merely because a large collection takes time.
+2. Open **Settings → Connector for NMKR**, enter the NMKR API key, review the synchronization settings, and save.
+3. Open the Connector for NMKR dashboard and start synchronization. Follow its progress and final result; do not close or restart a run merely because a large collection takes time.
 4. Add a Free shortcode such as `[nmkr-grid]` or `[nmkr-token-list]` to a WordPress page. Use a project UID when a specific synchronized project should be displayed.
 
 Treat the NMKR API key, GA4 API secret, license details, WordPress credentials, and other environment values as secrets. Do not put them in content, source control, screenshots, or support logs.

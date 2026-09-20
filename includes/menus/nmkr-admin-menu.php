@@ -1,10 +1,10 @@
 <?php
 
 function nmkr_connect_admin_menu() {
-    // Main menu page for NMKR Connect
+    // Main menu page for Connector for NMKR
     add_menu_page(
-        'NMKR Connect Dashboard',            // Page title
-        'NMKR Connect',                      // Menu title
+        'Connector for NMKR Dashboard',      // Page title
+        'Connector for NMKR',                // Menu title
         'nmkr_access_plugin',                // Capability
         'nmkr-connect-dashboard',            // Menu slug
         'nmkr_connect_dashboard_page',       // Function to display the page content
@@ -45,12 +45,12 @@ function nmkr_connect_admin_menu() {
     // Submenu for Analytics
     if ( ! defined('NMKR_ANALYTICS_UI_ENABLED') || constant('NMKR_ANALYTICS_UI_ENABLED') ) {
         add_submenu_page(
-            'nmkr-connect-dashboard',        // Parent slug
-            __('Analytics', 'nmkr-connect'), // Page title
-            __('Analytics', 'nmkr-connect'), // Menu title
-            'nmkr_view_analytics',           // Capability
-            'nmkr-connect-analytics',        // Menu slug
-            'nmkr_connect_analytics_page'    // Callback function
+            'nmkr-connect-dashboard',                 // Parent slug
+            __('Analytics', 'connector-for-nmkr'),   // Page title
+            __('Analytics', 'connector-for-nmkr'),   // Menu title
+            'nmkr_view_analytics',                    // Capability
+            'nmkr-connect-analytics',                 // Menu slug
+            'nmkr_connect_analytics_page'             // Callback function
         );
     }
 }
@@ -81,12 +81,12 @@ add_action( 'admin_init', function () {
     }
 
     if ( function_exists( 'nmkr_render_access_denied_page' ) ) {
-        nmkr_render_access_denied_page( __( 'NMKR Connect', 'nmkr-connect' ) );
+        nmkr_render_access_denied_page( __( 'Connector for NMKR', 'connector-for-nmkr' ) );
         exit;
     }
 
     // Fallback (should not happen if helper loaded)
-    wp_die( esc_html__( 'Access denied.', 'nmkr-connect' ) );
+    wp_die( esc_html__( 'Access denied.', 'connector-for-nmkr' ) );
 }, 1 );
 
 /**

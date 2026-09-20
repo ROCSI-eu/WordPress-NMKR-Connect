@@ -25,7 +25,7 @@ function nmkr_shortcode_project($atts) {
     // Resolve the active project
     $active_project_uid = nmkr_get_active_project_uid_single( $atts );
     if ( empty( $active_project_uid ) ) {
-        return '<p>' . esc_html__( 'No projects available. Please synchronize with NMKR Studio first.', 'nmkr-connect' ) . '</p>';
+        return '<p>' . esc_html__( 'No projects available. Please synchronize with NMKR Studio first.', 'connector-for-nmkr' ) . '</p>';
     }
 
     // Optional attribute to lock selection
@@ -40,7 +40,7 @@ function nmkr_shortcode_project($atts) {
     ) );
 
     if ( ! $project ) {
-        return '<p>' . esc_html__( 'Selected project not found.', 'nmkr-connect' ) . '</p>';
+        return '<p>' . esc_html__( 'Selected project not found.', 'connector-for-nmkr' ) . '</p>';
     }
 
     // Counters from the centralized helper
@@ -198,19 +198,19 @@ function nmkr_shortcode_project($atts) {
     // Project metadata with computed counters from centralized helper
     $output .= '<div class="nmkr-project-meta">';
     $output .= '<div class="nmkr-project-meta-item">';
-    $output .= '<strong>' . esc_html__('Total','nmkr-connect') . ':</strong> ' . esc_html($counters->total_tokens);
+    $output .= '<strong>' . esc_html__('Total','connector-for-nmkr') . ':</strong> ' . esc_html($counters->total_tokens);
     $output .= '</div>';
     $output .= '<div class="nmkr-project-meta-item">';
-    $output .= '<strong>' . esc_html__('Minted','nmkr-connect') . ':</strong> ' . esc_html($counters->minted_count);
+    $output .= '<strong>' . esc_html__('Minted','connector-for-nmkr') . ':</strong> ' . esc_html($counters->minted_count);
     $output .= '</div>';
     $output .= '<div class="nmkr-project-meta-item">';
-    $output .= '<strong>' . esc_html__('Sold','nmkr-connect') . ':</strong> ' . esc_html($counters->sold_count);
+    $output .= '<strong>' . esc_html__('Sold','connector-for-nmkr') . ':</strong> ' . esc_html($counters->sold_count);
     $output .= '</div>';
     $output .= '<div class="nmkr-project-meta-item">';
-    $output .= '<strong>' . esc_html__('Reserved','nmkr-connect') . ':</strong> ' . esc_html($counters->reserved_active_count);
+    $output .= '<strong>' . esc_html__('Reserved','connector-for-nmkr') . ':</strong> ' . esc_html($counters->reserved_active_count);
     $output .= '</div>';
     $output .= '<div class="nmkr-project-meta-item">';
-    $output .= '<strong>' . esc_html__('Available','nmkr-connect') . ':</strong> ' . esc_html($counters->available_count);
+    $output .= '<strong>' . esc_html__('Available','connector-for-nmkr') . ':</strong> ' . esc_html($counters->available_count);
     $output .= '</div>';
     $output .= '</div>';
 
@@ -221,7 +221,7 @@ function nmkr_shortcode_project($atts) {
         $buyable      = nmkr_token_is_buyable( $featured );
 
         $output .= '<div class="nmkr-featured-token">';
-        $output .= '<h5>' . esc_html__( 'Featured Token', 'nmkr-connect' ) . '</h5>';
+        $output .= '<h5>' . esc_html__( 'Featured Token', 'connector-for-nmkr' ) . '</h5>';
         
         // Token image (opens lightbox)
         $output .= nmkr_get_token_image_markup( $featured, $featured->token_name, '' );
@@ -234,14 +234,14 @@ function nmkr_shortcode_project($atts) {
             $output .= '<a href="' . esc_url( $featured->payment_gateway_link ) . '"'
                     . ' class="nmkr-buy-button"'
                     . ' target="_blank" rel="noopener noreferrer"'
-                    . ' aria-label="' . esc_attr__( 'Buy token with NMKR Pay', 'nmkr-connect' ) . '"'
+                    . ' aria-label="' . esc_attr__( 'Buy token with NMKR Pay', 'connector-for-nmkr' ) . '"'
                     . ' data-nmkr-evt="click" data-nmkr-cta="buy" data-nmkr-shortcode="project"'
                     . ' data-nmkr-project-uid="' . esc_attr($active_project_uid) . '"'
                     . ' data-nmkr-token-uid="' . esc_attr(!empty($featured->token_uid) ? $featured->token_uid : '') . '"'
                     . ' data-nmkr-id="project:' . esc_attr($active_project_uid) . '"'
                     . '>'
                     . '<span aria-hidden="true">💳</span> '
-                    . esc_html__( 'Buy with NMKR Pay', 'nmkr-connect' )
+                    . esc_html__( 'Buy with NMKR Pay', 'connector-for-nmkr' )
                     . '</a>';
         }
         $output .= '</div>';
@@ -253,7 +253,7 @@ function nmkr_shortcode_project($atts) {
         $output .= '<a href="https://cardanoscan.io/tokenPolicy/' . esc_html($project->policy_id) . '" class="nmkr-project-link" target="_blank">View on CardanoScan</a>';
     }
     if ( ! empty( $project->project_url ) ) {
-        $output .= '<a class="nmkr-project-link" target="_blank" href="' . esc_url( $project->project_url ) . '">' . esc_html__( 'Website', 'nmkr-connect' ) . '</a>';
+        $output .= '<a class="nmkr-project-link" target="_blank" href="' . esc_url( $project->project_url ) . '">' . esc_html__( 'Website', 'connector-for-nmkr' ) . '</a>';
     }
     if (!empty($project->twitter_handle)) {
         $output .= '<a href="https://twitter.com/' . esc_attr(ltrim($project->twitter_handle, '@')) . '" class="nmkr-project-link" target="_blank">Twitter</a>';

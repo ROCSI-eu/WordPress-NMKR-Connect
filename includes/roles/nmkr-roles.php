@@ -18,7 +18,7 @@ function nmkr_roles_caps_spec() {
         'nmkr_view_projects',     // NFT Projects page
         'nmkr_view_shortcodes',   // Shortcodes page
         'nmkr_view_analytics',    // Analytics UI + admin analytics AJAX
-        'nmkr_manage_settings',   // Settings → NMKR Connect
+        'nmkr_manage_settings',   // Settings → Connector for NMKR
         'nmkr_manage_sync',       // Start/stop/restart/cleanup sync & privileged ops
     );
 
@@ -49,8 +49,8 @@ function nmkr_roles_caps_spec() {
 
     // Role display labels (translatable)
     $labels = array(
-        'nmkr-admin'     => __( 'NMKR Admin', 'nmkr-connect' ),
-        'nmkr-marketing' => __( 'NMKR Marketing', 'nmkr-connect' ),
+        'nmkr-admin'     => __( 'NMKR Admin', 'connector-for-nmkr' ),
+        'nmkr-marketing' => __( 'NMKR Marketing', 'connector-for-nmkr' ),
     );
 
     return array( 'caps' => $caps, 'roles' => $roles, 'labels' => $labels );
@@ -141,7 +141,7 @@ function nmkr_roles_ensure_caps() {
 
 
 
-/** Remove only roles and capabilities installed by NMKR Connect. */
+/** Remove only roles and capabilities installed by Connector for NMKR. */
 function nmkr_roles_uninstall_caps() {
     $spec        = nmkr_roles_caps_spec();
     $owned_roles = array_keys( $spec['roles'] );

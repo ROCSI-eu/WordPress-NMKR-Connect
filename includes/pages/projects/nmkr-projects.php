@@ -17,10 +17,10 @@ require_once plugin_dir_path(dirname(dirname(dirname(__FILE__)))) . 'includes/he
 function nmkr_connect_projects_page() {
     if ( ! current_user_can( 'nmkr_view_projects' ) ) {
         if ( function_exists( 'nmkr_render_access_denied_page' ) ) {
-            nmkr_render_access_denied_page( __( 'NFT Projects', 'nmkr-connect' ) );
+            nmkr_render_access_denied_page( __( 'NFT Projects', 'connector-for-nmkr' ) );
             return;
         }
-        wp_die( esc_html__( 'Access denied.', 'nmkr-connect' ) );
+        wp_die( esc_html__( 'Access denied.', 'connector-for-nmkr' ) );
     }
     global $wpdb;
     $projects_table = $wpdb->prefix . 'nmkr_projects';
@@ -87,11 +87,11 @@ function nmkr_connect_projects_page() {
                 <!-- Optional: Display detailed counters -->
                 <div class="project-stats panel-section">
                     <p class="nmkr-stats">
-                        <strong><?php esc_html_e('Total','nmkr-connect'); ?>:</strong> <?php echo esc_html($counters->total_tokens); ?> ·
-                        <strong><?php esc_html_e('Minted','nmkr-connect'); ?>:</strong> <?php echo esc_html($counters->minted_count); ?> ·
-                        <strong><?php esc_html_e('Sold','nmkr-connect'); ?>:</strong> <?php echo esc_html($counters->sold_count); ?> ·
-                        <strong><?php esc_html_e('Reserved','nmkr-connect'); ?>:</strong> <?php echo esc_html($counters->reserved_active_count); ?> ·
-                        <strong><?php esc_html_e('Available','nmkr-connect'); ?>:</strong> <?php echo esc_html($counters->available_count); ?>
+                        <strong><?php esc_html_e('Total','connector-for-nmkr'); ?>:</strong> <?php echo esc_html($counters->total_tokens); ?> ·
+                        <strong><?php esc_html_e('Minted','connector-for-nmkr'); ?>:</strong> <?php echo esc_html($counters->minted_count); ?> ·
+                        <strong><?php esc_html_e('Sold','connector-for-nmkr'); ?>:</strong> <?php echo esc_html($counters->sold_count); ?> ·
+                        <strong><?php esc_html_e('Reserved','connector-for-nmkr'); ?>:</strong> <?php echo esc_html($counters->reserved_active_count); ?> ·
+                        <strong><?php esc_html_e('Available','connector-for-nmkr'); ?>:</strong> <?php echo esc_html($counters->available_count); ?>
                     </p>
                 </div>
 
