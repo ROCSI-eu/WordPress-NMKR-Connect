@@ -1150,11 +1150,8 @@ function nmkr_execute_sync_background_job($run_id = '') {
         // Log UI status update for progress bar and status
         nmkr_log_ui_status('UI: Changed status to "⏳ Starting Sync Process", showing progress bar at 0%', 'info');
         nmkr_log_ui_status('UI: Hiding "Start Synchronization" button, showing "Stop Synchronization" button', 'info');
-    } catch (Exception $e) {
-        nmkr_log_data_sync('Background Job Error: Failed to reset progress options - ' . $e->getMessage(), 'error');
-        if (nmkr_sync_owner_matches($run_id, 'running', 0)) {
-            nmkr_cleanup_failed_direct_sync($run_id, 0, 'Failed to initialize sync progress tracking');
-        }
+    } catch (Throwable $e) {
+        nmkr_recover_direct_worker_throwable($e, $run_id, 0);
         return;
     }
     
@@ -1171,15 +1168,11 @@ function nmkr_execute_sync_background_job($run_id = '') {
             nmkr_log_data_sync('Background sync is awaiting resumable terminal cleanup.', 'warning');
         }
         
-    } catch (Exception $e) {
-        // Critical error in background job - set error state
-        nmkr_log_data_sync('💥 Critical error in background sync job: ' . $e->getMessage(), 'error', array(
-            'file' => $e->getFile(),
-            'line' => $e->getLine(),
-            'trace' => $e->getTraceAsString()
-        ));
-        
-        // Unknown hard interruptions intentionally retain the owner. Phase
-        // 16B.2 will add ownership-safe recovery rather than guessing here.
+    } catch (Throwable $e) {
+        // A Throwable escaping the core still resolves only against this exact
+        // run. The recovery helper gives Stop precedence, terminalizes an exact
+        // running owner, preserves finalization handoff state, and fences a
+        // successor owner without mutation.
+        nmkr_recover_direct_worker_throwable($e, $run_id);
     }
 }
