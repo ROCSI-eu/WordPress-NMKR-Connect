@@ -11,7 +11,7 @@ function nmkr_get_timestamp(){return '2026-01-02 03:04:05';} function nmkr_get_s
 function nmkr_with_sync_owner_lock($callback){return call_user_func($callback);} function nmkr_get_sync_owner(){return $GLOBALS['owner']??false;} function nmkr_sync_owner_matches($run,$state=null,$id=null){$o=nmkr_get_sync_owner();return is_array($o)&&($o['run_id']??'')===$run&&($state===null||($o['state']??'')===$state)&&($id===null||(int)($o['sync_stats_id']??0)===(int)$id);} function nmkr_release_sync_owner($run,$id=null,$state=null){if(!empty($GLOBALS['fail_owner_release']))return new Exception('synthetic owner lock failure');if(!nmkr_sync_owner_matches($run,$state,$id))return false;$GLOBALS['owner']=false;return true;}
 function nmkr_handle_sync_owner_binding_failure($result,$run,$id){$GLOBALS['binding_failure_calls'][]=(int)$id;$GLOBALS['history'][$id]['status']='failed';$GLOBALS['history'][$id]['end_time']=nmkr_get_timestamp();if(nmkr_sync_owner_matches($run,'running',0)){$GLOBALS['owner']=false;update_option('nmkr_sync_in_progress',false);return new WP_Error('sync_owner_binding_failed','Synthetic binding failure.');}return new WP_Error('sync_owner_mismatch','Synthetic binding mismatch.');}
 function nmkr_sync_owner_transition_succeeded($v){return is_array($v)&&!empty($v['run_id']);} function nmkr_transition_sync_owner($run,$from,$to,$id=null){if(!empty($GLOBALS['fail_owner_transition']))return new WP_Error('lock','synthetic transition lock failure');if(!nmkr_sync_owner_matches($run,$from,$id))return false;$GLOBALS['owner']['state']=$to;return $GLOBALS['owner'];}
-function nmkr_update_sync_heartbeat(){update_option('nmkr_sync_heartbeat',time());} function nmkr_cleanup_sync_heartbeat(){delete_option('nmkr_sync_heartbeat');} function nmkr_log_data_sync(){} function nmkr_log_ui_status(){} function nmkr_safe_getpid(){return 1;}
+function nmkr_update_sync_heartbeat(){update_option('nmkr_sync_heartbeat',time());} function nmkr_cleanup_sync_heartbeat(){delete_option('nmkr_sync_heartbeat');} function nmkr_log_data_sync(){if(($GLOBALS['throw_from_sync_logger']??0)>0){$GLOBALS['throw_from_sync_logger']--;throw new Error('synthetic logger failure');}} function nmkr_log_ui_status(){} function nmkr_safe_getpid(){return 1;}
 function nmkr_start_performance_tracking(){return array();} function nmkr_end_performance_tracking(){} function nmkr_sync_worker_checkpoint($run_id='',$sync_stats_id=0,$phase=''){if($phase==='after_token_detail_request'){$GLOBALS['detail_post_request_checkpoints']=($GLOBALS['detail_post_request_checkpoints']??0)+1;if(($GLOBALS['detail_request_mode']??'')==='checkpoint_failure')return new WP_Error('sync_checkpoint_persistence_failed','Synthetic checkpoint persistence failure.');}return true;} function nmkr_build_sync_api_execution_context(){return array();}
 function nmkr_connect_fetch_projects(){$GLOBALS['project_http_dispatches']++;if(($GLOBALS['project_request_mode']??'')==='stop_wins')$GLOBALS['owner']['state']='stop_requested';return new WP_Error('nmkr_api_metric_evidence_persistence_failure','Synthetic project attempt-evidence persistence failure.');}
 function nmkr_connect_fetch_nfts_by_project(){$GLOBALS['token_list_http_dispatches']++;return new WP_Error('nmkr_api_metric_evidence_persistence_failure','Synthetic token-list attempt-evidence persistence failure.');}
@@ -39,6 +39,8 @@ load_core_helper($core_source,'nmkr_is_fatal_api_error');
 load_core_helper($core_source,'nmkr_handle_sync_worker_halt');
 load_core_helper($core_source,'nmkr_resume_stopped_sync_recovery');
 load_core_helper($core_source,'nmkr_handle_direct_worker_error');
+load_core_helper($core_source,'nmkr_persist_direct_worker_counters');
+load_core_helper($core_source,'nmkr_log_direct_worker_throwable');
 load_core_helper($core_source,'nmkr_recover_direct_worker_throwable');
 load_core_helper($core_source,'nmkr_direct_sync_terminal_result');
 load_core_helper($core_source,'nmkr_direct_sync_finalization_error');
@@ -197,6 +199,28 @@ $previous_error_log=ini_get('error_log');ini_set('error_log','/dev/null');
 $type_result=nmkr_recover_direct_worker_throwable(new TypeError($type_marker),$type_error_run,$type_error_id);
 check(is_array($type_result)&&$type_result['status']==='failed'&&nmkr_get_sync_owner()===false&&!get_option('nmkr_sync_in_progress')&&strpos((string)$GLOBALS['history'][$type_error_id]['error_message'],$type_marker)===false,'TypeError terminalizes the exact bound worker without persisting raw runtime detail');
 
+$logger_throw_id=175;
+$logger_throw_run='47474747-4747-4747-8747-474747474747';
+active_run($logger_throw_id);
+$GLOBALS['options']['nmkr_sync_data']['run_id']=$logger_throw_run;
+$GLOBALS['history'][$logger_throw_id]['run_id']=$logger_throw_run;
+$GLOBALS['owner']=array('run_id'=>$logger_throw_run,'mode'=>'direct','state'=>'running','sync_stats_id'=>$logger_throw_id);
+$GLOBALS['throw_from_sync_logger']=1;
+$logger_throw_result=nmkr_recover_direct_worker_throwable(new Error('synthetic-original-logger-throwable'),$logger_throw_run,$logger_throw_id);
+unset($GLOBALS['throw_from_sync_logger']);
+check(is_array($logger_throw_result)&&$logger_throw_result['status']==='failed'&&nmkr_get_sync_owner()===false&&!get_option('nmkr_sync_in_progress'),'Throwable recovery remains terminal when its private application logger also throws');
+
+$durable_counter_id=176;
+$durable_counter_run='48484848-4848-4848-8848-484848484848';
+active_run($durable_counter_id);
+$GLOBALS['options']['nmkr_sync_data']['run_id']=$durable_counter_run;
+$GLOBALS['history'][$durable_counter_id]['run_id']=$durable_counter_run;
+$GLOBALS['owner']=array('run_id'=>$durable_counter_run,'mode'=>'direct','state'=>'running','sync_stats_id'=>$durable_counter_id);
+$durable_counters=array('items_processed'=>19,'items_successful'=>12,'items_failed'=>4,'items_skipped'=>3,'token_details_synced'=>10);
+check(nmkr_persist_direct_worker_counters($durable_counter_run,$durable_counter_id,$durable_counters)===true,'direct worker persists its latest exact-owner counters for outer recovery');
+$durable_counter_result=nmkr_recover_direct_worker_throwable(new Error('synthetic-background-fallback-marker'),$durable_counter_run,$durable_counter_id);
+check(is_array($durable_counter_result)&&$durable_counter_result['status']==='failed'&&array($GLOBALS['history'][$durable_counter_id]['items_processed'],$GLOBALS['history'][$durable_counter_id]['items_successful'],$GLOBALS['history'][$durable_counter_id]['items_failed'],$GLOBALS['history'][$durable_counter_id]['items_skipped'],$GLOBALS['history'][$durable_counter_id]['token_details_synced'])===array_values($durable_counters),'background Throwable recovery preserves the latest durable live counters');
+
 $generic_error_id=169;
 $generic_error_run='41414141-4141-4141-8141-414141414141';
 active_run($generic_error_id);
@@ -248,6 +272,7 @@ check(strpos($core_sync_body,'catch (Throwable $e)')!==false&&strpos($core_sync_
 $background_source=file_get_contents(dirname(__DIR__).'/includes/synchronization/nmkr-sync-ajax-handlers.php');
 $background_body=substr($background_source,strpos($background_source,'function nmkr_execute_sync_background_job('));
 check(substr_count($background_body,'catch (Throwable $e)')>=2&&strpos($background_body,'nmkr_recover_direct_worker_throwable($e, $run_id')!==false,'background worker catches initialization and execution Throwables at the exact-run recovery boundary');
+check(strpos($core_sync_body,"'items_processed' => 0")!==false&&strpos($core_sync_body,'$persist_counters();')!==false,'direct worker seeds and refreshes durable counters for background Throwable recovery');
 
 // Bound ordinary failure writes a durable failed terminal before releasing only its exact owner.
 $bound_fail_id=144;$bound_fail_run='18181818-1818-4818-8818-181818181818';owned_run($bound_fail_id,$bound_fail_run);$GLOBALS['owner']['state']='running';$before_metrics=count($GLOBALS['metrics']);$before_writes=$GLOBALS['history'][$bound_fail_id]['writes'];$bound_failed=nmkr_finalize_direct_worker_failure($bound_fail_run,$bound_fail_id,'Synthetic ordinary failure',$GLOBALS['owned_final']);check(is_array($bound_failed)&&$bound_failed['status']==='failed'&&get_option('nmkr_sync_data')['status']==='failed'&&get_option('nmkr_sync_data')['run_id']===$bound_fail_run&&$GLOBALS['history'][$bound_fail_id]['status']==='failed'&&$GLOBALS['history'][$bound_fail_id]['writes']===$before_writes+1&&count($GLOBALS['metrics'])===$before_metrics&&nmkr_get_sync_owner()===false,'bound ordinary failure preserves canonical failed terminal and releases only after exact finalization');
