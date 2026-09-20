@@ -5,7 +5,7 @@
  * This file contains AJAX handlers for the NMKR Connect synchronization processes.
  *
  * @package NMKR Connect
- * @since 1.0.0
+ * @since 0.25.0
  */
 
 // Exit if accessed directly

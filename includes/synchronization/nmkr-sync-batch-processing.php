@@ -6,7 +6,7 @@
  * It handles processing tokens and projects in batches to avoid memory issues.
  *
  * @package NMKR Connect
- * @since 1.0.0
+ * @since 0.25.0
  */
 
 // Exit if accessed directly

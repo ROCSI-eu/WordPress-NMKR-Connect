@@ -6,7 +6,7 @@
  * It handles the main synchronization process and initialization.
  *
  * @package NMKR Connect
- * @since 1.0.0
+ * @since 0.25.0
  */
 
 // Exit if accessed directly
@@ -1573,7 +1573,7 @@ function nmkr_log_sync_summary(&$sync_log, $project_uids, $token_total, $success
     
     // Create the summary message
     $summary_lines = array(
-        '[NMKR Connect Sync] ✅ Token sync summary:',
+        '[Connector for NMKR Sync] ✅ Token sync summary:',
         '- Total projects: ' . $total_projects,
         '- Total tokens: ' . $total_tokens,
         '- Successfully synced: ' . $successful_tokens,

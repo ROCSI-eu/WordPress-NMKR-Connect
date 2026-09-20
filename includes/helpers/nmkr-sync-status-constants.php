@@ -5,7 +5,7 @@
  * Centralized constants and utilities for consistent sync status handling.
  *
  * @package NMKR Connect
- * @since 1.0.0
+ * @since 0.25.0
  */
 
 // Exit if accessed directly

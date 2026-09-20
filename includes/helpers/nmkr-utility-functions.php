@@ -274,11 +274,11 @@ function nmkr_log_data_sync($message, $type = 'info', $data = array()) {
     // Log to debug.log file if enabled
     if (nmkr_should_log_to('file')) {
         // Create a clean, simple log entry
-        write_log("[NMKR Connect Sync] " . $message);
+        write_log("[Connector for NMKR Sync] " . $message);
         
         // For errors and warnings, log the data separately
         if (($type === 'error' || $type === 'warning') && !empty($data)) {
-            write_log("[NMKR Connect Sync] Error details: " . print_r($data, true));
+            write_log("[Connector for NMKR Sync] Error details: " . print_r($data, true));
         }
     }
     
@@ -336,11 +336,11 @@ function nmkr_log_api_status($message, $type = 'info', $data = array()) {
     // Log to debug.log file if enabled
     if (nmkr_should_log_to('file')) {
         // Create a clean, simple log entry
-        write_log("[NMKR Connect API] " . $message);
+        write_log("[Connector for NMKR API] " . $message);
         
         // For errors and warnings, log the data separately
         if (($type === 'error' || $type === 'warning') && !empty($data)) {
-            write_log("[NMKR Connect API] Error details: " . print_r($data, true));
+            write_log("[Connector for NMKR API] Error details: " . print_r($data, true));
         }
     }
     
@@ -388,11 +388,11 @@ function nmkr_log_ui_status($message, $type = 'info', $data = array()) {
     // Log to debug.log file if enabled
     if (nmkr_should_log_to('file')) {
         // Create a clean, simple log entry
-        write_log("[NMKR Connect UI Status] " . $message);
+        write_log("[Connector for NMKR UI Status] " . $message);
         
         // For errors and warnings, log the data separately
         if (($type === 'error' || $type === 'warning') && !empty($data)) {
-            write_log("[NMKR Connect UI Status] Error details: " . print_r($data, true));
+            write_log("[Connector for NMKR UI Status] Error details: " . print_r($data, true));
         }
     }
     
@@ -968,7 +968,7 @@ function nmkr_detect_and_recover_stale_sync() {
         $age = ( $last_update > 0 ) ? ( time() - $last_update ) : -1;
         nmkr_log_ui_status(
             sprintf(
-                __('[NMKR Connect Recovery] Stale sync detected (last_update=%1$s, age=%2$d sec). State cleared; UI set to idle.', 'connector-for-nmkr'),
+                __('[Connector for NMKR Recovery] Stale sync detected (last_update=%1$s, age=%2$d sec). State cleared; UI set to idle.', 'connector-for-nmkr'),
                 $iso,
                 (int) $age
             ),
