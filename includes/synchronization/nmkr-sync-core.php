@@ -1259,6 +1259,26 @@ function nmkr_sync_data($run_id = '') {
             return new WP_Error('initialization_failed', $error_msg);
         }
         
+        // Establish exact run-owned state before any fallible post-binding initialization.
+        $sync_data = array(
+            'run_id' => $run_id,
+            'correlation_id' => $correlation_id,
+            'start_time' => nmkr_get_timestamp(),
+            'status' => 'initializing',
+            'api_key_configured' => true,
+            'sync_stats_id' => $sync_stats_id,
+            'last_update_time' => time(),
+            'all_tokens' => array(),
+            'tracking' => null,
+            'items_processed' => 0,
+            'items_successful' => 0,
+            'items_failed' => 0,
+            'items_skipped' => 0,
+            'token_details_synced' => 0
+        );
+        if (!in_array(($bound_owner['state'] ?? ''), array('running', 'stop_requested'), true) || !nmkr_save_sync_data($sync_data)) {
+            throw new Exception('Failed to persist run-owned synchronization state');
+        }
         // Seed live stats transient before polling begins
         set_transient(
             'nmkr_current_sync_stats_live',
@@ -1286,28 +1306,8 @@ function nmkr_sync_data($run_id = '') {
         update_option('nmkr_sync_in_progress', true);
         set_transient('nmkr_sync_in_progress', true, NMKR_SYNC_TRANSIENT_TTL);
         
-        // Store sync data with correlation ID
-        $sync_data = array(
-            'run_id' => $run_id,
-            'correlation_id' => $correlation_id,
-            'start_time' => nmkr_get_timestamp(),
-            'status' => 'initializing',
-            'api_key_configured' => true,
-            'sync_stats_id' => $sync_stats_id,
-            'last_update_time' => time(),
-            'all_tokens' => array(),
-            'tracking' => null,
-            'items_processed' => 0,
-            'items_successful' => 0,
-            'items_failed' => 0,
-            'items_skipped' => 0,
-            'token_details_synced' => 0
-        );
-        if (!in_array(($bound_owner['state'] ?? ''), array('running', 'stop_requested'), true) || !nmkr_save_sync_data($sync_data)) {
-            throw new Exception('Failed to persist run-owned synchronization state');
-        }
-        // Stop can win after history binding but before initial runtime state.
-        // Persist that minimum state first, then hand off exactly once.
+        // Stop can win after history binding while post-binding initialization runs.
+        // The exact run state already exists, so hand off exactly once.
         if (($bound_owner['state'] ?? '') === 'stop_requested') {
             return nmkr_handle_sync_worker_halt(
                 new WP_Error('sync_stop_requested', __('Synchronization stop was requested.', 'connector-for-nmkr')),
