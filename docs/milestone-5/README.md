@@ -45,7 +45,8 @@ The [traceability matrix](traceability.md) is the canonical requirement-to-work-
 - [Handover](handover.md) — final user/developer/release/support documentation checklist.
 - [PCR / PCV](pcr-pcv.md) — current close-out requirements and preparation gates.
 - [Risks and decisions](risks-and-decisions.md) — living risk register and decision log.
-- [Close-out](closeout.md) — final completion checklist and eventual proof-of-achievement summary.
+- [Proof of Achievement](proof-of-achievement.md) — dedicated reviewer-facing final evidence synthesis scaffold.
+- [Close-out](closeout.md) — operational completion checklist and final close-out gate.
 
 ## Work-package sequence
 

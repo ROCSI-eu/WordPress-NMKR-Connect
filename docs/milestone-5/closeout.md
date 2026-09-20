@@ -1,9 +1,11 @@
 # Milestone 5 close-out
 
 **Status:** NOT READY\
-**Document type:** Final completion checklist and eventual proof-of-achievement summary
+**Document type:** Operational final completion checklist and close-out control record
 
 This file is intentionally scaffolded before execution so the project can see the final gate from the beginning. It must not be used as evidence that Milestone 5 is complete until its referenced evidence is actually verified.
+
+The dedicated reviewer-facing synthesis lives in [proof-of-achievement.md](proof-of-achievement.md). The two documents must remain aligned: this file controls completion gates and final dispositions, while the Proof of Achievement summarizes the verified evidence for reviewers.
 
 ## Contract completion checklist
 
