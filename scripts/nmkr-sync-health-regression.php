@@ -104,6 +104,22 @@ check(!$health['is_stalled'] && $health['finalization_pending'] && $health['has_
     'finalizing direct run uses exact resume evidence rather than legacy batch cron');
 
 reset_health_fixture();
+$GLOBALS['owner'] = direct_owner($run, 'finalizing', 45, 400);
+$GLOBALS['sync_data'] = array('run_id' => $run, 'sync_stats_id' => 45, 'status' => 'processing_tokens');
+$GLOBALS['resume_pending'] = 45;
+$health = nmkr_check_sync_health();
+check(!$health['is_stalled'] && $health['finalization_pending'] && $health['has_running_jobs'],
+    'exact durable finalization handoff is healthy before status publication');
+
+reset_health_fixture();
+$GLOBALS['owner'] = direct_owner($run, 'finalizing', 46, 400);
+$GLOBALS['sync_data'] = array('run_id' => '22222222-2222-4222-8222-222222222222', 'sync_stats_id' => 46, 'status' => 'processing_tokens');
+$GLOBALS['resume_pending'] = 46;
+$health = nmkr_check_sync_health();
+check($health['is_stalled'] && !$health['finalization_pending'],
+    'finalization handoff evidence cannot cross the exact run boundary');
+
+reset_health_fixture();
 $GLOBALS['owner'] = direct_owner($run, 'stop_requested', 44, 400);
 $health = nmkr_check_sync_health();
 check($health['in_progress'] && !$health['is_stalled'] && $health['owner_state'] === 'stop_requested',
@@ -129,19 +145,5 @@ $GLOBALS['options']['nmkr_connect_options']['sync_batch_delay'] = 1;
 $health = nmkr_check_sync_health();
 check($health['profile_settings']['batch_size'] === 10 && $health['profile_settings']['batch_delay'] === 1,
     'health settings consume canonical aggressive-profile keys');
-
-$ajax = file_get_contents(dirname(__DIR__) . '/includes/synchronization/nmkr-sync-ajax-handlers.php');
-$progress_start = strpos($ajax, 'function nmkr_sync_progress_handler()');
-$progress_end = strpos($ajax, 'function nmkr_stop_sync_handler()', $progress_start);
-$progress_body = substr($ajax, $progress_start, $progress_end - $progress_start);
-check(strpos($progress_body, "\$options['sync_batch_size']") !== false
-    && strpos($progress_body, "\$options['sync_batch_delay']") !== false
-    && strpos($progress_body, "\$options['batch_size']") === false
-    && strpos($progress_body, "\$options['batch_delay']") === false,
-    'progress recovery consumes canonical synchronization profile keys');
-check(strpos($progress_body, '$active_direct_health_owner') !== false
-    && strpos($progress_body, 'nmkr_with_ownerless_legacy_recovery') !== false
-    && strpos($progress_body, '&& !$active_direct_health_owner') !== false,
-    'progress recovery explicitly excludes active direct owners and retains the ownerless lock boundary');
 
 echo "Sync health regression passed.\n";

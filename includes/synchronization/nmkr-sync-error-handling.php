@@ -484,13 +484,16 @@ function nmkr_classify_direct_sync_health($owner, $sync_data, $last_progress_upd
             );
         }
     } elseif ($state === 'finalizing') {
-        $exact_finalizing = is_array($sync_data)
+        $exact_finalization = is_array($sync_data)
             && (string) ($sync_data['run_id'] ?? '') === $run_id
-            && (int) ($sync_data['sync_stats_id'] ?? 0) === $sync_stats_id
-            && ($sync_data['status'] ?? '') === 'finalizing';
-        $finalization_pending = $exact_finalizing && $sync_stats_id > 0
+            && (int) ($sync_data['sync_stats_id'] ?? 0) === $sync_stats_id;
+        $finalization_pending = $exact_finalization && $sync_stats_id > 0
             && function_exists('nmkr_sync_finalization_resume_pending')
             && nmkr_sync_finalization_resume_pending($sync_stats_id);
+        // The durable resume record is written before sync_data publishes its
+        // finalizing status. Treat that exact handoff as executable evidence.
+        $exact_finalizing = $exact_finalization
+            && (($sync_data['status'] ?? '') === 'finalizing' || $finalization_pending);
         $has_running_jobs = $exact_finalizing && ($finalization_pending || $owner_fresh);
         if (!$exact_finalizing) {
             $is_stalled = true;
