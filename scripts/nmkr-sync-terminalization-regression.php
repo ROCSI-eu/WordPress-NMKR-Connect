@@ -323,6 +323,7 @@ $bound_handoff_fail=nmkr_recover_direct_worker_throwable(new Error('synthetic-ha
 check(is_wp_error($bound_handoff_fail)&&$bound_handoff_fail->get_error_code()==='sync_owner_release_handoff_failed'&&nmkr_sync_owner_matches($bound_handoff_fail_run,'running',$bound_handoff_fail_id)&&get_option('nmkr_sync_in_progress')===true&&get_option('nmkr_sync_data')['status']==='failed','failed bound-cleanup handoff remains active and exactly discoverable for stale recovery');
 unset($GLOBALS['fail_schedule']);
 $GLOBALS['owner']['state']='stop_requested';
+$GLOBALS['options']['nmkr_sync_owner']=$GLOBALS['owner'];
 $bound_handoff_stop_recovery=nmkr_detect_and_recover_stale_sync();
 check($bound_handoff_stop_recovery['stale']===true&&$bound_handoff_stop_recovery['recovered']===true&&nmkr_get_sync_owner()===false&&get_option('nmkr_sync_data')['status']==='stopped','stale recovery routes a late Stop without stopped-recovery data through exact bound cleanup');
 $bound_save_fail_id=178;
