@@ -51,6 +51,9 @@ bash scripts/nmkr-schema-upgrade-regression.sh
 printf '\n== Atomic synchronization ownership regression ==\n'
 bash scripts/nmkr-sync-owner-regression.sh
 
+printf '\n== Force-cleanup cron boundary regression ==\n'
+php scripts/nmkr-force-cleanup-cron-regression.php
+
 printf '\n== Run-scoped API throttle regression ==\n'
 bash scripts/nmkr-sync-api-throttle-regression.sh
 
