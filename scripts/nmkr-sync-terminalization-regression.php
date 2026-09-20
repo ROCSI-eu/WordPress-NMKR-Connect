@@ -299,6 +299,17 @@ check(is_wp_error($bound_release_fail)&&$bound_release_fail->get_error_code()===
 unset($GLOBALS['fail_cleanup']);
 unset($GLOBALS['hooks'][hook_key('nmkr_resume_sync_finalization',array($bound_release_fail_id))]);
 check(nmkr_resume_sync_finalization($bound_release_fail_id)===true&&nmkr_get_sync_owner()===false&&!nmkr_sync_finalization_resume_pending($bound_release_fail_id),'bound-initialization owner release resumes through the durable handoff');
+$bound_handoff_fail_id=182;
+$bound_handoff_fail_run='59595959-5959-4959-8959-595959595959';
+active_run($bound_handoff_fail_id);
+$GLOBALS['options']['nmkr_sync_data']['run_id']='60606060-6060-4060-8060-606060606060';
+$GLOBALS['history'][$bound_handoff_fail_id]['run_id']=$bound_handoff_fail_run;
+$GLOBALS['owner']=array('run_id'=>$bound_handoff_fail_run,'mode'=>'direct','state'=>'running','sync_stats_id'=>$bound_handoff_fail_id);
+$GLOBALS['fail_schedule']=true;
+$bound_handoff_fail=nmkr_recover_direct_worker_throwable(new Error('synthetic-handoff-schedule-marker'),$bound_handoff_fail_run,$bound_handoff_fail_id);
+check(is_wp_error($bound_handoff_fail)&&$bound_handoff_fail->get_error_code()==='sync_owner_release_handoff_failed'&&nmkr_sync_owner_matches($bound_handoff_fail_run,'running',$bound_handoff_fail_id)&&get_option('nmkr_sync_in_progress')===true&&get_option('nmkr_sync_data')['status']==='failed','failed bound-cleanup handoff remains active and exactly discoverable for stale recovery');
+unset($GLOBALS['fail_schedule']);
+check(is_wp_error(nmkr_cleanup_bound_direct_sync_initialization_failure($bound_handoff_fail_run,$bound_handoff_fail_id,'Synchronization failed.'))&&nmkr_get_sync_owner()===false,'a later bound-cleanup retry releases the retained exact owner after handoff scheduling recovers');
 $bound_save_fail_id=178;
 $bound_save_fail_run='51515151-5151-4151-8151-515151515151';
 active_run($bound_save_fail_id);
@@ -331,6 +342,8 @@ $initial_state_position=strpos($core_sync_body,'!nmkr_save_sync_data($sync_data)
 $post_binding_transient_position=strpos($core_sync_body,"set_transient(\n            'nmkr_current_sync_stats_live'", $bound_position);
 check($bound_position!==false&&$initial_state_position!==false&&$post_binding_transient_position!==false&&$bound_position<$initial_state_position&&$initial_state_position<$post_binding_transient_position,'bound direct worker persists exact run state before fallible post-binding initialization');
 check(strpos($core_sync_body,'return nmkr_recover_direct_worker_throwable($e, $run_id, $sync_stats_id);')!==false,'outer sync catch routes provisional binding and initial bound-state failures through exact recovery');
+$utility_recovery_source=file_get_contents(dirname(__DIR__).'/includes/helpers/nmkr-utility-functions.php');
+check(strpos($utility_recovery_source,'$exact_bound_cleanup_recovery')!==false&&strpos($utility_recovery_source,'nmkr_cleanup_bound_direct_sync_initialization_failure(')!==false,'stale recovery retries an exact running owner retained after bound-cleanup handoff failure');
 
 // Bound ordinary failure writes a durable failed terminal before releasing only its exact owner.
 $bound_fail_id=144;$bound_fail_run='18181818-1818-4818-8818-181818181818';owned_run($bound_fail_id,$bound_fail_run);$GLOBALS['owner']['state']='running';$before_metrics=count($GLOBALS['metrics']);$before_writes=$GLOBALS['history'][$bound_fail_id]['writes'];$bound_failed=nmkr_finalize_direct_worker_failure($bound_fail_run,$bound_fail_id,'Synthetic ordinary failure',$GLOBALS['owned_final']);check(is_array($bound_failed)&&$bound_failed['status']==='failed'&&get_option('nmkr_sync_data')['status']==='failed'&&get_option('nmkr_sync_data')['run_id']===$bound_fail_run&&$GLOBALS['history'][$bound_fail_id]['status']==='failed'&&$GLOBALS['history'][$bound_fail_id]['writes']===$before_writes+1&&count($GLOBALS['metrics'])===$before_metrics&&nmkr_get_sync_owner()===false,'bound ordinary failure preserves canonical failed terminal and releases only after exact finalization');

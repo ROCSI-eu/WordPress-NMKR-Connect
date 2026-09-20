@@ -774,7 +774,11 @@ function nmkr_cleanup_bound_direct_sync_initialization_failure($run_id, $sync_st
             'outcome' => $outcome,
         )));
         if (!is_array($resume) || !nmkr_schedule_sync_finalization_resume($sync_stats_id, (int) ($resume['attempt'] ?? 0))) {
-            nmkr_cleanup_failed_direct_sync_markers('owner_release_handoff_error');
+            // Keep the run visibly active. Stale recovery can identify this
+            // exact running owner from the terminal record and retry creation
+            // of the handoff; clearing active markers here would make the
+            // retained owner undiscoverable after this request exits.
+            update_option('nmkr_sync_status', 'finalization_error');
             return new WP_Error('sync_owner_release_handoff_failed', __('Synchronization cleanup retry could not be scheduled.', 'connector-for-nmkr'));
         }
 
@@ -1000,6 +1004,22 @@ function nmkr_detect_and_recover_stale_sync() {
         if ($exact_stopped_recovery) {
             $recovered = nmkr_resume_stopped_sync_recovery((string) $owner['run_id'], (int) $owner['sync_stats_id']);
             return array('stale'=>true,'recovered'=>is_array($recovered) && ($recovered['status'] ?? '') === 'stopped','owner_preserved'=>nmkr_get_sync_owner() !== false,'grace'=>$grace,'heartbeat_age'=>$heartbeat_age,'last_update'=>$last_update);
+        }
+        $exact_bound_cleanup_recovery = $owner && ($owner['mode'] ?? '') === 'direct'
+            && ($owner['state'] ?? '') === 'running'
+            && is_array($sync_data)
+            && ($sync_data['status'] ?? '') === 'failed'
+            && (string) ($owner['run_id'] ?? '') === (string) ($sync_data['run_id'] ?? '')
+            && (int) ($owner['sync_stats_id'] ?? 0) === (int) ($sync_data['sync_stats_id'] ?? 0)
+            && function_exists('nmkr_cleanup_bound_direct_sync_initialization_failure');
+        if ($exact_bound_cleanup_recovery) {
+            $recovered = nmkr_cleanup_bound_direct_sync_initialization_failure(
+                (string) $owner['run_id'],
+                (int) $owner['sync_stats_id'],
+                (string) ($sync_data['error_message'] ?? '')
+            );
+            $released = nmkr_get_sync_owner() === false;
+            return array('stale'=>true,'recovered'=>$released,'owner_preserved'=>!$released,'grace'=>$grace,'heartbeat_age'=>$heartbeat_age,'last_update'=>$last_update);
         }
         $exact_finalizing = $owner && ($owner['mode'] ?? '') === 'direct'
             && ($owner['state'] ?? '') === 'finalizing'
