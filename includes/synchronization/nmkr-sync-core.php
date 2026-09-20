@@ -213,6 +213,92 @@ function nmkr_handle_direct_worker_error($error, $run_id, $sync_stats_id, $count
 }
 
 /**
+ * Recover an unexpected PHP Throwable at the outer direct-worker boundary.
+ *
+ * The exact owner remains the authority: Stop wins, a running bound worker
+ * terminalizes through the canonical failed path, a pre-history worker uses
+ * exact provisional cleanup, and a finalizing owner remains fail-closed.
+ * Raw Throwable details are retained only in private synchronization logs.
+ */
+function nmkr_recover_direct_worker_throwable($throwable, $run_id, $sync_stats_id = null) {
+    if (!($throwable instanceof Throwable)) return false;
+
+    $safe_message = __('Synchronization failed because of an unexpected runtime error.', 'connector-for-nmkr');
+    nmkr_log_data_sync('Direct synchronization worker terminated unexpectedly.', 'error', array(
+        'throwable_class' => get_class($throwable),
+        'message' => $throwable->getMessage(),
+        'file' => $throwable->getFile(),
+        'line' => $throwable->getLine(),
+        'trace' => $throwable->getTraceAsString(),
+    ));
+
+    $owner = nmkr_get_sync_owner();
+    if (!is_array($owner)
+        || !hash_equals((string) ($owner['run_id'] ?? ''), (string) $run_id)
+        || ($owner['mode'] ?? '') !== 'direct') {
+        return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this worker.', 'connector-for-nmkr'));
+    }
+
+    $owner_stats_id = (int) ($owner['sync_stats_id'] ?? 0);
+    if ($sync_stats_id !== null && (int) $sync_stats_id !== $owner_stats_id) {
+        return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this worker.', 'connector-for-nmkr'));
+    }
+    $sync_stats_id = $owner_stats_id;
+
+    $sync_data = nmkr_get_sync_data();
+    $counters = array();
+    foreach (array('items_processed', 'items_successful', 'items_failed', 'items_skipped', 'token_details_synced') as $counter) {
+        $counters[$counter] = (int) (is_array($sync_data) ? ($sync_data[$counter] ?? 0) : 0);
+    }
+
+    $owner_state = (string) ($owner['state'] ?? '');
+    if ($owner_state === 'stop_requested') {
+        $stopped = $sync_stats_id > 0
+            ? nmkr_finalize_stop_winning_worker_failure($run_id, $sync_stats_id, $counters)
+            : nmkr_finalize_pre_history_stop_on_early_failure($run_id);
+        return $stopped !== false
+            ? $stopped
+            : new WP_Error('sync_worker_recovery_pending', __('Synchronization failure recovery remains pending.', 'connector-for-nmkr'));
+    }
+
+    if ($owner_state === 'running') {
+        if ($sync_stats_id > 0) {
+            $failed = nmkr_finalize_direct_worker_failure($run_id, $sync_stats_id, $safe_message, $counters);
+            return $failed !== false
+                ? $failed
+                : new WP_Error('sync_worker_recovery_pending', __('Synchronization failure recovery remains pending.', 'connector-for-nmkr'));
+        }
+
+        $cleaned = nmkr_cleanup_failed_direct_sync($run_id, 0, $safe_message);
+        return $cleaned === true
+            ? new WP_Error('sync_worker_throwable', $safe_message)
+            : new WP_Error('sync_worker_recovery_pending', __('Synchronization failure recovery remains pending.', 'connector-for-nmkr'));
+    }
+
+    if ($owner_state === 'finalizing' && $sync_stats_id > 0) {
+        if (nmkr_sync_finalization_handoff_pending($run_id, $sync_stats_id)) {
+            return nmkr_direct_sync_finalization_error(
+                'sync_finalization_pending',
+                'Synchronization finalization remains pending.',
+                $run_id,
+                $sync_stats_id,
+                'failed'
+            );
+        }
+        nmkr_set_sync_finalization_error();
+        return nmkr_direct_sync_finalization_error(
+            'sync_finalization_unavailable',
+            'Synchronization finalization requires recovery.',
+            $run_id,
+            $sync_stats_id,
+            'failed'
+        );
+    }
+
+    return new WP_Error('sync_worker_recovery_pending', __('Synchronization failure recovery remains pending.', 'connector-for-nmkr'));
+}
+
+/**
  * Give an exact cooperative Stop precedence over the generic worker-failure
  * cleanup. Returning false leaves ordinary running-worker failures unchanged.
  */
@@ -1399,11 +1485,15 @@ function nmkr_sync_data($run_id = '') {
         
         return 'Sync process completed successfully.';
         
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         // ** ENHANCED ERROR HANDLING: Critical Error Cleanup **
-        $error_msg = 'Critical error during synchronization: ' . $e->getMessage();
+        $private_error_msg = 'Critical error during synchronization: ' . $e->getMessage();
+        $error_msg = $e instanceof Exception
+            ? $private_error_msg
+            : __('Synchronization failed because of an unexpected runtime error.', 'connector-for-nmkr');
         $sync_log[] = 'CRITICAL ERROR: ' . $error_msg;
-        nmkr_log_data_sync($error_msg, 'error', array(
+        nmkr_log_data_sync($private_error_msg, 'error', array(
+            'throwable_class' => get_class($e),
             'exception' => $e->getMessage(),
             'file' => $e->getFile(),
             'line' => $e->getLine(),
@@ -1496,7 +1586,7 @@ function nmkr_sync_data($run_id = '') {
         if (defined('DOING_AJAX') && DOING_AJAX) {
             return array(
                 'success' => false,
-                'message' => $error_msg,
+                'message' => __('Synchronization failed. Review the private server diagnostics for details.', 'connector-for-nmkr'),
                 'error_code' => 'critical_sync_failure',
                 'log' => $sync_log,
                 'progress' => ($total_steps > 0 ? (int)round(($completed_steps / $total_steps) * 100) : 0)
