@@ -766,12 +766,25 @@ function nmkr_cleanup_bound_direct_sync_initialization_failure($run_id, $sync_st
             return new WP_Error('sync_data_terminalization_failed', __('Failed to publish terminal synchronization state.', 'connector-for-nmkr'));
         }
 
+        // Establish an independently executable handoff before attempting the
+        // final owner delete. If that delete or its readback fails, the normal
+        // finalization callback can claim this exact running owner and retry
+        // cleanup from the already-published terminal record.
+        $resume = nmkr_save_sync_finalization_resume($sync_stats_id, array_merge($terminal, array(
+            'outcome' => $outcome,
+        )));
+        if (!is_array($resume) || !nmkr_schedule_sync_finalization_resume($sync_stats_id, (int) ($resume['attempt'] ?? 0))) {
+            nmkr_cleanup_failed_direct_sync_markers('owner_release_handoff_error');
+            return new WP_Error('sync_owner_release_handoff_failed', __('Synchronization cleanup retry could not be scheduled.', 'connector-for-nmkr'));
+        }
+
         nmkr_cleanup_failed_direct_sync_markers($outcome);
         update_option('nmkr_sync_error', $outcome === 'failed' ? (string) $error_message : '');
         delete_option('nmkr_sync_owner');
         if (nmkr_get_uncached_option_value('nmkr_sync_owner', false) !== false) {
-            return new WP_Error('sync_owner_release_failed', __('Synchronization cleanup remains pending.', 'connector-for-nmkr'));
+            return new WP_Error('sync_finalization_pending', __('Synchronization cleanup remains pending.', 'connector-for-nmkr'));
         }
+        nmkr_clear_sync_finalization_resume($sync_stats_id);
 
         return $outcome === 'stopped'
             ? array('status' => 'stopped', 'outcome' => 'stopped', 'sync_stats_id' => $sync_stats_id)
