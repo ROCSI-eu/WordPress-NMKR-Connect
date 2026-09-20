@@ -328,6 +328,18 @@ function nmkr_recover_direct_worker_throwable($throwable, $run_id, $sync_stats_i
     if ($owner_state === 'running') {
         if ($sync_stats_id > 0) {
             $failed = nmkr_finalize_direct_worker_failure($run_id, $sync_stats_id, $safe_message, $counters);
+            if (is_array($failed) && ($failed['status'] ?? '') === 'failed') {
+                return $failed;
+            }
+
+            // Stop may become authoritative after the owner snapshot above or
+            // while failed finalization is preparing its handoff. Re-check it
+            // before returning a pending failure with no stopped recovery.
+            $stopped = nmkr_finalize_stop_winning_worker_failure($run_id, $sync_stats_id, $counters);
+            if ($stopped !== false) {
+                return $stopped;
+            }
+
             return $failed !== false
                 ? $failed
                 : new WP_Error('sync_worker_recovery_pending', __('Synchronization failure recovery remains pending.', 'connector-for-nmkr'));
