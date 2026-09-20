@@ -25,7 +25,7 @@ Current release-identity decisions:
 - display name: `Connector for NMKR`;
 - candidate directory slug/text domain/package directory: `connector-for-nmkr`;
 - main plugin filename retained for compatibility: `nmkr-connect.php`;
-- version: `1.0.0`;
+- version: `0.25.0` under the repository [versioning policy](../versioning.md);
 - established `nmkr_*` runtime/data contracts remain stable;
 - `connector-for-nmkr` is not claimed approved, assigned, reserved, or published by WordPress.org.
 
@@ -35,10 +35,10 @@ Populate only after an actual release candidate exists.
 
 | Field | Value |
 | --- | --- |
-| Version | `1.0.0` planned; not yet released |
+| Version | `0.25.0` planned; not yet released |
 | Source SHA | TBD — final reviewed head only |
 | Source tree | TBD — final reviewed head only |
-| Package filename | `connector-for-nmkr-1.0.0.zip` planned; not yet published |
+| Package filename | `connector-for-nmkr-0.25.0.zip` planned; not yet published |
 | SHA-256 | TBD |
 | Build method | `npm run build:package` / `scripts/nmkr-build-package.sh` from an exact clean tree |
 | Focused checks | TBD on final candidate |
@@ -57,7 +57,7 @@ Populate after actual submission:
 
 | Field | Value |
 | --- | --- |
-| Candidate version | `1.0.0` planned |
+| Candidate version | `0.25.0` planned |
 | Submitted UTC | NOT SUBMITTED |
 | Requested slug | `connector-for-nmkr` planned; not assigned/reserved |
 | Submission reference/status | NOT SUBMITTED |

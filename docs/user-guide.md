@@ -29,7 +29,7 @@ cd WordPress-NMKR-Connect
 npm run build:package
 ```
 
-The default build creates `dist/connector-for-nmkr-1.0.0.zip`. Install that verified ZIP through WordPress, or use an exact source checkout directly for development. No Composer install or packaged `vendor/` directory is required by the current plugin runtime. Do not commit or distribute populated environment files.
+The current release build creates `dist/connector-for-nmkr-0.25.0.zip`. Install that verified ZIP through WordPress, or use an exact source checkout directly for development. No Composer install or packaged `vendor/` directory is required by the current plugin runtime. Do not commit or distribute populated environment files.
 
 Activation creates or upgrades the plugin tables, installs NMKR roles/capabilities, supplies defaults, attempts safe stale-synchronization recovery, and schedules analytics retention maintenance. Test activation on staging first and make a verified backup before an update.
 

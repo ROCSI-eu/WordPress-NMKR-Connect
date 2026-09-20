@@ -13,6 +13,7 @@ Related guidance:
 - [Comprehensive FAQ](faq.md)
 - [Troubleshooting guide](troubleshooting.md)
 - [Validation policy](validation-policy.md)
+- [Versioning and release policy](versioning.md)
 - [Playwright guide](testing-playwright.md)
 - [Milestone 4 audit and evidence hub](milestone-4/README.md)
 - [M4-02 dashboard mutation-authority evidence](milestone-4/executed-evidence-m4-02-2026-08-29.md)

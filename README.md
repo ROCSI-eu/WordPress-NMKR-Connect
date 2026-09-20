@@ -44,6 +44,7 @@ NMKR Connect is supported by [Cardano Project Catalyst Fund 13](https://mileston
 | Symptoms, read-only diagnosis, and safe escalation | [Troubleshooting guide](docs/troubleshooting.md) |
 | Developers and contributors | [Developer guide](docs/developer-guide.md) |
 | Maintainers choosing proportional checks | [Validation policy](docs/validation-policy.md) |
+| Maintainers planning releases and version bumps | [Versioning and release policy](docs/versioning.md) |
 | Security audit, findings, bounded evidence, and limitations | [Milestone 4 audit and evidence hub](docs/milestone-4/README.md), [evidence register](docs/milestone-4/evidence-register.md), [final report](docs/milestone-4/final-report.md), and [Proof of Achievement](docs/milestone-4/proof-of-achievement.md) |
 
 The focused guides are authoritative for their procedures. Use links instead of copying operational instructions into issues or pull requests, and keep all public diagnostics sanitized.

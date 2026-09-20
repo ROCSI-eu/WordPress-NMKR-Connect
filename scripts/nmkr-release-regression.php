@@ -12,7 +12,14 @@ check($composer['license'] === 'MIT' && count($composer['require']) === 1, 'Comp
 check(preg_match('/Plugin Name:\s*Connector for NMKR\s*$/mi', $plugin) === 1, 'plugin header uses the owner-approved public display name');
 check(preg_match('/Text Domain:\s*connector-for-nmkr\s*$/mi', $plugin) === 1, 'plugin header text domain matches the candidate directory slug');
 check(preg_match('/^=== Connector for NMKR ===$/m', $readme) === 1, 'directory readme title matches the owner-approved public display name');
-check(preg_match('/Version:\s*1\.0\.0/', $plugin) && preg_match('/Stable tag:\s*1\.0\.0/i', $readme), 'plugin version and stable tag agree');
+$plugin_version_match = array();
+$stable_tag_match = array();
+check(preg_match('/^Version:\s*([0-9]+\.[0-9]+\.[0-9]+)\s*$/mi', $plugin, $plugin_version_match) === 1, 'plugin header declares a numeric three-component version');
+check(preg_match('/^Stable tag:\s*([0-9]+\.[0-9]+\.[0-9]+)\s*$/mi', $readme, $stable_tag_match) === 1, 'directory readme declares a numeric three-component stable tag');
+$plugin_version = $plugin_version_match[1];
+$stable_tag = $stable_tag_match[1];
+check($plugin_version === '0.25.0', 'first public stable release is 0.25.0');
+check($stable_tag === $plugin_version, 'plugin version and stable tag agree');
 check(preg_match('/Requires at least:\s*5\.8/i', $plugin) && preg_match('/Requires at least:\s*5\.8/i', $readme), 'plugin and directory metadata agree on WordPress 5.8 minimum');
 $runtime_php = $plugin;
 $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root . '/includes', FilesystemIterator::SKIP_DOTS));
@@ -47,6 +54,9 @@ check(strpos($plugin, 'wp_add_privacy_policy_content') !== false, 'Privacy Polic
 $integrity = file_get_contents($root . '/scripts/nmkr-ajax-runtime-integrity.sh');
 $preflight = file_get_contents($root . '/scripts/nmkr-real-sync-preflight.sh');
 $builder = file_get_contents($root . '/scripts/nmkr-build-package.sh');
+check(strpos($builder, 'zip_path="$out/$slug-$version.zip"') !== false, 'package filename derives from the canonical plugin version');
+check(strpos($builder, '[[ "$version" =~ ^[0-9]+\\.[0-9]+\\.[0-9]+$ ]]') !== false, 'package builder validates a numeric three-component plugin version');
+check(strpos($builder, '[[ "$stable_tag" == "$version" ]]') !== false, 'package builder requires the stable tag to match the plugin version');
 $gitignore = file_get_contents($root . '/.gitignore');
 check(stripos($integrity, 'freemius') === false && strpos($integrity, 'composer.lock') !== false, 'runtime integrity is lock-aware and has no Freemius dependency contract');
 check(strpos($preflight, 'nmkr-ajax-runtime-integrity.sh') !== false, 'real-sync preflight delegates current deployment runtime integrity to the lock-aware helper');

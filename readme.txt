@@ -4,7 +4,7 @@ Tags: nft, cardano, solana, nmkr, shortcode
 Requires at least: 5.8
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 0.25.0
 License: MIT
 License URI: https://opensource.org/license/mit/
 
@@ -50,6 +50,6 @@ No. The owner-selected release identity is “Connector for NMKR” with `connec
 
 == Changelog ==
 
-= 1.0.0 =
+= 0.25.0 =
 * Uses the public release identity Connector for NMKR with `connector-for-nmkr` as the candidate WordPress.org slug and text domain.
 * Initial public production candidate: five free shortcodes, no licensing SDK, opt-in analytics, targeted lifecycle cleanup, privacy disclosures, and reproducible package tooling.

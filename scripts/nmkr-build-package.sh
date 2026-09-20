@@ -5,6 +5,10 @@ cd "$root"
 test -z "$(git status --porcelain=v1)" || { echo 'Package source must be an exact clean tree.' >&2; exit 1; }
 slug=${NMKR_PACKAGE_DIR:-connector-for-nmkr}
 [[ "$slug" =~ ^[a-z0-9][a-z0-9._-]*$ ]] || { echo 'Invalid package directory name.' >&2; exit 1; }
+version=$(sed -n 's/^[[:space:]]*Version:[[:space:]]*\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[[:space:]]*$/\1/p' nmkr-connect.php | head -n 1)
+[[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'Plugin Version header must be numeric x.y.z.' >&2; exit 1; }
+stable_tag=$(sed -n 's/^Stable tag:[[:space:]]*\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[[:space:]]*$/\1/p' readme.txt | head -n 1)
+[[ "$stable_tag" == "$version" ]] || { echo "readme.txt Stable tag must match plugin Version ($version)." >&2; exit 1; }
 out=${1:-"$root/dist"}
 mkdir -p "$out"
 out=$(cd "$out" && pwd -P)
@@ -18,7 +22,7 @@ find "$work/$slug" -type f \( -name '.env*' -o -name '*.zip' -o -name '*.log' -o
 ( cd "$work/$slug" && find . -type f ! -name 'PACKAGE-MANIFEST.sha256' -print | LC_ALL=C sort | sed 's#^./##' | while IFS= read -r f; do sha256sum "$f"; done > PACKAGE-MANIFEST.sha256 )
 manifest="$work/$slug/PACKAGE-MANIFEST.sha256"
 ( cd "$work/$slug" && sha256sum -c PACKAGE-MANIFEST.sha256 >/dev/null )
-zip_path="$out/$slug-1.0.0.zip"
+zip_path="$out/$slug-$version.zip"
 rm -f "$zip_path" "$zip_path.sha256"
 ( cd "$work" && find "$slug" -type f -print | LC_ALL=C sort | zip -X -q "$zip_path" -@ )
 (
