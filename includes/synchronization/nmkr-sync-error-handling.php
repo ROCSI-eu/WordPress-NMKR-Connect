@@ -320,9 +320,6 @@ function nmkr_force_stop_sync_ownerless($context = 'force_stop') {
     // Run a cleanup with force parameter
     $cleanup_result = nmkr_clear_sync_jobs_ownerless('force_stop', true, true);
     
-    // Kill any WP-Cron lock
-    delete_transient('doing_cron');
-    
     // Reset all sync state options for a clean state
     $options_to_reset = array(
         'nmkr_sync_progress' => 0,
