@@ -34,6 +34,9 @@ class FakeWpdb { public $prefix='wp_',$options='wp_options',$insert_id=0,$fail_r
 $wpdb=new FakeWpdb(); require dirname(__DIR__).'/includes/synchronization/nmkr-sync-progress-tracking.php';
 $core_source=file_get_contents(dirname(__DIR__).'/includes/synchronization/nmkr-sync-core.php');
 function load_core_helper($source, $name) {$start=strpos($source,'function '.$name.'(');$next_function=strpos($source,"\nfunction ",$start + 1);$next_comment=strpos($source,"\n/**",$start + 1);$ends=array_filter(array($next_function,$next_comment),function($value){return $value!==false;});$end=empty($ends)?strlen($source):min($ends);if($start===false){fwrite(STDERR,"FAIL: unable to load production helper {$name}\n");exit(1);}eval(substr($source,$start,$end-$start));}
+$utility_source=file_get_contents(dirname(__DIR__).'/includes/helpers/nmkr-utility-functions.php');
+load_core_helper($utility_source,'nmkr_cleanup_bound_direct_sync_initialization_failure');
+load_core_helper($utility_source,'nmkr_cleanup_failed_direct_sync_markers');
 load_core_helper($core_source,'nmkr_is_sync_worker_halt_error');
 load_core_helper($core_source,'nmkr_is_fatal_api_error');
 load_core_helper($core_source,'nmkr_handle_sync_worker_halt');
@@ -265,6 +268,15 @@ $GLOBALS['history'][$provisional_stop_id]['run_id']=$provisional_stop_run;
 $GLOBALS['owner']=array('run_id'=>$provisional_stop_run,'mode'=>'direct','state'=>'stop_requested','sync_stats_id'=>0);
 $provisional_stop=nmkr_recover_direct_worker_throwable(new Error('synthetic-provisional-stop-marker'),$provisional_stop_run,$provisional_stop_id);
 check(is_array($provisional_stop)&&$provisional_stop['outcome']==='stopped'&&$GLOBALS['history'][$provisional_stop_id]['status']==='failed'&&nmkr_get_sync_owner()===false,'Stop keeps precedence when a Throwable interrupts provisional history binding');
+
+$bound_state_fail_id=177;
+$bound_state_fail_run='49494949-4949-4949-8949-494949494949';
+active_run($bound_state_fail_id);
+$GLOBALS['options']['nmkr_sync_data']['run_id']='50505050-5050-4050-8050-505050505050';
+$GLOBALS['history'][$bound_state_fail_id]['run_id']=$bound_state_fail_run;
+$GLOBALS['owner']=array('run_id'=>$bound_state_fail_run,'mode'=>'direct','state'=>'running','sync_stats_id'=>$bound_state_fail_id);
+$bound_state_fail=nmkr_recover_direct_worker_throwable(new Error('synthetic-initial-state-write-marker'),$bound_state_fail_run,$bound_state_fail_id);
+check(is_wp_error($bound_state_fail)&&$bound_state_fail->get_error_code()==='sync_worker_throwable'&&$GLOBALS['history'][$bound_state_fail_id]['status']==='failed'&&nmkr_get_sync_owner()===false&&!get_option('nmkr_sync_in_progress'),'Throwable during the initial bound-state write terminalizes exact history and releases its owner without stale run data');
 ini_set('error_log',$previous_error_log);
 
 $core_sync_body=substr($core_source,strpos($core_source,'function nmkr_sync_data('),strpos($core_source,'function nmkr_convert_to_bytes(')-strpos($core_source,'function nmkr_sync_data('));
@@ -277,6 +289,7 @@ $bound_position=strpos($core_sync_body,'$bound_owner = nmkr_bind_exact_sync_hist
 $initial_state_position=strpos($core_sync_body,'!nmkr_save_sync_data($sync_data)', $bound_position);
 $post_binding_transient_position=strpos($core_sync_body,"set_transient(\n            'nmkr_current_sync_stats_live'", $bound_position);
 check($bound_position!==false&&$initial_state_position!==false&&$post_binding_transient_position!==false&&$bound_position<$initial_state_position&&$initial_state_position<$post_binding_transient_position,'bound direct worker persists exact run state before fallible post-binding initialization');
+check(strpos($core_sync_body,'return nmkr_recover_direct_worker_throwable($e, $run_id, $sync_stats_id);')!==false,'outer sync catch routes provisional binding and initial bound-state failures through exact recovery');
 
 // Bound ordinary failure writes a durable failed terminal before releasing only its exact owner.
 $bound_fail_id=144;$bound_fail_run='18181818-1818-4818-8818-181818181818';owned_run($bound_fail_id,$bound_fail_run);$GLOBALS['owner']['state']='running';$before_metrics=count($GLOBALS['metrics']);$before_writes=$GLOBALS['history'][$bound_fail_id]['writes'];$bound_failed=nmkr_finalize_direct_worker_failure($bound_fail_run,$bound_fail_id,'Synthetic ordinary failure',$GLOBALS['owned_final']);check(is_array($bound_failed)&&$bound_failed['status']==='failed'&&get_option('nmkr_sync_data')['status']==='failed'&&get_option('nmkr_sync_data')['run_id']===$bound_fail_run&&$GLOBALS['history'][$bound_fail_id]['status']==='failed'&&$GLOBALS['history'][$bound_fail_id]['writes']===$before_writes+1&&count($GLOBALS['metrics'])===$before_metrics&&nmkr_get_sync_owner()===false,'bound ordinary failure preserves canonical failed terminal and releases only after exact finalization');

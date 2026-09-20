@@ -701,6 +701,50 @@ function nmkr_cleanup_failed_direct_sync($run_id, $sync_stats_id, $error_message
     return $released === true;
 }
 
+/**
+ * Terminalize a bound run whose initial run-state write never became durable.
+ *
+ * This narrow recovery path cannot use the canonical finalizer because any
+ * available sync data belongs to another run. History is made terminal before
+ * the exact owner is released, and a racing cooperative Stop still wins.
+ */
+function nmkr_cleanup_bound_direct_sync_initialization_failure($run_id, $sync_stats_id, $owner_state, $error_message) {
+    global $wpdb;
+
+    $sync_stats_id = (int) $sync_stats_id;
+    $owner_state = (string) $owner_state;
+    if ($sync_stats_id <= 0
+        || !in_array($owner_state, array('running', 'stop_requested'), true)
+        || !nmkr_sync_owner_matches($run_id, $owner_state, $sync_stats_id)) {
+        return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this worker.', 'connector-for-nmkr'));
+    }
+
+    $outcome = $owner_state === 'stop_requested' ? 'stopped' : 'failed';
+    $history_table = $wpdb->prefix . 'nmkr_sync_stats';
+    $updated = nmkr_update_sync_stats($sync_stats_id, array(
+        'status' => $outcome,
+        'error_message' => $outcome === 'failed' ? (string) $error_message : '',
+        'end_time' => nmkr_get_timestamp(),
+    ));
+    $history = $wpdb->get_row($wpdb->prepare("SELECT id, status, end_time FROM $history_table WHERE id = %d", $sync_stats_id), ARRAY_A);
+    if (!$updated || !$history || (int) ($history['id'] ?? 0) !== $sync_stats_id
+        || strtolower((string) ($history['status'] ?? '')) !== $outcome
+        || !nmkr_is_valid_sync_end_time($history['end_time'] ?? '')) {
+        nmkr_cleanup_failed_direct_sync_markers('history_cleanup_error');
+        return new WP_Error('sync_history_terminalization_failed', __('Failed to terminalize synchronization history.', 'connector-for-nmkr'));
+    }
+
+    nmkr_cleanup_failed_direct_sync_markers($outcome);
+    update_option('nmkr_sync_error', $outcome === 'failed' ? (string) $error_message : '');
+    if (!nmkr_release_sync_owner($run_id, $sync_stats_id, $owner_state)) {
+        return new WP_Error('sync_owner_release_failed', __('Synchronization cleanup remains pending.', 'connector-for-nmkr'));
+    }
+
+    return $outcome === 'stopped'
+        ? array('status' => 'stopped', 'outcome' => 'stopped', 'sync_stats_id' => $sync_stats_id)
+        : new WP_Error('sync_worker_throwable', (string) $error_message);
+}
+
 function nmkr_cleanup_failed_queued_sync($run_id) {
     return nmkr_cancel_exact_queued_sync_owner($run_id);
 }

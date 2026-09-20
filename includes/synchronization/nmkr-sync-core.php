@@ -297,6 +297,20 @@ function nmkr_recover_direct_worker_throwable($throwable, $run_id, $sync_stats_i
     $sync_stats_id = $owner_stats_id;
 
     $sync_data = nmkr_get_sync_data();
+    $has_exact_run_state = is_array($sync_data)
+        && hash_equals((string) ($sync_data['run_id'] ?? ''), (string) $run_id)
+        && (int) ($sync_data['sync_stats_id'] ?? 0) === $sync_stats_id;
+    if ($sync_stats_id > 0 && !$has_exact_run_state) {
+        // Ownership was bound, but the first run-state write did not complete.
+        // Canonical finalization cannot consume stale state from an older run,
+        // so terminalize the exact history/owner pair without depending on it.
+        return nmkr_cleanup_bound_direct_sync_initialization_failure(
+            $run_id,
+            $sync_stats_id,
+            $owner['state'] ?? '',
+            $safe_message
+        );
+    }
     $counters = array();
     foreach (array('items_processed', 'items_successful', 'items_failed', 'items_skipped', 'token_details_synced') as $counter) {
         $counters[$counter] = (int) (is_array($sync_data) ? ($sync_data[$counter] ?? 0) : 0);
@@ -1557,6 +1571,19 @@ function nmkr_sync_data($run_id = '') {
         return 'Sync process completed successfully.';
         
     } catch (Throwable $e) {
+        $recovery_owner = nmkr_get_sync_owner();
+        $recovery_data = nmkr_get_sync_data();
+        $recovery_owner_id = is_array($recovery_owner) ? (int) ($recovery_owner['sync_stats_id'] ?? 0) : -1;
+        $has_current_run_state = is_array($recovery_data)
+            && hash_equals((string) ($recovery_data['run_id'] ?? ''), (string) $run_id)
+            && (int) ($recovery_data['sync_stats_id'] ?? 0) === (int) $sync_stats_id;
+        if (is_array($recovery_owner)
+            && hash_equals((string) ($recovery_owner['run_id'] ?? ''), (string) $run_id)
+            && ($recovery_owner['mode'] ?? '') === 'direct'
+            && (int) $sync_stats_id > 0
+            && ($recovery_owner_id === 0 || ($recovery_owner_id === (int) $sync_stats_id && !$has_current_run_state))) {
+            return nmkr_recover_direct_worker_throwable($e, $run_id, $sync_stats_id);
+        }
         // ** ENHANCED ERROR HANDLING: Critical Error Cleanup **
         $private_error_msg = 'Critical error during synchronization: ' . $e->getMessage();
         $error_msg = $e instanceof Exception
