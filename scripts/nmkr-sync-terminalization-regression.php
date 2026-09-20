@@ -313,7 +313,7 @@ check(strpos($core_sync_body,'catch (Throwable $e)')!==false&&strpos($core_sync_
 $background_source=file_get_contents(dirname(__DIR__).'/includes/synchronization/nmkr-sync-ajax-handlers.php');
 $background_body=substr($background_source,strpos($background_source,'function nmkr_execute_sync_background_job('));
 check(substr_count($background_body,'catch (Throwable $e)')>=2&&strpos($background_body,'nmkr_recover_direct_worker_throwable($e, $run_id')!==false,'background worker catches initialization and execution Throwables at the exact-run recovery boundary');
-check(strpos($core_sync_body,"'items_processed' => 0")!==false&&strpos($core_sync_body,'$persist_counters();')!==false,'direct worker seeds and refreshes durable counters for background Throwable recovery');
+check(strpos($core_sync_body,"'items_processed' => 0")!==false&&substr_count($core_sync_body,'if (!$persist_counters())')===2&&strpos($core_sync_body,"'nmkr_sync_counter_persistence_failed'")!==false,'direct worker seeds durable counters and stops token processing when a refreshed counter snapshot cannot be persisted');
 $bound_position=strpos($core_sync_body,'$bound_owner = nmkr_bind_exact_sync_history_owner');
 $initial_state_position=strpos($core_sync_body,'!nmkr_save_sync_data($sync_data)', $bound_position);
 $post_binding_transient_position=strpos($core_sync_body,"set_transient(\n            'nmkr_current_sync_stats_live'", $bound_position);

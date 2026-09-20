@@ -1432,7 +1432,12 @@ function nmkr_sync_data($run_id = '') {
                 // before canonical failed finalization, but never count a Stop
                 // or another error returned before token persistence began.
                 nmkr_account_fatal_token_persistence_attempt($total_tokens, $total_failed_tokens, $failed_details);
-                $persist_counters();
+                if (!$persist_counters()) {
+                    return new WP_Error(
+                        'nmkr_sync_counter_persistence_failed',
+                        __('Synchronization progress could not be persisted.', 'connector-for-nmkr')
+                    );
+                }
                 return $result;
             }
             $total_tokens++;
@@ -1440,7 +1445,12 @@ function nmkr_sync_data($run_id = '') {
             elseif (is_wp_error($result) && $result->get_error_code() === 'validation_failure') { $skipped_details++; $total_skipped_tokens++; }
             elseif (is_wp_error($result)) { $failed_details++; $total_failed_tokens++; }
             else return new WP_Error('nmkr_token_processing_invalid_result', __('Token processing returned an invalid result.', 'connector-for-nmkr'));
-            $persist_counters();
+            if (!$persist_counters()) {
+                return new WP_Error(
+                    'nmkr_sync_counter_persistence_failed',
+                    __('Synchronization progress could not be persisted.', 'connector-for-nmkr')
+                );
+            }
             $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'after_stream_token_processing'); if (is_wp_error($halt)) return $halt;
             return true;
         };
