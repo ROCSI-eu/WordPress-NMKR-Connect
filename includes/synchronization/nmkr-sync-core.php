@@ -226,10 +226,13 @@ function nmkr_recover_direct_worker_throwable($throwable, $run_id, $sync_stats_i
     $safe_message = __('Synchronization failed because of an unexpected runtime error.', 'connector-for-nmkr');
     nmkr_log_data_sync('Direct synchronization worker terminated unexpectedly.', 'error', array(
         'throwable_class' => get_class($throwable),
-        'message' => $throwable->getMessage(),
-        'file' => $throwable->getFile(),
-        'line' => $throwable->getLine(),
-        'trace' => $throwable->getTraceAsString(),
+    ));
+    error_log(sprintf(
+        '[Connector for NMKR Sync] Direct worker Throwable [%s]: %s in %s:%d',
+        get_class($throwable),
+        $throwable->getMessage(),
+        $throwable->getFile(),
+        $throwable->getLine()
     ));
 
     $owner = nmkr_get_sync_owner();
@@ -276,13 +279,17 @@ function nmkr_recover_direct_worker_throwable($throwable, $run_id, $sync_stats_i
     }
 
     if ($owner_state === 'finalizing' && $sync_stats_id > 0) {
+        $resume_record = get_option(nmkr_sync_finalization_resume_key($sync_stats_id), false);
+        $resume_outcome = is_array($resume_record)
+            ? nmkr_normalize_sync_terminal_outcome($resume_record['outcome'] ?? false)
+            : false;
         if (nmkr_sync_finalization_handoff_pending($run_id, $sync_stats_id)) {
             return nmkr_direct_sync_finalization_error(
                 'sync_finalization_pending',
                 'Synchronization finalization remains pending.',
                 $run_id,
                 $sync_stats_id,
-                'failed'
+                $resume_outcome !== false ? $resume_outcome : 'failed'
             );
         }
         nmkr_set_sync_finalization_error();
@@ -291,7 +298,7 @@ function nmkr_recover_direct_worker_throwable($throwable, $run_id, $sync_stats_i
             'Synchronization finalization requires recovery.',
             $run_id,
             $sync_stats_id,
-            'failed'
+            $resume_outcome !== false ? $resume_outcome : 'failed'
         );
     }
 
@@ -1492,13 +1499,25 @@ function nmkr_sync_data($run_id = '') {
             ? $private_error_msg
             : __('Synchronization failed because of an unexpected runtime error.', 'connector-for-nmkr');
         $sync_log[] = 'CRITICAL ERROR: ' . $error_msg;
-        nmkr_log_data_sync($private_error_msg, 'error', array(
-            'throwable_class' => get_class($e),
-            'exception' => $e->getMessage(),
-            'file' => $e->getFile(),
-            'line' => $e->getLine(),
-            'trace' => $e->getTraceAsString()
-        ));
+        if ($e instanceof Exception) {
+            nmkr_log_data_sync($private_error_msg, 'error', array(
+                'exception' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ));
+        } else {
+            nmkr_log_data_sync('Synchronization worker hit an unexpected PHP runtime failure.', 'error', array(
+                'throwable_class' => get_class($e),
+            ));
+            error_log(sprintf(
+                '[Connector for NMKR Sync] Runtime Throwable [%s]: %s in %s:%d',
+                get_class($e),
+                $e->getMessage(),
+                $e->getFile(),
+                $e->getLine()
+            ));
+        }
 
         $resume_data = nmkr_get_sync_data();
         $resume_record = $sync_stats_id > 0 ? get_option(nmkr_sync_finalization_resume_key($sync_stats_id), false) : false;
