@@ -708,41 +708,75 @@ function nmkr_cleanup_failed_direct_sync($run_id, $sync_stats_id, $error_message
  * available sync data belongs to another run. History is made terminal before
  * the exact owner is released, and a racing cooperative Stop still wins.
  */
-function nmkr_cleanup_bound_direct_sync_initialization_failure($run_id, $sync_stats_id, $owner_state, $error_message) {
+function nmkr_cleanup_bound_direct_sync_initialization_failure($run_id, $sync_stats_id, $error_message) {
     global $wpdb;
 
     $sync_stats_id = (int) $sync_stats_id;
-    $owner_state = (string) $owner_state;
-    if ($sync_stats_id <= 0
-        || !in_array($owner_state, array('running', 'stop_requested'), true)
-        || !nmkr_sync_owner_matches($run_id, $owner_state, $sync_stats_id)) {
+    if ($sync_stats_id <= 0) {
         return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this worker.', 'connector-for-nmkr'));
     }
 
-    $outcome = $owner_state === 'stop_requested' ? 'stopped' : 'failed';
-    $history_table = $wpdb->prefix . 'nmkr_sync_stats';
-    $updated = nmkr_update_sync_stats($sync_stats_id, array(
-        'status' => $outcome,
-        'error_message' => $outcome === 'failed' ? (string) $error_message : '',
-        'end_time' => nmkr_get_timestamp(),
-    ));
-    $history = $wpdb->get_row($wpdb->prepare("SELECT id, status, end_time FROM $history_table WHERE id = %d", $sync_stats_id), ARRAY_A);
-    if (!$updated || !$history || (int) ($history['id'] ?? 0) !== $sync_stats_id
-        || strtolower((string) ($history['status'] ?? '')) !== $outcome
-        || !nmkr_is_valid_sync_end_time($history['end_time'] ?? '')) {
-        nmkr_cleanup_failed_direct_sync_markers('history_cleanup_error');
-        return new WP_Error('sync_history_terminalization_failed', __('Failed to terminalize synchronization history.', 'connector-for-nmkr'));
-    }
+    return nmkr_with_sync_owner_lock(function () use ($wpdb, $run_id, $sync_stats_id, $error_message) {
+        // Stop may have won while recovery waited for the owner lock. Always
+        // decide from the authoritative record protected by that lock.
+        $owner = nmkr_get_uncached_option_value('nmkr_sync_owner', false);
+        $owner_state = is_array($owner) ? (string) ($owner['state'] ?? '') : '';
+        if (!is_array($owner)
+            || !hash_equals((string) ($owner['run_id'] ?? ''), (string) $run_id)
+            || ($owner['mode'] ?? '') !== 'direct'
+            || (int) ($owner['sync_stats_id'] ?? 0) !== $sync_stats_id
+            || !in_array($owner_state, array('running', 'stop_requested'), true)) {
+            return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this worker.', 'connector-for-nmkr'));
+        }
 
-    nmkr_cleanup_failed_direct_sync_markers($outcome);
-    update_option('nmkr_sync_error', $outcome === 'failed' ? (string) $error_message : '');
-    if (!nmkr_release_sync_owner($run_id, $sync_stats_id, $owner_state)) {
-        return new WP_Error('sync_owner_release_failed', __('Synchronization cleanup remains pending.', 'connector-for-nmkr'));
-    }
+        $outcome = $owner_state === 'stop_requested' ? 'stopped' : 'failed';
+        $end_time = nmkr_get_timestamp();
+        $history_table = $wpdb->prefix . 'nmkr_sync_stats';
+        $updated = nmkr_update_sync_stats($sync_stats_id, array(
+            'status' => $outcome,
+            'error_message' => $outcome === 'failed' ? (string) $error_message : '',
+            'end_time' => $end_time,
+        ));
+        $history = $wpdb->get_row($wpdb->prepare("SELECT id, status, end_time FROM $history_table WHERE id = %d", $sync_stats_id), ARRAY_A);
+        if (!$updated || !$history || (int) ($history['id'] ?? 0) !== $sync_stats_id
+            || strtolower((string) ($history['status'] ?? '')) !== $outcome
+            || !nmkr_is_valid_sync_end_time($history['end_time'] ?? '')) {
+            nmkr_cleanup_failed_direct_sync_markers('history_cleanup_error');
+            return new WP_Error('sync_history_terminalization_failed', __('Failed to terminalize synchronization history.', 'connector-for-nmkr'));
+        }
 
-    return $outcome === 'stopped'
-        ? array('status' => 'stopped', 'outcome' => 'stopped', 'sync_stats_id' => $sync_stats_id)
-        : new WP_Error('sync_worker_throwable', (string) $error_message);
+        $terminal = array(
+            'status' => $outcome,
+            'completed' => true,
+            'run_id' => (string) $run_id,
+            'sync_stats_id' => $sync_stats_id,
+            'end_time' => (string) $history['end_time'],
+            'items_processed' => 0,
+            'items_successful' => 0,
+            'items_failed' => 0,
+            'items_skipped' => 0,
+            'token_details_synced' => 0,
+        );
+        if ($outcome === 'failed') {
+            $terminal['error_message'] = (string) $error_message;
+        }
+        if (!nmkr_save_sync_data($terminal)
+            || nmkr_get_uncached_option_value('nmkr_sync_data', false) !== $terminal) {
+            nmkr_cleanup_failed_direct_sync_markers('sync_data_cleanup_error');
+            return new WP_Error('sync_data_terminalization_failed', __('Failed to publish terminal synchronization state.', 'connector-for-nmkr'));
+        }
+
+        nmkr_cleanup_failed_direct_sync_markers($outcome);
+        update_option('nmkr_sync_error', $outcome === 'failed' ? (string) $error_message : '');
+        delete_option('nmkr_sync_owner');
+        if (nmkr_get_uncached_option_value('nmkr_sync_owner', false) !== false) {
+            return new WP_Error('sync_owner_release_failed', __('Synchronization cleanup remains pending.', 'connector-for-nmkr'));
+        }
+
+        return $outcome === 'stopped'
+            ? array('status' => 'stopped', 'outcome' => 'stopped', 'sync_stats_id' => $sync_stats_id)
+            : new WP_Error('sync_worker_throwable', (string) $error_message);
+    });
 }
 
 function nmkr_cleanup_failed_queued_sync($run_id) {

@@ -307,7 +307,6 @@ function nmkr_recover_direct_worker_throwable($throwable, $run_id, $sync_stats_i
         return nmkr_cleanup_bound_direct_sync_initialization_failure(
             $run_id,
             $sync_stats_id,
-            $owner['state'] ?? '',
             $safe_message
         );
     }
