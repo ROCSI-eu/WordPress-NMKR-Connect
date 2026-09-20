@@ -243,7 +243,24 @@ function nmkr_recover_direct_worker_throwable($throwable, $run_id, $sync_stats_i
     }
 
     $owner_stats_id = (int) ($owner['sync_stats_id'] ?? 0);
-    if ($sync_stats_id !== null && (int) $sync_stats_id !== $owner_stats_id) {
+    $provisional_stats_id = $sync_stats_id !== null ? (int) $sync_stats_id : 0;
+    if ($provisional_stats_id > 0 && $owner_stats_id === 0) {
+        // The history insert succeeded, but the authoritative owner was not
+        // bound yet. Terminalize that orphan through the binding-failure path
+        // before cleaning up the still-unbound owner. A racing Stop retains
+        // precedence after the orphan row has been made terminal.
+        $binding_failure = nmkr_handle_sync_owner_binding_failure(
+            new WP_Error('sync_history_binding_interrupted', __('Synchronization history binding was interrupted.', 'connector-for-nmkr')),
+            $run_id,
+            $provisional_stats_id
+        );
+        if (nmkr_sync_owner_matches($run_id, 'stop_requested', 0)) {
+            $stopped = nmkr_finalize_pre_history_stop_on_early_failure($run_id);
+            return $stopped !== false ? $stopped : $binding_failure;
+        }
+        return $binding_failure;
+    }
+    if ($sync_stats_id !== null && $provisional_stats_id !== $owner_stats_id) {
         return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this worker.', 'connector-for-nmkr'));
     }
     $sync_stats_id = $owner_stats_id;

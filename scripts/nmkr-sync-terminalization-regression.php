@@ -9,6 +9,7 @@ function get_transient($k){return array_key_exists($k,$GLOBALS['transients'])?$G
 function add_action(){} function hook_key($h,$a=array()){return $h.(!empty($a)?':'.implode(',',$a):'');} function wp_clear_scheduled_hook($h,$a=array()){if(($GLOBALS['fail_cleanup']??'')==='hook:'.$h)return false;unset($GLOBALS['hooks'][hook_key($h,$a)]);return 1;} function wp_next_scheduled($h,$a=array()){return isset($GLOBALS['hooks'][hook_key($h,$a)])?$GLOBALS['hooks'][hook_key($h,$a)]:false;} function wp_schedule_single_event($time,$h,$a=array()){if(!empty($GLOBALS['fail_schedule_once'])){unset($GLOBALS['fail_schedule_once']);return false;}if(($GLOBALS['fail_schedule_times']??0)>0){$GLOBALS['fail_schedule_times']--;return false;}if(!empty($GLOBALS['fail_schedule']))return false;$k=hook_key($h,$a);if(isset($GLOBALS['hooks'][$k]))return false;$GLOBALS['hooks'][$k]=$time;$GLOBALS['scheduled_delays'][]=$time-time();return true;} function maybe_serialize($v){return serialize($v);} function maybe_unserialize($v){return unserialize($v);} function wp_cache_delete(){}
 function nmkr_get_timestamp(){return '2026-01-02 03:04:05';} function nmkr_get_sync_data(){return get_option('nmkr_sync_data',array());} function nmkr_save_sync_data($v){if(($GLOBALS['fail_sync_data_save_times']??0)>0){$GLOBALS['fail_sync_data_save_times']--;return false;}if(!empty($GLOBALS['fail_sync_data_save']))return false;return update_option('nmkr_sync_data',$v);}
 function nmkr_with_sync_owner_lock($callback){return call_user_func($callback);} function nmkr_get_sync_owner(){return $GLOBALS['owner']??false;} function nmkr_sync_owner_matches($run,$state=null,$id=null){$o=nmkr_get_sync_owner();return is_array($o)&&($o['run_id']??'')===$run&&($state===null||($o['state']??'')===$state)&&($id===null||(int)($o['sync_stats_id']??0)===(int)$id);} function nmkr_release_sync_owner($run,$id=null,$state=null){if(!empty($GLOBALS['fail_owner_release']))return new Exception('synthetic owner lock failure');if(!nmkr_sync_owner_matches($run,$state,$id))return false;$GLOBALS['owner']=false;return true;}
+function nmkr_handle_sync_owner_binding_failure($result,$run,$id){$GLOBALS['binding_failure_calls'][]=(int)$id;$GLOBALS['history'][$id]['status']='failed';$GLOBALS['history'][$id]['end_time']=nmkr_get_timestamp();if(nmkr_sync_owner_matches($run,'running',0)){$GLOBALS['owner']=false;update_option('nmkr_sync_in_progress',false);return new WP_Error('sync_owner_binding_failed','Synthetic binding failure.');}return new WP_Error('sync_owner_mismatch','Synthetic binding mismatch.');}
 function nmkr_sync_owner_transition_succeeded($v){return is_array($v)&&!empty($v['run_id']);} function nmkr_transition_sync_owner($run,$from,$to,$id=null){if(!empty($GLOBALS['fail_owner_transition']))return new WP_Error('lock','synthetic transition lock failure');if(!nmkr_sync_owner_matches($run,$from,$id))return false;$GLOBALS['owner']['state']=$to;return $GLOBALS['owner'];}
 function nmkr_update_sync_heartbeat(){update_option('nmkr_sync_heartbeat',time());} function nmkr_cleanup_sync_heartbeat(){delete_option('nmkr_sync_heartbeat');} function nmkr_log_data_sync(){} function nmkr_log_ui_status(){} function nmkr_safe_getpid(){return 1;}
 function nmkr_start_performance_tracking(){return array();} function nmkr_end_performance_tracking(){} function nmkr_sync_worker_checkpoint($run_id='',$sync_stats_id=0,$phase=''){if($phase==='after_token_detail_request'){$GLOBALS['detail_post_request_checkpoints']=($GLOBALS['detail_post_request_checkpoints']??0)+1;if(($GLOBALS['detail_request_mode']??'')==='checkpoint_failure')return new WP_Error('sync_checkpoint_persistence_failed','Synthetic checkpoint persistence failure.');}return true;} function nmkr_build_sync_api_execution_context(){return array();}
@@ -192,6 +193,7 @@ $GLOBALS['options']['nmkr_sync_data']['run_id']=$type_error_run;
 $GLOBALS['history'][$type_error_id]['run_id']=$type_error_run;
 $GLOBALS['owner']=array('run_id'=>$type_error_run,'mode'=>'direct','state'=>'running','sync_stats_id'=>$type_error_id);
 $type_marker='synthetic-private-typeerror-marker';
+$previous_error_log=ini_get('error_log');ini_set('error_log','/dev/null');
 $type_result=nmkr_recover_direct_worker_throwable(new TypeError($type_marker),$type_error_run,$type_error_id);
 check(is_array($type_result)&&$type_result['status']==='failed'&&nmkr_get_sync_owner()===false&&!get_option('nmkr_sync_in_progress')&&strpos((string)$GLOBALS['history'][$type_error_id]['error_message'],$type_marker)===false,'TypeError terminalizes the exact bound worker without persisting raw runtime detail');
 
@@ -221,6 +223,25 @@ $GLOBALS['owner']=$successor_throw_owner;
 $before_throw_successor=$GLOBALS['owner'];
 $stale_throw=nmkr_recover_direct_worker_throwable(new Error('synthetic-stale-throwable-marker'),$stale_throw_run,171);
 check(is_wp_error($stale_throw)&&$stale_throw->get_error_code()==='sync_owner_mismatch'&&$GLOBALS['owner']===$before_throw_successor,'stale Throwable recovery never mutates a successor owner');
+
+$provisional_throw_id=173;
+$provisional_throw_run='45454545-4545-4545-8545-454545454545';
+active_run($provisional_throw_id);
+$GLOBALS['options']['nmkr_sync_data']['run_id']=$provisional_throw_run;
+$GLOBALS['history'][$provisional_throw_id]['run_id']=$provisional_throw_run;
+$GLOBALS['owner']=array('run_id'=>$provisional_throw_run,'mode'=>'direct','state'=>'running','sync_stats_id'=>0);
+$provisional_throw=nmkr_recover_direct_worker_throwable(new TypeError('synthetic-provisional-binding-marker'),$provisional_throw_run,$provisional_throw_id);
+check(is_wp_error($provisional_throw)&&$provisional_throw->get_error_code()==='sync_owner_binding_failed'&&$GLOBALS['history'][$provisional_throw_id]['status']==='failed'&&nmkr_get_sync_owner()===false,'Throwable in the provisional history-binding window terminalizes the orphan row and releases the exact ID-zero owner');
+
+$provisional_stop_id=174;
+$provisional_stop_run='46464646-4646-4646-8646-464646464646';
+active_run($provisional_stop_id);
+$GLOBALS['options']['nmkr_sync_data']=array('status'=>'initializing','completed'=>false,'run_id'=>$provisional_stop_run,'sync_stats_id'=>0);
+$GLOBALS['history'][$provisional_stop_id]['run_id']=$provisional_stop_run;
+$GLOBALS['owner']=array('run_id'=>$provisional_stop_run,'mode'=>'direct','state'=>'stop_requested','sync_stats_id'=>0);
+$provisional_stop=nmkr_recover_direct_worker_throwable(new Error('synthetic-provisional-stop-marker'),$provisional_stop_run,$provisional_stop_id);
+check(is_array($provisional_stop)&&$provisional_stop['outcome']==='stopped'&&$GLOBALS['history'][$provisional_stop_id]['status']==='failed'&&nmkr_get_sync_owner()===false,'Stop keeps precedence when a Throwable interrupts provisional history binding');
+ini_set('error_log',$previous_error_log);
 
 $core_sync_body=substr($core_source,strpos($core_source,'function nmkr_sync_data('),strpos($core_source,'function nmkr_convert_to_bytes(')-strpos($core_source,'function nmkr_sync_data('));
 check(strpos($core_sync_body,'catch (Throwable $e)')!==false&&strpos($core_sync_body,"'message' => __('Synchronization failed. Review the private server diagnostics for details.'")!==false,'outer sync boundary catches Throwable and keeps AJAX failure copy generic');
