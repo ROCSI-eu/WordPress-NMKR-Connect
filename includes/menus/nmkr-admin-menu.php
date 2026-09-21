@@ -1,4 +1,8 @@
 <?php
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
+
 
 function nmkr_connect_admin_menu() {
     // Main menu page for Connector for NMKR
