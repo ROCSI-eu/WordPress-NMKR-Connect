@@ -21,14 +21,17 @@ function nmkr_get_project_counters( $project_uid ) {
 
     // Helper: does table/column exist?
     $col_exists = function( $table_name, $column_name ) use ( $wpdb ) {
-        $sql = "
-            SELECT COUNT(*) 
-            FROM INFORMATION_SCHEMA.COLUMNS
-            WHERE TABLE_SCHEMA = DATABASE()
-              AND TABLE_NAME   = %s
-              AND COLUMN_NAME  = %s
-        ";
-        return (int) $wpdb->get_var( $wpdb->prepare( $sql, $table_name, $column_name ) ) > 0;
+        return (int) $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT COUNT(*)
+                 FROM INFORMATION_SCHEMA.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE()
+                   AND TABLE_NAME   = %s
+                   AND COLUMN_NAME  = %s",
+                $table_name,
+                $column_name
+            )
+        ) > 0;
     };
 
     $has_td_table        = (int) $wpdb->get_var(
@@ -84,6 +87,9 @@ function nmkr_get_project_counters( $project_uid ) {
         WHERE t.project_uid = %s
     ";
 
+    // The query structure above is assembled only from plugin-owned table names
+    // and fixed schema-derived expressions; the project UID remains a placeholder.
+    // phpcs:ignore PluginCheck.Security.DirectDB.UnescapedDBParameter,WordPress.DB.PreparedSQL.NotPrepared -- Dynamic SQL shape is fixed and manually constrained; the request-derived value is prepared.
     $row = $wpdb->get_row( $wpdb->prepare( $sql, $project_uid ) );
 
     if ( ! $row ) {

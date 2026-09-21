@@ -7,8 +7,9 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 function nmkr_get_latest_project() {
     global $wpdb;
     $projects_table = $wpdb->prefix . 'nmkr_projects';
-    $sql = "SELECT * FROM {$projects_table} ORDER BY created_at DESC LIMIT 1";
-    return $wpdb->get_row( $sql );
+
+    // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- The table identifier is derived only from the validated WordPress table prefix plus a fixed plugin suffix.
+    return $wpdb->get_row( "SELECT * FROM {$projects_table} ORDER BY created_at DESC LIMIT 1" );
 }
 
 /**
@@ -29,20 +30,34 @@ function nmkr_get_project_tokens_joined( $project_uid, $limit = 0, $only_buyable
     $t  = $wpdb->prefix . 'nmkr_tokens';
     $td = $wpdb->prefix . 'nmkr_token_details';
 
-    $where = $wpdb->prepare( "WHERE t.project_uid = %s", $project_uid );
-    $limit_sql = $limit > 0 ? $wpdb->prepare( " LIMIT %d", $limit ) : "";
-
-    // We'll filter buyable in PHP using helper to be consistent with time-aware logic
-    $sql = "
-        SELECT t.*, td.*
-        FROM {$t} t
-        LEFT JOIN {$td} td ON td.token_uid = t.token_uid
-        {$where}
-        ORDER BY t.created_at DESC
-        {$limit_sql}
-    ";
-
-    $rows = $wpdb->get_results( $sql );
+    // We'll filter buyable in PHP using helper to be consistent with time-aware logic.
+    if ( $limit > 0 ) {
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Both table identifiers are plugin-owned; project UID and limit remain prepared values.
+        $rows = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT t.*, td.*
+                 FROM {$t} t
+                 LEFT JOIN {$td} td ON td.token_uid = t.token_uid
+                 WHERE t.project_uid = %s
+                 ORDER BY t.created_at DESC
+                 LIMIT %d",
+                $project_uid,
+                $limit
+            )
+        );
+    } else {
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Both table identifiers are plugin-owned; project UID remains a prepared value.
+        $rows = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT t.*, td.*
+                 FROM {$t} t
+                 LEFT JOIN {$td} td ON td.token_uid = t.token_uid
+                 WHERE t.project_uid = %s
+                 ORDER BY t.created_at DESC",
+                $project_uid
+            )
+        );
+    }
     if ( $only_buyable && is_array( $rows ) ) {
         $filtered = [];
         foreach ( $rows as $row ) {
@@ -105,16 +120,19 @@ function nmkr_render_project_selector_simple( $projects, $active_uid ) {
         return '<p>' . esc_html__( 'No projects available.', 'connector-for-nmkr' ) . '</p>';
     }
 
-    $scheme = is_ssl() ? 'https://' : 'http://';
-    $action = esc_url( strtok( $scheme . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'], '#' ) );
+    $action = remove_query_arg( 'nmkr_project' );
+    $query_args = wp_unslash( $_GET );
 
     ob_start(); ?>
-    <form method="get" action="<?php echo $action; ?>" class="nmkr-project-selector" style="margin:12px 0;">
+    <form method="get" action="<?php echo esc_url( $action ); ?>" class="nmkr-project-selector" style="margin:12px 0;">
         <?php
-        foreach ( $_GET as $k => $v ) {
+        foreach ( $query_args as $k => $v ) {
             if ( $k === 'nmkr_project' ) { continue; }
-            if ( is_array($v) ) { continue; }
-            echo '<input type="hidden" name="' . esc_attr( $k ) . '" value="' . esc_attr( $v ) . '">';
+            if ( is_array( $v ) ) { continue; }
+            $key = sanitize_key( $k );
+            if ( '' === $key ) { continue; }
+            $value = sanitize_text_field( $v );
+            echo '<input type="hidden" name="' . esc_attr( $key ) . '" value="' . esc_attr( $value ) . '">';
         }
         ?>
         <label for="nmkr_project" style="margin-right:6px;">

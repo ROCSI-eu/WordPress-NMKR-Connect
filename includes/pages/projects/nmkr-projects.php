@@ -1,4 +1,6 @@
 <?php
+if ( ! defined( 'ABSPATH' ) ) exit;
+
 // Include necessary functions from split files
 require_once plugin_dir_path(dirname(dirname(dirname(__FILE__)))) . 'includes/api/nmkr-api-functions.php';
 require_once plugin_dir_path(dirname(dirname(dirname(__FILE__)))) . 'includes/synchronization/nmkr-sync-core.php';
@@ -23,18 +25,37 @@ function nmkr_connect_projects_page() {
         wp_die( esc_html__( 'Access denied.', 'connector-for-nmkr' ) );
     }
     global $wpdb;
-    $projects_table = $wpdb->prefix . 'nmkr_projects';
-    $tokens_table = $wpdb->prefix . 'nmkr_tokens';
+    $projects_table      = $wpdb->prefix . 'nmkr_projects';
+    $tokens_table        = $wpdb->prefix . 'nmkr_tokens';
+    $token_details_table = $wpdb->prefix . 'nmkr_token_details';
 
-    // Fetch projects from the database
-    $projects = $wpdb->get_results("SELECT * FROM $projects_table");
+    // Fetch projects from the plugin-owned projects table.
+    // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- The table identifier is derived only from the validated WordPress table prefix plus a fixed plugin suffix.
+    $projects = $wpdb->get_results( "SELECT * FROM {$projects_table}" );
 
-    // Handle project selection
-    $selected_project_uid = isset($_POST['project_uid']) ? sanitize_text_field($_POST['project_uid']) : '';
+    $selected_project_uid = '';
+    $search_query          = '';
+    $filter_minted         = '';
+    $request_method        = isset( $_SERVER['REQUEST_METHOD'] )
+        ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_METHOD'] ) )
+        : '';
 
-    // Handle token search/filter
-    $search_query = isset($_POST['search_token']) ? sanitize_text_field($_POST['search_token']) : '';
-    $filter_minted = isset($_POST['filter_minted']) ? sanitize_text_field($_POST['filter_minted']) : '';
+    if ( 'POST' === $request_method ) {
+        check_admin_referer( 'nmkr_projects_filter', 'nmkr_projects_filter_nonce' );
+
+        $selected_project_uid = isset( $_POST['project_uid'] )
+            ? sanitize_text_field( wp_unslash( $_POST['project_uid'] ) )
+            : '';
+        $search_query = isset( $_POST['search_token'] )
+            ? sanitize_text_field( wp_unslash( $_POST['search_token'] ) )
+            : '';
+        $filter_minted_raw = isset( $_POST['filter_minted'] )
+            ? sanitize_text_field( wp_unslash( $_POST['filter_minted'] ) )
+            : '';
+        $filter_minted = in_array( $filter_minted_raw, array( '0', '1' ), true )
+            ? $filter_minted_raw
+            : '';
+    }
 
     ?>
     <div class="wrap nmkr-dashboard">
@@ -49,6 +70,7 @@ function nmkr_connect_projects_page() {
 
             <!-- Project Selector Form -->
             <form method="post" class="project-selector-form panel-section">
+                <?php wp_nonce_field( 'nmkr_projects_filter', 'nmkr_projects_filter_nonce' ); ?>
                 <div class="form-group">
                     <label for="project_uid">Select a Project to View Tokens:</label>
                     <select name="project_uid" id="project_uid" onchange="this.form.submit()">
@@ -66,7 +88,8 @@ function nmkr_connect_projects_page() {
         <?php
         // If a project is selected, display its details and tokens
         if ($selected_project_uid):
-            $selected_project = $wpdb->get_row($wpdb->prepare("SELECT * FROM $projects_table WHERE project_uid = %s", $selected_project_uid));
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- The table identifier is plugin-owned; the selected UID remains a prepared value.
+            $selected_project = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$projects_table} WHERE project_uid = %s", $selected_project_uid ) );
             if ($selected_project):
                 // Get project counters
                 $counters = nmkr_get_project_counters( $selected_project->project_uid );
@@ -97,6 +120,7 @@ function nmkr_connect_projects_page() {
 
                 <!-- Token Search and Filter Form -->
                 <form method="post" class="token-filter-form panel-section">
+                    <?php wp_nonce_field( 'nmkr_projects_filter', 'nmkr_projects_filter_nonce' ); ?>
                     <input type="hidden" name="project_uid" value="<?php echo esc_attr($selected_project_uid); ?>">
                     <h3 class="center-text">Filter Tokens</h3>
                     <div class="filters-container">
@@ -119,9 +143,9 @@ function nmkr_connect_projects_page() {
                 <!-- Token List -->
                 <?php
                 // Build the token query based on filters
-                $token_query = "SELECT t.*, td.* 
-                               FROM $tokens_table t 
-                               LEFT JOIN {$wpdb->prefix}nmkr_token_details td ON t.token_uid = td.token_uid 
+                $token_query = "SELECT t.*, td.*
+                               FROM {$tokens_table} t
+                               LEFT JOIN {$token_details_table} td ON t.token_uid = td.token_uid
                                WHERE t.project_uid = %s";
                 $query_params = [$selected_project_uid];
 
@@ -136,8 +160,10 @@ function nmkr_connect_projects_page() {
                     $query_params[] = (int)$filter_minted;
                 }
 
-                // Fetch tokens based on the query
-                $tokens = $wpdb->get_results($wpdb->prepare($token_query, ...$query_params));
+                // The SQL shape is assembled only from fixed plugin-owned identifiers and
+                // literal clauses above; every request-derived value remains a placeholder.
+                // phpcs:ignore PluginCheck.Security.DirectDB.UnescapedDBParameter,WordPress.DB.PreparedSQL.NotPrepared -- Dynamic SQL shape is fixed and manually constrained; values are prepared via $query_params.
+                $tokens = $wpdb->get_results( $wpdb->prepare( $token_query, ...$query_params ) );
 
                 if (!empty($tokens)):
                 ?>
@@ -180,14 +206,20 @@ function nmkr_connect_projects_page() {
                                         <?php
                                         // Use helper function for status
                                         $status_label = nmkr_token_status_label( $token );
-                                        $status_class = 'status-' . strtolower($status_label);
-                                        echo '<span class="token-status ' . $status_class . '">' . esc_html($status_label) . '</span>';
+                                        $status_class = 'status-' . strtolower( $status_label );
                                         ?>
+                                        <span class="token-status <?php echo esc_attr( $status_class ); ?>"><?php echo esc_html( $status_label ); ?></span>
                                     </p>
                                     <?php
                                     $price_html = nmkr_render_token_price_badges( $token );
                                     if ( $price_html ) {
-                                        echo $price_html; // safe, generated markup
+                                        echo wp_kses(
+                                            $price_html,
+                                            array(
+                                                'div'  => array( 'class' => true ),
+                                                'span' => array( 'class' => true ),
+                                            )
+                                        );
                                     }
                                     ?>
                                     <?php if (!empty($token->series)): ?>

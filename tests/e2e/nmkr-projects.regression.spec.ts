@@ -47,6 +47,12 @@ test.describe('NMKR Connect projects page regression', () => {
     await expect(projectSelectorForm).toBeAttached();
     await expect(projectSelectorForm).toHaveAttribute('method', 'post');
 
+    const filterNonce = projectSelectorForm.locator(
+      'input[type="hidden"][name="nmkr_projects_filter_nonce"]',
+    );
+    await expect(filterNonce).toHaveCount(1);
+    await expect(filterNonce).not.toHaveValue('');
+
     const projectSelect = projectSelectorForm.locator('select#project_uid[name="project_uid"]');
     await expect(projectSelect).toBeAttached();
     await expect(projectSelect).toHaveAttribute('onchange', 'this.form.submit()');
@@ -55,6 +61,24 @@ test.describe('NMKR Connect projects page regression', () => {
     await expect(placeholderOption).toHaveCount(1);
     await expect(placeholderOption).toHaveText('-- Select a Project --');
     await expect(projectSelect).toHaveValue('');
+
+    const availableProjectOptions = projectSelect.locator('option:not([value=""])');
+    if ((await availableProjectOptions.count()) > 0) {
+      const projectUid = await availableProjectOptions.first().getAttribute('value');
+      expect(projectUid).toBeTruthy();
+
+      await projectSelect.selectOption(projectUid!);
+      await expect(page).toHaveURL(/page=nmkr-connect-projects/);
+
+      const tokenFilterForm = page.locator('form.token-filter-form');
+      await expect(tokenFilterForm).toBeAttached();
+      await expect(
+        tokenFilterForm.locator('input[type="hidden"][name="nmkr_projects_filter_nonce"]'),
+      ).toHaveCount(1);
+      await expect(tokenFilterForm.locator('input[type="hidden"][name="project_uid"]')).toHaveValue(
+        projectUid!,
+      );
+    }
 
     expect(unexpectedProjectsAjaxActions).toEqual([]);
   });
