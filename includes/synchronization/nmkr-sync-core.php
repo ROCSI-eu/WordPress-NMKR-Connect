@@ -1420,6 +1420,7 @@ function nmkr_sync_data($run_id = '') {
             // project slice; only an empty terminal page completes that slice.
             $within = $terminal ? 1.0 : min(0.9, $page_number / ($page_number + 1));
             $percent = min(94, 15 + ($project_index * $slice) + ($slice * $within));
+            /* translators: %d: number of unique tokens discovered so far. */
             nmkr_update_sync_progress((int) floor($percent), 100, sprintf(__('Discovered %d unique tokens; totals remain provisional', 'connector-for-nmkr'), $unique_count));
         };
         $persist_counters = function () use (&$total_tokens, &$total_successful_tokens, &$total_failed_tokens, &$total_skipped_tokens, &$token_details_synced, $run_id, $sync_stats_id) {
@@ -1476,6 +1477,7 @@ function nmkr_sync_data($run_id = '') {
         $total_tokens = (int) $stream_result['total_tokens'];
         unset($stream_result);
         nmkr_update_sync_progress(95, 100, __('Reconciling authoritative synchronization totals', 'connector-for-nmkr'));
+        /* translators: %d: total number of unique tokens discovered during traversal. */
         $sync_log[] = sprintf(__('Token traversal complete: %d unique tokens.', 'connector-for-nmkr'), $total_tokens);
         nmkr_update_sync_progress(99, 100, __('Finalizing synchronization', 'connector-for-nmkr'));
 
