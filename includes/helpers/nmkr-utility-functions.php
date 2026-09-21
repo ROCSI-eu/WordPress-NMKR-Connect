@@ -1097,8 +1097,8 @@ function nmkr_detect_and_recover_stale_sync() {
         $iso = gmdate('c', $last_update > 0 ? $last_update : time());
         $age = ( $last_update > 0 ) ? ( time() - $last_update ) : -1;
         nmkr_log_ui_status(
-            /* translators: 1: ISO-8601 timestamp of the last sync update, 2: age of that update in seconds. */
             sprintf(
+                /* translators: 1: ISO-8601 timestamp of the last sync update, 2: age of that update in seconds. */
                 __('[Connector for NMKR Recovery] Stale sync detected (last_update=%1$s, age=%2$d sec). State cleared; UI set to idle.', 'connector-for-nmkr'),
                 $iso,
                 (int) $age
