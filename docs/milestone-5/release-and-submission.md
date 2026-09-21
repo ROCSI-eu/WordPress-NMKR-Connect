@@ -1,8 +1,9 @@
 # Release and WordPress.org submission
 
-**Status:** IN PROGRESS — FINAL EXACT-CANDIDATE PREFLIGHT**Document type:** Living release/submission record
+**Status:** IN PROGRESS — PREFLIGHT BLOCKED ON PLUGIN CHECK REMEDIATION\
+**Document type:** Living release/submission record
 
-No GitHub release or WordPress.org submission is asserted by this document. Issue #111 records the owner-selected public identity **Connector for NMKR** and `connector-for-nmkr` as the candidate WordPress.org slug/text domain/package directory. The release-identity implementation is merged; issue #127 is now the final exact-candidate preflight before any immutable tag or external submission.
+No GitHub release or WordPress.org submission is asserted by this document. Issue #111 records the owner-selected public identity **Connector for NMKR** and `connector-for-nmkr` as the candidate WordPress.org slug/text domain/package directory. The release-identity implementation is merged. Issue #127 is the final exact-candidate submission gate, but its first official Plugin Check run found code-level submission blockers now tracked by #132 and child issues #133–#136. No immutable tag or external submission should proceed until those blockers are resolved and a new exact candidate passes preflight.
 
 ## Release prerequisites
 
@@ -31,7 +32,7 @@ Current release-identity decisions:
 
 ## Preflight baseline
 
-Issue #127 started from verified clean `main` source SHA `195e3d15494959bf4471bec18b1341686710bd6e`, tree `2d0f1b1eabf8501124ff87282a367a2904f68295`. Final package provenance must be recorded from the post-preflight reviewed source, not copied from an earlier candidate or PR.
+Issue #127 started from verified clean `main` source SHA `195e3d15494959bf4471bec18b1341686710bd6e`, tree `2d0f1b1eabf8501124ff87282a367a2904f68295`. The first official Plugin Check 2.1.0 pass reported 86 errors and 569 warnings. Of the 86 errors, 85 are code-level findings grouped under #132 / #133–#136; the remaining `outdated_tested_upto_header` finding is intentionally deferred until the new exact candidate has passed WordPress 7.1.x compatibility smoke. Final package provenance must be recorded from the post-remediation reviewed source, not copied from this preliminary candidate.
 
 ## Release record
 
