@@ -50,6 +50,8 @@ bash scripts/nmkr-schema-upgrade-regression.sh
 
 printf '\n== Atomic synchronization ownership regression ==\n'
 bash scripts/nmkr-sync-owner-regression.sh
+printf '\n== Run-owned synchronization health regression ==\n'
+php scripts/nmkr-sync-health-regression.php
 
 printf '\n== Force-cleanup cron boundary regression ==\n'
 php scripts/nmkr-force-cleanup-cron-regression.php

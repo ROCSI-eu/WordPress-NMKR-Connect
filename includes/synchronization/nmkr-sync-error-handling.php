@@ -404,78 +404,262 @@ function nmkr_force_stop_sync($context = 'force_stop') {
  * 
  * @return array Status information about potential stalled sync
  */
-function nmkr_check_sync_health() {
-    // Get sync progress data
-    $progress_raw = get_transient('nmkr_sync_progress');
-    $progress = ($progress_raw !== false) ? (int) $progress_raw : 0;
-    $start_time = get_option('nmkr_sync_start_time', 0);
-    $current_time = time();
-    $time_elapsed = $start_time > 0 ? $current_time - $start_time : 0;
-    
-    // Get the last progress update
-    $last_progress_update = get_option('nmkr_last_progress_update_time', 0);
-    $last_progress_value = get_option('nmkr_last_progress_value', 0);
-    $time_since_update = $last_progress_update > 0 ? $current_time - $last_progress_update : 0;
-    
-    // Check if cron jobs are running
-    $has_running_jobs = wp_next_scheduled('nmkr_process_batch_hook') ? true : false;
-    
-    // Get current sync profile settings
+function nmkr_get_sync_health_profile_settings() {
     $options = get_option('nmkr_connect_options', array());
-    $batch_size = isset($options['batch_size']) ? intval($options['batch_size']) : 10;
-    $batch_delay = isset($options['batch_delay']) ? intval($options['batch_delay']) : 1;
-    $polling_interval = isset($options['sync_initial_interval']) ? intval($options['sync_initial_interval']) : 2000;
-    
-    // Calculate timeouts based on sync profile settings
-    // For smaller batch sizes and longer delays, use shorter timeouts for stall detection
-    $no_progress_timeout = max(60, min(300, $batch_size * $batch_delay * 10)); // Between 1-5 minutes
-    $no_jobs_timeout = max(60, min(180, $batch_size * $batch_delay * 5)); // Between 1-3 minutes
-    $long_running_timeout = max(600, min(1800, $batch_size * $batch_delay * 60)); // Between 10-30 minutes
-    
-    // For smaller batch sizes (lighter profiles), reduce the progress threshold
-    $progress_threshold = ($batch_size <= 5) ? 30 : 50; // Lighter profiles should make more progress faster
-    
-    // Determine if sync appears stalled
+    $batch_size = isset($options['sync_batch_size']) ? max(1, (int) $options['sync_batch_size']) : 5;
+    $batch_delay = isset($options['sync_batch_delay']) ? max(0, (int) $options['sync_batch_delay']) : 2;
+    $polling_interval = isset($options['sync_initial_interval']) ? max(0, (int) $options['sync_initial_interval']) : 1000;
+    $delay_factor = max(1, $batch_delay);
+    $ttl = defined('NMKR_SYNC_TRANSIENT_TTL') ? max(1, (int) NMKR_SYNC_TRANSIENT_TTL) : HOUR_IN_SECONDS;
+
+    return array(
+        'batch_size' => $batch_size,
+        'batch_delay' => $batch_delay,
+        'polling_interval' => $polling_interval,
+        'no_progress_timeout' => max(60, min(300, $batch_size * $delay_factor * 10)),
+        'no_jobs_timeout' => max(60, min(180, $batch_size * $delay_factor * 5)),
+        'long_running_timeout' => max(600, min(1800, $batch_size * $delay_factor * 60)),
+        'direct_stale_timeout' => min($ttl, 300),
+    );
+}
+
+/** Return a bounded age for numeric or ISO-8601 lifecycle timestamps. */
+function nmkr_sync_health_timestamp_age($timestamp, $current_time) {
+    if (is_numeric($timestamp)) {
+        $epoch = (int) $timestamp;
+    } elseif (is_string($timestamp) && $timestamp !== '') {
+        $parsed = strtotime($timestamp);
+        $epoch = $parsed === false ? 0 : (int) $parsed;
+    } else {
+        $epoch = 0;
+    }
+    return $epoch > 0 ? max(0, (int) $current_time - $epoch) : -1;
+}
+
+/** Return whether a single-event callback is still within its executable grace window. */
+function nmkr_sync_health_event_is_executable($hook, $args, $current_time, $grace) {
+    $scheduled = wp_next_scheduled($hook, $args);
+    return $scheduled !== false
+        && (int) $scheduled >= ((int) $current_time - max(1, (int) $grace));
+}
+
+/**
+ * Classify an exact direct owner without mutating synchronization state.
+ *
+ * @return array|false False when there is no valid active direct owner.
+ */
+function nmkr_classify_direct_sync_health($owner, $sync_data, $last_progress_update, $current_time, $profile_settings) {
+    if (!is_array($owner) || ($owner['mode'] ?? '') !== 'direct') {
+        return false;
+    }
+
+    $run_id = (string) ($owner['run_id'] ?? '');
+    $state = (string) ($owner['state'] ?? '');
+    if (!nmkr_is_valid_sync_run_id($run_id)
+        || !in_array($state, array('queued', 'running', 'stop_requested', 'finalizing'), true)) {
+        return false;
+    }
+
+    $sync_stats_id = (int) ($owner['sync_stats_id'] ?? 0);
+    $grace = max(1, (int) ($profile_settings['direct_stale_timeout'] ?? 300));
+    $heartbeat_timestamp = $owner['heartbeat_at'] ?? ($owner['updated_at'] ?? ($owner['created_at'] ?? ''));
+    $worker_heartbeat_age = nmkr_sync_health_timestamp_age($heartbeat_timestamp, $current_time);
+    $progress_age = $last_progress_update > 0 ? max(0, $current_time - (int) $last_progress_update) : -1;
+    $owner_fresh = $worker_heartbeat_age >= 0 && $worker_heartbeat_age < $grace;
+    $progress_fresh = $progress_age >= 0 && $progress_age < $grace;
+    $has_running_jobs = true;
     $is_stalled = false;
     $stall_reason = '';
-    
-    // Check if sync is actively running (progress > 0 and < 100, no error)
-    $error = get_option('nmkr_sync_error', '');
-    
-    if ($progress > 0 && $progress < 100 && empty($error)) {
-        // Check for signs of stalled sync
-        if ($time_since_update > $no_progress_timeout && $progress === $last_progress_value) {
+    $finalization_pending = false;
+    $finalization_scheduled = false;
+
+    if ($state === 'queued') {
+        $worker_executable = nmkr_sync_health_event_is_executable(
+            'nmkr_execute_sync_background',
+            array($run_id),
+            $current_time,
+            $grace
+        );
+        $has_running_jobs = $worker_executable || $owner_fresh;
+        if (!$worker_executable && !$owner_fresh) {
             $is_stalled = true;
-            $stall_reason = "No progress update for {$time_since_update} seconds (timeout: {$no_progress_timeout}s)";
-            
-            // Log UI status update for stalled sync detection - no progress
-            nmkr_log_ui_status('UI: Sync health check detected stalled sync - no progress for ' . $time_since_update . ' seconds', 'warning');
-        } else if ($time_elapsed > $long_running_timeout && $progress < $progress_threshold) {
+            $stall_reason = sprintf(
+                'Direct synchronization has remained queued without executable worker evidence for at least %d seconds.',
+                $grace
+            );
+        }
+    } elseif ($state === 'running') {
+        if (!$owner_fresh && !$progress_fresh) {
             $is_stalled = true;
-            $stall_reason = "Sync running for {$time_elapsed} seconds with only {$progress}% progress (timeout: {$long_running_timeout}s)";
-            
-            // Log UI status update for stalled sync detection - too slow progress
-            nmkr_log_ui_status('UI: Sync health check detected stalled sync - running for ' . $time_elapsed . ' seconds with only ' . $progress . '% progress', 'warning');
-        } else if (!$has_running_jobs && $time_since_update > $no_jobs_timeout) {
+            $stall_reason = sprintf(
+                'Direct synchronization heartbeat and progress are both stale for at least %d seconds.',
+                $grace
+            );
+        }
+    } elseif ($state === 'stop_requested') {
+        $exact_stop = is_array($sync_data)
+            && (string) ($sync_data['run_id'] ?? '') === $run_id
+            && (int) ($sync_data['sync_stats_id'] ?? 0) === $sync_stats_id;
+        $stopped_recovery = $exact_stop ? ($sync_data['stopped_recovery'] ?? false) : false;
+        $stopped_recovery_pending = $exact_stop
+            && function_exists('nmkr_is_valid_sync_finalization_record')
+            && nmkr_is_valid_sync_finalization_record($stopped_recovery, $run_id, $sync_stats_id)
+            && ($stopped_recovery['outcome'] ?? '') === 'stopped';
+        $resume_record = $sync_stats_id > 0 && function_exists('nmkr_sync_finalization_resume_key')
+            ? get_option(nmkr_sync_finalization_resume_key($sync_stats_id), false) : false;
+        $resume_record_valid = $exact_stop
+            && function_exists('nmkr_is_valid_sync_finalization_record')
+            && nmkr_is_valid_sync_finalization_record($resume_record, $run_id, $sync_stats_id);
+        $finalization_executable = $resume_record_valid
+            && nmkr_sync_health_event_is_executable(
+                'nmkr_resume_sync_finalization',
+                array($sync_stats_id),
+                $current_time,
+                $grace
+            );
+        $has_running_jobs = $owner_fresh || $stopped_recovery_pending || $finalization_executable;
+        if (!$has_running_jobs) {
             $is_stalled = true;
-            $stall_reason = "No active cron jobs for {$time_since_update} seconds (timeout: {$no_jobs_timeout}s)";
-            
-            // Log UI status update for stalled sync detection - no jobs
-            nmkr_log_ui_status('UI: Sync health check detected stalled sync - no active cron jobs for ' . $time_since_update . ' seconds', 'warning');
+            $stall_reason = sprintf(
+                'Synchronization stop request has no fresh owner or exact recovery evidence for at least %d seconds.',
+                $grace
+            );
+        }
+    } elseif ($state === 'finalizing') {
+        $exact_finalization = is_array($sync_data)
+            && (string) ($sync_data['run_id'] ?? '') === $run_id
+            && (int) ($sync_data['sync_stats_id'] ?? 0) === $sync_stats_id;
+        $resume_record = $sync_stats_id > 0 && function_exists('nmkr_sync_finalization_resume_key')
+            ? get_option(nmkr_sync_finalization_resume_key($sync_stats_id), false) : false;
+        $finalization_pending = $exact_finalization && $sync_stats_id > 0
+            && function_exists('nmkr_is_valid_sync_finalization_record')
+            && nmkr_is_valid_sync_finalization_record($resume_record, $run_id, $sync_stats_id);
+        $finalization_scheduled = $finalization_pending
+            && nmkr_sync_health_event_is_executable(
+                'nmkr_resume_sync_finalization',
+                array($sync_stats_id),
+                $current_time,
+                $grace
+            );
+        // The durable resume record is written before sync_data publishes its
+        // finalizing status. Treat it as executable only while its exact
+        // callback remains scheduled.
+        $exact_finalizing = $exact_finalization
+            && (($sync_data['status'] ?? '') === 'finalizing' || $finalization_scheduled);
+        $has_running_jobs = $exact_finalizing && ($finalization_scheduled || $owner_fresh);
+        if (!$exact_finalizing) {
+            $is_stalled = true;
+            $stall_reason = 'Direct synchronization finalization state does not match its exact owner.';
+        } elseif (!$finalization_scheduled && !$owner_fresh) {
+            $is_stalled = true;
+            $stall_reason = sprintf(
+                'Direct synchronization finalization has no fresh owner or resume evidence for at least %d seconds.',
+                $grace
+            );
         }
     }
-    
-    // Log UI status update for health check result
+
+    return array(
+        'in_progress' => true,
+        'owner_state' => $state,
+        'run_id' => $run_id,
+        'sync_stats_id' => $sync_stats_id,
+        'has_running_jobs' => $has_running_jobs,
+        'is_stalled' => $is_stalled,
+        'stall_reason' => $stall_reason,
+        'worker_heartbeat_age' => $worker_heartbeat_age,
+        'progress_age' => $progress_age,
+        'finalization_pending' => $finalization_pending,
+        'lifecycle_source' => 'direct_owner',
+    );
+}
+
+/**
+ * Function to check if a sync process appears to be stalled.
+ * Direct-run classification is read-only and authoritative from exact owner
+ * state plus freshness/finalization evidence. Legacy batch heuristics remain
+ * only for ownerless compatibility state.
+ *
+ * @return array Status information about potential stalled sync.
+ */
+function nmkr_check_sync_health() {
+    $progress_raw = get_transient('nmkr_sync_progress');
+    $progress = ($progress_raw !== false) ? (int) $progress_raw : 0;
+    $start_time = (int) get_option('nmkr_sync_start_time', 0);
+    $current_time = time();
+    $time_elapsed = $start_time > 0 ? max(0, $current_time - $start_time) : 0;
+    $last_progress_update = (int) get_option('nmkr_last_progress_update_time', 0);
+    $last_progress_value = (int) get_option('nmkr_last_progress_value', 0);
+    $time_since_update = $last_progress_update > 0 ? max(0, $current_time - $last_progress_update) : 0;
+    $error = get_option('nmkr_sync_error', '');
+    $profile_settings = nmkr_get_sync_health_profile_settings();
+    $persisted_owner = get_option('nmkr_sync_owner', false);
+    $owner = nmkr_get_sync_owner();
+    $sync_data = nmkr_get_sync_data();
+    $direct = nmkr_classify_direct_sync_health(
+        $owner,
+        $sync_data,
+        $last_progress_update,
+        $current_time,
+        $profile_settings
+    );
+
+    $owner_state = 'released';
+    $lifecycle_source = 'legacy_ownerless';
+    $finalization_pending = false;
+    $worker_heartbeat_age = function_exists('nmkr_get_heartbeat_age') ? nmkr_get_heartbeat_age() : -1;
+
+    if (is_array($direct)) {
+        $in_progress = true;
+        $has_running_jobs = (bool) $direct['has_running_jobs'];
+        $is_stalled = (bool) $direct['is_stalled'];
+        $stall_reason = (string) $direct['stall_reason'];
+        $owner_state = (string) $direct['owner_state'];
+        $lifecycle_source = (string) $direct['lifecycle_source'];
+        $finalization_pending = (bool) $direct['finalization_pending'];
+        $worker_heartbeat_age = (int) $direct['worker_heartbeat_age'];
+    } elseif ($persisted_owner !== false) {
+        // Any persisted owner record blocks new admission and ownerless legacy
+        // recovery, even when it is malformed enough for nmkr_get_sync_owner()
+        // or direct-owner classification to reject it. Surface that blocking
+        // condition rather than misreporting it as ownerless/inactive.
+        $in_progress = true;
+        $has_running_jobs = false;
+        $is_stalled = true;
+        $stall_reason = 'Persisted synchronization ownership is invalid and requires recovery.';
+        $owner_state = 'invalid';
+        $lifecycle_source = 'invalid_owner';
+    } else {
+        $has_running_jobs = wp_next_scheduled('nmkr_process_batch_hook') !== false;
+        $in_progress = $progress > 0 && $progress < 100 && empty($error);
+        $is_stalled = false;
+        $stall_reason = '';
+
+        if ($in_progress) {
+            if ($time_since_update > $profile_settings['no_progress_timeout'] && $progress === $last_progress_value) {
+                $is_stalled = true;
+                $stall_reason = "No progress update for {$time_since_update} seconds (timeout: {$profile_settings['no_progress_timeout']}s)";
+            } elseif ($time_elapsed > $profile_settings['long_running_timeout']
+                && $progress < ($profile_settings['batch_size'] <= 5 ? 30 : 50)) {
+                $is_stalled = true;
+                $stall_reason = "Sync running for {$time_elapsed} seconds with only {$progress}% progress (timeout: {$profile_settings['long_running_timeout']}s)";
+            } elseif (!$has_running_jobs && $time_since_update > $profile_settings['no_jobs_timeout']) {
+                $is_stalled = true;
+                $stall_reason = "No active legacy batch jobs for {$time_since_update} seconds (timeout: {$profile_settings['no_jobs_timeout']}s)";
+            }
+        }
+    }
+
     if ($is_stalled) {
         nmkr_log_ui_status('UI: Sync health check result: STALLED - ' . $stall_reason, 'warning');
-    } else if ($progress > 0 && $progress < 100 && empty($error)) {
-        nmkr_log_ui_status('UI: Sync health check result: HEALTHY - Sync progressing normally', 'debug');
+    } elseif ($in_progress) {
+        nmkr_log_ui_status('UI: Sync health check result: HEALTHY - synchronization lifecycle is active', 'debug');
     } else {
         nmkr_log_ui_status('UI: Sync health check result: INACTIVE - No active sync or in completed/error state', 'debug');
     }
-    
+
     return array(
-        'in_progress' => ($progress > 0 && $progress < 100 && empty($error)),
+        'in_progress' => $in_progress,
         'progress' => $progress,
         'time_elapsed' => $time_elapsed,
         'time_since_update' => $time_since_update,
@@ -483,13 +667,10 @@ function nmkr_check_sync_health() {
         'is_stalled' => $is_stalled,
         'stall_reason' => $stall_reason,
         'heartbeat' => get_option('nmkr_sync_heartbeat', 0),
-        'heartbeat_age' => nmkr_get_heartbeat_age(),
-        'profile_settings' => array(
-            'batch_size' => $batch_size,
-            'batch_delay' => $batch_delay,
-            'no_progress_timeout' => $no_progress_timeout,
-            'no_jobs_timeout' => $no_jobs_timeout,
-            'long_running_timeout' => $long_running_timeout
-        )
+        'heartbeat_age' => $worker_heartbeat_age,
+        'owner_state' => $owner_state,
+        'lifecycle_source' => $lifecycle_source,
+        'finalization_pending' => $finalization_pending,
+        'profile_settings' => $profile_settings,
     );
 }

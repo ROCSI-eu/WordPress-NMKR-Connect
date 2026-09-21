@@ -420,11 +420,15 @@ function nmkr_sync_progress_handler() {
     $completed_tokens = 0;
     $batch_info = [];
     
-    // Check if we have running cron jobs for sync
-    $has_running_jobs = false;
-    if (wp_next_scheduled('nmkr_process_batch_hook')) {
-        $has_running_jobs = true;
-    }
+    // Direct ownership is authoritative for the current worker lifecycle.
+    // Legacy batch cron remains relevant only when no active direct owner exists.
+    $health_owner = nmkr_get_sync_owner();
+    $active_direct_health_owner = is_array($health_owner)
+        && ($health_owner['mode'] ?? '') === 'direct'
+        && nmkr_is_valid_sync_run_id((string) ($health_owner['run_id'] ?? ''))
+        && in_array(($health_owner['state'] ?? ''), array('queued', 'running', 'stop_requested', 'finalizing'), true);
+    $has_running_jobs = $active_direct_health_owner
+        || wp_next_scheduled('nmkr_process_batch_hook') !== false;
 
     // Get the current batch processing status
     $sync_data = nmkr_get_sync_data();
@@ -461,8 +465,8 @@ function nmkr_sync_progress_handler() {
     
     // Get sync profile settings to calculate adaptive timeouts
     $options = get_option('nmkr_connect_options', array());
-    $batch_size = isset($options['batch_size']) ? intval($options['batch_size']) : 10;
-    $batch_delay = isset($options['batch_delay']) ? intval($options['batch_delay']) : 1;
+    $batch_size = isset($options['sync_batch_size']) ? max(1, intval($options['sync_batch_size'])) : 5;
+    $batch_delay = isset($options['sync_batch_delay']) ? max(0, intval($options['sync_batch_delay'])) : 2;
     
     // Calculate timeouts based on sync profile settings
     // For smaller batch sizes and longer delays, use shorter timeouts
@@ -471,7 +475,7 @@ function nmkr_sync_progress_handler() {
     $min_progress_timeout = max(30, min(120, $batch_size * $batch_delay * 3)); // Between 30s-2 minutes
     
             // Verify if process is actually running or has stalled
-        if (($is_recovery || $is_stalled_check) &&
+        if (($is_recovery || $is_stalled_check) && !$active_direct_health_owner &&
             $progress > 0 && $progress < 100 && empty($error)) {
         nmkr_with_ownerless_legacy_recovery(function () use (&$error, &$sync_data, $progress, $has_running_jobs, $batch_size, $batch_delay, $no_jobs_timeout, $no_update_timeout) {
         

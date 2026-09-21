@@ -15,6 +15,7 @@ $GLOBALS['nmkr_authoritative_options'] = array();
 $GLOBALS['nmkr_history'] = array();
 $GLOBALS['nmkr_concurrent_terminalization'] = false;
 $GLOBALS['nmkr_database_failure'] = false;
+$GLOBALS['nmkr_owner_admitted_at_recovery'] = false;
 
 class NmkrSyntheticWpdb {
     public $prefix = 'wp_';
@@ -121,7 +122,15 @@ function nmkr_verify_sync_terminal_result($sync_data, $outcome) {
         && (string)($history['end_time'] ?? '') === (string)($sync_data['end_time'] ?? '');
 }
 function nmkr_resume_stopped_sync_recovery($run_id, $sync_stats_id) { $GLOBALS['nmkr_calls'][]='stopped-recovery:'.$run_id.':'.$sync_stats_id; return true; }
-function nmkr_with_ownerless_legacy_recovery($callback) { $GLOBALS['nmkr_calls'][]='ownerless-recovery'; return !empty($GLOBALS['nmkr_execute_recovery']) ? $callback() : true; }
+function nmkr_with_ownerless_legacy_recovery($callback) {
+    $GLOBALS['nmkr_calls'][]='ownerless-recovery';
+    if (is_array($GLOBALS['nmkr_owner_admitted_at_recovery'])) {
+        $GLOBALS['nmkr_owner']=$GLOBALS['nmkr_owner_admitted_at_recovery'];
+        $GLOBALS['nmkr_authoritative_options']['nmkr_sync_owner']=$GLOBALS['nmkr_owner_admitted_at_recovery'];
+        return array('owner_preserved'=>true);
+    }
+    return !empty($GLOBALS['nmkr_execute_recovery']) ? $callback() : true;
+}
 function nmkr_get_timestamp() { return '2026-01-02 03:04:05'; }
 function nmkr_clear_sync_data() { $GLOBALS['nmkr_calls'][]='cleanup'; $GLOBALS['nmkr_calls'][]='cleanup-data'; }
 function nmkr_clear_sync_jobs_ownerless($reason, $clear_scheduled, $clear_actions) { $GLOBALS['nmkr_calls'][]='cleanup'; $GLOBALS['nmkr_calls'][]='cleanup-jobs'; }
@@ -146,6 +155,7 @@ function nmkr_test($name, $handler, $nonce, $caps, $expected, $forbidden, $expec
 function nmkr_progress_test($name, $nonce, $caps, $post, $owner, $expected, $forbidden, $sync_data=false, $execute_recovery=false, $expect_success=true) {
     $GLOBALS['nmkr_calls']=array(); $GLOBALS['nmkr_nonce_ok']=$nonce; $GLOBALS['nmkr_caps']=$caps;
     $GLOBALS['nmkr_owner']=$owner; $GLOBALS['nmkr_sync_data']=$sync_data; $GLOBALS['nmkr_execute_recovery']=$execute_recovery;
+    $GLOBALS['nmkr_owner_admitted_at_recovery']=false;
     $GLOBALS['nmkr_authoritative_options']=array('nmkr_sync_data'=>$sync_data);
     if ($owner !== false) $GLOBALS['nmkr_authoritative_options']['nmkr_sync_owner']=$owner;
     $GLOBALS['nmkr_transients']=array('nmkr_sync_progress'=>50);
@@ -194,6 +204,27 @@ try {
     nmkr_progress_test('progress_manager_stopped',true,array('nmkr_view_dashboard'=>true,'nmkr_manage_sync'=>true),array(),$stopped_owner,array('stopped-recovery:synthetic-run-0001:41','sync-data'),array('ownerless-recovery','history-write'));
     if (count(array_filter($GLOBALS['nmkr_calls'],function($call){return $call==='stopped-recovery:synthetic-run-0001:41';})) !== 1) throw new Exception('progress_manager_stopped_duplicate');
     nmkr_progress_test('progress_manager_ownerless',true,array('nmkr_view_dashboard'=>true,'nmkr_manage_sync'=>true),array('recovery'=>'1'),false,array('ownerless-recovery'),array('stopped-recovery','history-write'));
+
+    $active_states=array('running'=>'synthetic-run-running','stop_requested'=>'synthetic-run-stopped','finalizing'=>'synthetic-run-finalizing');
+    foreach ($active_states as $state=>$run_id) {
+        $active_owner=array('mode'=>'direct','state'=>$state,'run_id'=>$run_id,'sync_stats_id'=>61);
+        nmkr_progress_test('progress_active_'.$state,true,array('nmkr_view_dashboard'=>true,'nmkr_manage_sync'=>true),array('recovery'=>'1'),$active_owner,array('sync-data'),array('ownerless-recovery','history-write','option-write','transient-write'),array('run_id'=>$active_owner['run_id'],'sync_stats_id'=>61,'status'=>$state));
+        nmkr_assert_no_stall_cleanup('progress_active_'.$state);
+        if ($GLOBALS['nmkr_owner'] !== $active_owner) throw new Exception('progress_active_'.$state.'_owner_changed');
+    }
+
+    $racing_owner=array('mode'=>'direct','state'=>'running','run_id'=>'synthetic-run-race','sync_stats_id'=>62);
+    $GLOBALS['nmkr_owner_admitted_at_recovery']=$racing_owner;
+    $GLOBALS['nmkr_calls']=array(); $GLOBALS['nmkr_nonce_ok']=true;
+    $GLOBALS['nmkr_caps']=array('nmkr_view_dashboard'=>true,'nmkr_manage_sync'=>true);
+    $GLOBALS['nmkr_owner']=false; $GLOBALS['nmkr_sync_data']=false; $GLOBALS['nmkr_execute_recovery']=true;
+    $GLOBALS['nmkr_authoritative_options']=array(); $GLOBALS['nmkr_transients']=array('nmkr_sync_progress'=>50);
+    $_POST=array('nonce'=>'synthetic','recovery'=>'1'); $_REQUEST=$_POST; $_SERVER['REQUEST_METHOD']='POST';
+    try { nmkr_sync_progress_handler(); throw new Exception('progress_admission_race_no_termination'); }
+    catch (NmkrAjaxTermination $e) { if ($e->kind !== 'success') throw $e; }
+    if (!in_array('ownerless-recovery',$GLOBALS['nmkr_calls'],true) || $GLOBALS['nmkr_owner'] !== $racing_owner) throw new Exception('progress_admission_race_not_preserved');
+    nmkr_assert_no_stall_cleanup('progress_admission_race');
+    $GLOBALS['nmkr_owner_admitted_at_recovery']=false;
 
     $GLOBALS['nmkr_options']=array('nmkr_last_progress_update_time'=>1,'nmkr_last_progress_value'=>50);
     $stale_sync_data=array('sync_stats_id'=>51,'status'=>'processing_tokens','last_update_time'=>1);
