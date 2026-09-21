@@ -1,7 +1,7 @@
 <?php
 // Public-safe synthetic lifecycle regression; no WordPress install or network access.
 define('ABSPATH', __DIR__); define('NMKR_SYNC_TRANSIENT_TTL', 3600); define('ARRAY_A', 'ARRAY_A');
-class WP_Error {private $code; private $message; function __construct($c='',$m=''){$this->code=$c;$this->message=$m;} function get_error_code(){return $this->code;} function get_error_message(){return $this->message;}} function is_wp_error($v){return $v instanceof WP_Error;} function __($text){return $text;}
+class WP_Error {private $code; private $message; function __construct($c='',$m=''){$this->code=$c;$this->message=$m;} function get_error_code(){return $this->code;} function get_error_message(){return $this->message;}} function is_wp_error($v){return $v instanceof WP_Error;} function __($text){return $text;} function wp_strip_all_tags($text){return strip_tags((string)$text);}
 function nmkr_is_valid_sync_run_id($v){return is_string($v)&&preg_match('/^[a-f0-9-]{36}$/',$v);}
 $GLOBALS['options']=array(); $GLOBALS['transients']=array(); $GLOBALS['history']=array(); $GLOBALS['metrics']=array(); $GLOBALS['hooks']=array(); $GLOBALS['scheduled_delays']=array(); $GLOBALS['checkpoint']='';
 function nmkr_get_recent_sync_stats($limit){return array_slice($GLOBALS['recent_sync_stats']??array(),0,$limit);}
