@@ -1,4 +1,8 @@
 <?php
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
+
 /** Resolve the canonical project identifier accepted by synchronization. */
 function nmkr_resolve_project_uid($project) {
     if (!is_array($project)) return '';
