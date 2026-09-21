@@ -610,7 +610,7 @@ function nmkr_log_retention_limit_field_callback() {
 
 // Analytics & Privacy Section Callback
 function nmkr_connect_analytics_section_callback() {
-    echo '<p>' . __('Analytics is optional and disabled by default. Local mode stores events in this WordPress database; GA4 modes send configured event data to Google. Review consent, retention, and uninstall settings for your site.', 'connector-for-nmkr') . '</p>';
+    echo '<p>' . esc_html__( 'Analytics is optional and disabled by default. Local mode stores events in this WordPress database; GA4 modes send configured event data to Google. Review consent, retention, and uninstall settings for your site.', 'connector-for-nmkr' ) . '</p>';
 }
 
 // Analytics Mode Field Callback
@@ -619,13 +619,13 @@ function nmkr_analytics_mode_field_callback() {
     $analytics_mode = isset($options['analytics_mode']) ? $options['analytics_mode'] : 'off';
     ?>
     <select name="nmkr_connect_options[analytics_mode]" id="nmkr_analytics_mode">
-        <option value="off" <?php selected('off', $analytics_mode); ?>><?php _e('Off', 'connector-for-nmkr'); ?></option>
-        <option value="custom" <?php selected('custom', $analytics_mode); ?>><?php _e('Custom (Plugin DB only)', 'connector-for-nmkr'); ?></option>
-        <option value="ga4" <?php selected('ga4', $analytics_mode); ?>><?php _e('GA4 only (no DB)', 'connector-for-nmkr'); ?></option>
-        <option value="both" <?php selected('both', $analytics_mode); ?>><?php _e('Both (GA4 + Plugin DB)', 'connector-for-nmkr'); ?></option>
+        <option value="off" <?php selected('off', $analytics_mode); ?>><?php esc_html_e( 'Off', 'connector-for-nmkr' ); ?></option>
+        <option value="custom" <?php selected('custom', $analytics_mode); ?>><?php esc_html_e( 'Custom (Plugin DB only)', 'connector-for-nmkr' ); ?></option>
+        <option value="ga4" <?php selected('ga4', $analytics_mode); ?>><?php esc_html_e( 'GA4 only (no DB)', 'connector-for-nmkr' ); ?></option>
+        <option value="both" <?php selected('both', $analytics_mode); ?>><?php esc_html_e( 'Both (GA4 + Plugin DB)', 'connector-for-nmkr' ); ?></option>
     </select>
     <p class="description">
-        <?php _e('off: no tracking; custom: store events in plugin DB only; ga4: send to Google Analytics 4 only; both: GA4 + plugin DB.', 'connector-for-nmkr'); ?>
+        <?php esc_html_e( 'off: no tracking; custom: store events in plugin DB only; ga4: send to Google Analytics 4 only; both: GA4 + plugin DB.', 'connector-for-nmkr' ); ?>
     </p>
     <?php
 }
@@ -645,7 +645,7 @@ function nmkr_analytics_retention_days_field_callback() {
            class="small-text"
     />
     <p class="description">
-        <?php _e('Number of days to retain analytics data before automatic cleanup.', 'connector-for-nmkr'); ?>
+        <?php esc_html_e( 'Number of days to retain analytics data before automatic cleanup.', 'connector-for-nmkr' ); ?>
     </p>
     <?php
 }
@@ -662,7 +662,7 @@ function nmkr_analytics_track_logged_in_field_callback() {
            <?php checked(1, $analytics_track_logged_in); ?>
     />
     <p class="description">
-        <?php _e('Track engagement events for logged-in users (user_id will be stored).', 'connector-for-nmkr'); ?>
+        <?php esc_html_e( 'Track engagement events for logged-in users (user_id will be stored).', 'connector-for-nmkr' ); ?>
     </p>
     <?php
 }
@@ -679,7 +679,7 @@ function nmkr_analytics_require_consent_field_callback() {
            <?php checked(1, $analytics_require_consent); ?>
     />
     <p class="description">
-        <?php _e('Require explicit user consent before tracking any analytics events.', 'connector-for-nmkr'); ?>
+        <?php esc_html_e( 'Require explicit user consent before tracking any analytics events.', 'connector-for-nmkr' ); ?>
     </p>
     <?php
 }
@@ -699,7 +699,7 @@ function nmkr_analytics_sample_rate_field_callback() {
            class="small-text"
     />
     <p class="description">
-        <?php _e('0 disables; 1.0 = 100% of events.', 'connector-for-nmkr'); ?>
+        <?php esc_html_e( '0 disables; 1.0 = 100% of events.', 'connector-for-nmkr' ); ?>
     </p>
     <?php
 }
@@ -716,7 +716,7 @@ function nmkr_analytics_remove_on_uninstall_field_callback() {
            <?php checked(1, $analytics_remove_on_uninstall); ?>
     />
     <p class="description">
-        <?php _e('Remove all analytics data when the plugin is uninstalled.', 'connector-for-nmkr'); ?>
+        <?php esc_html_e( 'Remove all analytics data when the plugin is uninstalled.', 'connector-for-nmkr' ); ?>
     </p>
     <?php
 }
@@ -733,7 +733,7 @@ function nmkr_analytics_debug_field_callback() {
            <?php checked(1, $analytics_debug); ?>
     />
     <p class="description">
-        <?php _e('Enable debug logging for analytics events (requires debug logging to be enabled).', 'connector-for-nmkr'); ?>
+        <?php esc_html_e( 'Enable debug logging for analytics events (requires debug logging to be enabled).', 'connector-for-nmkr' ); ?>
     </p>
     <?php
 }
@@ -751,7 +751,7 @@ function nmkr_ga4_measurement_id_field_callback() {
            placeholder="G-XXXXXXXXXX"
     />
     <p class="description">
-        <?php _e('Google Analytics 4 Measurement ID (e.g., G-XXXXXXXXXX).', 'connector-for-nmkr'); ?>
+        <?php esc_html_e( 'Google Analytics 4 Measurement ID (e.g., G-XXXXXXXXXX).', 'connector-for-nmkr' ); ?>
     </p>
     <?php
 }
@@ -768,7 +768,7 @@ function nmkr_ga4_api_secret_field_callback() {
            class="regular-text"
     />
     <p class="description">
-        <?php _e('GA4 API Secret. Used server-side only when a GA4 mode and valid configuration are deliberately selected; it is never displayed or logged.', 'connector-for-nmkr'); ?>
+        <?php esc_html_e( 'GA4 API Secret. Used server-side only when a GA4 mode and valid configuration are deliberately selected; it is never displayed or logged.', 'connector-for-nmkr' ); ?>
     </p>
     <?php
 }
