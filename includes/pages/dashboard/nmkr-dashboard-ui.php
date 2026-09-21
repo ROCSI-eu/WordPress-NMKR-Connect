@@ -843,6 +843,10 @@ function nmkr_render_sync_data_panel($dashboard_nonce, $can_manage_sync) {
  * @param array $initial_stats Initial statistics data
  */
 function nmkr_render_sync_statistics_panel($initial_stats) {
+    $latest_run = is_array($initial_stats['latest_run'] ?? null) ? $initial_stats['latest_run'] : array();
+    $display_counter = function ($key) use ($latest_run) {
+        return array_key_exists($key, $latest_run) && $latest_run[$key] !== null ? (string) $latest_run[$key] : '—';
+    };
     ?>
     <!-- Synchronization Statistics Panel -->
     <div class="panel sync-statistics" role="region" aria-label="Synchronization Statistics">
@@ -856,6 +860,16 @@ function nmkr_render_sync_statistics_panel($initial_stats) {
             <!-- Last Sync Time -->
             <div class="last-sync-time">
                 <p><strong>🕒 Last synced at:</strong> <span id="last-synced"><?php echo esc_html($initial_stats['last_sync_time']); ?></span></p>
+            </div>
+
+            <div id="latest-run-result" class="performance-metrics">
+                <p><strong>Latest run result:</strong> <span id="latest-run-terminal-result"><?php echo esc_html($latest_run['terminal_result'] ?? '—'); ?></span></p>
+                <p><strong>Lifecycle status:</strong> <span id="latest-run-status"><?php echo esc_html($latest_run['status'] ?? '—'); ?></span></p>
+                <p><strong>Processed:</strong> <span id="latest-run-processed"><?php echo esc_html($display_counter('items_processed')); ?></span></p>
+                <p><strong>Successful:</strong> <span id="latest-run-successful"><?php echo esc_html($display_counter('items_successful')); ?></span></p>
+                <p><strong>Failed:</strong> <span id="latest-run-failed"><?php echo esc_html($display_counter('items_failed')); ?></span></p>
+                <p><strong>Skipped:</strong> <span id="latest-run-skipped"><?php echo esc_html($display_counter('items_skipped')); ?></span></p>
+                <p><strong>Token details synced:</strong> <span id="latest-run-token-details"><?php echo esc_html($display_counter('token_details_synced')); ?></span></p>
             </div>
             
             <!-- Sync Metrics -->
@@ -1382,6 +1396,15 @@ function nmkr_render_dashboard_scripts($dashboard_nonce, $can_manage_sync) {
                             $('#total-sync-time').text(response.data.total_sync_duration);
                             $('#total-api-time').text(response.data.total_api_time);
                             $('#request-count').text(response.data.api_requests);
+                            const latestRun = response.data.latest_run || {};
+                            const latestValue = value => value === null || typeof value === 'undefined' ? '—' : String(value);
+                            $('#latest-run-terminal-result').text(latestValue(latestRun.terminal_result));
+                            $('#latest-run-status').text(latestValue(latestRun.status));
+                            $('#latest-run-processed').text(latestValue(latestRun.items_processed));
+                            $('#latest-run-successful').text(latestValue(latestRun.items_successful));
+                            $('#latest-run-failed').text(latestValue(latestRun.items_failed));
+                            $('#latest-run-skipped').text(latestValue(latestRun.items_skipped));
+                            $('#latest-run-token-details').text(latestValue(latestRun.token_details_synced));
                             
                             // Update with classes for color coding
                             $('#avg-response-time')

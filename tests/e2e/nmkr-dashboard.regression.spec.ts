@@ -122,6 +122,14 @@ test.describe('NMKR Connect dashboard page regression', () => {
       '#request-count',
       '#memory-usage',
       '#performance-legend',
+      '#latest-run-result',
+      '#latest-run-terminal-result',
+      '#latest-run-status',
+      '#latest-run-processed',
+      '#latest-run-successful',
+      '#latest-run-failed',
+      '#latest-run-skipped',
+      '#latest-run-token-details',
     ]) {
       await expect(statisticsPanel.locator(selector)).toBeAttached();
     }

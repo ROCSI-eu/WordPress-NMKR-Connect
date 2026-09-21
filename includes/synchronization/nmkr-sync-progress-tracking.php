@@ -685,6 +685,16 @@ function nmkr_normalize_sync_terminal_outcome($outcome) {
     return in_array($outcome, array('completed', 'failed', 'stopped'), true) ? $outcome : false;
 }
 
+/** Derive display quality from lifecycle and authoritative counters. */
+function nmkr_derive_sync_terminal_result($outcome, $counters) {
+    $outcome = nmkr_normalize_sync_terminal_outcome($outcome);
+    if ($outcome === 'failed' || $outcome === 'stopped') return $outcome;
+    if ($outcome !== 'completed' || !is_array($counters)) return false;
+    if ((int) ($counters['items_failed'] ?? 0) > 0) return 'completed_with_errors';
+    if ((int) ($counters['items_skipped'] ?? 0) > 0) return 'completed_with_skips';
+    return 'success';
+}
+
 function nmkr_sync_terminal_history_statuses($outcome) {
     $outcome = nmkr_normalize_sync_terminal_outcome($outcome);
     if ($outcome === 'completed') return array('completed', 'success');
@@ -699,7 +709,8 @@ function nmkr_verify_sync_terminal_result($sync_data, $outcome) {
         return false;
     }
     $sync_stats_id = (int) ($sync_data['sync_stats_id'] ?? 0);
-    $history = $wpdb->get_row($wpdb->prepare("SELECT id, run_id, status, end_time FROM {$wpdb->prefix}nmkr_sync_stats WHERE id = %d", $sync_stats_id), ARRAY_A);
+    $counter_keys = array('items_processed', 'items_successful', 'items_failed', 'items_skipped', 'token_details_synced');
+    $history = $wpdb->get_row($wpdb->prepare("SELECT id, run_id, status, end_time, items_processed, items_successful, items_failed, items_skipped, token_details_synced FROM {$wpdb->prefix}nmkr_sync_stats WHERE id = %d", $sync_stats_id), ARRAY_A);
     // Keep the boolean compatibility shim for existing callers, but never let
     // it make stopped and failed interchangeable.
     $outcome = nmkr_normalize_sync_terminal_outcome($outcome);
@@ -718,6 +729,11 @@ function nmkr_verify_sync_terminal_result($sync_data, $outcome) {
             return false;
         }
     }
+    foreach ($counter_keys as $counter) {
+        if (!isset($history[$counter], $sync_data[$counter]) || (int) $history[$counter] !== (int) $sync_data[$counter]) return false;
+    }
+    $derived_result = nmkr_derive_sync_terminal_result($outcome, $history);
+    if ($derived_result === false || (string) ($sync_data['terminal_result'] ?? '') !== $derived_result) return false;
     if ($outcome === 'completed') {
         $receipt = nmkr_get_sync_metrics_receipt($sync_stats_id);
         return is_array($receipt) && (string) ($receipt['end_time'] ?? '') === (string) $history['end_time'];
@@ -864,7 +880,7 @@ function nmkr_sync_data_complete($success = true, $error_message = '', $final = 
         $end_time = !empty($final['end_time']) ? $final['end_time'] : nmkr_get_timestamp();
         global $wpdb;
         $history_table = $wpdb->prefix . 'nmkr_sync_stats';
-        $history = $wpdb->get_row($wpdb->prepare("SELECT id, status, end_time FROM $history_table WHERE id = %d", $sync_stats_id), ARRAY_A);
+        $history = $wpdb->get_row($wpdb->prepare("SELECT id, status, end_time, items_processed, items_successful, items_failed, items_skipped, token_details_synced FROM $history_table WHERE id = %d", $sync_stats_id), ARRAY_A);
         if (!$history || (int) $history['id'] !== $sync_stats_id) {
             return false;
         }
@@ -880,6 +896,24 @@ function nmkr_sync_data_complete($success = true, $error_message = '', $final = 
                 }
             } else {
                 $end_time = $history['end_time'];
+            }
+
+            // A pre-v3 terminal row can be awaiting final cleanup when schema v3
+            // adds these columns. The durable finalization record is authoritative
+            // for this exact run, so populate only the migration-added unknowns
+            // before publishing terminal sync data.
+            $legacy_counter_update = array();
+            foreach (array('items_skipped', 'token_details_synced') as $counter) {
+                if (($history[$counter] ?? null) === null) {
+                    if (!array_key_exists($counter, $final) || !is_numeric($final[$counter])) {
+                        return false;
+                    }
+                    $legacy_counter_update[$counter] = (int) $final[$counter];
+                }
+            }
+            if (!empty($legacy_counter_update)
+                && !nmkr_update_sync_stats($sync_stats_id, $legacy_counter_update)) {
+                return false;
             }
         }
 
@@ -909,7 +943,7 @@ function nmkr_sync_data_complete($success = true, $error_message = '', $final = 
             nmkr_sync_finalization_checkpoint('receipt_committed', $sync_stats_id);
         }
 
-        $history = $wpdb->get_row($wpdb->prepare("SELECT id, status, end_time FROM $history_table WHERE id = %d", $sync_stats_id), ARRAY_A);
+        $history = $wpdb->get_row($wpdb->prepare("SELECT id, status, end_time, items_processed, items_successful, items_failed, items_skipped, token_details_synced FROM $history_table WHERE id = %d", $sync_stats_id), ARRAY_A);
         if (!$history || (int) $history['id'] !== $sync_stats_id) {
             return false;
         }
@@ -923,9 +957,7 @@ function nmkr_sync_data_complete($success = true, $error_message = '', $final = 
         } else {
             $history_update = array('status' => $success ? 'completed' : $outcome, 'end_time' => $end_time);
             foreach (array('items_processed', 'items_successful', 'items_failed', 'items_skipped', 'token_details_synced') as $counter) {
-                if (isset($final[$counter])) {
-                    $history_update[$counter] = (int) $final[$counter];
-                }
+                $history_update[$counter] = (int) ($final[$counter] ?? 0);
             }
             if (!$success && !empty($error_message)) {
                 $history_update['error_message'] = $error_message;
@@ -935,7 +967,7 @@ function nmkr_sync_data_complete($success = true, $error_message = '', $final = 
             }
         }
 
-        $history = $wpdb->get_row($wpdb->prepare("SELECT id, status, end_time FROM $history_table WHERE id = %d", $sync_stats_id), ARRAY_A);
+        $history = $wpdb->get_row($wpdb->prepare("SELECT id, status, end_time, items_processed, items_successful, items_failed, items_skipped, token_details_synced FROM $history_table WHERE id = %d", $sync_stats_id), ARRAY_A);
         if (!$history || (int) $history['id'] !== $sync_stats_id
             || !in_array(strtolower($history['status']), $expected_statuses, true)
             || !nmkr_is_valid_sync_end_time($history['end_time'])
@@ -975,6 +1007,10 @@ function nmkr_sync_data_complete($success = true, $error_message = '', $final = 
             'sync_stats_id' => $sync_stats_id,
             'end_time' => $end_time,
         );
+        foreach (array('items_processed', 'items_successful', 'items_failed', 'items_skipped', 'token_details_synced') as $counter) {
+            $terminal[$counter] = (int) ($history[$counter] ?? 0);
+        }
+        $terminal['terminal_result'] = nmkr_derive_sync_terminal_result($outcome, $terminal);
         if ($run_id !== '') {
             $terminal['run_id'] = $run_id;
         }

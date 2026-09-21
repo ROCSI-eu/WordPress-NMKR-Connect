@@ -15,7 +15,7 @@ require_once dirname(__DIR__) . '/helpers/nmkr-project-normalization.php';
 
 
 /** Current version for NMKR-owned database schema, independent of plugin version. */
-define('NMKR_CONNECT_SCHEMA_VERSION', '2');
+define('NMKR_CONNECT_SCHEMA_VERSION', '3');
 define('NMKR_CONNECT_SCHEMA_VERSION_OPTION', 'nmkr_connect_schema_version');
 define('NMKR_CONNECT_SCHEMA_UPGRADE_LOCK_OPTION', 'nmkr_connect_schema_upgrade_lock');
 define('NMKR_CONNECT_SCHEMA_UPGRADE_LOCK_TTL', 300);
@@ -36,6 +36,8 @@ function nmkr_connect_sync_stats_schema_sql() {
         items_processed int DEFAULT 0,
         items_successful int DEFAULT 0,
         items_failed int DEFAULT 0,
+        items_skipped int DEFAULT NULL,
+        token_details_synced int DEFAULT NULL,
         error_message text,
         failure_breakdown text,
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
@@ -73,6 +75,21 @@ function nmkr_connect_sync_stats_run_id_column_state() {
     return array('exists' => false, 'valid' => false);
 }
 
+/** Return the authoritative state of the required nullable v3 counter columns. */
+function nmkr_connect_sync_stats_v3_counter_columns_state() {
+    global $wpdb;
+    $table = $wpdb->prefix . 'nmkr_sync_stats';
+    $state = array_fill_keys(array('items_skipped', 'token_details_synced'), false);
+    foreach ((array) $wpdb->get_results("SHOW COLUMNS FROM $table", ARRAY_A) as $column) {
+        $field = (string) ($column['Field'] ?? '');
+        if (array_key_exists($field, $state)) {
+            $state[$field] = strtoupper((string) ($column['Null'] ?? '')) === 'YES'
+                && preg_match('/^int(?:\([0-9]+\))?$/i', trim((string) ($column['Type'] ?? ''))) === 1;
+        }
+    }
+    return $state;
+}
+
 /** Return the authoritative index state for the fixed sync-history table. */
 function nmkr_connect_sync_stats_index_state() {
     global $wpdb;
@@ -92,7 +109,10 @@ function nmkr_connect_verify_sync_stats_schema() {
     global $wpdb;
     $table = $wpdb->prefix . 'nmkr_sync_stats';
     if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table))) !== $table) return false;
-    return nmkr_connect_sync_stats_run_id_column_state()['valid'] && nmkr_connect_sync_stats_index_state()['required'];
+    $counters = nmkr_connect_sync_stats_v3_counter_columns_state();
+    return nmkr_connect_sync_stats_run_id_column_state()['valid']
+        && $counters['items_skipped'] && $counters['token_details_synced']
+        && nmkr_connect_sync_stats_index_state()['required'];
 }
 
 /** Generate a non-secret, strong lock ownership token. */

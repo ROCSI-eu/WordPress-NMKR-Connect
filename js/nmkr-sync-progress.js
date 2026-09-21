@@ -323,7 +323,7 @@ jQuery(document).ready(function($) {
         
         try {
           if (response.success && response.data) {
-            const { progress, current_item, in_progress, error, live_metrics, finished, aborted, terminal_outcome } = response.data;
+            const { progress, current_item, in_progress, error, live_metrics, finished, aborted, terminal_outcome, terminal_result, terminal_counts } = response.data;
             const reportedRunId = response.data.activeRunId || '';
             const authoritativeRunId = isValidDirectRunId(reportedRunId) ? reportedRunId : '';
             const malformedOwner = !!reportedRunId && !authoritativeRunId;
@@ -367,7 +367,15 @@ jQuery(document).ready(function($) {
             if (finished === true) {
               if (!authoritativeRunId && !malformedOwner) {
                 stopPolling();
-                handleComplete();
+                if (terminal_result === 'completed_with_errors') {
+                  const failed = Number(terminal_counts && terminal_counts.items_failed) || 0;
+                  handleComplete(`Synchronization completed with ${failed} item failure${failed === 1 ? '' : 's'}.`);
+                } else if (terminal_result === 'completed_with_skips') {
+                  const skipped = Number(terminal_counts && terminal_counts.items_skipped) || 0;
+                  handleComplete(`Synchronization completed with ${skipped} skipped item${skipped === 1 ? '' : 's'}.`);
+                } else {
+                  handleComplete();
+                }
                 return;
               }
             }
@@ -499,7 +507,7 @@ jQuery(document).ready(function($) {
     window.NMKRProgress.startPolling = startSyncPolling;
 
 
-    function handleComplete() {
+    function handleComplete(completionMessage) {
       syncInProgress = false;
       resetRunAuthority();
       
@@ -512,7 +520,7 @@ jQuery(document).ready(function($) {
       const lastResponse = window.lastSyncResponse;
       if (lastResponse && lastResponse.data) {
         if (lastResponse.data.finished === true) {
-          $('#status-message').text('✅ Synchronization completed successfully');
+          $('#status-message').text(completionMessage || '✅ Synchronization completed successfully');
         } else if (lastResponse.data.aborted === true) {
           $('#status-message').text('⚠️ Synchronization was manually stopped by user');
         }

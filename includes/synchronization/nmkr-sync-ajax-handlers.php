@@ -45,6 +45,15 @@ function nmkr_is_verified_failed_terminal_for_progress($sync_data, $has_active_d
         && nmkr_verify_sync_terminal_result($sync_data, 'failed');
 }
 
+/** Require the complete safe projection before exposing terminal fields. */
+function nmkr_has_complete_public_terminal_contract($sync_data) {
+    if (!is_array($sync_data) || empty($sync_data['terminal_result'])) return false;
+    foreach (array('items_processed', 'items_successful', 'items_failed', 'items_skipped', 'token_details_synced') as $counter) {
+        if (!isset($sync_data[$counter])) return false;
+    }
+    return true;
+}
+
 /** Replace a verified failed terminal's private diagnostic with public-safe copy. */
 function nmkr_public_failed_terminal_progress_response($response_data) {
     $response_data['error'] = __('Synchronization failed. Review the private server diagnostics for details.', 'connector-for-nmkr');
@@ -744,6 +753,8 @@ function nmkr_sync_progress_handler() {
     $response_data['stop_pending'] = $active_direct_owner && $response_data['owner_state'] === 'stop_requested';
     $response_data['terminalRunId'] = '';
     $response_data['terminal_outcome'] = '';
+    $response_data['terminal_result'] = '';
+    $response_data['terminal_counts'] = array();
     if ($active_direct_owner) {
         $response_data['finished'] = false;
         $response_data['aborted'] = false;
@@ -751,9 +762,15 @@ function nmkr_sync_progress_handler() {
         $terminal_status = (string) $sync_data['status'];
         $stopped_clean = $terminal_status === 'stopped' && !$sync_in_progress_option && !$sync_in_progress_flag
             && !$durable_user_requested_abort && !$user_requested_abort;
-        if (($terminal_status === 'completed' && $canonically_finished) || $stopped_clean || $verified_failed_terminal) {
+        $terminal_contract_complete = nmkr_has_complete_public_terminal_contract($sync_data);
+        if ($terminal_contract_complete && (($terminal_status === 'completed' && $canonically_finished) || $stopped_clean || $verified_failed_terminal)) {
             $response_data['terminalRunId'] = (string) $sync_data['run_id'];
             $response_data['terminal_outcome'] = $terminal_status;
+            $response_data['terminal_result'] = (string) ($sync_data['terminal_result'] ?? '');
+            $response_data['terminal_counts'] = array();
+            foreach (array('items_processed', 'items_successful', 'items_failed', 'items_skipped', 'token_details_synced') as $counter) {
+                $response_data['terminal_counts'][$counter] = (int) $sync_data[$counter];
+            }
             $response_data['finished'] = $terminal_status === 'completed' ? $canonically_finished : false;
             $response_data['aborted'] = $terminal_status === 'stopped';
             if ($terminal_status === 'failed') {

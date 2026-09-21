@@ -436,6 +436,9 @@ function nmkr_finalize_pre_history_stop($run_id) {
         $terminal = array(
             'status' => 'stopped', 'completed' => true, 'run_id' => (string) $run_id,
             'sync_stats_id' => 0, 'end_time' => nmkr_get_timestamp(),
+            'terminal_result' => 'stopped',
+            'items_processed' => 0, 'items_successful' => 0, 'items_failed' => 0,
+            'items_skipped' => 0, 'token_details_synced' => 0,
         );
         if (!nmkr_save_sync_data($terminal) || nmkr_get_sync_data() !== $terminal) {
             update_option('nmkr_sync_status', 'stop_cleanup_error');
@@ -1252,7 +1255,9 @@ function nmkr_sync_data($run_id = '') {
                 'status' => 'initializing',
                 'items_processed' => 0,
                 'items_successful' => 0,
-                'items_failed' => 0
+                'items_failed' => 0,
+                'items_skipped' => 0,
+                'token_details_synced' => 0
             ]);
             
             if (!$sync_stats_id) {
