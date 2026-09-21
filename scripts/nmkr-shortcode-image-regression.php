@@ -7,6 +7,7 @@ $GLOBALS['nmkr_test_gateway'] = '';
 function apply_filters($hook, $value) { return 'nmkr_ipfs_gateway_base' === $hook ? $GLOBALS['nmkr_test_gateway'] : $value; }
 function esc_url_raw($url) { return is_string($url) && preg_match('#^https://#i', $url) && filter_var($url, FILTER_VALIDATE_URL) ? $url : ''; }
 function esc_url($url) { return esc_url_raw($url); }
+function wp_parse_url($url, $component=-1) { return parse_url($url, $component); }
 function esc_attr($value) { return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8'); }
 function plugins_url($path) { return 'https://plugin.example.test/' . ltrim($path, '/'); }
 function plugin_dir_path() { return __DIR__ . '/../'; }
