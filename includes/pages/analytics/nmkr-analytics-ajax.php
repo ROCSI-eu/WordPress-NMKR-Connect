@@ -322,7 +322,7 @@ function nmkr_analytics_timeseries_ajax() {
 
     // Bucket expression (MySQL)
     $bucket_expr = ($range['bucket'] === 'hour')
-        ? "DATE_FORMAT(event_ts, '%Y-%m-%d %H:00:00')"
+        ? "DATE_FORMAT(event_ts, '%%Y-%%m-%%d %%H:00:00')"
         : "DATE(event_ts)";
 
     $sql = "
@@ -712,7 +712,7 @@ function nmkr_analytics_export_ajax() {
 
     if ($entity === 'timeseries') {
         $bucket_expr = ($range['bucket'] === 'hour')
-            ? "DATE_FORMAT(event_ts, '%Y-%m-%d %H:00:00')"
+            ? "DATE_FORMAT(event_ts, '%%Y-%%m-%%d %%H:00:00')"
             : "DATE(event_ts)";
 
         $sql = "
