@@ -106,4 +106,11 @@ nmkr_assert($GLOBALS['wpdb']->reads===2 && count($GLOBALS['wpdb']->templates)===
 foreach($GLOBALS['wpdb']->templates as $template) { nmkr_assert(strpos($template,$hostile)===false,'hostile_sql_structure'); nmkr_assert((bool)preg_match('/ORDER BY views DESC|COUNT\\(DISTINCT project_uid\\)/',$template),'sql_allowlisted_structure'); }
 nmkr_assert(in_array(100,$GLOBALS['wpdb']->params[1],true) && in_array(0,$GLOBALS['wpdb']->params[1],true),'pagination_prepared');
 
+$reads_before=$GLOBALS['wpdb']->reads; $templates_before=count($GLOBALS['wpdb']->templates);
+$_POST=array('nonce'=>'ok','range'=>'24h','bucket'=>'hour'); $_REQUEST=$_POST;
+try { nmkr_analytics_timeseries_ajax(); nmkr_assert(false,'analytics_timeseries_success_missing'); } catch(NmkrContractStop $e) { nmkr_assert($e->kind==='success' && $e->data['bucket']==='hour','analytics_timeseries_response'); }
+nmkr_assert($GLOBALS['wpdb']->reads===$reads_before+1 && count($GLOBALS['wpdb']->templates)===$templates_before+1,'analytics_timeseries_sql_execution');
+$timeseries_template=end($GLOBALS['wpdb']->templates);
+nmkr_assert(strpos($timeseries_template,"DATE_FORMAT(event_ts, '%%Y-%%m-%%d %%H:00:00')")!==false,'analytics_timeseries_percent_escaping');
+
 echo "M4-06 targeted security contracts: PASS\n";
