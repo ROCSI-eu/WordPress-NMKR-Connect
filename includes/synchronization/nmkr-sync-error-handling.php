@@ -488,9 +488,11 @@ function nmkr_classify_direct_sync_health($owner, $sync_data, $last_progress_upd
         $exact_finalization = is_array($sync_data)
             && (string) ($sync_data['run_id'] ?? '') === $run_id
             && (int) ($sync_data['sync_stats_id'] ?? 0) === $sync_stats_id;
+        $resume_record = $sync_stats_id > 0 && function_exists('nmkr_sync_finalization_resume_key')
+            ? get_option(nmkr_sync_finalization_resume_key($sync_stats_id), false) : false;
         $finalization_pending = $exact_finalization && $sync_stats_id > 0
-            && function_exists('nmkr_sync_finalization_resume_pending')
-            && nmkr_sync_finalization_resume_pending($sync_stats_id);
+            && function_exists('nmkr_is_valid_sync_finalization_record')
+            && nmkr_is_valid_sync_finalization_record($resume_record, $run_id, $sync_stats_id);
         $finalization_scheduled = $finalization_pending
             && function_exists('nmkr_sync_finalization_resume_event_scheduled')
             && nmkr_sync_finalization_resume_event_scheduled($sync_stats_id);

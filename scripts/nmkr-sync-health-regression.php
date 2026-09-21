@@ -9,7 +9,6 @@ $GLOBALS['transients'] = array();
 $GLOBALS['cron'] = array();
 $GLOBALS['owner'] = false;
 $GLOBALS['sync_data'] = false;
-$GLOBALS['resume_pending'] = false;
 $GLOBALS['logs'] = array();
 
 function __($value) { return $value; }
@@ -24,7 +23,20 @@ function nmkr_get_sync_data() { return $GLOBALS['sync_data']; }
 function nmkr_is_valid_sync_run_id($run_id) {
     return is_string($run_id) && preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $run_id) === 1;
 }
-function nmkr_sync_finalization_resume_pending($sync_stats_id) { return $GLOBALS['resume_pending'] === (int) $sync_stats_id; }
+function nmkr_sync_finalization_resume_key($sync_stats_id) { return 'nmkr_sync_finalization_resume_' . (int) $sync_stats_id; }
+function nmkr_is_valid_sync_finalization_record($record, $run_id = '', $sync_stats_id = 0) {
+    if (!is_array($record) || !nmkr_is_valid_sync_run_id((string) ($record['run_id'] ?? ''))
+        || (int) ($record['sync_stats_id'] ?? 0) <= 0 || !is_int($record['attempt'] ?? null)
+        || !in_array(($record['outcome'] ?? ''), array('completed', 'failed', 'stopped'), true)
+        || (string) ($record['run_id'] ?? '') !== (string) $run_id
+        || (int) ($record['sync_stats_id'] ?? 0) !== (int) $sync_stats_id) {
+        return false;
+    }
+    foreach (array('items_processed', 'items_successful', 'items_failed', 'items_skipped', 'token_details_synced') as $counter) {
+        if (!array_key_exists($counter, $record) || !is_numeric($record[$counter])) return false;
+    }
+    return true;
+}
 function nmkr_sync_finalization_resume_event_scheduled($sync_stats_id) {
     return wp_next_scheduled('nmkr_resume_sync_finalization', array((int) $sync_stats_id)) !== false;
 }
@@ -53,8 +65,20 @@ function reset_health_fixture() {
     $GLOBALS['cron'] = array();
     $GLOBALS['owner'] = false;
     $GLOBALS['sync_data'] = false;
-    $GLOBALS['resume_pending'] = false;
     $GLOBALS['logs'] = array();
+}
+function finalization_resume_record($run_id, $sync_stats_id) {
+    $GLOBALS['options'][nmkr_sync_finalization_resume_key($sync_stats_id)] = array(
+        'run_id' => $run_id,
+        'sync_stats_id' => $sync_stats_id,
+        'attempt' => 0,
+        'outcome' => 'stopped',
+        'items_processed' => 10,
+        'items_successful' => 9,
+        'items_failed' => 1,
+        'items_skipped' => 0,
+        'token_details_synced' => 8,
+    );
 }
 function direct_owner($run_id, $state, $stats_id, $age) {
     $stamp = gmdate('c', time() - $age);
@@ -101,7 +125,7 @@ check(!$health['is_stalled'] && $health['has_running_jobs'] && $health['owner_st
 reset_health_fixture();
 $GLOBALS['owner'] = direct_owner($run, 'finalizing', 43, 400);
 $GLOBALS['sync_data'] = array('run_id' => $run, 'sync_stats_id' => 43, 'status' => 'finalizing');
-$GLOBALS['resume_pending'] = 43;
+finalization_resume_record($run, 43);
 $GLOBALS['cron']['nmkr_resume_sync_finalization:' . json_encode(array(43))] = time() + 30;
 $health = nmkr_check_sync_health();
 check(!$health['is_stalled'] && $health['finalization_pending'] && $health['has_running_jobs'],
@@ -110,7 +134,7 @@ check(!$health['is_stalled'] && $health['finalization_pending'] && $health['has_
 reset_health_fixture();
 $GLOBALS['owner'] = direct_owner($run, 'finalizing', 45, 400);
 $GLOBALS['sync_data'] = array('run_id' => $run, 'sync_stats_id' => 45, 'status' => 'processing_tokens');
-$GLOBALS['resume_pending'] = 45;
+finalization_resume_record($run, 45);
 $GLOBALS['cron']['nmkr_resume_sync_finalization:' . json_encode(array(45))] = time() + 30;
 $health = nmkr_check_sync_health();
 check(!$health['is_stalled'] && $health['finalization_pending'] && $health['has_running_jobs'],
@@ -119,7 +143,7 @@ check(!$health['is_stalled'] && $health['finalization_pending'] && $health['has_
 reset_health_fixture();
 $GLOBALS['owner'] = direct_owner($run, 'finalizing', 47, 400);
 $GLOBALS['sync_data'] = array('run_id' => $run, 'sync_stats_id' => 47, 'status' => 'finalizing');
-$GLOBALS['resume_pending'] = 47;
+finalization_resume_record($run, 47);
 $health = nmkr_check_sync_health();
 check($health['is_stalled'] && $health['finalization_pending'] && !$health['has_running_jobs'],
     'stale finalization resume option without an exact callback is not executable evidence');
@@ -127,11 +151,23 @@ check($health['is_stalled'] && $health['finalization_pending'] && !$health['has_
 reset_health_fixture();
 $GLOBALS['owner'] = direct_owner($run, 'finalizing', 46, 400);
 $GLOBALS['sync_data'] = array('run_id' => '22222222-2222-4222-8222-222222222222', 'sync_stats_id' => 46, 'status' => 'processing_tokens');
-$GLOBALS['resume_pending'] = 46;
+finalization_resume_record('22222222-2222-4222-8222-222222222222', 46);
 $GLOBALS['cron']['nmkr_resume_sync_finalization:' . json_encode(array(46))] = time() + 30;
 $health = nmkr_check_sync_health();
 check($health['is_stalled'] && !$health['finalization_pending'],
     'finalization handoff evidence cannot cross the exact run boundary');
+
+reset_health_fixture();
+$GLOBALS['owner'] = direct_owner($run, 'finalizing', 48, 400);
+$GLOBALS['sync_data'] = array('run_id' => $run, 'sync_stats_id' => 48, 'status' => 'processing_tokens');
+$GLOBALS['options'][nmkr_sync_finalization_resume_key(48)] = array_merge(
+    array('run_id' => $run, 'sync_stats_id' => 49, 'attempt' => 0, 'outcome' => 'stopped'),
+    array_fill_keys(array('items_processed', 'items_successful', 'items_failed', 'items_skipped', 'token_details_synced'), 0)
+);
+$GLOBALS['cron']['nmkr_resume_sync_finalization:' . json_encode(array(48))] = time() + 30;
+$health = nmkr_check_sync_health();
+check($health['is_stalled'] && !$health['finalization_pending'] && !$health['has_running_jobs'],
+    'scheduled callback cannot substitute for an exact durable finalization record');
 
 reset_health_fixture();
 $GLOBALS['owner'] = direct_owner($run, 'stop_requested', 44, 400);
