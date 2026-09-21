@@ -1,4 +1,8 @@
 <?php
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
+
 /**
  * TTL (in seconds) for all NMKR Connect sync-related transients.
  * Used to cache both active sync metrics and dashboard AJAX state.

@@ -484,7 +484,7 @@ function nmkr_enqueue_analytics_frontend() {
     $debug = isset($options['analytics_debug']) ? (bool)$options['analytics_debug'] : false;
 
     $home = home_url();
-    $host = parse_url($home, PHP_URL_HOST);
+    $host = wp_parse_url( $home, PHP_URL_HOST );
 
     $has_consent_cookie = (
         isset($_COOKIE['nmkr_analytics_consent'])

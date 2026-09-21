@@ -67,7 +67,9 @@ function nmkr_analytics_event_ajax() {
         exit;
     }
     $stream = fopen('php://input', 'rb');
+    // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fread -- php://input is a request-body stream; WP_Filesystem is not applicable.
     $raw = false === $stream ? false : fread($stream, NMKR_ANALYTICS_RAW_BODY_MAX_BYTES + 1);
+    // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Close the request-body stream opened immediately above.
     if (is_resource($stream)) fclose($stream);
     $decoded = nmkr_analytics_decode_body($raw);
     $resp = 200 === $decoded['status']

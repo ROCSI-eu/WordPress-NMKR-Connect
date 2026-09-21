@@ -1,4 +1,8 @@
 <?php
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
+
 require_once dirname(__DIR__) . '/helpers/nmkr-project-normalization.php';
 
 /** Normalize the undocumented Solana project details without scalar coercion warnings. */

@@ -42,7 +42,7 @@ function nmkr_clear_sync_finalization_resume($sync_stats_id) {
 }
 
 function nmkr_bound_sync_finalization_error_message($message) {
-    $message = strip_tags((string) $message);
+    $message = wp_strip_all_tags( (string) $message );
     if (function_exists('wp_check_invalid_utf8')) {
         $message = wp_check_invalid_utf8($message, true);
     }
