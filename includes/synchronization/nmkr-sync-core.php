@@ -240,12 +240,9 @@ function nmkr_log_direct_worker_throwable($throwable) {
     }
 
     try {
-        error_log(sprintf(
-            '[Connector for NMKR Sync] Direct worker Throwable [%s]: %s in %s:%d',
-            get_class($throwable),
-            $throwable->getMessage(),
-            $throwable->getFile(),
-            $throwable->getLine()
+        nmkr_write_debug_log(sprintf(
+            '[Connector for NMKR Sync] Direct worker Throwable [%s].',
+            get_class($throwable)
         ));
     } catch (Throwable $logging_failure) {
         // Custom PHP error handlers may throw; recovery still owns the run.
@@ -1634,12 +1631,9 @@ function nmkr_sync_data($run_id = '') {
             nmkr_log_data_sync('Synchronization worker hit an unexpected PHP runtime failure.', 'error', array(
                 'throwable_class' => get_class($e),
             ));
-            error_log(sprintf(
-                '[Connector for NMKR Sync] Runtime Throwable [%s]: %s in %s:%d',
-                get_class($e),
-                $e->getMessage(),
-                $e->getFile(),
-                $e->getLine()
+            nmkr_write_debug_log(sprintf(
+                '[Connector for NMKR Sync] Runtime Throwable [%s].',
+                get_class($e)
             ));
         }
 

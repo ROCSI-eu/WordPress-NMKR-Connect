@@ -202,7 +202,14 @@ function nmkr_update_sync_stats($id, $stats) {
         if (in_array('failure_breakdown', $columns)) {
             $data['failure_breakdown'] = $stats['failure_breakdown'];
         } else {
-            nmkr_log_data_sync("Partial sync failure stats: " . print_r($stats['failure_breakdown'], true), 'warning');
+            $failure_categories = is_array($stats['failure_breakdown'])
+                ? array_map('sanitize_key', array_keys($stats['failure_breakdown']))
+                : array();
+            nmkr_log_data_sync(
+                'Partial sync failure stats could not be stored because the failure_breakdown column is unavailable.',
+                'warning',
+                array('failure_categories' => $failure_categories)
+            );
         }
     }
     $data['updated_at'] = nmkr_get_timestamp();

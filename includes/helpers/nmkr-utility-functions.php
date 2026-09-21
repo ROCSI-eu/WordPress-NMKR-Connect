@@ -203,25 +203,56 @@ function nmkr_trim_dashboard_logs_to_retention($limit = null) {
     return $summary;
 }
 
-// Consolidated write_log function for all logging functions
-if (!function_exists('write_log')) {
-    /**
-     * Write to WordPress debug.log if WP_DEBUG_LOG is enabled
-     */
-    function write_log($message) {
-        // Respect plugin logging master switches to avoid unintended writes to debug.log
-        $opts = function_exists('get_option') ? get_option('nmkr_connect_options') : null;
-        $plugin_debug_enabled = is_array($opts) && !empty($opts['debug_enabled']);
-        $log_to_file_enabled  = is_array($opts) && !empty($opts['log_to_debug_file']);
+/**
+ * Format bounded diagnostic values without PHP development-output helpers.
+ *
+ * @param mixed $value Diagnostic value.
+ * @return string Safe single-line diagnostic representation.
+ */
+function nmkr_format_log_value($value) {
+    if (is_string($value)) {
+        $formatted = $value;
+    } elseif (is_bool($value)) {
+        $formatted = $value ? 'true' : 'false';
+    } elseif (is_scalar($value)) {
+        $formatted = (string) $value;
+    } elseif (null === $value) {
+        $formatted = 'null';
+    } else {
+        $encoded = wp_json_encode($value);
+        $formatted = false === $encoded ? '[unserializable diagnostic]' : $encoded;
+    }
 
-        if (!(true === WP_DEBUG_LOG && $plugin_debug_enabled && $log_to_file_enabled)) {
-            return;
-        }
-        if (is_array($message) || is_object($message)) {
-            error_log(print_r($message, true));
-        } else {
-            error_log($message);
-        }
+    $formatted = preg_replace('/[\r\n]+/', ' ', $formatted);
+    if (strlen($formatted) > 5000) {
+        $formatted = substr($formatted, 0, 4997) . '...';
+    }
+
+    return $formatted;
+}
+
+/**
+ * Write a plugin diagnostic to debug.log only when all file-logging gates are enabled.
+ *
+ * @param mixed $message Diagnostic message.
+ * @return void
+ */
+function nmkr_write_debug_log($message) {
+    $opts = function_exists('get_option') ? get_option('nmkr_connect_options') : null;
+    $plugin_debug_enabled = is_array($opts) && !empty($opts['debug_enabled']);
+    $log_to_file_enabled  = is_array($opts) && !empty($opts['log_to_debug_file']);
+
+    if (!defined('WP_DEBUG_LOG') || true !== WP_DEBUG_LOG || !$plugin_debug_enabled || !$log_to_file_enabled) {
+        return;
+    }
+
+    $message = nmkr_format_log_value($message);
+
+    try {
+        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Explicitly gated plugin diagnostics are written only when debug-file logging is enabled.
+        error_log($message);
+    } catch (Throwable $logging_failure) {
+        // Logging must never interrupt synchronization or recovery paths.
     }
 }
 
@@ -274,11 +305,11 @@ function nmkr_log_data_sync($message, $type = 'info', $data = array()) {
     // Log to debug.log file if enabled
     if (nmkr_should_log_to('file')) {
         // Create a clean, simple log entry
-        write_log("[Connector for NMKR Sync] " . $message);
+        nmkr_write_debug_log("[Connector for NMKR Sync] " . $message);
         
         // For errors and warnings, log the data separately
         if (($type === 'error' || $type === 'warning') && !empty($data)) {
-            write_log("[Connector for NMKR Sync] Error details: " . print_r($data, true));
+            nmkr_write_debug_log("[Connector for NMKR Sync] Error details: " . nmkr_format_log_value($data));
         }
     }
     
@@ -336,11 +367,11 @@ function nmkr_log_api_status($message, $type = 'info', $data = array()) {
     // Log to debug.log file if enabled
     if (nmkr_should_log_to('file')) {
         // Create a clean, simple log entry
-        write_log("[Connector for NMKR API] " . $message);
+        nmkr_write_debug_log("[Connector for NMKR API] " . $message);
         
         // For errors and warnings, log the data separately
         if (($type === 'error' || $type === 'warning') && !empty($data)) {
-            write_log("[Connector for NMKR API] Error details: " . print_r($data, true));
+            nmkr_write_debug_log("[Connector for NMKR API] Error details: " . nmkr_format_log_value($data));
         }
     }
     
@@ -388,11 +419,11 @@ function nmkr_log_ui_status($message, $type = 'info', $data = array()) {
     // Log to debug.log file if enabled
     if (nmkr_should_log_to('file')) {
         // Create a clean, simple log entry
-        write_log("[Connector for NMKR UI Status] " . $message);
+        nmkr_write_debug_log("[Connector for NMKR UI Status] " . $message);
         
         // For errors and warnings, log the data separately
         if (($type === 'error' || $type === 'warning') && !empty($data)) {
-            write_log("[Connector for NMKR UI Status] Error details: " . print_r($data, true));
+            nmkr_write_debug_log("[Connector for NMKR UI Status] Error details: " . nmkr_format_log_value($data));
         }
     }
     

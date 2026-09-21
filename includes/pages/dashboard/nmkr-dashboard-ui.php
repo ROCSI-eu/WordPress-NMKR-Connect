@@ -1033,7 +1033,7 @@ function nmkr_render_debug_logs_panel($can_manage_sync) {
                                      </div>
                                      <div class="log-message"><?php echo esc_html($log['message']); ?></div>
                                      <?php if (!empty($log['data'])): ?>
-                                         <div class="log-data"><?php echo esc_html(is_array($log['data']) ? print_r($log['data'], true) : $log['data']); ?></div>
+                                         <div class="log-data"><?php echo esc_html(nmkr_format_log_value($log['data'])); ?></div>
                                      <?php endif; ?>
                                  </div>
                              <?php endforeach; ?>
@@ -1080,7 +1080,7 @@ function nmkr_render_debug_logs_panel($can_manage_sync) {
                                      </div>
                                      <div class="log-message"><?php echo esc_html($log['message']); ?></div>
                                      <?php if (!empty($log['data'])): ?>
-                                         <div class="log-data"><?php echo esc_html(is_array($log['data']) ? print_r($log['data'], true) : $log['data']); ?></div>
+                                         <div class="log-data"><?php echo esc_html(nmkr_format_log_value($log['data'])); ?></div>
                                      <?php endif; ?>
                                  </div>
                              <?php endforeach; ?>
@@ -1127,7 +1127,7 @@ function nmkr_render_debug_logs_panel($can_manage_sync) {
                                      </div>
                                      <div class="log-message"><?php echo esc_html($log['message']); ?></div>
                                      <?php if (!empty($log['data'])): ?>
-                                         <div class="log-data"><?php echo esc_html(is_array($log['data']) ? print_r($log['data'], true) : $log['data']); ?></div>
+                                         <div class="log-data"><?php echo esc_html(nmkr_format_log_value($log['data'])); ?></div>
                                      <?php endif; ?>
                                  </div>
                              <?php endforeach; ?>
@@ -1188,7 +1188,7 @@ function nmkr_render_debug_logs_panel($can_manage_sync) {
                                             if (isset($log['average_time'])) $perf_data['Avg Response Time'] = $log['average_time'] . 'ms';
                                             if (!empty($log['data'])) $perf_data['Additional Data'] = $log['data'];
                                             
-                                            echo esc_html(print_r($perf_data, true));
+                                            echo esc_html(nmkr_format_log_value($perf_data));
                                         ?></div>
                                     <?php endif; ?>
                                 </div>
