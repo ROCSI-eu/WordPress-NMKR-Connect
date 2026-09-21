@@ -524,11 +524,12 @@ function nmkr_count_sync_steps($projects, $run_id = '', $sync_stats_id = 0) {
         foreach ($projects as $project) {
             $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'between_step_count_projects');
             if (is_wp_error($halt)) return $halt;
-            $project_uid = isset($project['project_uid']) ? $project['project_uid'] : 
-                          (isset($project['uid']) ? $project['uid'] : null);
+            $project_uid = nmkr_resolve_project_uid($project);
             
-            if (!$project_uid) {
-                nmkr_log_data_sync('Missing project UID when counting steps for project: ' . json_encode($project), 'warning');
+            if ($project_uid === '') {
+                nmkr_log_data_sync('Missing or invalid project UID when counting synchronization steps.', 'warning', array(
+                    'project_data_keys' => is_array($project) ? array_keys($project) : array(),
+                ));
                 continue;
             }
             
@@ -687,20 +688,24 @@ function nmkr_sync_projects(&$sync_log, &$completed_steps, $total_steps, $run_id
         foreach ($valid_projects as $project) {
             $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'between_projects'); if (is_wp_error($halt)) return $halt;
             $project_name = isset($project['projectname']) ? $project['projectname'] : 'Unknown Project';
-            $project_uid = isset($project['uid']) ? $project['uid'] : 
-                          (isset($project['uid']) ? $project['uid'] : null);
+            $project_uid = nmkr_resolve_project_uid($project);
             
             $report_project_progress($project_count, '🗂️ Processing Project: ' . $project_name);
             
-            // Validate project UID
-            if (!$project_uid) {
-                $sync_log[] = 'ERROR: Missing project unique identifier in project data';
-                nmkr_log_data_sync('Missing project unique identifier in project data', 'error', array('project' => $project));
+            // Validate project UID before persistence or downstream API use.
+            if ($project_uid === '') {
+                $sync_log[] = 'ERROR: Missing or invalid project unique identifier in project data';
+                nmkr_log_data_sync('Missing or invalid project unique identifier in project data', 'error', array(
+                    'project_data_keys' => array_keys($project),
+                ));
                 $failed_projects++;
                 $completed_steps++; // Increment for failed projects to maintain progress
                 $project_count++;
                 continue;
             }
+
+            // Canonicalize the compatibility field for the existing persistence boundary.
+            $project['uid'] = $project_uid;
             
             try {
                 $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'before_project_write'); if (is_wp_error($halt)) return $halt;

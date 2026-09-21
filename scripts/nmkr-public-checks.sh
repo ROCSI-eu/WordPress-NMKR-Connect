@@ -62,6 +62,9 @@ bash scripts/nmkr-sync-api-throttle-regression.sh
 printf '\n== Exact database-write regression ==\n'
 php scripts/nmkr-database-write-regression.php
 
+printf '\n== Project UID compatibility regression ==\n'
+php scripts/nmkr-project-uid-regression.php
+
 printf '\n== HTTP and metric correctness regression ==\n'
 php scripts/nmkr-http-metrics-regression.php
 
