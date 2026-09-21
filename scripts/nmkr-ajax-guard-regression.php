@@ -282,6 +282,16 @@ try {
     nmkr_test('stop_cap','nmkr_stop_sync_handler',true,array(),array('cap:nmkr_manage_sync'),array('owner','option','option-write','transient','transient-write','cron'));
     nmkr_test('api_nonce','nmkr_check_api_status',false,array(),array('nonce:nmkr_dashboard_nonce:nonce'),array('cap:nmkr_view_dashboard','option','api'));
     nmkr_test('api_cap','nmkr_check_api_status',true,array(),array('cap:nmkr_view_dashboard'),array('option','api'));
+
+    $GLOBALS['nmkr_calls']=array(); $GLOBALS['nmkr_nonce_ok']=true; $GLOBALS['nmkr_caps']=array('nmkr_view_dashboard'=>true);
+    $_POST=array('nonce'=>array('synthetic'));
+    try { nmkr_check_api_status(); throw new Exception('api_array_nonce_no_termination'); }
+    catch (NmkrAjaxTermination $e) {
+        if ($e->kind !== 'error') throw new Exception('api_array_nonce_response');
+    }
+    foreach (array('nonce:nmkr_dashboard_nonce:nonce','cap:nmkr_view_dashboard','option','api') as $call) {
+        if (in_array($call,$GLOBALS['nmkr_calls'],true)) throw new Exception('api_array_nonce_downstream_'.$call);
+    }
     nmkr_test('metrics_nonce','nmkr_store_active_metrics_ajax',false,array(),array('nonce:nmkr_dashboard_nonce:nonce'),array('cap:nmkr_manage_sync','transient','transient-write','option','option-write','ui-log'));
     nmkr_test('metrics_view_only','nmkr_store_active_metrics_ajax',true,array('nmkr_view_dashboard'=>true),array('nonce:nmkr_dashboard_nonce:nonce','cap:nmkr_manage_sync'),array('transient','transient-write','option','option-write','ui-log'),array('kind'=>'error','status'=>403,'data'=>array('message'=>'Forbidden')));
 
@@ -292,6 +302,17 @@ try {
         if ($e->kind !== 'success' || !is_array($e->data) || $e->data['average_response_time'] !== 1.25 || $e->data['api_requests'] !== 2 || $e->data['memory_usage'] !== 3.5) throw new Exception('metrics_manager_response_shape');
     }
     foreach (array('cap:nmkr_manage_sync','transient','transient-write','ui-log') as $call) if (!in_array($call,$GLOBALS['nmkr_calls'],true)) throw new Exception('metrics_manager_authorized_path');
+
+    $GLOBALS['nmkr_calls']=array(); $GLOBALS['nmkr_nonce_ok']=true; $GLOBALS['nmkr_caps']=array('nmkr_manage_sync'=>true);
+    $_POST=array('nonce'=>'synthetic','metrics'=>array('ui_log'=>array('malformed')));
+    try { nmkr_store_active_metrics_ajax(); throw new Exception('metrics_array_no_termination'); }
+    catch (NmkrAjaxTermination $e) {
+        if ($e->kind !== 'error' || $e->data !== 'Invalid metrics data') throw new Exception('metrics_array_response');
+    }
+    foreach (array('transient','transient-write','ui-log') as $call) {
+        if (in_array($call,$GLOBALS['nmkr_calls'],true)) throw new Exception('metrics_array_downstream_'.$call);
+    }
+
     nmkr_test('logs_nonce','nmkr_clear_all_logs_ajax',false,array(),array('nonce:nmkr_clear_logs_nonce:nonce'),array('cap:nmkr_manage_sync','option-write'));
     nmkr_test('logs_cap','nmkr_clear_all_logs_ajax',true,array(),array('nonce:nmkr_clear_logs_nonce:nonce','cap:nmkr_manage_sync'),array('option','option-write','transient','transient-write','cron'));
     nmkr_test('analytics_nonce','nmkr_analytics_kpis_ajax',false,array(),array('nonce:nmkr_dashboard_nonce:nonce'),array('cap:nmkr_view_analytics','transient','option'));

@@ -487,8 +487,9 @@ function nmkr_enqueue_analytics_frontend() {
     $host = wp_parse_url( $home, PHP_URL_HOST );
 
     $has_consent_cookie = (
-        isset($_COOKIE['nmkr_analytics_consent'])
-        && sanitize_text_field($_COOKIE['nmkr_analytics_consent']) === '1'
+        isset( $_COOKIE['nmkr_analytics_consent'] )
+        && is_scalar( $_COOKIE['nmkr_analytics_consent'] )
+        && '1' === sanitize_text_field( wp_unslash( $_COOKIE['nmkr_analytics_consent'] ) )
     );
     $ga4Enabled = in_array($mode, array('ga4','both'), true)
         && !empty($options['nmkr_ga4_measurement_id'])

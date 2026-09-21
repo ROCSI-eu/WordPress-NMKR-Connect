@@ -30,7 +30,10 @@ add_action('wp_ajax_nmkr_clear_section_logs', 'nmkr_clear_section_logs_ajax');
 // AJAX handler for checking API connection status
 function nmkr_check_api_status() {
     // Check nonce for security
-    if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'nmkr_dashboard_nonce')) {
+    $nonce = isset( $_POST['nonce'] ) && is_scalar( $_POST['nonce'] )
+        ? sanitize_text_field( wp_unslash( $_POST['nonce'] ) )
+        : '';
+    if ( ! $nonce || ! wp_verify_nonce( $nonce, 'nmkr_dashboard_nonce' ) ) {
         wp_send_json_error(['message' => 'Invalid security token']);
         wp_die();
     }
@@ -142,7 +145,10 @@ function nmkr_check_api_status() {
 // Function to return sync statistics via AJAX
 function nmkr_get_sync_statistics_ajax() {
     // Check nonce for security
-    if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'nmkr_dashboard_nonce')) {
+    $nonce = isset( $_POST['nonce'] ) && is_scalar( $_POST['nonce'] )
+        ? sanitize_text_field( wp_unslash( $_POST['nonce'] ) )
+        : '';
+    if ( ! $nonce || ! wp_verify_nonce( $nonce, 'nmkr_dashboard_nonce' ) ) {
         wp_send_json_error(['message' => 'Invalid security token']);
         wp_die();
     }
@@ -162,8 +168,12 @@ function nmkr_get_sync_statistics_ajax() {
     @ini_set('display_errors', '0');
     ob_start();
     
-    $type = isset($_POST['type']) ? sanitize_text_field($_POST['type']) : 'automatic';
-    $request_type = isset($_POST['request_type']) ? sanitize_text_field($_POST['request_type']) : 'completed';
+    $type = isset( $_POST['type'] ) && is_scalar( $_POST['type'] )
+        ? sanitize_text_field( wp_unslash( $_POST['type'] ) )
+        : 'automatic';
+    $request_type = isset( $_POST['request_type'] ) && is_scalar( $_POST['request_type'] )
+        ? sanitize_text_field( wp_unslash( $_POST['request_type'] ) )
+        : 'completed';
     $valid_request_types = array( 'active', 'completed' );
     if ( ! in_array( $request_type, $valid_request_types, true ) ) {
         $request_type = 'completed';
@@ -338,7 +348,10 @@ function nmkr_get_sync_statistics_ajax() {
  */
 function nmkr_store_active_metrics_ajax() {
     // Verify nonce for security
-    if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'nmkr_dashboard_nonce')) {
+    $nonce = isset( $_POST['nonce'] ) && is_scalar( $_POST['nonce'] )
+        ? sanitize_text_field( wp_unslash( $_POST['nonce'] ) )
+        : '';
+    if ( ! $nonce || ! wp_verify_nonce( $nonce, 'nmkr_dashboard_nonce' ) ) {
         wp_send_json_error('Invalid security token');
         wp_die();
     }
@@ -349,17 +362,53 @@ function nmkr_store_active_metrics_ajax() {
         wp_die();
     }
     
-    // Get the metrics array
-    $metrics = isset($_POST['metrics']) ? $_POST['metrics'] : array();
-    
-    if (empty($metrics) || !is_array($metrics)) {
+    // Validate the structured metrics request field-by-field.
+    if ( ! isset( $_POST['metrics'] ) || ! is_array( $_POST['metrics'] ) ) {
+        wp_send_json_error('Invalid metrics data');
+        wp_die();
+    }
+
+    $metrics = array();
+
+    if ( isset( $_POST['metrics']['ui_log'] ) ) {
+        if ( ! is_scalar( $_POST['metrics']['ui_log'] ) ) {
+            wp_send_json_error('Invalid metrics data');
+            wp_die();
+        }
+        $metrics['ui_log'] = substr(
+            sanitize_text_field( wp_unslash( $_POST['metrics']['ui_log'] ) ),
+            0,
+            500
+        );
+    }
+
+    foreach ( array( 'average_response_time', 'api_requests', 'memory_usage' ) as $metric_key ) {
+        if ( ! isset( $_POST['metrics'][ $metric_key ] ) ) {
+            continue;
+        }
+        if ( ! is_scalar( $_POST['metrics'][ $metric_key ] ) ) {
+            wp_send_json_error('Invalid metrics data');
+            wp_die();
+        }
+
+        $metric_value = sanitize_text_field( wp_unslash( $_POST['metrics'][ $metric_key ] ) );
+        if ( ! is_numeric( $metric_value ) ) {
+            wp_send_json_error('Invalid metrics data');
+            wp_die();
+        }
+        $metrics[ $metric_key ] = $metric_value;
+    }
+
+    if ( empty( $metrics ) ) {
         wp_send_json_error('Invalid metrics data');
         wp_die();
     }
     
     // Check if this is a UI log message
     if (isset($metrics['ui_log'])) {
-        $log_type = isset($_POST['log_type']) ? sanitize_text_field($_POST['log_type']) : 'info';
+        $log_type = isset( $_POST['log_type'] ) && is_scalar( $_POST['log_type'] )
+            ? sanitize_text_field( wp_unslash( $_POST['log_type'] ) )
+            : 'info';
         nmkr_log_ui_status($metrics['ui_log'], $log_type);
         
         // If this is just a UI log message with no metrics, we can return now
@@ -415,7 +464,10 @@ function nmkr_clear_all_logs_ajax() {
     nocache_headers();
 
     // Check nonce for security
-    if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'nmkr_clear_logs_nonce')) {
+    $nonce = isset( $_POST['nonce'] ) && is_scalar( $_POST['nonce'] )
+        ? sanitize_text_field( wp_unslash( $_POST['nonce'] ) )
+        : '';
+    if ( ! $nonce || ! wp_verify_nonce( $nonce, 'nmkr_clear_logs_nonce' ) ) {
         wp_send_json_error(['message' => 'Invalid security token']);
         wp_die();
     }
@@ -458,7 +510,10 @@ function nmkr_clear_section_logs_ajax() {
     nocache_headers();
 
     // Check nonce for security
-    if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'nmkr_clear_logs_nonce')) {
+    $nonce = isset( $_POST['nonce'] ) && is_scalar( $_POST['nonce'] )
+        ? sanitize_text_field( wp_unslash( $_POST['nonce'] ) )
+        : '';
+    if ( ! $nonce || ! wp_verify_nonce( $nonce, 'nmkr_clear_logs_nonce' ) ) {
         wp_send_json_error(['message' => 'Invalid security token']);
         wp_die();
     }
@@ -477,7 +532,9 @@ function nmkr_clear_section_logs_ajax() {
     }
     
     // Get and validate log type
-    $log_type = isset($_POST['log_type']) ? sanitize_text_field($_POST['log_type']) : '';
+    $log_type = isset( $_POST['log_type'] ) && is_scalar( $_POST['log_type'] )
+        ? sanitize_text_field( wp_unslash( $_POST['log_type'] ) )
+        : '';
     $valid_types = ['sync', 'api', 'ui', 'performance'];
     
     if (!in_array($log_type, $valid_types)) {
