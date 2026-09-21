@@ -84,7 +84,7 @@ function nmkr_connect_sync_stats_v3_counter_columns_state() {
         $field = (string) ($column['Field'] ?? '');
         if (array_key_exists($field, $state)) {
             $state[$field] = strtoupper((string) ($column['Null'] ?? '')) === 'YES'
-                && strtolower(trim((string) ($column['Type'] ?? ''))) === 'int';
+                && preg_match('/^int(?:\([0-9]+\))?$/i', trim((string) ($column['Type'] ?? ''))) === 1;
         }
     }
     return $state;

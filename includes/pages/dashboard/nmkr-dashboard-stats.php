@@ -18,6 +18,7 @@ function nmkr_get_latest_run_projection() {
     if (!is_array($rows) || empty($rows[0]) || !is_array($rows[0])) return null;
     $row = $rows[0];
     $status = strtolower((string) ($row['status'] ?? ''));
+    if (!in_array($status, array('completed', 'failed', 'stopped'), true)) return null;
     $projection = array('status' => $status);
     foreach (array('items_processed', 'items_successful', 'items_failed', 'items_skipped', 'token_details_synced') as $counter) {
         $projection[$counter] = array_key_exists($counter, $row) && $row[$counter] !== null ? (int) $row[$counter] : null;
