@@ -29,8 +29,8 @@ function nmkr_analytics_sanitize_uid($v) {
 
 /** Parse range & bucket */
 function nmkr_analytics_parse_range_and_bucket($req) {
-    $range  = isset($req['range'])  ? strtolower( sanitize_text_field( wp_unslash( $req['range'] ) ) )  : '7d';
-    $bucket = isset($req['bucket']) ? strtolower( sanitize_text_field( wp_unslash( $req['bucket'] ) ) ) : 'day';
+    $range  = isset($req['range'])  ? strtolower( sanitize_text_field( (string) $req['range'] ) )  : '7d';
+    $bucket = isset($req['bucket']) ? strtolower( sanitize_text_field( (string) $req['bucket'] ) ) : 'day';
 
     $now_ts = current_time('timestamp'); // site-local
     $from_ts = $now_ts - 7 * DAY_IN_SECONDS;
@@ -40,8 +40,8 @@ function nmkr_analytics_parse_range_and_bucket($req) {
     elseif ($range === '7d')    { $from_ts = $now_ts - 7 * DAY_IN_SECONDS; }
     elseif ($range === '30d')   { $from_ts = $now_ts - 30 * DAY_IN_SECONDS; }
     elseif ($range === 'custom') {
-        $from_raw = isset($req['from']) ? sanitize_text_field( wp_unslash( $req['from'] ) ) : '';
-        $to_raw   = isset($req['to'])   ? sanitize_text_field( wp_unslash( $req['to'] ) )   : '';
+        $from_raw = isset($req['from']) ? sanitize_text_field( (string) $req['from'] ) : '';
+        $to_raw   = isset($req['to'])   ? sanitize_text_field( (string) $req['to'] )   : '';
         $from_ts = strtotime($from_raw) ?: $from_ts;
         $to_ts   = strtotime($to_raw)   ?: $to_ts;
         if ($from_ts > $to_ts) { $tmp = $from_ts; $from_ts = $to_ts; $to_ts = $tmp; }
@@ -126,7 +126,10 @@ function nmkr_analytics_admin_ajax_guard( array $opts = array() ) {
         'content'      => 'json',
     ), $opts);
 
-    if ( $opts['require_post'] && (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') ) {
+    $request_method = isset( $_SERVER['REQUEST_METHOD'] )
+        ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_METHOD'] ) )
+        : '';
+    if ( $opts['require_post'] && 'POST' !== $request_method ) {
         status_header(405);
         wp_send_json_error(array('message' => 'Method Not Allowed'), 405);
     }
@@ -155,6 +158,65 @@ function nmkr_analytics_admin_ajax_guard( array $opts = array() ) {
     }
 }
 
+/**
+ * Return the supported admin analytics POST fields after one explicit
+ * unslash/sanitize boundary. Callers must invoke nmkr_analytics_admin_ajax_guard()
+ * before reading this request payload.
+ *
+ * @return array<string,string>
+ */
+function nmkr_analytics_admin_request() {
+    $request = array();
+    $keys = array(
+        'range',
+        'bucket',
+        'from',
+        'to',
+        'shortcode_type',
+        'project_uid',
+        'token_uid',
+        'page',
+        'per_page',
+        'sort',
+        'order',
+        'search',
+        'entity',
+        'format',
+    );
+
+    foreach ( $keys as $key ) {
+        if ( ! isset( $_POST[ $key ] ) || is_array( $_POST[ $key ] ) ) {
+            continue;
+        }
+
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Every caller is gated by nmkr_analytics_admin_ajax_guard() before this helper runs.
+        $request[ $key ] = sanitize_text_field( wp_unslash( $_POST[ $key ] ) );
+    }
+
+    return $request;
+}
+
+/**
+ * Execute an analytics SELECT that follows the local SQL-shape contract:
+ * interpolated fragments are limited to plugin-owned table identifiers or
+ * values returned from closed allowlists, while request-derived values stay
+ * in placeholders supplied by $params.
+ */
+function nmkr_analytics_db_get_results( $sql, array $params ) {
+    global $wpdb;
+
+    // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- The analytics SQL-shape contract above constrains interpolation; all request-derived values are placeholders.
+    return $wpdb->get_results( $wpdb->prepare( $sql, $params ), ARRAY_A );
+}
+
+/** Execute a scalar analytics SELECT under the same SQL-shape contract. */
+function nmkr_analytics_db_get_var( $sql, array $params ) {
+    global $wpdb;
+
+    // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- The analytics SQL-shape contract above constrains interpolation; all request-derived values are placeholders.
+    return $wpdb->get_var( $wpdb->prepare( $sql, $params ) );
+}
+
 /** ---------- Endpoints ---------- */
 
 /**
@@ -163,6 +225,7 @@ function nmkr_analytics_admin_ajax_guard( array $opts = array() ) {
  */
 function nmkr_analytics_kpis_ajax() {
     nmkr_analytics_admin_ajax_guard(array('content' => 'json'));
+    $request = nmkr_analytics_admin_request();
 
     // Avoid stray output corrupting JSON
     $__prev_display_errors = ini_get('display_errors'); @ini_set('display_errors','0'); ob_start();
@@ -170,13 +233,13 @@ function nmkr_analytics_kpis_ajax() {
     global $wpdb;
     $table = $wpdb->prefix . 'nmkr_analytics';
 
-    $range    = nmkr_analytics_parse_range_and_bucket($_REQUEST);
+    $range    = nmkr_analytics_parse_range_and_bucket( $request );
     $filters  = array(
         'from'           => $range['from'],
         'to'             => $range['to'],
-        'shortcode_type' => nmkr_analytics_sanitize_shortcode_type( isset($_REQUEST['shortcode_type']) ? wp_unslash($_REQUEST['shortcode_type']) : '' ),
-        'project_uid'    => nmkr_analytics_sanitize_uid( isset($_REQUEST['project_uid']) ? wp_unslash($_REQUEST['project_uid']) : '' ),
-        'token_uid'      => nmkr_analytics_sanitize_uid( isset($_REQUEST['token_uid'])   ? wp_unslash($_REQUEST['token_uid'])   : '' ),
+        'shortcode_type' => nmkr_analytics_sanitize_shortcode_type( $request['shortcode_type'] ?? '' ),
+        'project_uid'    => nmkr_analytics_sanitize_uid( $request['project_uid'] ?? '' ),
+        'token_uid'      => nmkr_analytics_sanitize_uid( $request['token_uid'] ?? '' ),
     );
 
     $cache_key = nmkr_analytics_cache_key('kpis', array('range'=>$range, 'filters'=>$filters));
@@ -199,8 +262,7 @@ function nmkr_analytics_kpis_ajax() {
           AND event_type IN ('view','click')
         GROUP BY event_type
     ";
-    $prepared = $wpdb->prepare($sql, $params);
-    $rows = $wpdb->get_results($prepared, ARRAY_A);
+    $rows = nmkr_analytics_db_get_results( $sql, $params );
 
     $views = 0; $clicks = 0;
     foreach ($rows as $r) {
@@ -230,19 +292,20 @@ function nmkr_analytics_kpis_ajax() {
  */
 function nmkr_analytics_timeseries_ajax() {
     nmkr_analytics_admin_ajax_guard(array('content' => 'json'));
+    $request = nmkr_analytics_admin_request();
 
     $__prev_display_errors = ini_get('display_errors'); @ini_set('display_errors','0'); ob_start();
 
     global $wpdb;
     $table  = $wpdb->prefix . 'nmkr_analytics';
 
-    $range   = nmkr_analytics_parse_range_and_bucket($_REQUEST);
+    $range   = nmkr_analytics_parse_range_and_bucket( $request );
     $filters = array(
         'from'           => $range['from'],
         'to'             => $range['to'],
-        'shortcode_type' => nmkr_analytics_sanitize_shortcode_type( isset($_REQUEST['shortcode_type']) ? wp_unslash($_REQUEST['shortcode_type']) : '' ),
-        'project_uid'    => nmkr_analytics_sanitize_uid( isset($_REQUEST['project_uid']) ? wp_unslash($_REQUEST['project_uid']) : '' ),
-        'token_uid'      => nmkr_analytics_sanitize_uid( isset($_REQUEST['token_uid'])   ? wp_unslash($_REQUEST['token_uid'])   : '' ),
+        'shortcode_type' => nmkr_analytics_sanitize_shortcode_type( $request['shortcode_type'] ?? '' ),
+        'project_uid'    => nmkr_analytics_sanitize_uid( $request['project_uid'] ?? '' ),
+        'token_uid'      => nmkr_analytics_sanitize_uid( $request['token_uid'] ?? '' ),
     );
 
     $cache_key = nmkr_analytics_cache_key('timeseries', array('range'=>$range, 'filters'=>$filters));
@@ -272,8 +335,7 @@ function nmkr_analytics_timeseries_ajax() {
         GROUP BY bucket
         ORDER BY bucket ASC
     ";
-    $prepared = $wpdb->prepare($sql, $params);
-    $rows = $wpdb->get_results($prepared, ARRAY_A);
+    $rows = nmkr_analytics_db_get_results( $sql, $params );
 
     foreach ($rows as &$r) {
         $v = (int) ($r['views']  ?? 0);
@@ -340,29 +402,30 @@ add_action('wp_ajax_nmkr_analytics_top_projects', 'nmkr_analytics_top_projects_a
 
 function nmkr_analytics_top_projects_ajax() {
     nmkr_analytics_admin_ajax_guard(array('content' => 'json'));
+    $request = nmkr_analytics_admin_request();
 
     $__prev_display_errors = ini_get('display_errors'); @ini_set('display_errors','0'); ob_start();
     global $wpdb;
     $table = $wpdb->prefix . 'nmkr_analytics';
 
     // Range + common filters from PR-2 helper
-    $range   = nmkr_analytics_parse_range_and_bucket($_REQUEST);
+    $range   = nmkr_analytics_parse_range_and_bucket( $request );
     $filters = array(
         'from'           => $range['from'],
         'to'             => $range['to'],
-        'shortcode_type' => nmkr_analytics_sanitize_shortcode_type( isset($_REQUEST['shortcode_type']) ? wp_unslash($_REQUEST['shortcode_type']) : '' ),
+        'shortcode_type' => nmkr_analytics_sanitize_shortcode_type( $request['shortcode_type'] ?? '' ),
         // optional: allow narrowing by a single UID (rare case)
-        'project_uid'    => nmkr_analytics_sanitize_uid( isset($_REQUEST['project_uid']) ? wp_unslash($_REQUEST['project_uid']) : '' ),
-        'token_uid'      => nmkr_analytics_sanitize_uid( isset($_REQUEST['token_uid'])   ? wp_unslash($_REQUEST['token_uid'])   : '' ),
+        'project_uid'    => nmkr_analytics_sanitize_uid( $request['project_uid'] ?? '' ),
+        'token_uid'      => nmkr_analytics_sanitize_uid( $request['token_uid'] ?? '' ),
     );
 
     // Pagination & sorting
-    list($page, $per_page, $offset) = nmkr_analytics_parse_pagination($_REQUEST);
-    $sort  = nmkr_analytics_whitelist_sort('projects', isset($_REQUEST['sort'])  ? wp_unslash($_REQUEST['sort'])  : 'views');
-    $order = nmkr_analytics_sanitize_order(               isset($_REQUEST['order']) ? wp_unslash($_REQUEST['order']) : 'desc');
+    list($page, $per_page, $offset) = nmkr_analytics_parse_pagination( $request );
+    $sort  = nmkr_analytics_whitelist_sort('projects', $request['sort'] ?? 'views');
+    $order = nmkr_analytics_sanitize_order(               $request['order'] ?? 'desc');
 
     // Optional prefix search (index-friendly)
-    $prefix = nmkr_analytics_uid_prefix( isset($_REQUEST['search']) ? wp_unslash($_REQUEST['search']) : '' );
+    $prefix = nmkr_analytics_uid_prefix( $request['search'] ?? '' );
 
     // Cache
     $cache_key = nmkr_analytics_cache_key('top_projects', array('range'=>$range,'filters'=>$filters,'page'=>$page,'per'=>$per_page,'sort'=>$sort,'order'=>$order,'prefix'=>$prefix));
@@ -390,7 +453,7 @@ function nmkr_analytics_top_projects_ajax() {
 
     // Total distinct projects (for pagination)
     $count_sql = "SELECT COUNT(DISTINCT project_uid) FROM $table $where_sql";
-    $total = (int) $wpdb->get_var( $wpdb->prepare($count_sql, $params) );
+    $total = (int) nmkr_analytics_db_get_var( $count_sql, $params );
 
     // Aggregation; compute CTR in SQL for sortable ORDER BY (views>0 guard via NULLIF)
     $sql = "
@@ -406,7 +469,7 @@ function nmkr_analytics_top_projects_ajax() {
         LIMIT %d OFFSET %d
     ";
     $params_limit = array_merge($params, array($per_page, $offset));
-    $rows = $wpdb->get_results( $wpdb->prepare($sql, $params_limit), ARRAY_A );
+    $rows = nmkr_analytics_db_get_results( $sql, $params_limit );
 
     // Normalize + round CTR (%)
     foreach ($rows as &$r) {
@@ -440,25 +503,26 @@ add_action('wp_ajax_nmkr_analytics_top_tokens', 'nmkr_analytics_top_tokens_ajax'
 
 function nmkr_analytics_top_tokens_ajax() {
     nmkr_analytics_admin_ajax_guard(array('content' => 'json'));
+    $request = nmkr_analytics_admin_request();
 
     $__prev_display_errors = ini_get('display_errors'); @ini_set('display_errors','0'); ob_start();
     global $wpdb;
     $table = $wpdb->prefix . 'nmkr_analytics';
 
-    $range   = nmkr_analytics_parse_range_and_bucket($_REQUEST);
+    $range   = nmkr_analytics_parse_range_and_bucket( $request );
     $filters = array(
         'from'           => $range['from'],
         'to'             => $range['to'],
-        'shortcode_type' => nmkr_analytics_sanitize_shortcode_type( isset($_REQUEST['shortcode_type']) ? wp_unslash($_REQUEST['shortcode_type']) : '' ),
-        'project_uid'    => nmkr_analytics_sanitize_uid( isset($_REQUEST['project_uid']) ? wp_unslash($_REQUEST['project_uid']) : '' ),
-        'token_uid'      => nmkr_analytics_sanitize_uid( isset($_REQUEST['token_uid'])   ? wp_unslash($_REQUEST['token_uid'])   : '' ),
+        'shortcode_type' => nmkr_analytics_sanitize_shortcode_type( $request['shortcode_type'] ?? '' ),
+        'project_uid'    => nmkr_analytics_sanitize_uid( $request['project_uid'] ?? '' ),
+        'token_uid'      => nmkr_analytics_sanitize_uid( $request['token_uid'] ?? '' ),
     );
 
-    list($page, $per_page, $offset) = nmkr_analytics_parse_pagination($_REQUEST);
-    $sort  = nmkr_analytics_whitelist_sort('tokens', isset($_REQUEST['sort'])  ? wp_unslash($_REQUEST['sort'])  : 'views');
-    $order = nmkr_analytics_sanitize_order(               isset($_REQUEST['order']) ? wp_unslash($_REQUEST['order']) : 'desc');
+    list($page, $per_page, $offset) = nmkr_analytics_parse_pagination( $request );
+    $sort  = nmkr_analytics_whitelist_sort('tokens', $request['sort'] ?? 'views');
+    $order = nmkr_analytics_sanitize_order(               $request['order'] ?? 'desc');
 
-    $prefix = nmkr_analytics_uid_prefix( isset($_REQUEST['search']) ? wp_unslash($_REQUEST['search']) : '' );
+    $prefix = nmkr_analytics_uid_prefix( $request['search'] ?? '' );
 
     $cache_key = nmkr_analytics_cache_key('top_tokens', array('range'=>$range,'filters'=>$filters,'page'=>$page,'per'=>$per_page,'sort'=>$sort,'order'=>$order,'prefix'=>$prefix));
     $use_cache = !nmkr_analytics_debug_on();
@@ -481,7 +545,7 @@ function nmkr_analytics_top_tokens_ajax() {
     $order_dir = $order;
 
     $count_sql = "SELECT COUNT(DISTINCT token_uid) FROM $table $where_sql";
-    $total = (int) $wpdb->get_var( $wpdb->prepare($count_sql, $params) );
+    $total = (int) nmkr_analytics_db_get_var( $count_sql, $params );
 
     $sql = "
         SELECT
@@ -496,7 +560,7 @@ function nmkr_analytics_top_tokens_ajax() {
         LIMIT %d OFFSET %d
     ";
     $params_limit = array_merge($params, array($per_page, $offset));
-    $rows = $wpdb->get_results( $wpdb->prepare($sql, $params_limit), ARRAY_A );
+    $rows = nmkr_analytics_db_get_results( $sql, $params_limit );
 
     foreach ($rows as &$r) {
         $v = (int) ($r['views']  ?? 0);
@@ -529,22 +593,23 @@ add_action('wp_ajax_nmkr_analytics_breakdown', 'nmkr_analytics_breakdown_ajax');
 
 function nmkr_analytics_breakdown_ajax() {
     nmkr_analytics_admin_ajax_guard(array('content' => 'json'));
+    $request = nmkr_analytics_admin_request();
 
     $__prev_display_errors = ini_get('display_errors'); @ini_set('display_errors','0'); ob_start();
     global $wpdb;
     $table = $wpdb->prefix . 'nmkr_analytics';
 
-    $range   = nmkr_analytics_parse_range_and_bucket($_REQUEST);
+    $range   = nmkr_analytics_parse_range_and_bucket( $request );
     $filters = array(
         'from'           => $range['from'],
         'to'             => $range['to'],
         'shortcode_type' => '', // intentionally ignored for breakdown
-        'project_uid'    => nmkr_analytics_sanitize_uid( isset($_REQUEST['project_uid']) ? wp_unslash($_REQUEST['project_uid']) : '' ),
-        'token_uid'      => nmkr_analytics_sanitize_uid( isset($_REQUEST['token_uid'])   ? wp_unslash($_REQUEST['token_uid'])   : '' ),
+        'project_uid'    => nmkr_analytics_sanitize_uid( $request['project_uid'] ?? '' ),
+        'token_uid'      => nmkr_analytics_sanitize_uid( $request['token_uid'] ?? '' ),
     );
 
-    $sort  = nmkr_analytics_whitelist_sort('breakdown', isset($_REQUEST['sort']) ? wp_unslash($_REQUEST['sort']) : 'views');
-    $order = nmkr_analytics_sanitize_order(               isset($_REQUEST['order'])? wp_unslash($_REQUEST['order']): 'desc');
+    $sort  = nmkr_analytics_whitelist_sort('breakdown', $request['sort'] ?? 'views');
+    $order = nmkr_analytics_sanitize_order(               $request['order'] ?? 'desc');
 
     $cache_key = nmkr_analytics_cache_key('breakdown', array('range'=>$range,'filters'=>$filters,'sort'=>$sort,'order'=>$order));
     $use_cache = !nmkr_analytics_debug_on();
@@ -574,7 +639,7 @@ function nmkr_analytics_breakdown_ajax() {
         GROUP BY shortcode_type
         ORDER BY $order_by $order_dir
     ";
-    $rows = $wpdb->get_results( $wpdb->prepare($sql, $params), ARRAY_A );
+    $rows = nmkr_analytics_db_get_results( $sql, $params );
 
     foreach ($rows as &$r) {
         $v = (int) ($r['views']  ?? 0);
@@ -615,11 +680,12 @@ add_action('wp_ajax_nmkr_analytics_export', 'nmkr_analytics_export_ajax');
  */
 function nmkr_analytics_export_ajax() {
     nmkr_analytics_admin_ajax_guard(array('content' => 'none'));
+    $request = nmkr_analytics_admin_request();
 
     $__prev_display_errors = ini_get('display_errors'); @ini_set('display_errors','0'); ob_start();
 
-    $entity = strtolower(sanitize_text_field($_POST['entity'] ?? 'timeseries'));
-    $format = strtolower(sanitize_text_field($_POST['format'] ?? 'csv'));
+    $entity = strtolower( $request['entity'] ?? 'timeseries' );
+    $format = strtolower( $request['format'] ?? 'csv' );
     if (!in_array($entity, array('timeseries','top_projects','top_tokens','breakdown'), true)) {
         $entity = 'timeseries';
     }
@@ -631,13 +697,13 @@ function nmkr_analytics_export_ajax() {
     $table  = $wpdb->prefix . 'nmkr_analytics';
 
     // Reuse helpers
-    $range   = nmkr_analytics_parse_range_and_bucket($_REQUEST);
+    $range   = nmkr_analytics_parse_range_and_bucket( $request );
     $filters = array(
         'from'           => $range['from'],
         'to'             => $range['to'],
-        'shortcode_type' => nmkr_analytics_sanitize_shortcode_type($_REQUEST['shortcode_type'] ?? ''),
-        'project_uid'    => nmkr_analytics_sanitize_uid($_REQUEST['project_uid'] ?? ''),
-        'token_uid'      => nmkr_analytics_sanitize_uid($_REQUEST['token_uid']   ?? ''),
+        'shortcode_type' => nmkr_analytics_sanitize_shortcode_type( $request['shortcode_type'] ?? '' ),
+        'project_uid'    => nmkr_analytics_sanitize_uid( $request['project_uid'] ?? '' ),
+        'token_uid'      => nmkr_analytics_sanitize_uid( $request['token_uid'] ?? '' ),
     );
     list($where_sql, $params) = nmkr_analytics_build_where($filters);
 
@@ -659,7 +725,7 @@ function nmkr_analytics_export_ajax() {
             GROUP BY bucket
             ORDER BY bucket ASC
         ";
-        $rows = $wpdb->get_results( $wpdb->prepare($sql, $params), ARRAY_A );
+        $rows = nmkr_analytics_db_get_results( $sql, $params );
         foreach ($rows as &$r) {
             $v = (int) ($r['views']  ?? 0);
             $c = (int) ($r['clicks'] ?? 0);
@@ -683,7 +749,7 @@ function nmkr_analytics_export_ajax() {
             GROUP BY shortcode_type
             ORDER BY views DESC
         ";
-        $rows = $wpdb->get_results( $wpdb->prepare($sql, $params), ARRAY_A );
+        $rows = nmkr_analytics_db_get_results( $sql, $params );
         foreach ($rows as &$r) {
             $v = (int) ($r['views']  ?? 0);
             $c = (int) ($r['clicks'] ?? 0);
@@ -698,7 +764,7 @@ function nmkr_analytics_export_ajax() {
     // Common for top_projects / top_tokens
     $is_projects = ($entity === 'top_projects');
     $uid_col     = $is_projects ? 'project_uid' : 'token_uid';
-    $prefix      = nmkr_analytics_uid_prefix($_REQUEST['search'] ?? '');
+    $prefix      = nmkr_analytics_uid_prefix( $request['search'] ?? '' );
 
     $where2  = $where_sql . " AND $uid_col IS NOT NULL ";
     $params2 = $params;
@@ -707,11 +773,11 @@ function nmkr_analytics_export_ajax() {
         $params2[] = $wpdb->esc_like($prefix) . '%';
     }
 
-    list($page, $per_page, $offset) = nmkr_analytics_parse_pagination($_REQUEST);
+    list($page, $per_page, $offset) = nmkr_analytics_parse_pagination( $request );
 
     $entity_key = $is_projects ? 'projects' : 'tokens';
-    $sort  = nmkr_analytics_whitelist_sort($entity_key, $_REQUEST['sort'] ?? 'views');
-    $order = nmkr_analytics_sanitize_order($_REQUEST['order'] ?? 'desc');
+    $sort  = nmkr_analytics_whitelist_sort( $entity_key, $request['sort'] ?? 'views' );
+    $order = nmkr_analytics_sanitize_order( $request['order'] ?? 'desc' );
     $order_by = ($sort === $uid_col) ? $uid_col : (($sort === 'clicks') ? 'clicks' : (($sort === 'ctr') ? 'ctr' : 'views'));
 
     $sql = "
@@ -726,7 +792,7 @@ function nmkr_analytics_export_ajax() {
         ORDER BY $order_by $order
         LIMIT %d OFFSET %d
     ";
-    $rows = $wpdb->get_results( $wpdb->prepare($sql, array_merge($params2, array($per_page, $offset))), ARRAY_A );
+    $rows = nmkr_analytics_db_get_results( $sql, array_merge( $params2, array( $per_page, $offset ) ) );
     foreach ($rows as &$r) {
         $v = (int) ($r['views']  ?? 0);
         $c = (int) ($r['clicks'] ?? 0);
@@ -774,6 +840,5 @@ function nmkr_analytics_stream_export($format, $fname, $headers, $rows) {
         }
         fputcsv($out, $line);
     }
-    fclose($out);
     exit;
 }
