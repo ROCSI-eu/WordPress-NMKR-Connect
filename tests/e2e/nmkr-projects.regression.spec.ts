@@ -62,6 +62,24 @@ test.describe('NMKR Connect projects page regression', () => {
     await expect(placeholderOption).toHaveText('-- Select a Project --');
     await expect(projectSelect).toHaveValue('');
 
+    const availableProjectOptions = projectSelect.locator('option:not([value=""])');
+    if ((await availableProjectOptions.count()) > 0) {
+      const projectUid = await availableProjectOptions.first().getAttribute('value');
+      expect(projectUid).toBeTruthy();
+
+      await projectSelect.selectOption(projectUid!);
+      await expect(page).toHaveURL(/page=nmkr-connect-projects/);
+
+      const tokenFilterForm = page.locator('form.token-filter-form');
+      await expect(tokenFilterForm).toBeAttached();
+      await expect(
+        tokenFilterForm.locator('input[type="hidden"][name="nmkr_projects_filter_nonce"]'),
+      ).toHaveCount(1);
+      await expect(tokenFilterForm.locator('input[type="hidden"][name="project_uid"]')).toHaveValue(
+        projectUid!,
+      );
+    }
+
     expect(unexpectedProjectsAjaxActions).toEqual([]);
   });
 });
