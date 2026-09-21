@@ -50,6 +50,8 @@ $invalid_cases = array(
     array('uid' => 'bad.uid'),
     array('uid' => array('bad')),
     array('uid' => str_repeat('a', 201)),
+    array('project_uid' => 'bad uid'),
+    array('project_uid' => array('bad')),
     array('uid' => '', 'project_uid' => 'fallback-must-not-override-empty-canonical'),
 );
 foreach ($invalid_cases as $invalid) {
