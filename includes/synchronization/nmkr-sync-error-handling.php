@@ -593,6 +593,7 @@ function nmkr_check_sync_health() {
     $time_since_update = $last_progress_update > 0 ? max(0, $current_time - $last_progress_update) : 0;
     $error = get_option('nmkr_sync_error', '');
     $profile_settings = nmkr_get_sync_health_profile_settings();
+    $persisted_owner = get_option('nmkr_sync_owner', false);
     $owner = nmkr_get_sync_owner();
     $sync_data = nmkr_get_sync_data();
     $direct = nmkr_classify_direct_sync_health(
@@ -617,6 +618,17 @@ function nmkr_check_sync_health() {
         $lifecycle_source = (string) $direct['lifecycle_source'];
         $finalization_pending = (bool) $direct['finalization_pending'];
         $worker_heartbeat_age = (int) $direct['worker_heartbeat_age'];
+    } elseif ($persisted_owner !== false) {
+        // Any persisted owner record blocks new admission and ownerless legacy
+        // recovery, even when it is malformed enough for nmkr_get_sync_owner()
+        // or direct-owner classification to reject it. Surface that blocking
+        // condition rather than misreporting it as ownerless/inactive.
+        $in_progress = true;
+        $has_running_jobs = false;
+        $is_stalled = true;
+        $stall_reason = 'Persisted synchronization ownership is invalid and requires recovery.';
+        $owner_state = 'invalid';
+        $lifecycle_source = 'invalid_owner';
     } else {
         $has_running_jobs = wp_next_scheduled('nmkr_process_batch_hook') !== false;
         $in_progress = $progress > 0 && $progress < 100 && empty($error);

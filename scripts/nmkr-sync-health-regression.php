@@ -18,7 +18,7 @@ function wp_next_scheduled($hook, $args = array()) {
     $key = $hook . ':' . json_encode(array_values($args));
     return $GLOBALS['cron'][$key] ?? false;
 }
-function nmkr_get_sync_owner() { return $GLOBALS['owner']; }
+function nmkr_get_sync_owner() { return is_array($GLOBALS['owner']) ? $GLOBALS['owner'] : false; }
 function nmkr_get_sync_data() { return $GLOBALS['sync_data']; }
 function nmkr_is_valid_sync_run_id($run_id) {
     return is_string($run_id) && preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $run_id) === 1;
@@ -227,6 +227,31 @@ $GLOBALS['sync_data'] = array(
 $health = nmkr_check_sync_health();
 check(!$health['is_stalled'] && $health['has_running_jobs'],
     'stale stop_requested owner remains recoverable with an exact stopped handoff');
+
+reset_health_fixture();
+$malformed_owner = array(
+    'run_id' => 'not-a-valid-run-id',
+    'mode' => 'direct',
+    'state' => 'running',
+    'sync_stats_id' => 52,
+);
+$GLOBALS['owner'] = $malformed_owner;
+$GLOBALS['options']['nmkr_sync_owner'] = $malformed_owner;
+$before = array($GLOBALS['options'], $GLOBALS['transients'], $GLOBALS['cron'], $GLOBALS['owner'], $GLOBALS['sync_data']);
+$health = nmkr_check_sync_health();
+$after = array($GLOBALS['options'], $GLOBALS['transients'], $GLOBALS['cron'], $GLOBALS['owner'], $GLOBALS['sync_data']);
+check($health['in_progress'] && $health['is_stalled'] && !$health['has_running_jobs']
+    && $health['owner_state'] === 'invalid' && $health['lifecycle_source'] === 'invalid_owner',
+    'malformed persisted owner is surfaced as a blocking stalled state');
+check($before === $after, 'invalid-owner health classification remains read-only');
+
+reset_health_fixture();
+$GLOBALS['owner'] = 'corrupt-owner-value';
+$GLOBALS['options']['nmkr_sync_owner'] = 'corrupt-owner-value';
+$health = nmkr_check_sync_health();
+check($health['in_progress'] && $health['is_stalled']
+    && $health['owner_state'] === 'invalid' && $health['lifecycle_source'] === 'invalid_owner',
+    'non-array persisted owner is not misclassified as ownerless');
 
 reset_health_fixture();
 $GLOBALS['transients']['nmkr_sync_progress'] = 35;
