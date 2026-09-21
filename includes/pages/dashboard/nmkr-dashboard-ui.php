@@ -785,8 +785,8 @@ function nmkr_render_sync_data_panel($dashboard_nonce, $can_manage_sync) {
                 <?php endif; ?>
             </div>
             
-            <input type="hidden" id="nmkr-sync-nonce" value="<?php echo wp_create_nonce('nmkr_sync_nonce'); ?>">
-            <input type="hidden" id="nmkr-dashboard-nonce" value="<?php echo $dashboard_nonce; ?>">
+            <input type="hidden" id="nmkr-sync-nonce" value="<?php echo esc_attr( wp_create_nonce( 'nmkr_sync_nonce' ) ); ?>">
+            <input type="hidden" id="nmkr-dashboard-nonce" value="<?php echo esc_attr( $dashboard_nonce ); ?>">
             
             <div id="nmkr-sync-progress-container" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" style="display: none;">
                 <div id="nmkr-sync-progress-bar" style="width: 0%;">0%</div>
@@ -980,16 +980,15 @@ function nmkr_render_debug_logs_panel($can_manage_sync) {
          <div class="clear-logs-controls">
              <?php 
              $sync_in_progress = get_option('nmkr_sync_in_progress', false);
-             $disabled_attr = $sync_in_progress ? 'disabled' : '';
              $disabled_class = $sync_in_progress ? 'disabled' : '';
              $tooltip_text = $sync_in_progress ? 'Logs cannot be cleared while sync is in progress.' : 'Clear all debug logs (sync, API, UI, and performance logs)';
              ?>
              <button type="button" 
                      class="clear-all-logs-btn <?php echo esc_attr($disabled_class); ?>" 
                      id="nmkr-clear-all-logs"
-                     <?php echo $disabled_attr; ?>
+                     <?php disabled( $sync_in_progress, true ); ?>
                      title="<?php echo esc_attr($tooltip_text); ?>"
-                     data-nonce="<?php echo wp_create_nonce('nmkr_clear_logs_nonce'); ?>">
+                     data-nonce="<?php echo esc_attr( wp_create_nonce( 'nmkr_clear_logs_nonce' ) ); ?>">
                  🧹 Clear All Logs
              </button>
          </div>
@@ -1004,7 +1003,6 @@ function nmkr_render_debug_logs_panel($can_manage_sync) {
                          <span class="log-entry-count"><?php echo count($sync_logs); ?> entries</span>
                          <?php 
                          $sync_in_progress = get_option('nmkr_sync_in_progress', false);
-                         $disabled_attr = $sync_in_progress ? 'disabled' : '';
                          $disabled_class = $sync_in_progress ? 'disabled' : '';
                          $tooltip_text = $sync_in_progress ? 'Logs cannot be cleared while sync is in progress.' : 'Clear sync logs';
                          ?>
@@ -1012,9 +1010,9 @@ function nmkr_render_debug_logs_panel($can_manage_sync) {
                          <button type="button" 
                                  class="clear-section-logs-btn <?php echo esc_attr($disabled_class); ?>" 
                                  data-log-type="sync"
-                                 <?php echo $disabled_attr; ?>
+                                 <?php disabled( $sync_in_progress, true ); ?>
                                  title="<?php echo esc_attr($tooltip_text); ?>"
-                                 data-nonce="<?php echo wp_create_nonce('nmkr_clear_logs_nonce'); ?>">
+                                 data-nonce="<?php echo esc_attr( wp_create_nonce( 'nmkr_clear_logs_nonce' ) ); ?>">
                              🧹 Clear Logs
                          </button>
                          <?php endif; ?>
@@ -1052,7 +1050,6 @@ function nmkr_render_debug_logs_panel($can_manage_sync) {
                          <span class="log-entry-count"><?php echo count($api_logs); ?> entries</span>
                          <?php 
                          $sync_in_progress = get_option('nmkr_sync_in_progress', false);
-                         $disabled_attr = $sync_in_progress ? 'disabled' : '';
                          $disabled_class = $sync_in_progress ? 'disabled' : '';
                          $tooltip_text = $sync_in_progress ? 'Logs cannot be cleared while sync is in progress.' : 'Clear API logs';
                          ?>
@@ -1060,9 +1057,9 @@ function nmkr_render_debug_logs_panel($can_manage_sync) {
                          <button type="button" 
                                  class="clear-section-logs-btn <?php echo esc_attr($disabled_class); ?>" 
                                  data-log-type="api"
-                                 <?php echo $disabled_attr; ?>
+                                 <?php disabled( $sync_in_progress, true ); ?>
                                  title="<?php echo esc_attr($tooltip_text); ?>"
-                                 data-nonce="<?php echo wp_create_nonce('nmkr_clear_logs_nonce'); ?>">
+                                 data-nonce="<?php echo esc_attr( wp_create_nonce( 'nmkr_clear_logs_nonce' ) ); ?>">
                              🧹 Clear Logs
                          </button>
                          <?php endif; ?>
@@ -1100,7 +1097,6 @@ function nmkr_render_debug_logs_panel($can_manage_sync) {
                          <span class="log-entry-count"><?php echo count($ui_logs); ?> entries</span>
                          <?php 
                          $sync_in_progress = get_option('nmkr_sync_in_progress', false);
-                         $disabled_attr = $sync_in_progress ? 'disabled' : '';
                          $disabled_class = $sync_in_progress ? 'disabled' : '';
                          $tooltip_text = $sync_in_progress ? 'Logs cannot be cleared while sync is in progress.' : 'Clear UI logs';
                          ?>
@@ -1108,9 +1104,9 @@ function nmkr_render_debug_logs_panel($can_manage_sync) {
                          <button type="button" 
                                  class="clear-section-logs-btn <?php echo esc_attr($disabled_class); ?>" 
                                  data-log-type="ui"
-                                 <?php echo $disabled_attr; ?>
+                                 <?php disabled( $sync_in_progress, true ); ?>
                                  title="<?php echo esc_attr($tooltip_text); ?>"
-                                 data-nonce="<?php echo wp_create_nonce('nmkr_clear_logs_nonce'); ?>">
+                                 data-nonce="<?php echo esc_attr( wp_create_nonce( 'nmkr_clear_logs_nonce' ) ); ?>">
                              🧹 Clear Logs
                          </button>
                          <?php endif; ?>
@@ -1148,7 +1144,6 @@ function nmkr_render_debug_logs_panel($can_manage_sync) {
                          <span class="log-entry-count"><?php echo count($performance_logs); ?> entries</span>
                          <?php 
                          $sync_in_progress = get_option('nmkr_sync_in_progress', false);
-                         $disabled_attr = $sync_in_progress ? 'disabled' : '';
                          $disabled_class = $sync_in_progress ? 'disabled' : '';
                          $tooltip_text = $sync_in_progress ? 'Logs cannot be cleared while sync is in progress.' : 'Clear performance logs';
                          ?>
@@ -1156,9 +1151,9 @@ function nmkr_render_debug_logs_panel($can_manage_sync) {
                          <button type="button" 
                                  class="clear-section-logs-btn <?php echo esc_attr($disabled_class); ?>" 
                                  data-log-type="performance"
-                                 <?php echo $disabled_attr; ?>
+                                 <?php disabled( $sync_in_progress, true ); ?>
                                  title="<?php echo esc_attr($tooltip_text); ?>"
-                                 data-nonce="<?php echo wp_create_nonce('nmkr_clear_logs_nonce'); ?>">
+                                 data-nonce="<?php echo esc_attr( wp_create_nonce( 'nmkr_clear_logs_nonce' ) ); ?>">
                              🧹 Clear Logs
                          </button>
                          <?php endif; ?>
