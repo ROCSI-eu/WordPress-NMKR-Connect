@@ -342,7 +342,7 @@ add_action('admin_menu', 'nmkr_connect_add_settings_page');
  * Add settings link to the plugins page
  */
 function nmkr_connect_add_settings_link($links) {
-    $settings_link = '<a href="options-general.php?page=nmkr-connect-settings">' . __('Settings') . '</a>';
+    $settings_link = '<a href="options-general.php?page=nmkr-connect-settings">' . esc_html__( 'Settings', 'connector-for-nmkr' ) . '</a>';
     array_unshift($links, $settings_link);
     return $links;
 }
