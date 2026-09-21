@@ -14,6 +14,8 @@ Display synchronized NMKR Studio projects and tokens with five free shortcodes.
 
 Connector for NMKR synchronizes configured NMKR Studio project and token information into WordPress and provides grid, list, carousel, single-token, and single-project displays. NMKR is a third-party service; this plugin is not an official NMKR product or an affiliation claim.
 
+Development and source code: https://github.com/ROCSI-eu/WordPress-NMKR-Connect
+
 External services:
 
 * Administrators provide an NMKR Studio API credential and deliberately start synchronization. Requests go to the NMKR Studio API to retrieve project and token data. Review NMKR's terms and privacy information at https://www.nmkr.io/legal.
@@ -44,12 +46,8 @@ No. Analytics defaults to Off and consent enforcement defaults to enabled. Local
 
 Deactivation clears the recurring analytics cleanup event. Uninstall removes plugin-owned roles and capabilities and core plugin data. Analytics data and admission state are removed by default; if an administrator deliberately disables “Remove Data on Uninstall,” the analytics table is retained.
 
-= Is this name or slug approved by WordPress.org? =
-
-No. The owner-selected release identity is “Connector for NMKR” with `connector-for-nmkr` as the candidate directory slug and text domain, but WordPress.org has not yet approved, accepted, assigned, or reserved that slug.
-
 == Changelog ==
 
 = 0.25.0 =
-* Uses the public release identity Connector for NMKR with `connector-for-nmkr` as the candidate WordPress.org slug and text domain.
+* Uses the public release identity Connector for NMKR with `connector-for-nmkr` as the text domain and package identity.
 * Initial public production candidate: five free shortcodes, no licensing SDK, opt-in analytics, targeted lifecycle cleanup, privacy disclosures, and reproducible package tooling.
