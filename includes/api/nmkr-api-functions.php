@@ -1,4 +1,8 @@
 <?php
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
+
 // Include NMKR API
 require_once plugin_dir_path(__FILE__) . 'nmkr-api.php';
 // Include utility functions for logging
