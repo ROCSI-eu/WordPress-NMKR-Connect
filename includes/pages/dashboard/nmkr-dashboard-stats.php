@@ -84,7 +84,7 @@ function nmkr_get_sync_statistics() {
     // If we have no metrics but we do have a last sync time in options, create basic metrics
     if (!$last_sync_metrics && !empty($last_successful_sync_time)) {
         return nmkr_with_latest_run(array(
-            'last_sync_time' => date('Y-m-d H:i:s', strtotime($last_successful_sync_time)),
+            'last_sync_time' => gmdate('Y-m-d H:i:s', strtotime($last_successful_sync_time)),
             'total_projects' => '-',
             'total_tokens' => '-',
             'total_sync_duration' => '-',
@@ -113,7 +113,7 @@ function nmkr_get_sync_statistics() {
 
     // Format the stats for display
     return nmkr_with_latest_run(array(
-        'last_sync_time' => date('Y-m-d H:i:s', strtotime($last_sync_metrics['last_sync_time'])),
+        'last_sync_time' => gmdate('Y-m-d H:i:s', strtotime($last_sync_metrics['last_sync_time'])),
         'total_projects' => $last_sync_metrics['total_projects'],
         'total_tokens' => $last_sync_metrics['total_tokens'],
         'total_sync_duration' => number_format($last_sync_metrics['total_sync_duration'], 2) . 's',
