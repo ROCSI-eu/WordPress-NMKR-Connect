@@ -436,6 +436,13 @@ function nmkr_sync_health_timestamp_age($timestamp, $current_time) {
     return $epoch > 0 ? max(0, (int) $current_time - $epoch) : -1;
 }
 
+/** Return whether a single-event callback is still within its executable grace window. */
+function nmkr_sync_health_event_is_executable($hook, $args, $current_time, $grace) {
+    $scheduled = wp_next_scheduled($hook, $args);
+    return $scheduled !== false
+        && (int) $scheduled >= ((int) $current_time - max(1, (int) $grace));
+}
+
 /**
  * Classify an exact direct owner without mutating synchronization state.
  *
@@ -467,9 +474,12 @@ function nmkr_classify_direct_sync_health($owner, $sync_data, $last_progress_upd
     $finalization_scheduled = false;
 
     if ($state === 'queued') {
-        $worker_event = wp_next_scheduled('nmkr_execute_sync_background', array($run_id));
-        $worker_executable = $worker_event !== false
-            && (int) $worker_event >= ((int) $current_time - $grace);
+        $worker_executable = nmkr_sync_health_event_is_executable(
+            'nmkr_execute_sync_background',
+            array($run_id),
+            $current_time,
+            $grace
+        );
         $has_running_jobs = $worker_executable || $owner_fresh;
         if (!$worker_executable && !$owner_fresh) {
             $is_stalled = true;
@@ -486,6 +496,35 @@ function nmkr_classify_direct_sync_health($owner, $sync_data, $last_progress_upd
                 $grace
             );
         }
+    } elseif ($state === 'stop_requested') {
+        $exact_stop = is_array($sync_data)
+            && (string) ($sync_data['run_id'] ?? '') === $run_id
+            && (int) ($sync_data['sync_stats_id'] ?? 0) === $sync_stats_id;
+        $stopped_recovery = $exact_stop ? ($sync_data['stopped_recovery'] ?? false) : false;
+        $stopped_recovery_pending = $exact_stop
+            && function_exists('nmkr_is_valid_sync_finalization_record')
+            && nmkr_is_valid_sync_finalization_record($stopped_recovery, $run_id, $sync_stats_id)
+            && ($stopped_recovery['outcome'] ?? '') === 'stopped';
+        $resume_record = $sync_stats_id > 0 && function_exists('nmkr_sync_finalization_resume_key')
+            ? get_option(nmkr_sync_finalization_resume_key($sync_stats_id), false) : false;
+        $resume_record_valid = $exact_stop
+            && function_exists('nmkr_is_valid_sync_finalization_record')
+            && nmkr_is_valid_sync_finalization_record($resume_record, $run_id, $sync_stats_id);
+        $finalization_executable = $resume_record_valid
+            && nmkr_sync_health_event_is_executable(
+                'nmkr_resume_sync_finalization',
+                array($sync_stats_id),
+                $current_time,
+                $grace
+            );
+        $has_running_jobs = $owner_fresh || $stopped_recovery_pending || $finalization_executable;
+        if (!$has_running_jobs) {
+            $is_stalled = true;
+            $stall_reason = sprintf(
+                'Synchronization stop request has no fresh owner or exact recovery evidence for at least %d seconds.',
+                $grace
+            );
+        }
     } elseif ($state === 'finalizing') {
         $exact_finalization = is_array($sync_data)
             && (string) ($sync_data['run_id'] ?? '') === $run_id
@@ -496,8 +535,12 @@ function nmkr_classify_direct_sync_health($owner, $sync_data, $last_progress_upd
             && function_exists('nmkr_is_valid_sync_finalization_record')
             && nmkr_is_valid_sync_finalization_record($resume_record, $run_id, $sync_stats_id);
         $finalization_scheduled = $finalization_pending
-            && function_exists('nmkr_sync_finalization_resume_event_scheduled')
-            && nmkr_sync_finalization_resume_event_scheduled($sync_stats_id);
+            && nmkr_sync_health_event_is_executable(
+                'nmkr_resume_sync_finalization',
+                array($sync_stats_id),
+                $current_time,
+                $grace
+            );
         // The durable resume record is written before sync_data publishes its
         // finalizing status. Treat it as executable only while its exact
         // callback remains scheduled.

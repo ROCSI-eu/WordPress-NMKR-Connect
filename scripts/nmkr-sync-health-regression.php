@@ -163,6 +163,15 @@ check($health['is_stalled'] && $health['finalization_pending'] && !$health['has_
     'stale finalization resume option without an exact callback is not executable evidence');
 
 reset_health_fixture();
+$GLOBALS['owner'] = direct_owner($run, 'finalizing', 51, 400);
+$GLOBALS['sync_data'] = array('run_id' => $run, 'sync_stats_id' => 51, 'status' => 'finalizing');
+finalization_resume_record($run, 51);
+$GLOBALS['cron']['nmkr_resume_sync_finalization:' . json_encode(array(51))] = time() - 400;
+$health = nmkr_check_sync_health();
+check($health['is_stalled'] && $health['finalization_pending'] && !$health['has_running_jobs'],
+    'overdue finalization callback is not executable evidence for a stale owner');
+
+reset_health_fixture();
 $GLOBALS['owner'] = direct_owner($run, 'finalizing', 46, 400);
 $GLOBALS['sync_data'] = array('run_id' => '22222222-2222-4222-8222-222222222222', 'sync_stats_id' => 46, 'status' => 'processing_tokens');
 finalization_resume_record('22222222-2222-4222-8222-222222222222', 46);
@@ -184,10 +193,40 @@ check($health['is_stalled'] && !$health['finalization_pending'] && !$health['has
     'scheduled callback cannot substitute for an exact durable finalization record');
 
 reset_health_fixture();
-$GLOBALS['owner'] = direct_owner($run, 'stop_requested', 44, 400);
+$GLOBALS['owner'] = direct_owner($run, 'stop_requested', 44, 10);
 $health = nmkr_check_sync_health();
 check($health['in_progress'] && !$health['is_stalled'] && $health['owner_state'] === 'stop_requested',
-    'stop_requested direct owner remains active without legacy stall classification');
+    'fresh stop_requested direct owner remains active without legacy stall classification');
+
+reset_health_fixture();
+$GLOBALS['owner'] = direct_owner($run, 'stop_requested', 49, 400);
+$GLOBALS['sync_data'] = array('run_id' => $run, 'sync_stats_id' => 49, 'status' => 'processing_tokens');
+$health = nmkr_check_sync_health();
+check($health['is_stalled'] && !$health['has_running_jobs'],
+    'stale stop_requested owner without exact recovery evidence is stalled');
+
+reset_health_fixture();
+$stopped_record = array(
+    'run_id' => $run,
+    'sync_stats_id' => 50,
+    'attempt' => 0,
+    'outcome' => 'stopped',
+    'items_processed' => 10,
+    'items_successful' => 9,
+    'items_failed' => 1,
+    'items_skipped' => 0,
+    'token_details_synced' => 8,
+);
+$GLOBALS['owner'] = direct_owner($run, 'stop_requested', 50, 400);
+$GLOBALS['sync_data'] = array(
+    'run_id' => $run,
+    'sync_stats_id' => 50,
+    'status' => 'processing_tokens',
+    'stopped_recovery' => $stopped_record,
+);
+$health = nmkr_check_sync_health();
+check(!$health['is_stalled'] && $health['has_running_jobs'],
+    'stale stop_requested owner remains recoverable with an exact stopped handoff');
 
 reset_health_fixture();
 $GLOBALS['transients']['nmkr_sync_progress'] = 35;
