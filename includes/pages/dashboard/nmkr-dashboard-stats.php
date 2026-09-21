@@ -23,7 +23,11 @@ function nmkr_get_latest_run_projection() {
     foreach (array('items_processed', 'items_successful', 'items_failed', 'items_skipped', 'token_details_synced') as $counter) {
         $projection[$counter] = array_key_exists($counter, $row) && $row[$counter] !== null ? (int) $row[$counter] : null;
     }
-    $projection['terminal_result'] = nmkr_derive_sync_terminal_result($status, $projection);
+    if ($status === 'completed' && ($projection['items_failed'] === null || $projection['items_skipped'] === null)) {
+        $projection['terminal_result'] = null;
+    } else {
+        $projection['terminal_result'] = nmkr_derive_sync_terminal_result($status, $projection);
+    }
     if (!empty($row['end_time'])) $projection['end_time'] = (string) $row['end_time'];
     return $projection;
 }

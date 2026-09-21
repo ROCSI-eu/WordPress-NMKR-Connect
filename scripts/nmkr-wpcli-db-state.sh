@@ -303,7 +303,7 @@ assert_zero_count "Token negative numeric values" "SELECT COUNT(*) FROM ${tokens
 assert_zero_count "Sync metrics impossible values" "SELECT COUNT(*) FROM ${metrics_ident} WHERE total_projects < 0 OR total_tokens < 0 OR total_sync_duration < 0 OR total_api_time < 0 OR average_response_time < 0 OR api_requests < 0 OR memory_usage < 0 OR last_sync_time IS NULL;"
 assert_zero_count "Sync stats impossible values" "SELECT COUNT(*) FROM ${sync_stats_ident} WHERE start_time IS NULL OR items_processed < 0 OR items_successful < 0 OR items_failed < 0 OR items_skipped < 0 OR token_details_synced < 0 OR (end_time IS NOT NULL AND end_time < start_time);"
 assert_zero_count "Completed sync stats end_time" "SELECT COUNT(*) FROM ${sync_stats_ident} WHERE status IN ('completed','success') AND (end_time IS NULL OR end_time = '');"
-assert_zero_count "Completed sync stats item totals" "SELECT COUNT(*) FROM ${sync_stats_ident} WHERE status IN ('completed','success') AND items_processed > 0 AND (items_successful + items_failed) > items_processed;"
+assert_zero_count "Completed sync stats item totals" "SELECT COUNT(*) FROM ${sync_stats_ident} WHERE status IN ('completed','success') AND items_processed > 0 AND (items_successful + items_failed + COALESCE(items_skipped, 0)) > items_processed;"
 
 latest_metric_time="$(query_scalar "Latest sync metrics timestamp" "SELECT last_sync_time FROM ${metrics_ident} ORDER BY last_sync_time DESC, id DESC LIMIT 1;")"
 option_time="$(wp_cli option get "$last_sync_option" 2>/dev/null || true)"
