@@ -1,4 +1,8 @@
 <?php
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
+
 // Function to render the NMKR Shortcodes page
 function nmkr_display_shortcodes_page() {
     if ( ! current_user_can( 'nmkr_view_shortcodes' ) ) {
