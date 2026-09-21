@@ -209,7 +209,6 @@ function nmkr_connect_projects_page() {
                                         $status_class = 'status-' . strtolower( $status_label );
                                         ?>
                                         <span class="token-status <?php echo esc_attr( $status_class ); ?>"><?php echo esc_html( $status_label ); ?></span>
-                                        <?php
                                     </p>
                                     <?php
                                     $price_html = nmkr_render_token_price_badges( $token );
