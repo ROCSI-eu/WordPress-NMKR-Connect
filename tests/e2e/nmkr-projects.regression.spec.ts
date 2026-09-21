@@ -47,6 +47,12 @@ test.describe('NMKR Connect projects page regression', () => {
     await expect(projectSelectorForm).toBeAttached();
     await expect(projectSelectorForm).toHaveAttribute('method', 'post');
 
+    const filterNonce = projectSelectorForm.locator(
+      'input[type="hidden"][name="nmkr_projects_filter_nonce"]',
+    );
+    await expect(filterNonce).toHaveCount(1);
+    await expect(filterNonce).not.toHaveValue('');
+
     const projectSelect = projectSelectorForm.locator('select#project_uid[name="project_uid"]');
     await expect(projectSelect).toBeAttached();
     await expect(projectSelect).toHaveAttribute('onchange', 'this.form.submit()');
