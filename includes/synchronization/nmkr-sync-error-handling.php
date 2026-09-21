@@ -467,9 +467,11 @@ function nmkr_classify_direct_sync_health($owner, $sync_data, $last_progress_upd
     $finalization_scheduled = false;
 
     if ($state === 'queued') {
-        $worker_scheduled = wp_next_scheduled('nmkr_execute_sync_background', array($run_id)) !== false;
-        $has_running_jobs = $worker_scheduled || $owner_fresh;
-        if (!$worker_scheduled && !$owner_fresh) {
+        $worker_event = wp_next_scheduled('nmkr_execute_sync_background', array($run_id));
+        $worker_executable = $worker_event !== false
+            && (int) $worker_event >= ((int) $current_time - $grace);
+        $has_running_jobs = $worker_executable || $owner_fresh;
+        if (!$worker_executable && !$owner_fresh) {
             $is_stalled = true;
             $stall_reason = sprintf(
                 'Direct synchronization has remained queued without executable worker evidence for at least %d seconds.',

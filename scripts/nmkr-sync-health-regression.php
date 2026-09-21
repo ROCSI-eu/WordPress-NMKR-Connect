@@ -123,6 +123,20 @@ check(!$health['is_stalled'] && $health['has_running_jobs'] && $health['owner_st
     'queued direct run recognizes its exact background worker event');
 
 reset_health_fixture();
+$GLOBALS['owner'] = direct_owner($run, 'queued', 0, 400);
+$GLOBALS['cron']['nmkr_execute_sync_background:' . json_encode(array($run))] = time() - 400;
+$health = nmkr_check_sync_health();
+check($health['is_stalled'] && !$health['has_running_jobs'] && $health['owner_state'] === 'queued',
+    'overdue queued worker event expires with stale owner freshness');
+
+reset_health_fixture();
+$GLOBALS['owner'] = direct_owner($run, 'queued', 0, 10);
+$GLOBALS['cron']['nmkr_execute_sync_background:' . json_encode(array($run))] = time() - 400;
+$health = nmkr_check_sync_health();
+check(!$health['is_stalled'] && $health['has_running_jobs'] && $health['owner_state'] === 'queued',
+    'fresh queued owner remains healthy when its worker event is overdue');
+
+reset_health_fixture();
 $GLOBALS['owner'] = direct_owner($run, 'finalizing', 43, 400);
 $GLOBALS['sync_data'] = array('run_id' => $run, 'sync_stats_id' => 43, 'status' => 'finalizing');
 finalization_resume_record($run, 43);
