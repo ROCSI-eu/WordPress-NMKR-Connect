@@ -843,6 +843,11 @@ function nmkr_render_sync_data_panel($dashboard_nonce, $can_manage_sync) {
  * @param array $initial_stats Initial statistics data
  */
 function nmkr_render_sync_statistics_panel($initial_stats) {
+    $latest_run = isset($initial_stats['latest_run']) && is_array($initial_stats['latest_run']) ? $initial_stats['latest_run'] : array();
+    $latest_result = (string) ($latest_run['terminal_result'] ?? 'unknown');
+    $display_count = static function ($key) use ($latest_run) {
+        return !array_key_exists($key, $latest_run) || $latest_run[$key] === null ? 'Unknown' : (string) $latest_run[$key];
+    };
     ?>
     <!-- Synchronization Statistics Panel -->
     <div class="panel sync-statistics" role="region" aria-label="Synchronization Statistics">
@@ -856,6 +861,10 @@ function nmkr_render_sync_statistics_panel($initial_stats) {
             <!-- Last Sync Time -->
             <div class="last-sync-time">
                 <p><strong>🕒 Last synced at:</strong> <span id="last-synced"><?php echo esc_html($initial_stats['last_sync_time']); ?></span></p>
+            </div>
+            <div id="latest-run-result" class="latest-run-result panel-section">
+                <p><strong>Latest run result:</strong> <span id="latest-terminal-result"><?php echo esc_html($latest_result); ?></span></p>
+                <p><strong>Processed:</strong> <span id="latest-items-processed"><?php echo esc_html($display_count('items_processed')); ?></span> · <strong>Successful:</strong> <span id="latest-items-successful"><?php echo esc_html($display_count('items_successful')); ?></span> · <strong>Failed:</strong> <span id="latest-items-failed"><?php echo esc_html($display_count('items_failed')); ?></span> · <strong>Skipped:</strong> <span id="latest-items-skipped"><?php echo esc_html($display_count('items_skipped')); ?></span> · <strong>Token details:</strong> <span id="latest-token-details-synced"><?php echo esc_html($display_count('token_details_synced')); ?></span></p>
             </div>
             
             <!-- Sync Metrics -->
@@ -1382,6 +1391,12 @@ function nmkr_render_dashboard_scripts($dashboard_nonce, $can_manage_sync) {
                             $('#total-sync-time').text(response.data.total_sync_duration);
                             $('#total-api-time').text(response.data.total_api_time);
                             $('#request-count').text(response.data.api_requests);
+                            const latestRun = response.data.latest_run || {};
+                            $('#latest-terminal-result').text(latestRun.terminal_result || 'unknown');
+                            ['items_processed', 'items_successful', 'items_failed', 'items_skipped', 'token_details_synced'].forEach(function(key) {
+                                const id = '#latest-' + key.replace(/_/g, '-');
+                                $(id).text(latestRun[key] === null || typeof latestRun[key] === 'undefined' ? 'Unknown' : latestRun[key]);
+                            });
                             
                             // Update with classes for color coding
                             $('#avg-response-time')

@@ -754,6 +754,11 @@ function nmkr_sync_progress_handler() {
         if (($terminal_status === 'completed' && $canonically_finished) || $stopped_clean || $verified_failed_terminal) {
             $response_data['terminalRunId'] = (string) $sync_data['run_id'];
             $response_data['terminal_outcome'] = $terminal_status;
+            $response_data['terminal_result'] = (string) ($sync_data['terminal_result'] ?? '');
+            $response_data['terminal_counts'] = array();
+            foreach (array('items_processed', 'items_successful', 'items_failed', 'items_skipped', 'token_details_synced') as $counter) {
+                $response_data['terminal_counts'][$counter] = (int) $sync_data[$counter];
+            }
             $response_data['finished'] = $terminal_status === 'completed' ? $canonically_finished : false;
             $response_data['aborted'] = $terminal_status === 'stopped';
             if ($terminal_status === 'failed') {

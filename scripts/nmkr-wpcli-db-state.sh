@@ -178,7 +178,7 @@ check_column() {
 for column in id project_uid project_name state synced_at hash; do check_column "$projects_table" "$column"; done
 for column in id token_uid project_uid token_name state synced_at hash; do check_column "$tokens_table" "$column"; done
 for column in id token_uid receiver_address sell_date synced_at hash; do check_column "$token_details_table" "$column"; done
-for column in id sync_type start_time end_time status items_processed items_successful items_failed failure_breakdown updated_at; do check_column "$sync_stats_table" "$column"; done
+for column in id sync_type start_time end_time status items_processed items_successful items_failed items_skipped token_details_synced failure_breakdown updated_at; do check_column "$sync_stats_table" "$column"; done
 for column in id last_sync_time total_projects total_tokens total_sync_duration total_api_time average_response_time api_requests memory_usage created_at; do check_column "$metrics_table" "$column"; done
 for column in id event_ts event_type shortcode_type site_id meta_json created_at; do check_column "$analytics_table" "$column"; done
 info "Required schema columns exist."
@@ -251,6 +251,7 @@ assert_zero_count "Unknown sync stats status" "SELECT COUNT(*) FROM ${sync_stats
 assert_zero_count "Terminal sync stats end_time" "SELECT COUNT(*) FROM ${sync_stats_ident} WHERE BINARY status IN (${FAILURE_TERMINAL_SYNC_STATUSES_SQL}) AND (end_time IS NULL OR end_time = '');"
 assert_zero_count "Active sync stats end_time" "SELECT COUNT(*) FROM ${sync_stats_ident} WHERE BINARY status IN (${ACTIVE_SYNC_STATUSES_SQL}) AND end_time IS NOT NULL AND end_time <> '';"
 assert_zero_count "Stale active sync stats" "SELECT COUNT(*) FROM ${sync_stats_ident} WHERE BINARY status IN (${ACTIVE_SYNC_STATUSES_SQL}) AND (end_time IS NULL OR end_time = '') AND COALESCE(updated_at, start_time) < '${stale_cutoff_escaped}';"
+assert_zero_count "Invalid optional sync counters" "SELECT COUNT(*) FROM ${sync_stats_ident} WHERE (items_skipped IS NOT NULL AND items_skipped < 0) OR (token_details_synced IS NOT NULL AND token_details_synced < 0);"
 
 active_stats="$(query_count "Active sync stats" "SELECT COUNT(*) FROM ${sync_stats_ident} WHERE BINARY status IN (${ACTIVE_SYNC_STATUSES_SQL}) AND (end_time IS NULL OR end_time = '');")"
 (( active_stats <= 1 )) || fail "Multiple active sync stats invariant failed with ${active_stats} offending aggregate row(s)."

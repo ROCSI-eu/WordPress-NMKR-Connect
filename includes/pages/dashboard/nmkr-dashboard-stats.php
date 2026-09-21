@@ -31,6 +31,22 @@ function nmkr_get_last_sync_time() {
     return 'No synchronization done yet';
 }
 
+/** Return an allowlisted projection of the latest history row. */
+function nmkr_get_latest_sync_run_summary() {
+    $rows = nmkr_get_recent_sync_stats(1);
+    if (empty($rows) || !is_array($rows[0])) return null;
+    $row = $rows[0];
+    $status = strtolower((string) ($row['status'] ?? ''));
+    if (!in_array($status, array('completed', 'failed', 'stopped'), true)) return null;
+    $summary = array('status' => $status);
+    foreach (array('items_processed', 'items_successful', 'items_failed', 'items_skipped', 'token_details_synced') as $counter) {
+        $summary[$counter] = !array_key_exists($counter, $row) || $row[$counter] === null ? null : (int) $row[$counter];
+    }
+    $summary['terminal_result'] = nmkr_derive_sync_terminal_result($status, $summary);
+    $summary['end_time'] = isset($row['end_time']) ? (string) $row['end_time'] : '';
+    return $summary;
+}
+
 /**
  * Get metrics for the last successful sync
  * This function is used only for displaying historical/completed sync data
@@ -57,7 +73,8 @@ function nmkr_get_sync_statistics() {
             'api_requests' => '-',
             'memory_usage' => '-',
             'response_time_class' => 'status-neutral',
-            'memory_class' => 'status-neutral'
+            'memory_class' => 'status-neutral',
+            'latest_run' => nmkr_get_latest_sync_run_summary()
         );
     } else if (!$last_sync_metrics) {
         // No sync metrics and no last sync time - truly no sync yet
@@ -71,7 +88,8 @@ function nmkr_get_sync_statistics() {
             'api_requests' => '-',
             'memory_usage' => '-',
             'response_time_class' => 'status-neutral',
-            'memory_class' => 'status-neutral'
+            'memory_class' => 'status-neutral',
+            'latest_run' => nmkr_get_latest_sync_run_summary()
         );
     }
 
@@ -87,7 +105,8 @@ function nmkr_get_sync_statistics() {
         'api_requests' => $last_sync_metrics['api_requests'],
         'memory_usage' => $last_sync_metrics['memory_usage'] . 'MB',
         'response_time_class' => nmkr_get_response_time_color_class($last_sync_metrics['average_response_time']),
-        'memory_class' => nmkr_get_memory_color_class($last_sync_metrics['memory_usage'])
+        'memory_class' => nmkr_get_memory_color_class($last_sync_metrics['memory_usage']),
+        'latest_run' => nmkr_get_latest_sync_run_summary()
     );
 }
 

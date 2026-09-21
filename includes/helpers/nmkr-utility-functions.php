@@ -736,6 +736,11 @@ function nmkr_cleanup_bound_direct_sync_initialization_failure($run_id, $sync_st
             'status' => $outcome,
             'error_message' => $outcome === 'failed' ? (string) $error_message : '',
             'end_time' => $end_time,
+            'items_processed' => 0,
+            'items_successful' => 0,
+            'items_failed' => 0,
+            'items_skipped' => 0,
+            'token_details_synced' => 0,
         ));
         $history = $wpdb->get_row($wpdb->prepare("SELECT id, status, end_time FROM $history_table WHERE id = %d", $sync_stats_id), ARRAY_A);
         if (!$updated || !$history || (int) ($history['id'] ?? 0) !== $sync_stats_id
@@ -760,6 +765,7 @@ function nmkr_cleanup_bound_direct_sync_initialization_failure($run_id, $sync_st
             'items_skipped' => 0,
             'token_details_synced' => 0,
         );
+        $terminal['terminal_result'] = nmkr_derive_sync_terminal_result($outcome, $terminal);
         if ($outcome === 'failed') {
             $terminal['error_message'] = (string) $error_message;
         }

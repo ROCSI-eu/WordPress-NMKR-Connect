@@ -114,6 +114,13 @@ test.describe('NMKR Connect dashboard page regression', () => {
     for (const selector of [
       '#last-synced',
       '#performance-stats',
+      '#latest-run-result',
+      '#latest-terminal-result',
+      '#latest-items-processed',
+      '#latest-items-successful',
+      '#latest-items-failed',
+      '#latest-items-skipped',
+      '#latest-token-details-synced',
       '#total-projects',
       '#total-tokens',
       '#total-sync-time',

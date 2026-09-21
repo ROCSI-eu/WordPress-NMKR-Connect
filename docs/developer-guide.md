@@ -249,3 +249,8 @@ When a focused change alters shortcodes, settings, roles/capabilities, menu labe
 - **Change analytics ingestion:** trace the public request boundary, admission state, local/GA4 sinks, retention, privacy controls, and M4-05 limitations.
 - **Choose checks:** use the [validation policy](validation-policy.md) before running or requesting private validation.
 - **Assess assurance:** use the [Milestone 4 hub](milestone-4/README.md), findings, traceability, and package evidence without converting bounded results into universal claims.
+# Synchronization lifecycle and terminal results
+
+Synchronization lifecycle status remains limited to `completed`, `failed`, and `stopped`. A completed run also exposes a derived `terminal_result`: `success`, `completed_with_skips`, or `completed_with_errors` (failed items take precedence over skipped items). This projection is derived from history rather than stored as an independent history classification.
+
+Schema v3 stores `items_processed`, `items_successful`, `items_failed`, `items_skipped`, and `token_details_synced`. New runs explicitly initialize every counter; the two counters introduced in v3 remain `NULL` (unknown) on legacy rows rather than being backfilled with fabricated zeroes. Progress and dashboard responses expose only the lifecycle, derived result, and these allowlisted counters; private diagnostics are never part of those projections.

@@ -157,6 +157,8 @@ function nmkr_save_sync_stats($stats) {
         'items_processed' => isset($stats['items_processed']) ? intval($stats['items_processed']) : 0,
         'items_successful' => isset($stats['items_successful']) ? intval($stats['items_successful']) : 0,
         'items_failed' => isset($stats['items_failed']) ? intval($stats['items_failed']) : 0,
+        'items_skipped' => isset($stats['items_skipped']) ? intval($stats['items_skipped']) : 0,
+        'token_details_synced' => isset($stats['token_details_synced']) ? intval($stats['token_details_synced']) : 0,
         'error_message' => isset($stats['error_message']) ? $stats['error_message'] : null,
         'created_at' => nmkr_get_timestamp(),
         'updated_at' => nmkr_get_timestamp()
@@ -191,14 +193,8 @@ function nmkr_update_sync_stats($id, $stats) {
     if (isset($stats['items_processed'])) $data['items_processed'] = intval($stats['items_processed']);
     if (isset($stats['items_successful'])) $data['items_successful'] = intval($stats['items_successful']);
     if (isset($stats['items_failed'])) $data['items_failed'] = intval($stats['items_failed']);
-    foreach (array('items_skipped', 'token_details_synced') as $optional_counter) {
-        if (isset($stats[$optional_counter])) {
-            $columns = $wpdb->get_col("DESC $table_name", 0);
-            if (in_array($optional_counter, $columns, true)) {
-                $data[$optional_counter] = intval($stats[$optional_counter]);
-            }
-        }
-    }
+    if (isset($stats['items_skipped'])) $data['items_skipped'] = intval($stats['items_skipped']);
+    if (isset($stats['token_details_synced'])) $data['token_details_synced'] = intval($stats['token_details_synced']);
     if (isset($stats['error_message'])) $data['error_message'] = $stats['error_message'];
     if (isset($stats['failure_breakdown'])) {
         // Check if column exists

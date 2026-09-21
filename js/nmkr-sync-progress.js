@@ -323,7 +323,7 @@ jQuery(document).ready(function($) {
         
         try {
           if (response.success && response.data) {
-            const { progress, current_item, in_progress, error, live_metrics, finished, aborted, terminal_outcome } = response.data;
+            const { progress, current_item, in_progress, error, live_metrics, finished, aborted, terminal_outcome, terminal_result, terminal_counts } = response.data;
             const reportedRunId = response.data.activeRunId || '';
             const authoritativeRunId = isValidDirectRunId(reportedRunId) ? reportedRunId : '';
             const malformedOwner = !!reportedRunId && !authoritativeRunId;
@@ -367,7 +367,17 @@ jQuery(document).ready(function($) {
             if (finished === true) {
               if (!authoritativeRunId && !malformedOwner) {
                 stopPolling();
-                handleComplete();
+                if (terminal_result === 'completed_with_errors') {
+                  const failed = terminal_counts && Number(terminal_counts.items_failed) || 0;
+                  window.nmkrShowWarning(`Synchronization completed with ${failed} failed item(s).`);
+                  handleComplete();
+                } else if (terminal_result === 'completed_with_skips') {
+                  const skipped = terminal_counts && Number(terminal_counts.items_skipped) || 0;
+                  window.nmkrShowWarning(`Synchronization completed with ${skipped} skipped item(s).`);
+                  handleComplete();
+                } else {
+                  handleComplete();
+                }
                 return;
               }
             }
