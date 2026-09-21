@@ -12,7 +12,7 @@ External-service disclosures cover administrator-triggered NMKR Studio API synch
 
 ## M5-03 release identity
 
-Issue #111 resolved the owner identity decision after current WordPress.org naming-policy analysis. The owner-selected public display name is **Connector for NMKR**. The candidate WordPress.org directory slug, gettext text domain, and release package directory are **`connector-for-nmkr`**. The established main plugin filename remains `nmkr-connect.php`, and existing `nmkr_*` database/options/transient/capability/AJAX/shortcode/internal-admin contracts remain stable unless a separate compatibility requirement justifies a change.
+Issue #111 resolved the owner identity decision after current WordPress.org naming-policy analysis. The owner-selected public display name is **Connector for NMKR**. The candidate WordPress.org directory slug, gettext text domain, and release package directory are **`connector-for-nmkr`**. The earlier M5-D15 decision retained `nmkr-connect.php`; M5-D17 / issue #126 supersedes only that filename-retention clause before submission, making `connector-for-nmkr.php` the canonical public main plugin file. Existing `nmkr_*` database/options/transient/capability/AJAX/shortcode/internal-admin contracts remain stable.
 
 Draft PR #112 aligns the release candidate to that identity and to the first public stable version `0.25.0`, following the repository [versioning policy](../versioning.md). This is release-preparation evidence, not directory acceptance: WordPress.org has not approved, assigned, reserved, or published the `connector-for-nmkr` slug, and no `0.25.0` GitHub release or WordPress.org submission has yet been made.
 

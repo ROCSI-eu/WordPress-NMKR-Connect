@@ -1,7 +1,7 @@
 <?php
 $root = dirname(__DIR__);
 function check($condition, $message) { if (!$condition) { fwrite(STDERR, "FAIL: $message\n"); exit(1); } echo "PASS: $message\n"; }
-$plugin = file_get_contents($root . '/nmkr-connect.php');
+$plugin = file_get_contents($root . '/connector-for-nmkr.php');
 $composer = json_decode(file_get_contents($root . '/composer.json'), true);
 $readme = file_get_contents($root . '/readme.txt');
 $runtime = $plugin;
@@ -27,7 +27,7 @@ foreach ($iterator as $file) {
     if ($file->isFile() && strtolower($file->getExtension()) === 'php') { $runtime_php .= file_get_contents($file->getPathname()); }
 }
 check(strpos($runtime_php, "'nmkr-connect'") === false && strpos($runtime_php, '"nmkr-connect"') === false, 'runtime PHP contains no legacy exact gettext-domain literal');
-$legacy_basename = 'nmkr-connect/' . 'nmkr-connect.php';
+$stale_basenames = array('nmkr-connect/' . 'nmkr-connect.php', 'connector-for-nmkr/' . 'nmkr-connect.php');
 $basename_sources = array($root . '/.env.tests.example');
 foreach (array($root . '/scripts', $root . '/tests') as $scan_root) {
     $scan = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($scan_root, FilesystemIterator::SKIP_DOTS));
@@ -35,12 +35,15 @@ foreach (array($root . '/scripts', $root . '/tests') as $scan_root) {
         if ($file->isFile()) { $basename_sources[] = $file->getPathname(); }
     }
 }
-$legacy_basename_files = array();
+$stale_basename_files = array();
 foreach ($basename_sources as $file) {
     $contents = @file_get_contents($file);
-    if (is_string($contents) && strpos($contents, $legacy_basename) !== false) { $legacy_basename_files[] = $file; }
+    if (!is_string($contents)) continue;
+    foreach ($stale_basenames as $stale_basename) {
+        if (strpos($contents, $stale_basename) !== false) { $stale_basename_files[] = $file; break; }
+    }
 }
-check(empty($legacy_basename_files), 'current test and tooling defaults contain no legacy installed plugin basename');
+check(empty($stale_basename_files), 'current test and tooling defaults contain no stale installed plugin basename');
 $validation = file_get_contents($root . '/includes/pages/settings/nmkr-settings-validation.php');
 $core = file_get_contents($root . '/includes/pages/settings/nmkr-settings-core.php');
 $helpers = file_get_contents($root . '/includes/helpers/nmkr-analytics-helpers.php');
@@ -51,6 +54,11 @@ $roles = file_get_contents($root . '/includes/roles/nmkr-roles.php');
 check(strpos($roles, '\'role__in\' => $owned_roles') !== false && strpos($roles, '$user->remove_role( $role_key );') !== false, 'uninstall clears plugin-owned user role assignments before role definitions can be recreated');
 check(strpos($roles, 'remove_role( $role_key );') !== false && strpos($roles, "remove_role( 'administrator' )") === false, 'uninstall role cleanup uses the owned-role specification');
 check(strpos($plugin, 'wp_add_privacy_policy_content') !== false, 'Privacy Policy Guide content is registered');
+check(strpos($plugin, "register_activation_hook(__FILE__, 'nmkr_connect_activate')") !== false, 'activation hook remains bound through the canonical bootstrap __FILE__');
+check(strpos($plugin, "register_deactivation_hook(__FILE__, 'nmkr_connect_deactivate')") !== false, 'deactivation hook remains bound through the canonical bootstrap __FILE__');
+check(strpos($plugin, "register_uninstall_hook(__FILE__, 'nmkr_connect_uninstall')") !== false, 'uninstall hook remains bound through the canonical bootstrap __FILE__');
+check(strpos($core, "'/connector-for-nmkr.php'") !== false && strpos($core, "'/nmkr-connect.php'") === false, 'settings fallback points to the canonical main plugin file');
+check(strpos($core, "plugin_action_links_' . plugin_basename(NMKR_CONNECT_PLUGIN_FILE)") !== false, 'settings action link remains bound through the canonical plugin basename');
 $integrity = file_get_contents($root . '/scripts/nmkr-ajax-runtime-integrity.sh');
 $preflight = file_get_contents($root . '/scripts/nmkr-real-sync-preflight.sh');
 $builder = file_get_contents($root . '/scripts/nmkr-build-package.sh');
@@ -60,10 +68,10 @@ check(strpos($builder, '[[ "$stable_tag" == "$version" ]]') !== false, 'package 
 $gitignore = file_get_contents($root . '/.gitignore');
 check(stripos($integrity, 'freemius') === false && strpos($integrity, 'composer.lock') !== false, 'runtime integrity is lock-aware and has no Freemius dependency contract');
 check(strpos($preflight, 'nmkr-ajax-runtime-integrity.sh') !== false, 'real-sync preflight delegates current deployment runtime integrity to the lock-aware helper');
-check(strpos($preflight, 'connector-for-nmkr/nmkr-connect.php') !== false, 'real-sync preflight defaults to the candidate installed plugin basename');
-check(strpos(file_get_contents($root . '/.env.tests.example'), 'NMKR_PLUGIN_SLUG=connector-for-nmkr/nmkr-connect.php') !== false, 'public test environment example defaults to the candidate installed plugin basename');
-check(strpos($builder, 'slug=${NMKR_PACKAGE_DIR:-connector-for-nmkr}') !== false, 'package builder defaults to the candidate WordPress.org directory slug');
-check(strpos($builder, 'test -f "$verify/$slug/nmkr-connect.php"') !== false, 'package builder preserves the established main plugin filename inside the new directory');
+check(strpos($preflight, 'connector-for-nmkr/connector-for-nmkr.php') !== false, 'real-sync preflight defaults to the canonical installed plugin basename');
+check(strpos(file_get_contents($root . '/.env.tests.example'), 'NMKR_PLUGIN_SLUG=connector-for-nmkr/connector-for-nmkr.php') !== false, 'public test environment example defaults to the canonical installed plugin basename');
+check(strpos($builder, 'slug=${NMKR_PACKAGE_DIR:-connector-for-nmkr}') !== false && strpos($builder, 'Package directory must be connector-for-nmkr.') !== false, 'package builder is locked to the candidate WordPress.org directory slug');
+check(strpos($builder, "main_file='connector-for-nmkr.php'") !== false && strpos($builder, 'test ! -e nmkr-connect.php') !== false && strpos($builder, 'test ! -e "$verify/$slug/nmkr-connect.php"') !== false, 'package builder requires the canonical main plugin file and rejects the obsolete filename');
 check(strpos($builder, 'sha256sum "$(basename "$zip_path")"') !== false, 'package checksum sidecar records the ZIP basename rather than an absolute build path');
 check(strpos($builder, 'out=$(cd "$out" && pwd -P)') !== false, 'package builder resolves relative output directories before entering the temporary tree');
 check(preg_match('#^/dist/$#m', $gitignore) === 1, 'default package output directory is ignored so successful builds preserve a clean source tree');

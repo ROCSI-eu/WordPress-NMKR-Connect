@@ -34,7 +34,7 @@ Related guidance:
 
 - **Symptom:** a custom/source-built ZIP is missing plugin files, fails activation, or differs from the expected release layout.
 - **Likely causes:** a partial source tree was packaged, repository-only files were manually mixed into the ZIP, required plugin PHP/assets were omitted, or the upload was damaged.
-- **Safe checks:** inspect the archive locally and confirm it has one top-level plugin directory containing `nmkr-connect.php`, `readme.txt`, and the expected package manifest without publishing a full filesystem listing.
+- **Safe checks:** inspect the archive locally and confirm it has one top-level plugin directory containing `connector-for-nmkr.php`, `readme.txt`, and the expected package manifest without publishing a full filesystem listing.
 - **Corrective action:** obtain a complete trusted release, or rebuild from a clean exact source checkout with `npm run build:package` and test the generated ZIP on staging. The current runtime does not require `vendor/` or `composer install`.
 - **Escalation information:** exact source commit, build command, package source, and the missing relative path only.
 - **Actions to avoid:** do not assemble runtime files piecemeal, copy files from an unrelated release, or publish private paths/environment files.

@@ -97,7 +97,7 @@ foreach (array(false,array('mode'=>'direct'),array('mode'=>'broken'),array('mode
     $GLOBALS['options']['nmkr_sync_owner']=$owner_fixture;$conflict=false;try{nmkr_restart_sync_batch_handler();}catch(Exception $e){$payload=json_decode($e->getMessage(),true);$conflict=($payload['status']??0)===409&&($payload['data']['error_code']??'')==='batch_mode_unsupported';}
     check($conflict,'batch restart always conflicts after authorization');
 }
-$uninstall=file_get_contents(dirname(__DIR__).'/nmkr-connect.php');check(strpos($uninstall,"'nmkr_sync_owner',")!==false,'full uninstall includes owner cleanup');
+$uninstall=file_get_contents(dirname(__DIR__).'/connector-for-nmkr.php');check(strpos($uninstall,"'nmkr_sync_owner',")!==false,'full uninstall includes owner cleanup');
 echo "All synchronization ownership regression checks passed.\n";
 
 // Phase 16B.2 exact Stop/binding/checkpoint races use only synthetic state.

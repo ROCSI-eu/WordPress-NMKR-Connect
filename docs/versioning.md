@@ -6,7 +6,7 @@ This document defines how Connector for NMKR versions are selected and published
 
 ## Canonical stable version
 
-The plugin header `Version` in `nmkr-connect.php` is the canonical stable release version.
+The plugin header `Version` in `connector-for-nmkr.php` is the canonical stable release version.
 
 For a stable release:
 
