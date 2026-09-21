@@ -103,6 +103,11 @@ function wp_generate_uuid4() { return '00000000-0000-4000-8000-000000000001'; }
 function wp_create_nonce($action) { return 'synthetic-nonce'; }
 function esc_attr($value) { return (string)$value; }
 function esc_html($value) { return (string)$value; }
+function disabled($disabled, $current=true, $display=true) {
+    $result = ((string)$disabled === (string)$current) ? ' disabled="disabled"' : '';
+    if ($display) echo $result;
+    return $result;
+}
 function nmkr_get_log_retention_limit() { return 20; }
 function nmkr_safe_getpid() { return 1; }
 function nmkr_log_data_sync($message, $type='info', $context=array()) { $GLOBALS['nmkr_calls'][]='data-log'; }
