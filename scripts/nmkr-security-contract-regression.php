@@ -100,10 +100,17 @@ $GLOBALS['nmkr_nonce']=false; $GLOBALS['nmkr_caps']=array(); $GLOBALS['nmkr_ledg
 try { nmkr_analytics_top_projects_ajax(); nmkr_assert(false,'analytics_denial_missing'); } catch(NmkrContractStop $e) { nmkr_assert($e->kind==='error' && $e->status===403,'analytics_denial_response'); }
 nmkr_assert($GLOBALS['nmkr_ledger']===array(),'analytics_denial_downstream');
 $GLOBALS['nmkr_nonce']=true; $GLOBALS['nmkr_caps']=array('nmkr_view_analytics'=>true); $GLOBALS['nmkr_ledger']=array(); $GLOBALS['nmkr_options']['nmkr_connect_options']=array('analytics_debug'=>1);
-$_POST=array('nonce'=>'ok'); $_REQUEST=array_merge($_POST,array('range'=>'custom','from'=>'1900-01-01','to'=>'2999-01-01','bucket'=>$hostile,'shortcode_type'=>$hostile,'project_uid'=>$hostile,'token_uid'=>$hostile,'search'=>$hostile,'sort'=>$hostile,'order'=>$hostile,'page'=>$hostile,'per_page'=>'9999'));
+$_POST=array('nonce'=>'ok','range'=>'custom','from'=>'1900-01-01','to'=>'2999-01-01','bucket'=>$hostile,'shortcode_type'=>$hostile,'project_uid'=>$hostile,'token_uid'=>$hostile,'search'=>$hostile,'sort'=>$hostile,'order'=>$hostile,'page'=>$hostile,'per_page'=>'9999'); $_REQUEST=$_POST;
 try { nmkr_analytics_top_projects_ajax(); nmkr_assert(false,'analytics_success_missing'); } catch(NmkrContractStop $e) { nmkr_assert($e->kind==='success' && $e->data['page']===1 && $e->data['per_page']===100 && $e->data['sort']==='views' && $e->data['order']==='desc','analytics_response_bound'); }
 nmkr_assert($GLOBALS['wpdb']->reads===2 && count($GLOBALS['wpdb']->templates)===2,'analytics_sql_execution');
 foreach($GLOBALS['wpdb']->templates as $template) { nmkr_assert(strpos($template,$hostile)===false,'hostile_sql_structure'); nmkr_assert((bool)preg_match('/ORDER BY views DESC|COUNT\\(DISTINCT project_uid\\)/',$template),'sql_allowlisted_structure'); }
 nmkr_assert(in_array(100,$GLOBALS['wpdb']->params[1],true) && in_array(0,$GLOBALS['wpdb']->params[1],true),'pagination_prepared');
+
+$reads_before=$GLOBALS['wpdb']->reads; $templates_before=count($GLOBALS['wpdb']->templates);
+$_POST=array('nonce'=>'ok','range'=>'24h','bucket'=>'hour'); $_REQUEST=$_POST;
+try { nmkr_analytics_timeseries_ajax(); nmkr_assert(false,'analytics_timeseries_success_missing'); } catch(NmkrContractStop $e) { nmkr_assert($e->kind==='success' && $e->data['bucket']==='hour','analytics_timeseries_response'); }
+nmkr_assert($GLOBALS['wpdb']->reads===$reads_before+1 && count($GLOBALS['wpdb']->templates)===$templates_before+1,'analytics_timeseries_sql_execution');
+$timeseries_template=end($GLOBALS['wpdb']->templates);
+nmkr_assert(strpos($timeseries_template,"DATE_FORMAT(event_ts, '%%Y-%%m-%%d %%H:00:00')")!==false,'analytics_timeseries_percent_escaping');
 
 echo "M4-06 targeted security contracts: PASS\n";
