@@ -31,7 +31,7 @@ if (!function_exists('nmkr_normalize_ipfs_gateway_base')) {
         if (!is_string($base) || '' === $base || preg_match('/[\x00-\x1F\x7F]/', $base)) return '';
         if (trim($base) !== $base || false === filter_var($base, FILTER_VALIDATE_URL)) return '';
 
-        $parts = parse_url($base);
+        $parts = wp_parse_url($base);
         if (!is_array($parts) || 'https' !== strtolower(isset($parts['scheme']) ? $parts['scheme'] : '') || empty($parts['host'])) return '';
         if (isset($parts['user']) || isset($parts['pass']) || isset($parts['query']) || isset($parts['fragment'])) return '';
 
@@ -80,7 +80,7 @@ if (!function_exists('nmkr_is_valid_https_url')) {
     function nmkr_is_valid_https_url($url) {
         if (!is_string($url) || '' === $url || trim($url) !== $url || preg_match('/[\x00-\x1F\x7F]/', $url)) return false;
         if (false === filter_var($url, FILTER_VALIDATE_URL)) return false;
-        $parts = parse_url($url);
+        $parts = wp_parse_url($url);
         return is_array($parts) && 'https' === strtolower(isset($parts['scheme']) ? $parts['scheme'] : '') && !empty($parts['host']) && !isset($parts['user']) && !isset($parts['pass']);
     }
 }
@@ -95,7 +95,7 @@ if (!function_exists('nmkr_is_valid_https_url')) {
 if (!function_exists('nmkr_is_probably_image_url')) {
     function nmkr_is_probably_image_url($url) {
         if (empty($url)) return false;
-        $path = parse_url($url, PHP_URL_PATH);
+        $path = wp_parse_url($url, PHP_URL_PATH);
         $path = strtolower((string) $path);
 
         if ($path === '') return false;
@@ -126,7 +126,7 @@ if (!function_exists('nmkr_is_usable_ipfs_image_input')) {
             $candidate = esc_url_raw( $url );
             if ( '' === $candidate ) return false;
 
-            $path = (string) parse_url( $candidate, PHP_URL_PATH );
+            $path = (string) wp_parse_url( $candidate, PHP_URL_PATH );
             if ( nmkr_is_probably_image_url( $candidate ) && false === stripos( $path, '/ipfs/' ) ) {
                 return true;
             }
