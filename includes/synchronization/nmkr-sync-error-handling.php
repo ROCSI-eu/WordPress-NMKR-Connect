@@ -228,8 +228,17 @@ function nmkr_stop_ownerless_sync($force = false) {
         $history = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table_name WHERE id = %d", $sync_stats_id), ARRAY_A);
     } else {
         $active_statuses = array('initializing', 'processing_projects', 'processing_tokens', 'in_progress', 'running');
-        $placeholders = implode(', ', array_fill(0, count($active_statuses), '%s'));
-        $history = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table_name WHERE status IN ($placeholders) ORDER BY id DESC LIMIT 1", $active_statuses), ARRAY_A);
+        $history = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT * FROM $table_name WHERE status IN (%s, %s, %s, %s, %s) ORDER BY id DESC LIMIT 1",
+                $active_statuses[0],
+                $active_statuses[1],
+                $active_statuses[2],
+                $active_statuses[3],
+                $active_statuses[4]
+            ),
+            ARRAY_A
+        );
         $sync_stats_id = is_array($history) ? (int) ($history['id'] ?? 0) : 0;
     }
     if (is_array($history)) {

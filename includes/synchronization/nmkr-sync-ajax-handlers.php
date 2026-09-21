@@ -80,6 +80,7 @@ function nmkr_fail_nonterminal_sync_history($sync_stats_id, $error_message) {
         array('failed', $timestamp, $error_message, $timestamp, $sync_stats_id),
         $terminal_statuses
     );
+    // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- The terminal placeholder list is generated one-for-one from $terminal_statuses; $update_values prepends the five fixed replacements above.
     $updated = $wpdb->query($wpdb->prepare(
         "UPDATE $table_name
          SET status = %s, end_time = %s, error_message = %s, updated_at = %s
@@ -534,11 +535,12 @@ function nmkr_sync_progress_handler() {
                 global $wpdb;
                 $table_name = $wpdb->prefix . 'nmkr_sync_stats';
                 $active_statuses = array('initializing', 'processing_projects', 'processing_tokens');
-                $status_placeholders = implode(', ', array_fill(0, count($active_statuses), '%s'));
                 $active_sync = $wpdb->get_row(
                     $wpdb->prepare(
-                        "SELECT * FROM $table_name WHERE status IN ($status_placeholders) ORDER BY id DESC LIMIT 1",
-                        $active_statuses
+                        "SELECT * FROM $table_name WHERE status IN (%s, %s, %s) ORDER BY id DESC LIMIT 1",
+                        $active_statuses[0],
+                        $active_statuses[1],
+                        $active_statuses[2]
                     ),
                     ARRAY_A
                 );
