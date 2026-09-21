@@ -273,7 +273,9 @@ function nmkr_cleanup_sync_jobs_handler() {
         wp_send_json_error( array( 'message' => __( 'Forbidden', 'connector-for-nmkr' ) ), 403 );
     }
     
-    $context = isset($_POST['context']) ? sanitize_text_field($_POST['context']) : 'manual_cleanup';
+    $context = isset( $_POST['context'] ) && is_scalar( $_POST['context'] )
+        ? sanitize_text_field( wp_unslash( $_POST['context'] ) )
+        : 'manual_cleanup';
     $clear_data = isset($_POST['clear_data']) ? (bool) $_POST['clear_data'] : true;
     
     $result = nmkr_coordinate_sync_cleanup('generic', function () use ($context, $clear_data) {
@@ -978,8 +980,12 @@ function nmkr_force_stop_sync_handler() {
         }
         
         // ** ENHANCED ERROR HANDLING: Parameter Validation **
-        $context = isset($_POST['context']) ? sanitize_text_field($_POST['context']) : 'manual_force_stop';
-        $reason = isset($_POST['reason']) ? sanitize_text_field($_POST['reason']) : 'user_requested';
+        $context = isset( $_POST['context'] ) && is_scalar( $_POST['context'] )
+            ? sanitize_text_field( wp_unslash( $_POST['context'] ) )
+            : 'manual_force_stop';
+        $reason = isset( $_POST['reason'] ) && is_scalar( $_POST['reason'] )
+            ? substr( sanitize_text_field( wp_unslash( $_POST['reason'] ) ), 0, 255 )
+            : 'user_requested';
         
         // Validate context values
         $valid_contexts = ['manual_force_stop', 'stall_detected', 'frontend_timeout', 'recovery_mode'];
@@ -991,8 +997,12 @@ function nmkr_force_stop_sync_handler() {
         nmkr_log_data_sync('Force stop sync requested', 'warning', array(
             'context' => $context,
             'reason' => $reason,
-            'user_agent' => isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : 'unknown',
-            'ip_address' => isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'
+            'user_agent' => isset( $_SERVER['HTTP_USER_AGENT'] ) && is_string( $_SERVER['HTTP_USER_AGENT'] )
+                ? substr( sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ), 0, 255 )
+                : 'unknown',
+            'ip_address' => isset( $_SERVER['REMOTE_ADDR'] ) && is_string( $_SERVER['REMOTE_ADDR'] )
+                ? substr( sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ), 0, 45 )
+                : 'unknown'
         ));
         
         // Log UI status update for force stop request

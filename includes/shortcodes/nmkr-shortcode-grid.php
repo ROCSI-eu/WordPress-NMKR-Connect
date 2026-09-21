@@ -49,8 +49,12 @@ function nmkr_shortcode_grid($atts) {
     $projects = $wpdb->get_results("SELECT * FROM $projects_table");
 
     // Handle token search/filter
-    $search_query = isset($_GET['search_token']) ? sanitize_text_field($_GET['search_token']) : '';
-    $filter_minted = isset($_GET['filter_minted']) ? sanitize_text_field($_GET['filter_minted']) : '';
+    $search_query = isset( $_GET['search_token'] )
+        ? sanitize_text_field( wp_unslash( $_GET['search_token'] ) )
+        : '';
+    $filter_minted = isset( $_GET['filter_minted'] )
+        ? sanitize_text_field( wp_unslash( $_GET['filter_minted'] ) )
+        : '';
 
     // Get tokens using joined query
     $tokens = nmkr_get_project_tokens_joined( $active_project_uid );
