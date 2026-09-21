@@ -40,7 +40,7 @@ The repository does not provide a self-contained Docker, Local, or `wp-env` Word
 
 | Path | Current responsibility |
 | --- | --- |
-| [`nmkr-connect.php`](../nmkr-connect.php) | Bootstrap; plugin constants; activation defaults, schema and roles; explicit module includes; deactivation cleanup; registered uninstall callback; asset and shortcode initialization. |
+| [`connector-for-nmkr.php`](../connector-for-nmkr.php) | Bootstrap; plugin constants; activation defaults, schema and roles; explicit module includes; deactivation cleanup; registered uninstall callback; asset and shortcode initialization. |
 | [`includes/api/`](../includes/api/) | NMKR HTTP request construction, response handling, throttling, and project/token/detail retrieval helpers. |
 | [`includes/database/`](../includes/database/) | Custom-table schema creation and verified upgrades, plus project, token, detail, history, and metric persistence helpers. |
 | [`includes/synchronization/`](../includes/synchronization/) | Run admission/ownership, worker lifecycle, sequential pagination, progress, checkpoints, metrics, failures, recovery, and terminalization; it also contains synchronization AJAX handlers. |
@@ -54,7 +54,7 @@ The repository does not provide a self-contained Docker, Local, or `wp-env` Word
 | [`scripts/`](../scripts/) | Public-safe regressions, private-environment orchestration, WP-CLI checks, and guarded controlled-sync validation. |
 | [`docs/`](./) and [`.github/workflows/`](../.github/workflows/) | Operational/testing documentation and public CI. |
 
-`composer.json` retains project metadata plus the PHP and license requirements used by validation; it has no autoload section and no runtime package dependency. `nmkr-connect.php` explicitly `require_once`s the procedural modules in load order, and the release package does not require `vendor/`.
+`composer.json` retains project metadata plus the PHP and license requirements used by validation; it has no autoload section and no runtime package dependency. `connector-for-nmkr.php` explicitly `require_once`s the procedural modules in load order, and the release package does not require `vendor/`.
 
 ## Core data flows
 

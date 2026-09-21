@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 
 // Define plugin file constant if not already defined
 if (!defined('NMKR_CONNECT_PLUGIN_FILE')) {
-    define('NMKR_CONNECT_PLUGIN_FILE', dirname(dirname(dirname(dirname(__FILE__)))) . '/nmkr-connect.php');
+    define('NMKR_CONNECT_PLUGIN_FILE', dirname(dirname(dirname(dirname(__FILE__)))) . '/connector-for-nmkr.php');
 }
 
 // Include the other settings modules

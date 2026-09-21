@@ -203,7 +203,7 @@ Do not casually delete options, transients, rows, or tables to clear a status. A
 
 ## Project layout
 
-- `nmkr-connect.php` — plugin bootstrap plus activation, deactivation, and registered uninstall callbacks
+- `connector-for-nmkr.php` — plugin bootstrap plus activation, deactivation, and registered uninstall callbacks
 - `includes/api/` — NMKR API client and request helpers
 - `includes/database/` — schema and persistence functions
 - `includes/synchronization/` — run lifecycle, batching, progress, metrics, errors, and recovery

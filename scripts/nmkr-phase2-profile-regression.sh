@@ -370,7 +370,7 @@ target_env="$tmp_dir/target.env"; : >"$target_env"; chmod 600 "$target_env"
 target_log="$tmp_dir/target-calls"
 git_counter_dir="$tmp_dir/git-status-counters"; mkdir "$git_counter_dir"
 runtime_integrity_log="$tmp_dir/runtime-integrity-calls"
-target_base=(env -i PATH="$target_bin:$safe_path" HOME="$synthetic_home" TMPDIR="$synthetic_tmp" REAL_GIT="$real_git" TARGET_CALL_LOG="$target_log" TARGET_REPO="$target_fixture" TARGET_DEPLOYED_REPO="$deployed_fixture" TARGET_ACTIVE_PLUGIN_FILE="$deployed_fixture/nmkr-connect.php" RUNTIME_INTEGRITY_CALL_LOG="$runtime_integrity_log" GIT_STATUS_COUNTER_DIR="$git_counter_dir" WP_BASE_URL=http://invalid.test WP_ADMIN_USER=placeholder WP_ADMIN_PASSWORD=placeholder WP_CLI_BIN="$target_bin/wp" WP_PATH="$tmp_dir/wp" NMKR_PLUGIN_SLUG=nmkr-connect.php NMKR_PHASE2_LOG_DIR="$target_private" NMKR_PHASE2_ENV_FILE="$target_env" NMKR_PHASE2_PROFILE=targeted-readonly NMKR_PHASE2_TARGET_SUITE=settings NMKR_PHASE2_EXPECTED_SOURCE_SHA="$target_sha" NMKR_DEPLOYED_PLUGIN_PATH="$deployed_fixture" NMKR_PHASE2_INSTALL_DEPS=false NMKR_PHASE2_INSTALL_BROWSER=false NMKR_PHASE2_SKIP_DEPLOY=true RUN_REAL_SYNC=false PW_SAVE_ARTIFACTS=false NMKR_RETAIN_AUTH_STATE=false)
+target_base=(env -i PATH="$target_bin:$safe_path" HOME="$synthetic_home" TMPDIR="$synthetic_tmp" REAL_GIT="$real_git" TARGET_CALL_LOG="$target_log" TARGET_REPO="$target_fixture" TARGET_DEPLOYED_REPO="$deployed_fixture" TARGET_ACTIVE_PLUGIN_FILE="$deployed_fixture/connector-for-nmkr.php" RUNTIME_INTEGRITY_CALL_LOG="$runtime_integrity_log" GIT_STATUS_COUNTER_DIR="$git_counter_dir" WP_BASE_URL=http://invalid.test WP_ADMIN_USER=placeholder WP_ADMIN_PASSWORD=placeholder WP_CLI_BIN="$target_bin/wp" WP_PATH="$tmp_dir/wp" NMKR_PLUGIN_SLUG=connector-for-nmkr.php NMKR_PHASE2_LOG_DIR="$target_private" NMKR_PHASE2_ENV_FILE="$target_env" NMKR_PHASE2_PROFILE=targeted-readonly NMKR_PHASE2_TARGET_SUITE=settings NMKR_PHASE2_EXPECTED_SOURCE_SHA="$target_sha" NMKR_DEPLOYED_PLUGIN_PATH="$deployed_fixture" NMKR_PHASE2_INSTALL_DEPS=false NMKR_PHASE2_INSTALL_BROWSER=false NMKR_PHASE2_SKIP_DEPLOY=true RUN_REAL_SYNC=false PW_SAVE_ARTIFACTS=false NMKR_RETAIN_AUTH_STATE=false)
 "${target_base[@]}" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/target-success.output"
 grep -Fx 'run test:e2e:settings' "$target_log" >/dev/null
 ! grep -Fx 'run test:e2e' "$target_log" >/dev/null
@@ -392,7 +392,7 @@ WP_ADMIN_USER=phase2-user-marker
 WP_ADMIN_PASSWORD=phase2-password-marker
 WP_PATH=/phase2-wp-path-marker
 WP_CLI_BIN=$(printf '%q' "$target_bin/wp")
-NMKR_PLUGIN_SLUG=nmkr-connect.php
+NMKR_PLUGIN_SLUG=connector-for-nmkr.php
 NMKR_PHASE2_LOG_DIR=$(printf '%q' "$target_private")
 NMKR_DEPLOYED_PLUGIN_PATH=$(printf '%q' "$deployed_fixture")
 NMKR_PHASE2_INSTALL_DEPS=false
@@ -404,7 +404,7 @@ EOF_PLAIN_ASSIGNMENTS
 chmod 600 "$plain_assignment_env"
 plain_assignment_args=(--stage pre-merge --class high-risk --profile existing-readonly --reviewed-sha "$target_sha" --deployed-sha "$target_sha" --target-suite settings --deploy-mode skip --runtime-integrity false)
 : >"$target_log"
-env -i PATH="$target_bin:$safe_path" HOME="$synthetic_home" TMPDIR="$synthetic_tmp" REAL_GIT="$real_git" TARGET_CALL_LOG="$target_log" TARGET_REPO="$target_fixture" TARGET_DEPLOYED_REPO="$deployed_fixture" TARGET_ACTIVE_PLUGIN_FILE="$deployed_fixture/nmkr-connect.php" RUNTIME_INTEGRITY_CALL_LOG="$runtime_integrity_log" GIT_STATUS_COUNTER_DIR="$git_counter_dir" ASSERT_REQUIRED_CHILD_ENV=true NMKR_PHASE2_ENV_FILE="$plain_assignment_env" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${plain_assignment_args[@]}" >"$tmp_dir/plain-assignment.output"
+env -i PATH="$target_bin:$safe_path" HOME="$synthetic_home" TMPDIR="$synthetic_tmp" REAL_GIT="$real_git" TARGET_CALL_LOG="$target_log" TARGET_REPO="$target_fixture" TARGET_DEPLOYED_REPO="$deployed_fixture" TARGET_ACTIVE_PLUGIN_FILE="$deployed_fixture/connector-for-nmkr.php" RUNTIME_INTEGRITY_CALL_LOG="$runtime_integrity_log" GIT_STATUS_COUNTER_DIR="$git_counter_dir" ASSERT_REQUIRED_CHILD_ENV=true NMKR_PHASE2_ENV_FILE="$plain_assignment_env" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${plain_assignment_args[@]}" >"$tmp_dir/plain-assignment.output"
 grep -F 'result: PASS' "$tmp_dir/plain-assignment.output" >/dev/null
 grep -Fx 'run test:e2e' "$target_log" >/dev/null
 grep -Fx 'nmkr-wpcli-smoke.sh required-child-env PASS' "$target_log" >/dev/null
@@ -525,7 +525,7 @@ run_deployed_fixture="$tmp_dir/run-deployed-fixture"
 deploy_command="printf 'call\\n' >>'$deploy_count'; '$real_git' clone -q '$target_fixture' '$run_deployed_fixture'"
 run_args=(--stage pre-merge --class test-tooling --profile targeted-readonly --reviewed-sha "$target_sha" --deployed-sha "$target_sha" --target-suite settings --deploy-mode run --runtime-integrity false)
 : >"$target_log"
-"${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE NMKR_DEPLOYED_PLUGIN_PATH="$run_deployed_fixture" TARGET_ACTIVE_PLUGIN_FILE="$run_deployed_fixture/nmkr-connect.php" NMKR_DEPLOY_COMMAND="$deploy_command" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${run_args[@]}" >"$tmp_dir/operator-deploy.output"
+"${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE NMKR_DEPLOYED_PLUGIN_PATH="$run_deployed_fixture" TARGET_ACTIVE_PLUGIN_FILE="$run_deployed_fixture/connector-for-nmkr.php" NMKR_DEPLOY_COMMAND="$deploy_command" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${run_args[@]}" >"$tmp_dir/operator-deploy.output"
 test "$(wc -l <"$deploy_count")" = 1
 grep -F 'deploy: PASS' "$tmp_dir/operator-deploy.output" >/dev/null
 ! grep -F "$deploy_command" "$tmp_dir/operator-deploy.output" >/dev/null
@@ -540,7 +540,7 @@ grep -F 'failed step: preflight' "$tmp_dir/operator-missing-path.output" >/dev/n
 # Deployment is invoked once, then an incorrect active binding fails at the
 # deploy-integrity boundary before any functional command can start.
 rm -rf "$run_deployed_fixture"; : >"$target_log"; rm -f "$deploy_count"
-if "${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE NMKR_DEPLOYED_PLUGIN_PATH="$run_deployed_fixture" TARGET_ACTIVE_PLUGIN_FILE="$target_fixture/nmkr-connect.php" NMKR_DEPLOY_COMMAND="$deploy_command" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${run_args[@]}" >"$tmp_dir/operator-binding-failure.output" 2>&1; then exit 1; fi
+if "${target_base[@]}" env -u NMKR_PHASE2_PROFILE -u NMKR_PHASE2_TARGET_SUITE NMKR_DEPLOYED_PLUGIN_PATH="$run_deployed_fixture" TARGET_ACTIVE_PLUGIN_FILE="$target_fixture/connector-for-nmkr.php" NMKR_DEPLOY_COMMAND="$deploy_command" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" "${run_args[@]}" >"$tmp_dir/operator-binding-failure.output" 2>&1; then exit 1; fi
 test "$(wc -l <"$deploy_count")" = 1
 grep -F 'failed step: deploy-integrity' "$tmp_dir/operator-binding-failure.output" >/dev/null
 grep -F 'rollback: NOT_ATTEMPTED' "$tmp_dir/operator-binding-failure.output" >/dev/null
@@ -605,7 +605,7 @@ grep -F 'deployed-integrity: SKIPPED' "$tmp_dir/existing-compatible.output" >/de
 
 # A clean clone is insufficient unless the selected WordPress installation's
 # active plugin resolves canonically to that deployed worktree.
-if "${target_base[@]}" TARGET_ACTIVE_PLUGIN_FILE="$target_fixture/nmkr-connect.php" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/target-binding-mismatch.output" 2>&1; then exit 1; fi
+if "${target_base[@]}" TARGET_ACTIVE_PLUGIN_FILE="$target_fixture/connector-for-nmkr.php" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/target-binding-mismatch.output" 2>&1; then exit 1; fi
 grep -F 'failed step: preflight' "$tmp_dir/target-binding-mismatch.output" >/dev/null
 ! grep -F "$target_fixture" "$tmp_dir/target-binding-mismatch.output" >/dev/null
 for mode in failure malformed; do
@@ -693,7 +693,7 @@ for profile in general existing-readonly; do
   : >"$runtime_integrity_log"; : >"$target_log"
   profile_value=""; suite_value=""
   [[ "$profile" != existing-readonly ]] || profile_value=existing-readonly
-  if "${target_base[@]/NMKR_PHASE2_PROFILE=targeted-readonly/NMKR_PHASE2_PROFILE=$profile_value}" NMKR_PHASE2_TARGET_SUITE="$suite_value" NMKR_PHASE2_RUNTIME_INTEGRITY=true TARGET_ACTIVE_PLUGIN_FILE="$target_fixture/nmkr-connect.php" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/runtime-binding-mismatch-$profile.output" 2>&1; then exit 1; fi
+  if "${target_base[@]/NMKR_PHASE2_PROFILE=targeted-readonly/NMKR_PHASE2_PROFILE=$profile_value}" NMKR_PHASE2_TARGET_SUITE="$suite_value" NMKR_PHASE2_RUNTIME_INTEGRITY=true TARGET_ACTIVE_PLUGIN_FILE="$target_fixture/connector-for-nmkr.php" bash "$target_fixture/scripts/nmkr-phase2-test-runner.sh" >"$tmp_dir/runtime-binding-mismatch-$profile.output" 2>&1; then exit 1; fi
   grep -F 'failed step: runtime-integrity' "$tmp_dir/runtime-binding-mismatch-$profile.output" >/dev/null
   test ! -s "$runtime_integrity_log"
 

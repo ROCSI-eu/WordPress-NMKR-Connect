@@ -24,7 +24,8 @@ Current release-identity decisions:
 
 - display name: `Connector for NMKR`;
 - candidate directory slug/text domain/package directory: `connector-for-nmkr`;
-- main plugin filename retained for compatibility: `nmkr-connect.php`;
+- earlier M5-D15 filename decision: retain `nmkr-connect.php` for compatibility — superseded before submission by M5-D17 / issue #126;
+- current canonical public main plugin filename: `connector-for-nmkr.php`;
 - version: `0.25.0` under the repository [versioning policy](../versioning.md);
 - established `nmkr_*` runtime/data contracts remain stable;
 - `connector-for-nmkr` is not claimed approved, assigned, reserved, or published by WordPress.org.
