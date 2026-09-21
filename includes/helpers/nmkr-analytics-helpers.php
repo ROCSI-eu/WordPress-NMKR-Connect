@@ -36,7 +36,9 @@ function nmkr_get_analytics_pepper() {
 function nmkr_hash_ip_address($ip_address = '') {
     // Allow optional parameter; if empty, derive from server vars
     if (empty($ip_address) || !is_string($ip_address)) {
-        $ip_address = isset($_SERVER['REMOTE_ADDR']) ? (string) $_SERVER['REMOTE_ADDR'] : '';
+        $ip_address = isset( $_SERVER['REMOTE_ADDR'] )
+            ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) )
+            : '';
     }
     if ($ip_address === '') {
         return '';
@@ -441,11 +443,17 @@ function nmkr_analytics_ingest_common( $body, $source = 'rest' ) {
     }
 
 	// 3) Origin check (same host; normalize hostnames and ignore port)
-	$host_expected = parse_url( home_url(), PHP_URL_HOST );
-	$origin        = isset( $_SERVER['HTTP_ORIGIN'] ) ? (string) $_SERVER['HTTP_ORIGIN'] : '';
-	$origin_h      = $origin ? parse_url( $origin, PHP_URL_HOST ) : '';
-	$host_hdr      = isset( $_SERVER['HTTP_HOST'] ) ? (string) $_SERVER['HTTP_HOST'] : '';
-	$xfh_raw       = isset( $_SERVER['HTTP_X_FORWARDED_HOST'] ) ? (string) $_SERVER['HTTP_X_FORWARDED_HOST'] : '';
+	$host_expected = wp_parse_url( home_url(), PHP_URL_HOST );
+	$origin        = isset( $_SERVER['HTTP_ORIGIN'] )
+		? sanitize_text_field( wp_unslash( $_SERVER['HTTP_ORIGIN'] ) )
+		: '';
+	$origin_h      = $origin ? wp_parse_url( $origin, PHP_URL_HOST ) : '';
+	$host_hdr      = isset( $_SERVER['HTTP_HOST'] )
+		? sanitize_text_field( wp_unslash( $_SERVER['HTTP_HOST'] ) )
+		: '';
+	$xfh_raw       = isset( $_SERVER['HTTP_X_FORWARDED_HOST'] )
+		? sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_FORWARDED_HOST'] ) )
+		: '';
 
 	$normalize_host = function( $h ) {
 		$h = strtolower( (string) $h );
@@ -481,14 +489,20 @@ function nmkr_analytics_ingest_common( $body, $source = 'rest' ) {
 
     // Consent, DNT, and sampling (server-side guardrails)
     $requires_consent   = function_exists('nmkr_analytics_requires_consent') ? nmkr_analytics_requires_consent() : false;
-    $has_consent_cookie = ( isset($_COOKIE['nmkr_analytics_consent']) && sanitize_text_field($_COOKIE['nmkr_analytics_consent']) === '1' );
+    $has_consent_cookie = (
+        isset( $_COOKIE['nmkr_analytics_consent'] )
+        && '1' === sanitize_text_field( wp_unslash( $_COOKIE['nmkr_analytics_consent'] ) )
+    );
 
     if ( $requires_consent && ! $has_consent_cookie ) {
         return new WP_REST_Response( null, 204 );
     }
 
     // Respect browser Do Not Track when present
-    if ( isset($_SERVER['HTTP_DNT']) && $_SERVER['HTTP_DNT'] === '1' ) {
+    $dnt = isset( $_SERVER['HTTP_DNT'] )
+        ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_DNT'] ) )
+        : '';
+    if ( '1' === $dnt ) {
         return new WP_REST_Response( null, 204 );
     }
 
@@ -505,8 +519,12 @@ function nmkr_analytics_ingest_common( $body, $source = 'rest' ) {
     }
 
     // 4) Prepare metadata (server side)
-    $ua        = isset( $_SERVER['HTTP_USER_AGENT'] ) ? substr( (string) $_SERVER['HTTP_USER_AGENT'], 0, 255 ) : '';
-    $ref       = isset( $_SERVER['HTTP_REFERER'] )     ? substr( (string) $_SERVER['HTTP_REFERER'], 0, 255 ) : '';
+    $ua = isset( $_SERVER['HTTP_USER_AGENT'] )
+        ? substr( sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ), 0, 255 )
+        : '';
+    $ref = isset( $_SERVER['HTTP_REFERER'] )
+        ? substr( sanitize_text_field( wp_unslash( $_SERVER['HTTP_REFERER'] ) ), 0, 255 )
+        : '';
 
     // 5) Anonymize IP and derive user id if allowed
     $ip_hash_hex = '';
