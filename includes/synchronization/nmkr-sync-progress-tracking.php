@@ -897,6 +897,24 @@ function nmkr_sync_data_complete($success = true, $error_message = '', $final = 
             } else {
                 $end_time = $history['end_time'];
             }
+
+            // A pre-v3 terminal row can be awaiting final cleanup when schema v3
+            // adds these columns. The durable finalization record is authoritative
+            // for this exact run, so populate only the migration-added unknowns
+            // before publishing terminal sync data.
+            $legacy_counter_update = array();
+            foreach (array('items_skipped', 'token_details_synced') as $counter) {
+                if (($history[$counter] ?? null) === null) {
+                    if (!array_key_exists($counter, $final) || !is_numeric($final[$counter])) {
+                        return false;
+                    }
+                    $legacy_counter_update[$counter] = (int) $final[$counter];
+                }
+            }
+            if (!empty($legacy_counter_update)
+                && !nmkr_update_sync_stats($sync_stats_id, $legacy_counter_update)) {
+                return false;
+            }
         }
 
         if ($success) {
