@@ -178,7 +178,7 @@ check_column() {
 for column in id project_uid project_name state synced_at hash; do check_column "$projects_table" "$column"; done
 for column in id token_uid project_uid token_name state synced_at hash; do check_column "$tokens_table" "$column"; done
 for column in id token_uid receiver_address sell_date synced_at hash; do check_column "$token_details_table" "$column"; done
-for column in id sync_type start_time end_time status items_processed items_successful items_failed failure_breakdown updated_at; do check_column "$sync_stats_table" "$column"; done
+for column in id sync_type start_time end_time status items_processed items_successful items_failed items_skipped token_details_synced failure_breakdown updated_at; do check_column "$sync_stats_table" "$column"; done
 for column in id last_sync_time total_projects total_tokens total_sync_duration total_api_time average_response_time api_requests memory_usage created_at; do check_column "$metrics_table" "$column"; done
 for column in id event_ts event_type shortcode_type site_id meta_json created_at; do check_column "$analytics_table" "$column"; done
 info "Required schema columns exist."
@@ -301,7 +301,7 @@ assert_zero_count "Token detail relationship" "SELECT COUNT(*) FROM ${token_deta
 assert_zero_count "Project negative counts" "SELECT COUNT(*) FROM ${projects_ident} WHERE free < 0 OR sold < 0 OR reserved < 0 OR total < 0 OR blocked < 0 OR total_blocked < 0 OR total_tokens < 0;"
 assert_zero_count "Token negative numeric values" "SELECT COUNT(*) FROM ${tokens_ident} WHERE token_amount < 0 OR price < 0;"
 assert_zero_count "Sync metrics impossible values" "SELECT COUNT(*) FROM ${metrics_ident} WHERE total_projects < 0 OR total_tokens < 0 OR total_sync_duration < 0 OR total_api_time < 0 OR average_response_time < 0 OR api_requests < 0 OR memory_usage < 0 OR last_sync_time IS NULL;"
-assert_zero_count "Sync stats impossible values" "SELECT COUNT(*) FROM ${sync_stats_ident} WHERE start_time IS NULL OR items_processed < 0 OR items_successful < 0 OR items_failed < 0 OR (end_time IS NOT NULL AND end_time < start_time);"
+assert_zero_count "Sync stats impossible values" "SELECT COUNT(*) FROM ${sync_stats_ident} WHERE start_time IS NULL OR items_processed < 0 OR items_successful < 0 OR items_failed < 0 OR items_skipped < 0 OR token_details_synced < 0 OR (end_time IS NOT NULL AND end_time < start_time);"
 assert_zero_count "Completed sync stats end_time" "SELECT COUNT(*) FROM ${sync_stats_ident} WHERE status IN ('completed','success') AND (end_time IS NULL OR end_time = '');"
 assert_zero_count "Completed sync stats item totals" "SELECT COUNT(*) FROM ${sync_stats_ident} WHERE status IN ('completed','success') AND items_processed > 0 AND (items_successful + items_failed) > items_processed;"
 

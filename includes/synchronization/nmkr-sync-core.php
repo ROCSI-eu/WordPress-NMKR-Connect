@@ -1252,7 +1252,9 @@ function nmkr_sync_data($run_id = '') {
                 'status' => 'initializing',
                 'items_processed' => 0,
                 'items_successful' => 0,
-                'items_failed' => 0
+                'items_failed' => 0,
+                'items_skipped' => 0,
+                'token_details_synced' => 0
             ]);
             
             if (!$sync_stats_id) {

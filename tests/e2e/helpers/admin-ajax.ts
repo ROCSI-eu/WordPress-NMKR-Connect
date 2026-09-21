@@ -108,6 +108,15 @@ export function defaultSyncStatisticsPayload(
       memory_usage_raw: 0,
       response_time_class: "status-neutral",
       memory_class: "status-neutral",
+      latest_run: {
+        status: "completed",
+        terminal_result: "success",
+        items_processed: 0,
+        items_successful: 0,
+        items_failed: 0,
+        items_skipped: 0,
+        token_details_synced: 0,
+      },
       ...overrides,
     },
   };

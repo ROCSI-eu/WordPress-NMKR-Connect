@@ -12,6 +12,27 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+/** Return only the approved latest history projection for dashboard display. */
+function nmkr_get_latest_run_projection() {
+    $rows = nmkr_get_recent_sync_stats(1);
+    if (!is_array($rows) || empty($rows[0]) || !is_array($rows[0])) return null;
+    $row = $rows[0];
+    $status = strtolower((string) ($row['status'] ?? ''));
+    $projection = array('status' => $status);
+    foreach (array('items_processed', 'items_successful', 'items_failed', 'items_skipped', 'token_details_synced') as $counter) {
+        $projection[$counter] = array_key_exists($counter, $row) && $row[$counter] !== null ? (int) $row[$counter] : null;
+    }
+    $projection['terminal_result'] = nmkr_derive_sync_terminal_result($status, $projection);
+    if (!empty($row['end_time'])) $projection['end_time'] = (string) $row['end_time'];
+    return $projection;
+}
+
+/** Attach the safe latest-run projection without changing performance fields. */
+function nmkr_with_latest_run($stats) {
+    $stats['latest_run'] = nmkr_get_latest_run_projection();
+    return $stats;
+}
+
 // Function to get the latest sync time from the database
 function nmkr_get_last_sync_time() {
     $metrics = nmkr_get_last_sync_metrics();
@@ -47,7 +68,7 @@ function nmkr_get_sync_statistics() {
     
     // If we have no metrics but we do have a last sync time in options, create basic metrics
     if (!$last_sync_metrics && !empty($last_successful_sync_time)) {
-        return array(
+        return nmkr_with_latest_run(array(
             'last_sync_time' => date('Y-m-d H:i:s', strtotime($last_successful_sync_time)),
             'total_projects' => '-',
             'total_tokens' => '-',
@@ -58,10 +79,10 @@ function nmkr_get_sync_statistics() {
             'memory_usage' => '-',
             'response_time_class' => 'status-neutral',
             'memory_class' => 'status-neutral'
-        );
+        ));
     } else if (!$last_sync_metrics) {
         // No sync metrics and no last sync time - truly no sync yet
-        return array(
+        return nmkr_with_latest_run(array(
             'last_sync_time' => 'No synchronization done yet',
             'total_projects' => '-',
             'total_tokens' => '-',
@@ -72,11 +93,11 @@ function nmkr_get_sync_statistics() {
             'memory_usage' => '-',
             'response_time_class' => 'status-neutral',
             'memory_class' => 'status-neutral'
-        );
+        ));
     }
 
     // Format the stats for display
-    return array(
+    return nmkr_with_latest_run(array(
         'last_sync_time' => date('Y-m-d H:i:s', strtotime($last_sync_metrics['last_sync_time'])),
         'total_projects' => $last_sync_metrics['total_projects'],
         'total_tokens' => $last_sync_metrics['total_tokens'],
@@ -88,7 +109,7 @@ function nmkr_get_sync_statistics() {
         'memory_usage' => $last_sync_metrics['memory_usage'] . 'MB',
         'response_time_class' => nmkr_get_response_time_color_class($last_sync_metrics['average_response_time']),
         'memory_class' => nmkr_get_memory_color_class($last_sync_metrics['memory_usage'])
-    );
+    ));
 }
 
 /**
