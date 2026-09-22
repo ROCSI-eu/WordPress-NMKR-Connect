@@ -227,8 +227,8 @@ function nmkr_analytics_kpis_ajax() {
     nmkr_analytics_admin_ajax_guard(array('content' => 'json'));
     $request = nmkr_analytics_admin_request();
 
-    // Avoid stray output corrupting JSON
-    $__prev_display_errors = ini_get('display_errors'); @ini_set('display_errors','0'); ob_start();
+    // Guard JSON output against stray PHP notices/warnings.
+    $__nmkr_response_guard = nmkr_begin_response_output_guard();
 
     global $wpdb;
     $table = $wpdb->prefix . 'nmkr_analytics';
@@ -247,7 +247,7 @@ function nmkr_analytics_kpis_ajax() {
     if ($use_cache) {
         $cached = get_transient($cache_key);
         if ($cached !== false) {
-            ob_end_clean(); @ini_set('display_errors', $__prev_display_errors);
+            nmkr_end_response_output_guard($__nmkr_response_guard);
             wp_send_json_success($cached);
         }
     }
@@ -282,7 +282,7 @@ function nmkr_analytics_kpis_ajax() {
         set_transient($cache_key, $resp, nmkr_analytics_cache_ttl());
     }
 
-    ob_end_clean(); @ini_set('display_errors', $__prev_display_errors);
+    nmkr_end_response_output_guard($__nmkr_response_guard);
     wp_send_json_success($resp);
 }
 
@@ -294,7 +294,7 @@ function nmkr_analytics_timeseries_ajax() {
     nmkr_analytics_admin_ajax_guard(array('content' => 'json'));
     $request = nmkr_analytics_admin_request();
 
-    $__prev_display_errors = ini_get('display_errors'); @ini_set('display_errors','0'); ob_start();
+    $__nmkr_response_guard = nmkr_begin_response_output_guard();
 
     global $wpdb;
     $table  = $wpdb->prefix . 'nmkr_analytics';
@@ -313,7 +313,7 @@ function nmkr_analytics_timeseries_ajax() {
     if ($use_cache) {
         $cached = get_transient($cache_key);
         if ($cached !== false) {
-            ob_end_clean(); @ini_set('display_errors', $__prev_display_errors);
+            nmkr_end_response_output_guard($__nmkr_response_guard);
             wp_send_json_success($cached);
         }
     }
@@ -357,7 +357,7 @@ function nmkr_analytics_timeseries_ajax() {
         set_transient($cache_key, $resp, nmkr_analytics_cache_ttl());
     }
 
-    ob_end_clean(); @ini_set('display_errors', $__prev_display_errors);
+    nmkr_end_response_output_guard($__nmkr_response_guard);
     wp_send_json_success($resp);
 }
 
@@ -404,7 +404,7 @@ function nmkr_analytics_top_projects_ajax() {
     nmkr_analytics_admin_ajax_guard(array('content' => 'json'));
     $request = nmkr_analytics_admin_request();
 
-    $__prev_display_errors = ini_get('display_errors'); @ini_set('display_errors','0'); ob_start();
+    $__nmkr_response_guard = nmkr_begin_response_output_guard();
     global $wpdb;
     $table = $wpdb->prefix . 'nmkr_analytics';
 
@@ -433,7 +433,7 @@ function nmkr_analytics_top_projects_ajax() {
     if ($use_cache) {
         $cached = get_transient($cache_key);
         if ($cached !== false) {
-            ob_end_clean(); @ini_set('display_errors', $__prev_display_errors);
+            nmkr_end_response_output_guard($__nmkr_response_guard);
             wp_send_json_success($cached);
         }
     }
@@ -494,7 +494,7 @@ function nmkr_analytics_top_projects_ajax() {
         set_transient($cache_key, $resp, nmkr_analytics_cache_ttl());
     }
 
-    ob_end_clean(); @ini_set('display_errors', $__prev_display_errors);
+    nmkr_end_response_output_guard($__nmkr_response_guard);
     wp_send_json_success($resp);
 }
 
@@ -505,7 +505,7 @@ function nmkr_analytics_top_tokens_ajax() {
     nmkr_analytics_admin_ajax_guard(array('content' => 'json'));
     $request = nmkr_analytics_admin_request();
 
-    $__prev_display_errors = ini_get('display_errors'); @ini_set('display_errors','0'); ob_start();
+    $__nmkr_response_guard = nmkr_begin_response_output_guard();
     global $wpdb;
     $table = $wpdb->prefix . 'nmkr_analytics';
 
@@ -529,7 +529,7 @@ function nmkr_analytics_top_tokens_ajax() {
     if ($use_cache) {
         $cached = get_transient($cache_key);
         if ($cached !== false) {
-            ob_end_clean(); @ini_set('display_errors', $__prev_display_errors);
+            nmkr_end_response_output_guard($__nmkr_response_guard);
             wp_send_json_success($cached);
         }
     }
@@ -584,7 +584,7 @@ function nmkr_analytics_top_tokens_ajax() {
         set_transient($cache_key, $resp, nmkr_analytics_cache_ttl());
     }
 
-    ob_end_clean(); @ini_set('display_errors', $__prev_display_errors);
+    nmkr_end_response_output_guard($__nmkr_response_guard);
     wp_send_json_success($resp);
 }
 
@@ -595,7 +595,7 @@ function nmkr_analytics_breakdown_ajax() {
     nmkr_analytics_admin_ajax_guard(array('content' => 'json'));
     $request = nmkr_analytics_admin_request();
 
-    $__prev_display_errors = ini_get('display_errors'); @ini_set('display_errors','0'); ob_start();
+    $__nmkr_response_guard = nmkr_begin_response_output_guard();
     global $wpdb;
     $table = $wpdb->prefix . 'nmkr_analytics';
 
@@ -616,7 +616,7 @@ function nmkr_analytics_breakdown_ajax() {
     if ($use_cache) {
         $cached = get_transient($cache_key);
         if ($cached !== false) {
-            ob_end_clean(); @ini_set('display_errors', $__prev_display_errors);
+            nmkr_end_response_output_guard($__nmkr_response_guard);
             wp_send_json_success($cached);
         }
     }
@@ -660,7 +660,7 @@ function nmkr_analytics_breakdown_ajax() {
         set_transient($cache_key, $resp, nmkr_analytics_cache_ttl());
     }
 
-    ob_end_clean(); @ini_set('display_errors', $__prev_display_errors);
+    nmkr_end_response_output_guard($__nmkr_response_guard);
     wp_send_json_success($resp);
 }
 
@@ -682,7 +682,7 @@ function nmkr_analytics_export_ajax() {
     nmkr_analytics_admin_ajax_guard(array('content' => 'none'));
     $request = nmkr_analytics_admin_request();
 
-    $__prev_display_errors = ini_get('display_errors'); @ini_set('display_errors','0'); ob_start();
+    $__nmkr_response_guard = nmkr_begin_response_output_guard();
 
     $entity = strtolower( $request['entity'] ?? 'timeseries' );
     $format = strtolower( $request['format'] ?? 'csv' );
@@ -734,7 +734,7 @@ function nmkr_analytics_export_ajax() {
             $r['ctr']    = ($v > 0) ? round(($c / $v) * 100, 2) : 0.0;
         } unset($r);
 
-        return nmkr_analytics_stream_export($format, $fname, array('bucket','views','clicks','ctr'), $rows);
+        return nmkr_analytics_stream_export($format, $fname, array('bucket','views','clicks','ctr'), $rows, $__nmkr_response_guard);
     }
 
     if ($entity === 'breakdown') {
@@ -758,7 +758,7 @@ function nmkr_analytics_export_ajax() {
             $r['ctr']    = ($v > 0) ? round(((float)$r['ctr']) * 100, 2) : 0.0;
         } unset($r);
 
-        return nmkr_analytics_stream_export($format, $fname, array('shortcode_type','views','clicks','ctr'), $rows);
+        return nmkr_analytics_stream_export($format, $fname, array('shortcode_type','views','clicks','ctr'), $rows, $__nmkr_response_guard);
     }
 
     // Common for top_projects / top_tokens
@@ -802,7 +802,7 @@ function nmkr_analytics_export_ajax() {
     } unset($r);
 
     $headers = array($uid_col, 'views', 'clicks', 'ctr');
-    return nmkr_analytics_stream_export($format, $fname, $headers, $rows);
+    return nmkr_analytics_stream_export($format, $fname, $headers, $rows, $__nmkr_response_guard);
 }
 
 /**
@@ -811,9 +811,10 @@ function nmkr_analytics_export_ajax() {
  * @param string $fname  filename base (no extension)
  * @param array  $headers ordered column keys
  * @param array  $rows    list of associative arrays
+ * @param array  $response_guard Response-guard state for this export request.
  */
-function nmkr_analytics_stream_export($format, $fname, $headers, $rows) {
-    ob_end_clean();
+function nmkr_analytics_stream_export($format, $fname, $headers, $rows, $response_guard) {
+    nmkr_end_response_output_guard($response_guard);
 
     if ($format === 'json') {
         header('Content-Type: application/json; charset=utf-8');

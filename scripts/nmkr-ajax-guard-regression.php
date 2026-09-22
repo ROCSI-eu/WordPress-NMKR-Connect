@@ -74,6 +74,13 @@ function current_user_can($cap) { $GLOBALS['nmkr_calls'][]='cap:'.$cap; return !
 function wp_send_json_error($data=null, $status=0) { throw new NmkrAjaxTermination('error', (int)$status, $data); }
 function wp_send_json_success($data=null, $status=0) { throw new NmkrAjaxTermination('success', (int)$status, $data); }
 function wp_die() { throw new NmkrAjaxTermination('die'); }
+function nmkr_begin_response_output_guard() {
+    return array(
+        'buffer_level' => ob_get_level(),
+        'display_errors' => ini_get('display_errors'),
+    );
+}
+function nmkr_end_response_output_guard($guard) {}
 function __($text, $domain=null) { return $text; }
 function nocache_headers() { $GLOBALS['nmkr_calls'][]='headers'; }
 function status_header($status) { $GLOBALS['nmkr_calls'][]='status'; }

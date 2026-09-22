@@ -335,10 +335,8 @@ function nmkr_sync_progress_handler() {
     
     nmkr_log_ui_status('AJAX HANDLER: nmkr_sync_progress_handler called by process ' . nmkr_safe_getpid(), 'debug');
     
-    // Begin a scoped output buffer to prevent stray output from corrupting JSON
-    $__nmkr_prev_display_errors = ini_get('display_errors');
-    @ini_set('display_errors', '0');
-    ob_start();
+    // Begin a scoped response guard so stray PHP output cannot corrupt JSON.
+    $__nmkr_response_guard = nmkr_begin_response_output_guard();
     
     try {
         // ** ENHANCED ERROR HANDLING: Parameter Validation **
@@ -415,9 +413,8 @@ function nmkr_sync_progress_handler() {
             }
         } catch (Exception $e) {
             nmkr_log_data_sync('Progress handler error: Failed to retrieve sync options - ' . $e->getMessage(), 'error');
-            // Clean any stray output captured during handler execution
-            if (ob_get_length()) { ob_clean(); }
-            if ($__nmkr_prev_display_errors !== false) { @ini_set('display_errors', $__nmkr_prev_display_errors); }
+            // Discard stray output and restore the prior display_errors value.
+            nmkr_end_response_output_guard($__nmkr_response_guard);
             wp_send_json_error(array(
                 'message' => __('Synchronization status is temporarily unavailable.', 'connector-for-nmkr'),
                 'error_code' => 'option_retrieval_failed'
@@ -789,8 +786,7 @@ function nmkr_sync_progress_handler() {
     // through the authoritative canonical payload above.
     if (!empty($error) && !$verified_failed_terminal && !$active_direct_owner) {
         nmkr_log_data_sync('Progress handler: Critical sync error detected - ' . $error, 'warning');
-        if (ob_get_length()) { ob_clean(); }
-        if ($__nmkr_prev_display_errors !== false) { @ini_set('display_errors', $__nmkr_prev_display_errors); }
+        nmkr_end_response_output_guard($__nmkr_response_guard);
         wp_send_json_error(array(
             'message' => __('Synchronization encountered a critical error.', 'connector-for-nmkr'),
             'error_code' => 'sync_critical_error',
@@ -820,17 +816,17 @@ function nmkr_sync_progress_handler() {
         'updated_at'            => isset($current_stats['updated_at']) ? (int) $current_stats['updated_at'] : time(),
     );
 
-    // Clean any stray output captured during handler execution
-    if (ob_get_length()) { ob_clean(); }
-    if ($__nmkr_prev_display_errors !== false) { @ini_set('display_errors', $__nmkr_prev_display_errors); }
+    // Discard stray output and restore the prior display_errors value.
+    nmkr_end_response_output_guard($__nmkr_response_guard);
     wp_send_json_success($response_data);
     
     } catch (Exception $e) {
         // ** FINAL CATCH: Handle any unexpected errors in progress handler **
         $error_msg = 'Critical error in sync progress handler: ' . $e->getMessage();
-        $buf = '';
-        if (ob_get_length()) { $buf = ob_get_clean(); }
-        if ($__nmkr_prev_display_errors !== false) { @ini_set('display_errors', $__nmkr_prev_display_errors); }
+        $buf = ob_get_level() > (int) ($__nmkr_response_guard['buffer_level'] ?? 0)
+            ? (string) ob_get_contents()
+            : '';
+        nmkr_end_response_output_guard($__nmkr_response_guard);
         nmkr_log_data_sync('Progress handler buffered output: ' . substr($buf, 0, 300), 'warning');
         nmkr_log_data_sync($error_msg, 'error', array(
             'exception' => $e->getMessage(),

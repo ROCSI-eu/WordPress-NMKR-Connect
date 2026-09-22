@@ -163,10 +163,8 @@ function nmkr_get_sync_statistics_ajax() {
     nocache_headers();
     header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
     
-    // Begin scoped buffer and suppress display errors to prevent stray output corrupting JSON
-    $__nmkr_prev_display_errors = ini_get('display_errors');
-    @ini_set('display_errors', '0');
-    ob_start();
+    // Begin a scoped response guard so stray PHP output cannot corrupt JSON.
+    $__nmkr_response_guard = nmkr_begin_response_output_guard();
     
     $type = isset( $_POST['type'] ) && is_scalar( $_POST['type'] )
         ? sanitize_text_field( wp_unslash( $_POST['type'] ) )
@@ -244,8 +242,7 @@ function nmkr_get_sync_statistics_ajax() {
             nmkr_log_ui_status($log_message, 'info');
             
             $response = $formatted_metrics;
-            if (ob_get_length()) { ob_clean(); }
-            if ($__nmkr_prev_display_errors !== false) { @ini_set('display_errors', $__nmkr_prev_display_errors); }
+            nmkr_end_response_output_guard($__nmkr_response_guard);
             wp_send_json_success($response);
         } else {
             // No active sync, return empty state with all 7 metrics
@@ -266,8 +263,7 @@ function nmkr_get_sync_statistics_ajax() {
                 'response_time_class' => 'status-neutral',
                 'memory_class' => 'status-neutral'
             );
-            if (ob_get_length()) { ob_clean(); }
-            if ($__nmkr_prev_display_errors !== false) { @ini_set('display_errors', $__nmkr_prev_display_errors); }
+            nmkr_end_response_output_guard($__nmkr_response_guard);
             wp_send_json_success($response);
         }
     } else {
@@ -334,8 +330,7 @@ function nmkr_get_sync_statistics_ajax() {
         }
         
         $response = $stats;
-        if (ob_get_length()) { ob_clean(); }
-        if ($__nmkr_prev_display_errors !== false) { @ini_set('display_errors', $__nmkr_prev_display_errors); }
+        nmkr_end_response_output_guard($__nmkr_response_guard);
         wp_send_json_success($response);
     }
     

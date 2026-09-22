@@ -204,6 +204,52 @@ function nmkr_trim_dashboard_logs_to_retention($limit = null) {
 }
 
 /**
+ * Begin a request-scoped response guard for JSON/CSV endpoints.
+ *
+ * The guard owns only the output buffer it opens and preserves the prior
+ * display_errors value for explicit restoration before the response is sent.
+ *
+ * @return array Response-guard state.
+ */
+function nmkr_begin_response_output_guard() {
+    $guard = array(
+        'buffer_level' => ob_get_level(),
+        'display_errors' => ini_get('display_errors'),
+    );
+
+    if (false !== $guard['display_errors']) {
+        // phpcs:ignore PluginCheck.CodeAnalysis.PHPErrorReporting.IniDirectiveDisplay_errors,Squiz.PHP.DiscouragedFunctions.Discouraged -- Request-scoped response hardening; restored by nmkr_end_response_output_guard().
+        @ini_set('display_errors', '0');
+    }
+
+    ob_start();
+
+    return $guard;
+}
+
+/**
+ * Discard guarded stray output and restore the prior display_errors value.
+ *
+ * @param array $guard State returned by nmkr_begin_response_output_guard().
+ * @return void
+ */
+function nmkr_end_response_output_guard($guard) {
+    if (!is_array($guard)) {
+        return;
+    }
+
+    $buffer_level = isset($guard['buffer_level']) ? max(0, (int) $guard['buffer_level']) : ob_get_level();
+    while (ob_get_level() > $buffer_level) {
+        ob_end_clean();
+    }
+
+    if (array_key_exists('display_errors', $guard) && false !== $guard['display_errors']) {
+        // phpcs:ignore PluginCheck.CodeAnalysis.PHPErrorReporting.IniDirectiveDisplay_errors,Squiz.PHP.DiscouragedFunctions.Discouraged -- Restore the exact request-scoped value captured by nmkr_begin_response_output_guard().
+        @ini_set('display_errors', (string) $guard['display_errors']);
+    }
+}
+
+/**
  * Format bounded diagnostic values without PHP development-output helpers.
  *
  * @param mixed $value Diagnostic value.
