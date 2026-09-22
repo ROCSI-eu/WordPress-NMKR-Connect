@@ -187,7 +187,7 @@ function nmkr_shortcode_list($atts) {
         // Token status using helper
         $status_label = nmkr_token_status_label( $token );
         $status_class = strtolower($status_label);
-        $output .= '<td><span class="nmkr-token-status ' . $status_class . '">' . esc_html($status_label) . '</span></td>';
+        $output .= '<td><span class="nmkr-token-status ' . esc_attr( $status_class ) . '">' . esc_html($status_label) . '</span></td>';
 
         // Token price
         $output .= '<td>';

@@ -160,13 +160,13 @@ function nmkr_shortcode_project($atts) {
     // Project links - always use project_url (not website)
     $output .= '<div class="nmkr-project-links">';
     if (!empty($project->policy_id)) {
-        $output .= '<a href="https://cardanoscan.io/tokenPolicy/' . esc_html($project->policy_id) . '" class="nmkr-project-link" target="_blank">View on CardanoScan</a>';
+        $output .= '<a href="' . esc_url( 'https://cardanoscan.io/tokenPolicy/' . rawurlencode( (string) $project->policy_id ) ) . '" class="nmkr-project-link" target="_blank">View on CardanoScan</a>';
     }
     if ( ! empty( $project->project_url ) ) {
         $output .= '<a class="nmkr-project-link" target="_blank" href="' . esc_url( $project->project_url ) . '">' . esc_html__( 'Website', 'rocsi-connector-for-nmkr' ) . '</a>';
     }
     if (!empty($project->twitter_handle)) {
-        $output .= '<a href="https://twitter.com/' . esc_attr(ltrim($project->twitter_handle, '@')) . '" class="nmkr-project-link" target="_blank">Twitter</a>';
+        $output .= '<a href="' . esc_url( 'https://twitter.com/' . rawurlencode( ltrim( (string) $project->twitter_handle, '@' ) ) ) . '" class="nmkr-project-link" target="_blank">Twitter</a>';
     }
     $output .= '</div>';
 

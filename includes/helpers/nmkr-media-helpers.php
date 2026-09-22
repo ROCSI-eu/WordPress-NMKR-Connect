@@ -191,15 +191,30 @@ if (!function_exists('nmkr_get_token_image_url')) {
     }
 }
 
-/** Render shared token image markup and enqueue its finite fallback handler. */
+/**
+ * Render shared token image markup and enqueue its finite fallback handler.
+ *
+ * All dynamic values are escaped for their final HTML context. The optional
+ * style argument accepts only a CSS declaration string; WordPress safe-CSS
+ * filtering runs before the value is emitted as one escaped style attribute.
+ *
+ * @param object $t     Token object.
+ * @param string $alt   Image alt text.
+ * @param string $class CSS class value.
+ * @param string $style Optional inline style declaration value.
+ * @return string Trusted image markup escaped at construction.
+ */
 if (!function_exists('nmkr_get_token_image_markup')) {
-    function nmkr_get_token_image_markup($t, $alt, $class, $attributes = '') {
+    function nmkr_get_token_image_markup($t, $alt, $class, $style = '') {
         $sources = nmkr_get_token_image_candidates($t);
         $script = 'js/nmkr-token-image-fallback.js';
+        $safe_style = is_scalar( $style ) ? safecss_filter_attr( (string) $style ) : '';
         wp_enqueue_script('nmkr-token-image-fallback', plugins_url($script, NMKR_CONNECT_PLUGIN_FILE), array(), @filemtime(plugin_dir_path(NMKR_CONNECT_PLUGIN_FILE) . $script) ?: '1.0', true);
         return '<img src="' . esc_url($sources['primary']) . '" alt="' . esc_attr($alt) . '" class="' . esc_attr($class) . '" loading="lazy" decoding="async" onclick="openLightbox(this.src)" data-nmkr-token-image="1"'
             . ('' !== $sources['fallback'] ? ' data-nmkr-fallback-src="' . esc_url($sources['fallback']) . '"' : '')
-            . ' data-nmkr-placeholder-src="' . esc_url($sources['placeholder']) . '" ' . $attributes . ' />';
+            . ' data-nmkr-placeholder-src="' . esc_url($sources['placeholder']) . '"'
+            . ('' !== $safe_style ? ' style="' . esc_attr($safe_style) . '"' : '')
+            . ' />';
     }
 }
 

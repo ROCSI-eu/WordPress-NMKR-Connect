@@ -9,6 +9,11 @@ function esc_url_raw($url) { return is_string($url) && preg_match('#^https://#i'
 function esc_url($url) { return esc_url_raw($url); }
 function wp_parse_url($url, $component=-1) { return parse_url($url, $component); }
 function esc_attr($value) { return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8'); }
+function safecss_filter_attr($value) {
+    $value = (string) $value;
+    if (false !== stripos($value, 'javascript:') || false !== stripos($value, 'expression(')) return '';
+    return $value;
+}
 function plugins_url($path) { return 'https://plugin.example.test/' . ltrim($path, '/'); }
 function plugin_dir_path() { return __DIR__ . '/../'; }
 function wp_enqueue_script($handle) { $GLOBALS['nmkr_enqueued'][$handle] = true; }
@@ -61,8 +66,13 @@ nmkr_image_same('https://direct.example.test/image.png', nmkr_get_token_image_ur
 $dedup = nmkr_get_token_image_candidates((object) array('gateway_link' => $provider, 'metadata' => (object) array('image' => $provider)));
 nmkr_image_same('', $dedup['fallback'], 'duplicate URLs must be removed');
 
-$markup = nmkr_get_token_image_markup($both, 'Synthetic "token"', 'token-image', 'data-test="kept"');
-foreach (array('data-nmkr-token-image="1"', 'data-nmkr-fallback-src=', 'data-nmkr-placeholder-src=', 'loading="lazy"', 'decoding="async"', 'onclick="openLightbox(this.src)"', 'data-test="kept"') as $needle) nmkr_image_assert(false !== strpos($markup, $needle), 'shared markup state: ' . $needle);
+$markup = nmkr_get_token_image_markup($both, 'Synthetic "token"', 'token-image', 'max-width: 100%; height: auto;');
+foreach (array('data-nmkr-token-image="1"', 'data-nmkr-fallback-src=', 'data-nmkr-placeholder-src=', 'loading="lazy"', 'decoding="async"', 'onclick="openLightbox(this.src)"', 'style="max-width: 100%; height: auto;"') as $needle) nmkr_image_assert(false !== strpos($markup, $needle), 'shared markup state: ' . $needle);
+$escaped_style = nmkr_get_token_image_markup($both, 'Synthetic "token"', 'token-image', 'color:red" onerror="alert(1)');
+nmkr_image_assert(false === strpos($escaped_style, ' onerror="'), 'style input must not create a new HTML attribute');
+nmkr_image_assert(false !== strpos($escaped_style, 'style="color:red&quot; onerror=&quot;alert(1)"'), 'style input must be escaped inside its attribute');
+$unsafe_css = nmkr_get_token_image_markup($both, 'Synthetic "token"', 'token-image', 'background-image:url(javascript:alert(1));');
+nmkr_image_assert(false === strpos($unsafe_css, 'style='), 'unsafe CSS must be dropped rather than emitted');
 nmkr_image_assert(!empty($GLOBALS['nmkr_enqueued']['nmkr-token-image-fallback']), 'fallback script must be enqueued');
 
 foreach (array('grid', 'list', 'carousel', 'token', 'project') as $shortcode) {

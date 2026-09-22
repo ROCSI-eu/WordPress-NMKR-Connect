@@ -81,5 +81,8 @@ printf '\n== Shortcode image-source regression ==\n'
 php scripts/nmkr-shortcode-image-regression.php
 node scripts/nmkr-token-image-fallback-regression.js
 
+printf '\n== Shortcode output-escaping regression ==\n'
+php scripts/nmkr-shortcode-output-regression.php
+
 printf '\n== Release-readiness regressions ==\n'
 php scripts/nmkr-release-regression.php
