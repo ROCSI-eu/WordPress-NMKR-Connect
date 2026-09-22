@@ -22,6 +22,14 @@ function esc_html( $value ) {
 function esc_attr( $value ) {
     return htmlspecialchars( (string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' );
 }
+function safecss_filter_attr( $value ) {
+    $GLOBALS['nmkr_shortcode_output_safe_css_calls'] = ($GLOBALS['nmkr_shortcode_output_safe_css_calls'] ?? 0) + 1;
+    $value = (string) $value;
+    if ( false !== stripos( $value, 'javascript:' ) || false !== stripos( $value, 'expression(' ) ) {
+        return '';
+    }
+    return $value;
+}
 function esc_url_raw( $url ) {
     return is_string( $url ) && preg_match( '#^https://#i', $url ) && filter_var( $url, FILTER_VALIDATE_URL ) ? $url : '';
 }
@@ -73,6 +81,20 @@ nmkr_shortcode_output_assert(
 nmkr_shortcode_output_assert(
     false !== strpos( $image_markup, 'alt="Token &quot;alt&quot;"' ),
     'image alt text must be escaped at the attribute boundary'
+);
+nmkr_shortcode_output_assert(
+    ! empty( $GLOBALS['nmkr_shortcode_output_safe_css_calls'] ),
+    'image style must pass through WordPress safe-CSS filtering before output'
+);
+$unsafe_css_markup = nmkr_get_token_image_markup(
+    $image_token,
+    'Token',
+    'token-image',
+    'background-image:url(javascript:alert(1));'
+);
+nmkr_shortcode_output_assert(
+    false === strpos( $unsafe_css_markup, 'style=' ),
+    'unsafe CSS must not be emitted into shortcode markup'
 );
 
 $root = dirname( __DIR__ );
