@@ -253,8 +253,6 @@ function nmkr_connect_projects_page() {
         <?php endif; ?>
         <?php endif; ?>
 
-        <!-- Styling for Projects Page -->
-
     </div>
     <?php
 

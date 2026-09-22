@@ -61,10 +61,7 @@ function nmkr_shortcode_token($atts) {
     nmkr_enqueue_analytics_frontend();
     nmkr_connect_enqueue_style_asset( 'nmkr-shortcode-token', 'css/nmkr-shortcode-token.css' );
 
-    $output .= '
-
-
-    <div class="nmkr-single-token" data-nmkr-evt="view" data-nmkr-shortcode="token" data-nmkr-token-uid="' . esc_attr($token->token_uid) . '" data-nmkr-id="token:' . esc_attr($token->token_uid) . '">
+    $output .= '<div class="nmkr-single-token" data-nmkr-evt="view" data-nmkr-shortcode="token" data-nmkr-token-uid="' . esc_attr($token->token_uid) . '" data-nmkr-id="token:' . esc_attr($token->token_uid) . '">
         <h3>' . esc_html($token->token_name) . '</h3>';
 
     // --- BEGIN: normalized main token image for [nmkr-token] ---

@@ -92,9 +92,6 @@ function nmkr_shortcode_grid($atts) {
         nmkr_print_buy_button_styles_once();
     }
 
-    $output .= '
-    ';
-
     // Render project selector if allowed
     if ( $allow_user_select ) {
         $output .= nmkr_render_project_selector_simple( $projects, $active_project_uid );

@@ -377,8 +377,5 @@ function nmkr_connect_settings_page() {
         </form>
     </div>
 
-
-
-
     <?php
 }

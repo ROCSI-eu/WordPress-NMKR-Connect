@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
 }
 
 /**
- * Render the dashboard CSS styles
+ * Enqueue the dashboard CSS styles
  */
 function nmkr_render_dashboard_styles() {
     nmkr_connect_enqueue_style_asset( 'nmkr-dashboard', 'css/admin/nmkr-dashboard.css' );
@@ -490,7 +490,7 @@ function nmkr_render_debug_logs_panel($can_manage_sync) {
 }
 
 /**
- * Render the dashboard JavaScript
+ * Enqueue the dashboard JavaScript
  *
  * @param string $dashboard_nonce The nonce for dashboard operations
  */

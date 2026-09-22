@@ -58,9 +58,6 @@ function nmkr_shortcode_project($atts) {
         nmkr_print_buy_button_styles_once();
     }
 
-    $output .= '
-    ';
-
     // Render project selector if allowed
     if ( $allow_user_select ) {
         $projects = $wpdb->get_results( "SELECT project_uid, project_name, project_url FROM {$projects_table} ORDER BY created_at DESC" );
