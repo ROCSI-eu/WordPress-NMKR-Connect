@@ -1,5 +1,5 @@
 === Connector for NMKR ===
-Contributors: rocsi-eu
+Contributors: cyberspaceinitiative
 Tags: nft, cardano, solana, nmkr, shortcode
 Requires at least: 5.8
 Tested up to: 7.1

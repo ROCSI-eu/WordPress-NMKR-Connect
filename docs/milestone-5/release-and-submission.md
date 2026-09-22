@@ -69,7 +69,7 @@ Populate after actual submission:
 | Reviewer feedback | NONE YET |
 | Result | NOT SUBMITTED |
 
-Before submission, verify that `Contributors: rocsi-eu` names the intended WordPress.org account and only advance `Tested up to` after actual testing against the corresponding current WordPress release.
+The intended WordPress.org contributor/submitter account is verified as `cyberspaceinitiative`. `Tested up to` was advanced to `7.1` only after the exact `0.25.0` candidate passed WordPress 7.1.1 compatibility validation under issue #127.
 
 A submission receipt proves submission, not approval. `AWAITING EXTERNAL` should be used while review is pending.
 

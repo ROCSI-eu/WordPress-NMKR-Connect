@@ -18,4 +18,4 @@ The release-identity implementation is merged. Issue #127 now owns the final exa
 
 The first official Plugin Check 2.1.0 execution under #127 found 86 errors and 569 warnings. Issue #132 now tracks the release-blocking code remediation, split into focused child issues #133–#136. Submission remains blocked until those code-level findings are resolved, a new exact candidate is rebuilt, and Plugin Check is rerun. The `Tested up to` error is intentionally not folded into those code tasks because it must reflect the later exact-candidate WordPress 7.1.x compatibility result.
 
-Two metadata gates remain external to the source edits: `Contributors: rocsi-eu` must be verified as the intended usable WordPress.org account before submission, and `Tested up to` must only be advanced from 6.8 after the exact candidate is actually tested on the corresponding current WordPress release.
+The remaining metadata gates were resolved under issue #127: the intended WordPress.org contributor/submitter account is verified as `cyberspaceinitiative`, and `Tested up to` was advanced to `7.1` only after the exact `0.25.0` candidate passed WordPress 7.1.1 compatibility validation.
