@@ -122,7 +122,7 @@ function nmkr_shortcode_carousel($atts) {
         if (!empty($selected_project->description)) {
             $output .= '<p>' . esc_html($selected_project->description) . '</p>';
         }
-        $output .= '<p>Policy ID: <a href="https://cardanoscan.io/tokenPolicy/' . esc_html($selected_project->policy_id) . '" target="_blank">' . esc_html($selected_project->policy_id) . '</a></p>';
+        $output .= '<p>Policy ID: <a href="' . esc_url( 'https://cardanoscan.io/tokenPolicy/' . rawurlencode( (string) $selected_project->policy_id ) ) . '" target="_blank">' . esc_html($selected_project->policy_id) . '</a></p>';
 
         // Project counters
         $output .= '<div class="nmkr-project-counters">';
@@ -137,7 +137,7 @@ function nmkr_shortcode_carousel($atts) {
             $output .= '<p>Website: <a href="' . esc_url($selected_project->project_url) . '" target="_blank">' . esc_html($selected_project->project_url) . '</a></p>';
         }
         if (!empty($selected_project->twitter_handle)) {
-            $output .= '<p>Twitter: <a href="https://twitter.com/' . esc_attr(ltrim($selected_project->twitter_handle, '@')) . '" target="_blank">@' . esc_html(ltrim($selected_project->twitter_handle, '@')) . '</a></p>';
+            $output .= '<p>Twitter: <a href="' . esc_url( 'https://twitter.com/' . rawurlencode( ltrim( (string) $selected_project->twitter_handle, '@' ) ) ) . '" target="_blank">@' . esc_html(ltrim($selected_project->twitter_handle, '@')) . '</a></p>';
         }
         $output .= '<p>Blockchain: Cardano</p>';
         $output .= '</div>';
@@ -173,7 +173,7 @@ function nmkr_shortcode_carousel($atts) {
                 . ' data-nmkr-token-uid="' . esc_attr(!empty($token->token_uid) ? $token->token_uid : '') . '"'
                 . ' data-nmkr-id="carousel:' . esc_attr(!empty($token->token_uid) ? $token->token_uid : $active_project_uid) . '"'
                 . '>';
-            $output .= nmkr_get_token_image_markup( $token, $alt, 'token-image', 'style="max-width: 100%; height: auto; margin-bottom: 10px;"' );
+            $output .= nmkr_get_token_image_markup( $token, $alt, 'token-image', 'max-width: 100%; height: auto; margin-bottom: 10px;' );
             $output .= '<h4>' . esc_html($token->token_name) . '</h4>';
             $price_html = nmkr_render_token_price_badges( $token );
             if ( $price_html ) { $output .= $price_html; }

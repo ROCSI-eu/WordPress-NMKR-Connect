@@ -1223,7 +1223,8 @@ if ( ! function_exists( 'nmkr_safe_getpid' ) ) {
  * 
  * @param object $token Token object with price and price_solana properties
  * @param bool $wrap Whether to wrap badges in a container div (default: true)
- * @return string HTML markup for price badges, or empty string if no prices
+ * @return string Trusted HTML markup whose dynamic numeric text is escaped at construction,
+ *                or an empty string if no prices are available.
  */
 function nmkr_render_token_price_badges($token, $wrap = true) {
     $prices = array();
@@ -1233,7 +1234,7 @@ function nmkr_render_token_price_badges($token, $wrap = true) {
         $ada_price = $token->price / 1000000;
         $prices[] = sprintf(
             '<span class="nmkr-price-badge nmkr-price-ada">%s ADA</span>',
-            number_format_i18n($ada_price, 2)
+            esc_html( number_format_i18n( $ada_price, 2 ) )
         );
     }
     
@@ -1242,7 +1243,7 @@ function nmkr_render_token_price_badges($token, $wrap = true) {
         $sol_price = $token->price_solana / 1000000000;
         $prices[] = sprintf(
             '<span class="nmkr-price-badge nmkr-price-sol">%s SOL</span>',
-            number_format_i18n($sol_price, 4)
+            esc_html( number_format_i18n( $sol_price, 4 ) )
         );
     }
     
