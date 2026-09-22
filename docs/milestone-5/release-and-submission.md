@@ -1,9 +1,9 @@
 # Release and WordPress.org submission
 
-**Status:** IN PROGRESS — PREFLIGHT BLOCKED ON PLUGIN CHECK REMEDIATION\
+**Status:** IN PROGRESS — WORDPRESS.ORG REVIEW CHANGES REQUESTED\
 **Document type:** Living release/submission record
 
-No GitHub release or WordPress.org submission is asserted by this document. Issue #111 records the owner-selected public identity **Connector for NMKR** and `connector-for-nmkr` as the candidate WordPress.org slug/text domain/package directory. The release-identity implementation is merged. Issue #127 is the final exact-candidate submission gate, but its first official Plugin Check run found code-level submission blockers now tracked by #132 and child issues #133–#136. No immutable tag or external submission should proceed until those blockers are resolved and a new exact candidate passes preflight.
+The exact `0.25.0` candidate has been submitted to WordPress.org and the first human review has pended it for changes. The first submitted identity was **Connector for NMKR** / `connector-for-nmkr`. Issue #153 records the owner-approved distinctive replacement **ROCSI Connector for NMKR** / `rocsi-connector-for-nmkr`; issues #154–#157 track the other first-review findings. Do not upload an intermediate ZIP or reply to the reviewer until the complete remediation set is finished and one coherent replacement candidate is validated. No immutable GitHub release, directory approval, or WordPress.org SVN publication is asserted here.
 
 ## Release prerequisites
 
@@ -22,17 +22,18 @@ Before creating the Milestone 5 release candidate, record:
 
 Current release-identity decisions:
 
-- display name: `Connector for NMKR`;
-- candidate directory slug/text domain/package directory: `connector-for-nmkr`;
-- earlier M5-D15 filename decision: retain `nmkr-connect.php` for compatibility — superseded before submission by M5-D17 / issue #126;
-- current canonical public main plugin filename: `connector-for-nmkr.php`;
+- first submitted display name: `Connector for NMKR`;
+- first submitted/initially assigned slug: `connector-for-nmkr`;
+- owner-approved review-remediation display name: `ROCSI Connector for NMKR`;
+- requested replacement directory slug/text domain/package directory: `rocsi-connector-for-nmkr`;
+- canonical public main plugin filename for the replacement candidate: `rocsi-connector-for-nmkr.php`;
 - version: `0.25.0` under the repository [versioning policy](../versioning.md);
 - established `nmkr_*` runtime/data contracts remain stable;
-- `connector-for-nmkr` is not claimed approved, assigned, reserved, or published by WordPress.org.
+- `rocsi-connector-for-nmkr` is not claimed assigned, reserved, approved, or published until WordPress.org confirms it.
 
 ## Preflight baseline
 
-Issue #127 started from verified clean `main` source SHA `195e3d15494959bf4471bec18b1341686710bd6e`, tree `2d0f1b1eabf8501124ff87282a367a2904f68295`. The first official Plugin Check 2.1.0 pass reported 86 errors and 569 warnings. Of the 86 errors, 85 are code-level findings grouped under #132 / #133–#136; the remaining `outdated_tested_upto_header` finding is intentionally deferred until the new exact candidate has passed WordPress 7.1.x compatibility smoke. Final package provenance must be recorded from the post-remediation reviewed source, not copied from this preliminary candidate.
+Issue #127 began from verified preflight source and drove the submission candidate through the Plugin Check remediation and WordPress 7.1.1 compatibility gate. The exact submitted package came from source SHA `1ac89ffca2b0c853c2c81b70d585d6107d0ff3aa`, tree `61243015eac15b04f919c9af7f11e127ce661f1b`, and passed Plugin Check 2.1.0 with 0 errors and 310 audited residual warnings plus the official Readme Validator with 0 errors and 0 warnings. Replacement-package provenance must be recorded from the later post-remediation reviewed source; do not reuse the submitted candidate's checksum as evidence for the replacement.
 
 ## Release record
 
@@ -41,13 +42,13 @@ Populate only after the exact final release candidate exists.
 | Field | Value |
 | --- | --- |
 | Version | `0.25.0` |
-| Source SHA | PENDING #127 final candidate freeze |
-| Source tree | PENDING #127 final candidate freeze |
-| Package filename | `connector-for-nmkr-0.25.0.zip` |
-| SHA-256 | PENDING exact candidate build |
+| Replacement source SHA | PENDING first-review remediation completion |
+| Replacement source tree | PENDING first-review remediation completion |
+| Replacement package filename | `rocsi-connector-for-nmkr-0.25.0.zip` |
+| Replacement SHA-256 | PENDING exact candidate build |
 | Build method | `npm run build:package` / `scripts/nmkr-build-package.sh` from an exact clean tree |
-| Focused checks | PENDING #127 exact-candidate validation |
-| Exact-head DEV result | PENDING #127 risk classification / validation |
+| Focused checks | PENDING final replacement-candidate validation |
+| Exact-head DEV result | Risk-based; mandatory for any runtime/security-sensitive remediation |
 | GitHub Release | NOT CREATED |
 
 ## GitHub Release
@@ -58,16 +59,16 @@ Record release URL, version/tag, exact source commit, asset name/checksum, publi
 
 ## WordPress.org submission
 
-Populate after actual submission:
+Current review state:
 
 | Field | Value |
 | --- | --- |
 | Candidate version | `0.25.0` |
-| Submitted UTC | NOT SUBMITTED |
-| Requested slug | `connector-for-nmkr` planned; not assigned/reserved |
-| Submission reference/status | NOT SUBMITTED |
-| Reviewer feedback | NONE YET |
-| Result | NOT SUBMITTED |
+| First submitted identity | `Connector for NMKR` / `connector-for-nmkr` |
+| Current submission status | PENDED FOR CHANGES |
+| Requested replacement slug | `rocsi-connector-for-nmkr` — owner-approved, not yet allocated |
+| Reviewer feedback | First-review remediation tracked by #153–#157 |
+| Result | CHANGES REQUESTED — replacement ZIP and reply pending full remediation |
 
 The intended WordPress.org contributor/submitter account is verified as `cyberspaceinitiative`. `Tested up to` was advanced to `7.1` only after the exact `0.25.0` candidate passed WordPress 7.1.1 compatibility validation under issue #127.
 
