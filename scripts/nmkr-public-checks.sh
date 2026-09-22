@@ -84,5 +84,8 @@ node scripts/nmkr-token-image-fallback-regression.js
 printf '\n== Shortcode output-escaping regression ==\n'
 php scripts/nmkr-shortcode-output-regression.php
 
+printf '\n== Admin menu placement regression ==\n'
+php scripts/nmkr-admin-menu-regression.php
+
 printf '\n== Release-readiness regressions ==\n'
 php scripts/nmkr-release-regression.php

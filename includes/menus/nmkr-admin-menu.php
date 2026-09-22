@@ -13,7 +13,7 @@ function nmkr_connect_admin_menu() {
         'nmkr-connect-dashboard',            // Menu slug
         'nmkr_connect_dashboard_page',       // Function to display the page content
         'dashicons-admin-generic',           // Icon for the menu
-        6                                    // Position in the menu
+        81                                   // Below core Settings (80), while retaining the established top-level hierarchy
     );
 
     // Dashboard submenu
