@@ -1,10 +1,10 @@
 <?php
 /**
- * Connector for NMKR - Core Settings Module
+ * ROCSI Connector for NMKR - Core Settings Module
  *
  * Handles the initialization, registration, and rendering of the main settings page.
  *
- * @package Connector for NMKR
+ * @package ROCSI Connector for NMKR
  * @subpackage Settings
  */
 
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 
 // Define plugin file constant if not already defined
 if (!defined('NMKR_CONNECT_PLUGIN_FILE')) {
-    define('NMKR_CONNECT_PLUGIN_FILE', dirname(dirname(dirname(dirname(__FILE__)))) . '/connector-for-nmkr.php');
+    define('NMKR_CONNECT_PLUGIN_FILE', dirname(dirname(dirname(dirname(__FILE__)))) . '/rocsi-connector-for-nmkr.php');
 }
 
 // Include the other settings modules
@@ -23,7 +23,7 @@ require_once dirname(__FILE__) . '/nmkr-settings-sections.php';
 require_once dirname(__FILE__) . '/nmkr-settings-validation.php';
 
 /**
- * Register all settings for the Connector for NMKR plugin
+ * Register all settings for the ROCSI Connector for NMKR plugin
  */
 function nmkr_connect_register_settings() {
     // Register the main settings group
@@ -222,7 +222,7 @@ function nmkr_connect_register_settings() {
     // Add Analytics & Privacy Settings section
     add_settings_section(
         'nmkr_analytics_section',
-        __('Analytics & Privacy', 'connector-for-nmkr'),
+        __('Analytics & Privacy', 'rocsi-connector-for-nmkr'),
         'nmkr_connect_analytics_section_callback',
         'nmkr-connect-settings'
     );
@@ -311,10 +311,10 @@ function nmkr_connect_register_settings() {
 add_action('admin_init', 'nmkr_connect_register_settings');
 
 /**
- * Set the capability required to save Connector for NMKR settings.
+ * Set the capability required to save ROCSI Connector for NMKR settings.
  *
  * @param string $capability Default option page capability.
- * @return string Required capability for Connector for NMKR settings saves.
+ * @return string Required capability for ROCSI Connector for NMKR settings saves.
  */
 function nmkr_connect_settings_option_page_capability( $capability ) {
     return 'nmkr_manage_settings';
@@ -329,8 +329,8 @@ add_filter(
  */
 function nmkr_connect_add_settings_page() {
     add_options_page(
-        'Connector for NMKR Settings',
-        'Connector for NMKR',
+        'ROCSI Connector for NMKR Settings',
+        'ROCSI Connector for NMKR',
         'nmkr_manage_settings',
         'nmkr-connect-settings',
         'nmkr_connect_settings_page'
@@ -342,7 +342,7 @@ add_action('admin_menu', 'nmkr_connect_add_settings_page');
  * Add settings link to the plugins page
  */
 function nmkr_connect_add_settings_link($links) {
-    $settings_link = '<a href="options-general.php?page=nmkr-connect-settings">' . esc_html__( 'Settings', 'connector-for-nmkr' ) . '</a>';
+    $settings_link = '<a href="options-general.php?page=nmkr-connect-settings">' . esc_html__( 'Settings', 'rocsi-connector-for-nmkr' ) . '</a>';
     array_unshift($links, $settings_link);
     return $links;
 }
@@ -354,10 +354,10 @@ add_filter('plugin_action_links_' . plugin_basename(NMKR_CONNECT_PLUGIN_FILE), '
 function nmkr_connect_settings_page() {
     if ( ! current_user_can( 'nmkr_manage_settings' ) ) {
         if ( function_exists( 'nmkr_render_access_denied_page' ) ) {
-            nmkr_render_access_denied_page( __( 'Connector for NMKR Settings', 'connector-for-nmkr' ) );
+            nmkr_render_access_denied_page( __( 'ROCSI Connector for NMKR Settings', 'rocsi-connector-for-nmkr' ) );
             return;
         }
-        wp_die( esc_html__( 'Access denied.', 'connector-for-nmkr' ) );
+        wp_die( esc_html__( 'Access denied.', 'rocsi-connector-for-nmkr' ) );
     }
     ?>
     <div class="wrap">

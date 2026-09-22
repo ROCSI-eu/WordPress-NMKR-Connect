@@ -210,7 +210,7 @@ function nmkr_clear_sync_jobs($context = 'manual_cleanup', $clear_data = true, $
     }
     return is_array($result) ? $result : array(
         'success' => false,
-        'message' => __('Synchronization cleanup could not be verified.', 'connector-for-nmkr'),
+        'message' => __('Synchronization cleanup could not be verified.', 'rocsi-connector-for-nmkr'),
         'error_code' => 'sync_cleanup_owner_changed',
         'cleared_jobs' => array(),
         'cleared_data' => array(),
@@ -251,17 +251,17 @@ function nmkr_stop_ownerless_sync($force = false) {
                 'end_time' => nmkr_get_timestamp(),
                 'error_message' => $force ? 'Synchronization stopped forcibly by administrator.' : 'Synchronization cancelled by administrator.',
             ))) {
-                return new WP_Error('sync_stop_history_cleanup_failed', __('Synchronization history could not be stopped safely.', 'connector-for-nmkr'));
+                return new WP_Error('sync_stop_history_cleanup_failed', __('Synchronization history could not be stopped safely.', 'rocsi-connector-for-nmkr'));
             }
             $verified = $wpdb->get_row($wpdb->prepare("SELECT status, end_time FROM $table_name WHERE id = %d", $sync_stats_id), ARRAY_A);
             if (!is_array($verified) || ($verified['status'] ?? '') !== $target || empty($verified['end_time'])) {
-                return new WP_Error('sync_stop_history_cleanup_failed', __('Synchronization history cleanup could not be verified.', 'connector-for-nmkr'));
+                return new WP_Error('sync_stop_history_cleanup_failed', __('Synchronization history cleanup could not be verified.', 'rocsi-connector-for-nmkr'));
             }
         }
     }
     $cleanup = nmkr_clear_sync_jobs_ownerless('manual_stop', true, $force);
     if (empty($cleanup['success'])) {
-        return new WP_Error('sync_stop_cleanup_failed', __('Synchronization cleanup failed.', 'connector-for-nmkr'));
+        return new WP_Error('sync_stop_cleanup_failed', __('Synchronization cleanup failed.', 'rocsi-connector-for-nmkr'));
     }
     update_option('nmkr_sync_user_stopped', true);
     set_transient('nmkr_sync_user_stopped', true, NMKR_SYNC_TRANSIENT_TTL);
@@ -399,12 +399,12 @@ function nmkr_force_stop_sync($context = 'force_stop') {
         return nmkr_force_stop_sync_ownerless($context);
     });
     if ($result === true) {
-        return array('success' => true, 'message' => __('Queued synchronization cancelled.', 'connector-for-nmkr'), 'cleared_jobs' => array(), 'cleared_data' => array());
+        return array('success' => true, 'message' => __('Queued synchronization cancelled.', 'rocsi-connector-for-nmkr'), 'cleared_jobs' => array(), 'cleared_data' => array());
     }
     if (is_wp_error($result)) {
         return array('success' => false, 'message' => $result->get_error_message(), 'error_code' => $result->get_error_code());
     }
-    return is_array($result) ? $result : array('success' => false, 'message' => __('Synchronization ownership changed before cleanup.', 'connector-for-nmkr'), 'error_code' => 'sync_cleanup_owner_changed');
+    return is_array($result) ? $result : array('success' => false, 'message' => __('Synchronization ownership changed before cleanup.', 'rocsi-connector-for-nmkr'), 'error_code' => 'sync_cleanup_owner_changed');
 }
 
 /**
