@@ -225,7 +225,7 @@ function nmkr_process_tokens_batch($project_uid, $tokens, $batch_start, $batch_s
  * @param array $token_batches The token batches to check
  * @return bool True if all batches are complete, false otherwise
  */
-function check_all_batches_complete($token_batches) {
+function nmkr_check_all_batches_complete($token_batches) {
     if (empty($token_batches)) {
         return true;
     }
@@ -751,7 +751,7 @@ function nmkr_process_next_batch() {
     // If all projects and token batches are complete, wrap up the sync
     if ((!isset($sync_data['projects_to_process']) || empty($sync_data['projects_to_process'])) && 
         (!isset($sync_data['token_batches']) || 
-         (is_array($sync_data['token_batches']) && count($sync_data['token_batches']) > 0 && check_all_batches_complete($sync_data['token_batches'])))) {
+         (is_array($sync_data['token_batches']) && count($sync_data['token_batches']) > 0 && nmkr_check_all_batches_complete($sync_data['token_batches'])))) {
         
         // Success! All done
         nmkr_log_data_sync('All projects and tokens have been synchronized successfully');

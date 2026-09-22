@@ -207,26 +207,6 @@ function nmkr_log_performance_data($performance_data) {
         }
     }
     
-    // Add write_log function if not already defined
-    if (!function_exists('write_log')) {
-        /**
-         * Write to WordPress debug.log if WP_DEBUG_LOG is enabled
-         */
-        function write_log($message) {
-            $opts = function_exists('get_option') ? get_option('nmkr_connect_options') : null;
-            $plugin_debug_enabled = is_array($opts) && !empty($opts['debug_enabled']);
-            $log_to_file_enabled  = is_array($opts) && !empty($opts['log_to_debug_file']);
-            if (!(true === WP_DEBUG_LOG && $plugin_debug_enabled && $log_to_file_enabled)) {
-                return;
-            }
-            if (is_array($message) || is_object($message)) {
-                error_log(print_r($message, true));
-            } else {
-                error_log($message);
-            }
-        }
-    }
-    
     // Log to dashboard (database) if enabled
     if (nmkr_should_log_to('dashboard')) {
         // Store in WordPress options with configurable retention limit
@@ -249,7 +229,7 @@ function nmkr_log_performance_data($performance_data) {
             $performance_data['request_count'],
             $performance_data['memory_used']
         );
-        write_log($log_message);
+        nmkr_write_debug_log($log_message);
     }
 }
 

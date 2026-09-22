@@ -496,7 +496,11 @@ function nmkr_clear_all_logs_ajax() {
         
         wp_send_json_success(['message' => 'All logs cleared successfully']);
     } catch (Exception $e) {
-        error_log('NMKR log-clear operation failed: ' . $e->getMessage());
+        nmkr_write_debug_log(sprintf(
+            'NMKR log-clear operation failed [%s:%d].',
+            get_class($e),
+            (int) $e->getCode()
+        ));
         wp_send_json_error(['message' => __('Logs could not be cleared.', 'connector-for-nmkr'), 'error_code' => 'log_clear_failed']);
     }
     
@@ -551,7 +555,11 @@ function nmkr_clear_section_logs_ajax() {
         
         wp_send_json_success(['message' => ucfirst($log_type) . ' logs cleared successfully', 'log_type' => $log_type]);
     } catch (Exception $e) {
-        error_log('NMKR section log-clear operation failed: ' . $e->getMessage());
+        nmkr_write_debug_log(sprintf(
+            'NMKR section log-clear operation failed [%s:%d].',
+            get_class($e),
+            (int) $e->getCode()
+        ));
         wp_send_json_error(['message' => __('The selected logs could not be cleared.', 'connector-for-nmkr'), 'error_code' => 'section_log_clear_failed']);
     }
     
