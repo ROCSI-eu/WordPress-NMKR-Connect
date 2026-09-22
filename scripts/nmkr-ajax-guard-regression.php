@@ -329,7 +329,7 @@ try {
     $core_source=file_get_contents(__DIR__.'/../includes/pages/dashboard/nmkr-dashboard-core.php');
     $ui_source=file_get_contents(__DIR__.'/../includes/pages/dashboard/nmkr-dashboard-ui.php');
     if (substr_count($core_source, "\$can_manage_sync = current_user_can( 'nmkr_manage_sync' );") !== 1) throw new Exception('dashboard_authority_signal_missing');
-    if (strpos($ui_source, '<?php if ( $can_manage_sync ) : ?>') === false || strpos($ui_source, "action === 'nmkr_store_active_metrics'") === false || strpos($ui_source, 'jqXHR.abort();') === false) throw new Exception('dashboard_view_only_gating_missing');
+    if (strpos($ui_source, '<?php if ( $can_manage_sync ) : ?>') === false) throw new Exception('dashboard_view_only_gating_missing');
 
     ob_start(); nmkr_render_sync_data_panel('synthetic-dashboard-nonce', false); $view_sync=ob_get_clean();
     if (strpos($view_sync, 'class="panel sync-data"') === false || strpos($view_sync, 'id="nmkr-sync-progress-container"') === false || strpos($view_sync, 'id="active-sync-metrics"') === false) throw new Exception('dashboard_view_only_observation_missing');
@@ -337,11 +337,10 @@ try {
     ob_start(); nmkr_render_sync_data_panel('synthetic-dashboard-nonce', true); $manager_sync=ob_get_clean();
     if (strpos($manager_sync, 'id="nmkr-sync-button"') === false || strpos($manager_sync, 'id="nmkr-stop-sync-button"') === false) throw new Exception('dashboard_manager_sync_controls_missing');
 
-    $GLOBALS['nmkr_calls']=array();
-    ob_start(); nmkr_render_dashboard_scripts('synthetic-dashboard-nonce', false); $view_scripts=ob_get_clean();
-    if (strpos($view_scripts, 'const canManageSync = false;') === false || strpos($view_scripts, "action === 'nmkr_store_active_metrics'") === false || strpos($view_scripts, 'jqXHR.abort();') === false) throw new Exception('dashboard_view_only_caller_guard_missing');
-    ob_start(); nmkr_render_dashboard_scripts('synthetic-dashboard-nonce', true); $manager_scripts=ob_get_clean();
-    if (strpos($manager_scripts, 'const canManageSync = true;') === false || strpos($manager_scripts, "action: 'nmkr_store_active_metrics'") === false) throw new Exception('dashboard_manager_caller_missing');
+    $dashboard_js=file_get_contents(__DIR__.'/../js/admin/nmkr-dashboard.js');
+    $bootstrap_source=file_get_contents(__DIR__.'/../rocsi-connector-for-nmkr.php');
+    if (strpos($dashboard_js, "action === 'nmkr_store_active_metrics'") === false || strpos($dashboard_js, 'jqXHR.abort();') === false || strpos($dashboard_js, "action: 'nmkr_store_active_metrics'") === false) throw new Exception('dashboard_external_caller_guard_missing');
+    if (strpos($dashboard_js, 'window.nmkrDashboardConfig') === false || strpos($bootstrap_source, "wp_add_inline_script(") === false || strpos($ui_source, "'canManageSync' => (bool) \$can_manage_sync") === false) throw new Exception('dashboard_capability_config_missing');
 
     $GLOBALS['nmkr_options']=array('nmkr_connect_options'=>array('log_to_dashboard'=>true));
     ob_start(); nmkr_render_debug_logs_panel(false); $view_logs=ob_get_clean();

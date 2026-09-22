@@ -100,7 +100,7 @@ function nmkr_connect_projects_page() {
                     <span class="dashicons dashicons-info"></span>
                     <p><?php echo esc_html($selected_project->description); ?></p>
                 </div>
-                
+
                 <div class="project-details panel-section">
                     <p><strong>🌐 Website:</strong> <a href="<?php echo esc_url($selected_project->project_url); ?>" target="_blank"><?php echo esc_html($selected_project->project_url); ?></a></p>
                     <p><strong>🪙 Total Tokens:</strong> <?php echo esc_html($counters->total_tokens); ?></p>
@@ -202,7 +202,7 @@ function nmkr_connect_projects_page() {
                                 </div>
                                 <div class="token-details">
                                     <p class="token-name"><strong><?php echo esc_html($token->token_name); ?></strong></p>
-                                    <p class="token-status-container"><strong>Status:</strong> 
+                                    <p class="token-status-container"><strong>Status:</strong>
                                         <?php
                                         // Use helper function for status
                                         $status_label = nmkr_token_status_label( $token );
@@ -228,10 +228,10 @@ function nmkr_connect_projects_page() {
                                     <?php if (!empty($token->asset_name)): ?>
                                         <p><strong>Asset:</strong> <?php echo esc_html($token->asset_name); ?></p>
                                     <?php endif; ?>
-                                    <?php 
+                                    <?php
                                     // Use helper function for buyable logic
                                     $buyable = nmkr_token_is_buyable( $token );
-                                    if ( $buyable && !empty($token->payment_gateway_link) ): 
+                                    if ( $buyable && !empty($token->payment_gateway_link) ):
                                     ?>
                                         <a class="button button-primary" href="<?php echo esc_url($token->payment_gateway_link); ?>" target="_blank">Buy Now</a>
                                     <?php endif; ?>
@@ -254,269 +254,10 @@ function nmkr_connect_projects_page() {
         <?php endif; ?>
 
         <!-- Styling for Projects Page -->
-        <style>
-            /* Global Panel Styling */
-            .nmkr-dashboard {
-                max-width: 1200px;
-                margin: 0 auto;
-            }
-            
-            .nmkr-dashboard .panel {
-                background: #fff;
-                border: 1px solid #e5e5e5;
-                box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-                border-radius: 6px;
-                padding: 20px;
-                margin-bottom: 25px;
-                position: relative;
-                overflow: hidden;
-            }
-            
-            .nmkr-dashboard .panel h2 {
-                margin-top: 0;
-                padding-bottom: 15px;
-                border-bottom: 1px solid #f0f0f1;
-            }
-            
-            .nmkr-dashboard .panel-header {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-bottom: 15px;
-            }
-            
-            .nmkr-dashboard .panel-section {
-                padding: 15px 0;
-                border-top: 1px solid #f0f0f1;
-            }
-            
-            .nmkr-dashboard .panel-section:first-child {
-                border-top: none;
-                padding-top: 0;
-            }
-            
-            .nmkr-dashboard .center-text {
-                text-align: center;
-            }
-            
-            /* Info Box Styling */
-            .nmkr-info-box {
-                display: flex;
-                align-items: center;
-                background-color: #f0f6fc;
-                border-left: 4px solid #2271b1;
-                padding: 12px 15px;
-                margin-bottom: 20px;
-                border-radius: 2px;
-            }
-            
-            .nmkr-info-box .dashicons {
-                font-size: 24px;
-                color: #2271b1;
-                margin-right: 12px;
-            }
-            
-            .nmkr-info-box p {
-                margin: 0;
-                color: #50575e;
-                font-size: 14px;
-            }
-            
-            /* Status Colors */
-            .nmkr-dashboard .status-excellent {
-                color: #46b450;
-            }
-            
-            .nmkr-dashboard .status-good {
-                color: #ffb900;
-            }
-            
-            .nmkr-dashboard .status-warning {
-                color: #f56e28;
-            }
-            
-            .nmkr-dashboard .status-critical {
-                color: #dc3232;
-            }
-            
-            .nmkr-dashboard .status-neutral {
-                color: #666;
-            }
-            
-            /* Project Form Styling */
-            .project-selector-form {
-                display: flex;
-                justify-content: center;
-                align-items: center;
-            }
-            
-            .form-group {
-                margin-bottom: 15px;
-            }
-            
-            .form-group label {
-                display: block;
-                margin-bottom: 5px;
-                font-weight: 500;
-            }
-            
-            .form-group select, 
-            .form-group input {
-                width: 100%;
-                max-width: 400px;
-                padding: 8px 12px;
-                border-radius: 4px;
-                border: 1px solid #ddd;
-            }
-            
-            /* Project Details */
-            .project-details {
-                text-align: center;
-            }
-            
-            .project-details p {
-                margin: 5px 0;
-            }
 
-            /* Project Stats */
-            .project-stats {
-                text-align: center;
-                background-color: #f8f9fa;
-                padding: 15px;
-                border-radius: 4px;
-            }
-            
-            .nmkr-stats {
-                margin: 0;
-                font-size: 14px;
-            }
-            
-            /* Token Filter Form */
-            .token-filter-form {
-                text-align: center;
-            }
-            
-            .filters-container {
-                display: flex;
-                flex-wrap: wrap;
-                justify-content: center;
-                gap: 15px;
-                margin-top: 15px;
-            }
-            
-            .filters-container .form-group {
-                flex: 1;
-                min-width: 200px;
-                max-width: 300px;
-            }
-            
-            /* Token Grid Styling */
-            .token-grid {
-                display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-                gap: 20px;
-                margin-top: 20px;
-            }
-            
-            .token-item {
-                border: 1px solid #e5e5e5;
-                border-radius: 6px;
-                overflow: hidden;
-                transition: transform 0.2s, box-shadow 0.2s;
-                background: #fff;
-                box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-            }
-            
-            .token-item:hover {
-                transform: translateY(-5px);
-                box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-            }
-            
-            .token-image {
-                text-align: center;
-                padding: 10px;
-                background-color: #f8f9fa;
-                border-bottom: 1px solid #e5e5e5;
-            }
-            
-            .token-image img {
-                max-width: 100%;
-                height: auto;
-                object-fit: contain;
-                border-radius: 4px;
-            }
-            
-            .token-details {
-                padding: 15px;
-            }
-            
-            .token-details p {
-                margin: 8px 0;
-                font-size: 14px;
-            }
-            
-            .token-name {
-                font-size: 16px !important;
-                margin-top: 0 !important;
-                margin-bottom: 10px !important;
-            }
-            
-            .token-status {
-                display: inline-block;
-                padding: 2px 8px;
-                border-radius: 12px;
-                font-size: 12px;
-                background-color: #f0f0f1;
-            }
-            
-            .button-primary {
-                display: inline-block;
-                margin-top: 10px;
-                background-color: #2271b1;
-                color: #fff;
-                text-decoration: none;
-                padding: 6px 12px;
-                border-radius: 4px;
-                border: none;
-                cursor: pointer;
-                font-size: 14px;
-                transition: background-color 0.2s;
-            }
-            
-            .button-primary:hover {
-                background-color: #135e96;
-                color: #fff;
-            }
-            
-            /* Price Badge Styling */
-            .nmkr-token-price {
-                margin: 10px 0;
-            }
-            
-            .nmkr-price-badge {
-                display: inline-block;
-                padding: 4px 8px;
-                border-radius: 12px;
-                font-size: 12px;
-                font-weight: 500;
-                margin-right: 8px;
-            }
-            
-            .nmkr-price-ada {
-                background-color: #e8f5e9;
-                color: #2e7d32;
-                border: 1px solid #c8e6c9;
-            }
-            
-            .nmkr-price-sol {
-                background-color: #e3f2fd;
-                color: #1565c0;
-                border: 1px solid #bbdefb;
-            }
-        </style>
     </div>
     <?php
-    
+
     // Print lightbox once
     nmkr_print_lightbox_once();
 }

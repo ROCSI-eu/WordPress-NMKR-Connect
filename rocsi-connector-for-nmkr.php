@@ -39,18 +39,18 @@ function nmkr_connect_activate() {
     // Create tables and record the schema version only after run_id verification.
     nmkr_connect_create_tables();
     nmkr_connect_maybe_upgrade_schema();
-    
+
     // Ensure NMKR roles & capabilities exist
     nmkr_roles_install_caps();
-    
+
     // Set default options if not already set
     $options = get_option('nmkr_connect_options', array());
-    
+
     // Set defaults for sync settings if not already set
     if (!isset($options['sync_profile'])) {
         $profiles = nmkr_get_sync_profiles();
         $balanced_profile = $profiles['balanced']['settings'];
-        
+
         $options['sync_profile'] = 'balanced';
         $options['sync_batch_size'] = $balanced_profile['sync_batch_size'];
         $options['sync_batch_delay'] = $balanced_profile['sync_batch_delay'];
@@ -83,10 +83,10 @@ function nmkr_connect_activate() {
         $options['performance_debug_enabled'] = 0;
         $options['log_throttle_enabled'] = 0;
     }
-    
+
     // Save options
     update_option('nmkr_connect_options', $options);
-    
+
     // Attempt stale-state recovery on activation (safe & idempotent)
     if ( function_exists('nmkr_detect_and_recover_stale_sync') ) {
         nmkr_detect_and_recover_stale_sync();
@@ -275,6 +275,42 @@ function nmkr_connect_uninstall() {
 register_uninstall_hook(__FILE__, 'nmkr_connect_uninstall');
 
 
+/**
+ * Return a cache-busting version for a plugin asset.
+ *
+ * @param string $relative_path Plugin-relative asset path.
+ * @return string
+ */
+function nmkr_connect_asset_version( $relative_path ) {
+    $path = plugin_dir_path( NMKR_CONNECT_PLUGIN_FILE ) . ltrim( $relative_path, '/' );
+    return @filemtime( $path ) ?: '1.0';
+}
+
+/**
+ * Enqueue a plugin stylesheet with filemtime() cache busting.
+ */
+function nmkr_connect_enqueue_style_asset( $handle, $relative_path, $dependencies = array() ) {
+    wp_enqueue_style(
+        $handle,
+        plugins_url( $relative_path, NMKR_CONNECT_PLUGIN_FILE ),
+        $dependencies,
+        nmkr_connect_asset_version( $relative_path )
+    );
+}
+
+/**
+ * Enqueue a plugin script with filemtime() cache busting.
+ */
+function nmkr_connect_enqueue_script_asset( $handle, $relative_path, $dependencies = array(), $in_footer = true ) {
+    wp_enqueue_script(
+        $handle,
+        plugins_url( $relative_path, NMKR_CONNECT_PLUGIN_FILE ),
+        $dependencies,
+        nmkr_connect_asset_version( $relative_path ),
+        $in_footer
+    );
+}
+
 // Enqueue the lazy loading script for token images
 function nmkr_enqueue_lazy_loading_script() {
     wp_enqueue_script('nmkr-lazy-loading', plugins_url('js/nmkr-lazy-loading.js', __FILE__), array(), '1.0', true);
@@ -292,10 +328,10 @@ function nmkr_enqueue_admin_assets($hook) {
         $js_constants_ver = @filemtime($base_dir . $js_constants_rel) ?: '1.0';
         $js_progress_ver  = @filemtime($base_dir . $js_progress_rel)  ?: '1.0';
         wp_enqueue_script('nmkr-sync-status-constants', $base_url . $js_constants_rel, array(), $js_constants_ver, true);
-        
+
         // Then enqueue the main progress script with constants as dependency
         wp_enqueue_script('nmkr-sync-progress', $base_url . $js_progress_rel, array('jquery', 'nmkr-sync-status-constants'), $js_progress_ver, true);
-        
+
         // Localize the script with runtime sync controls
         wp_localize_script(
             'nmkr-sync-progress',
@@ -315,6 +351,49 @@ function nmkr_enqueue_admin_assets($hook) {
                     'batch_delay'             => isset($options['batch_delay'])          ? $options['batch_delay']          : 1,
                 )
             )
+        );
+    }
+
+    // Keep reviewer-remediation assets scoped to their existing admin pages.
+    if ( strpos( $hook, 'nmkr-connect-dashboard' ) !== false ) {
+        nmkr_connect_enqueue_style_asset( 'nmkr-dashboard', 'css/admin/nmkr-dashboard.css' );
+        nmkr_connect_enqueue_script_asset(
+            'nmkr-dashboard',
+            'js/admin/nmkr-dashboard.js',
+            array( 'jquery', 'nmkr-sync-progress' ),
+            true
+        );
+    }
+
+    if ( strpos( $hook, 'nmkr-connect-projects' ) !== false ) {
+        nmkr_connect_enqueue_style_asset( 'nmkr-projects-admin', 'css/admin/nmkr-projects.css' );
+        if ( function_exists( 'nmkr_enqueue_lightbox_assets' ) ) {
+            nmkr_enqueue_lightbox_assets();
+        }
+    }
+
+    if ( strpos( $hook, 'nmkr-connect-shortcodes' ) !== false ) {
+        nmkr_connect_enqueue_style_asset( 'nmkr-shortcodes-admin', 'css/admin/nmkr-shortcodes.css' );
+    }
+
+    if ( strpos( $hook, 'nmkr-connect-settings' ) !== false ) {
+        nmkr_connect_enqueue_script_asset(
+            'nmkr-settings',
+            'js/admin/nmkr-settings.js',
+            array( 'jquery' ),
+            true
+        );
+        wp_add_inline_script(
+            'nmkr-settings',
+            'window.nmkrSettingsConfig = ' . wp_json_encode(
+                array(
+                    'i18n' => array(
+                        'dashboardSyncLoggingActive' => __( 'Dashboard Sync Logging is active. Sync logs will be stored for the Dashboard Debug Logs panel.', 'rocsi-connector-for-nmkr' ),
+                        'dashboardSyncLoggingInactive' => __( 'Dashboard Sync Logging is not active. To see sync logs in the Dashboard, enable Debug Logging Controls, Enable Logging to Dashboard Logs, and Enable Data Synchronization Logging.', 'rocsi-connector-for-nmkr' ),
+                    ),
+                )
+            ) . ';',
+            'before'
         );
     }
 
@@ -435,10 +514,10 @@ function nmkr_init() {
     add_shortcode('nmkr-project', 'nmkr_shortcode_project');
     add_shortcode('nmkr-carousel', 'nmkr_shortcode_carousel');
     add_shortcode('nmkr-grid', 'nmkr_shortcode_grid');
-    
+
     // Register analytics purge cron hook
     add_action('nmkr_analytics_purge_daily', 'nmkr_analytics_purge_old_events');
-    
+
     // Lightweight reschedule check for analytics cron (best-effort safety net)
     if ( is_admin() && current_user_can( 'manage_options' ) ) {
         if ( ! wp_next_scheduled( 'nmkr_analytics_purge_daily' ) ) {
