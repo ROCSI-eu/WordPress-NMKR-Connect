@@ -2,7 +2,7 @@
 Contributors: rocsi-eu
 Tags: nft, cardano, solana, nmkr, shortcode
 Requires at least: 5.8
-Tested up to: 6.8
+Tested up to: 7.1
 Requires PHP: 7.4
 Stable tag: 0.25.0
 License: MIT
