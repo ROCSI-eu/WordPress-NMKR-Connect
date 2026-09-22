@@ -2,7 +2,7 @@
 
 NMKR Connect is an open-source WordPress plugin for synchronizing Cardano and Solana NFT project and token data through the NMKR API and presenting that data with shortcodes. The project remains under active development: Milestones 1, 2, and 3 have been delivered and approved through Catalyst reviewer sign-off; Milestone 4 has been delivered and is awaiting Catalyst reviewer sign-off; Milestone 5 is in progress.
 
-The repository and Catalyst project retain the historical **NMKR Connect** identity. The owner-selected public WordPress release identity is **Connector for NMKR**, with `connector-for-nmkr` as the candidate WordPress.org slug/text domain until the directory assigns or rejects it.
+The repository and Catalyst project retain the historical **NMKR Connect** identity. The owner-selected public WordPress release identity is **ROCSI Connector for NMKR**, with `rocsi-connector-for-nmkr` as the candidate WordPress.org slug/text domain until the directory assigns or rejects it.
 
 ## Catalyst delivery status
 
@@ -86,13 +86,13 @@ The builder creates the verified self-contained ZIP under `dist/` by default. Th
 
 ### Install a packaged ZIP
 
-Use **WordPress Admin → Plugins → Add New → Upload Plugin**, select a trusted Connector for NMKR release ZIP, and activate it. The purpose-built ZIP is self-contained; repository-only development and test tooling is excluded. This repository does not promise that a prebuilt release artifact is available for every revision.
+Use **WordPress Admin → Plugins → Add New → Upload Plugin**, select a trusted ROCSI Connector for NMKR release ZIP, and activate it. The purpose-built ZIP is self-contained; repository-only development and test tooling is excluded. This repository does not promise that a prebuilt release artifact is available for every revision.
 
 ### First-use flow
 
 1. Install and activate the plugin.
-2. Open **Settings → Connector for NMKR**, enter the NMKR API key, review the synchronization settings, and save.
-3. Open the Connector for NMKR dashboard and start synchronization. Follow its progress and final result; do not close or restart a run merely because a large collection takes time.
+2. Open **Settings → ROCSI Connector for NMKR**, enter the NMKR API key, review the synchronization settings, and save.
+3. Open the ROCSI Connector for NMKR dashboard and start synchronization. Follow its progress and final result; do not close or restart a run merely because a large collection takes time.
 4. Add a Free shortcode such as `[nmkr-grid]` or `[nmkr-token-list]` to a WordPress page. Use a project UID when a specific synchronized project should be displayed.
 
 Treat the NMKR API key, GA4 API secret, license details, WordPress credentials, and other environment values as secrets. Do not put them in content, source control, screenshots, or support logs.
@@ -203,7 +203,7 @@ Do not casually delete options, transients, rows, or tables to clear a status. A
 
 ## Project layout
 
-- `connector-for-nmkr.php` — plugin bootstrap plus activation, deactivation, and registered uninstall callbacks
+- `rocsi-connector-for-nmkr.php` — plugin bootstrap plus activation, deactivation, and registered uninstall callbacks
 - `includes/api/` — NMKR API client and request helpers
 - `includes/database/` — schema and persistence functions
 - `includes/synchronization/` — run lifecycle, batching, progress, metrics, errors, and recovery

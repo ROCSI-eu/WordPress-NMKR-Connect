@@ -1,7 +1,7 @@
 <?php
 $root = dirname(__DIR__);
 function check($condition, $message) { if (!$condition) { fwrite(STDERR, "FAIL: $message\n"); exit(1); } echo "PASS: $message\n"; }
-$plugin = file_get_contents($root . '/connector-for-nmkr.php');
+$plugin = file_get_contents($root . '/rocsi-connector-for-nmkr.php');
 $composer = json_decode(file_get_contents($root . '/composer.json'), true);
 $readme = file_get_contents($root . '/readme.txt');
 $runtime = $plugin;
@@ -9,9 +9,9 @@ foreach (glob($root . '/includes/{shortcodes,pages/shortcodes}/*.php', GLOB_BRAC
 check(!preg_match('/freemius|wnc_fs|can_use_premium_code|is_plan\s*\(/i', $runtime), 'runtime and shortcode paths contain no entitlement SDK references');
 foreach (['nmkr-token','nmkr-token-list','nmkr-project','nmkr-carousel','nmkr-grid'] as $code) check(strpos($plugin, "add_shortcode('$code'") !== false, "$code is registered");
 check($composer['license'] === 'MIT' && count($composer['require']) === 1, 'Composer declares MIT and PHP as the only runtime requirement');
-check(preg_match('/Plugin Name:\s*Connector for NMKR\s*$/mi', $plugin) === 1, 'plugin header uses the owner-approved public display name');
-check(preg_match('/Text Domain:\s*connector-for-nmkr\s*$/mi', $plugin) === 1, 'plugin header text domain matches the candidate directory slug');
-check(preg_match('/^=== Connector for NMKR ===$/m', $readme) === 1, 'directory readme title matches the owner-approved public display name');
+check(preg_match('/Plugin Name:\s*ROCSI Connector for NMKR\s*$/mi', $plugin) === 1, 'plugin header uses the owner-approved public display name');
+check(preg_match('/Text Domain:\s*rocsi-connector-for-nmkr\s*$/mi', $plugin) === 1, 'plugin header text domain matches the candidate directory slug');
+check(preg_match('/^=== ROCSI Connector for NMKR ===$/m', $readme) === 1, 'directory readme title matches the owner-approved public display name');
 $plugin_version_match = array();
 $stable_tag_match = array();
 check(preg_match('/^Version:\s*([0-9]+\.[0-9]+\.[0-9]+)\s*$/mi', $plugin, $plugin_version_match) === 1, 'plugin header declares a numeric three-component version');
@@ -26,8 +26,8 @@ $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root .
 foreach ($iterator as $file) {
     if ($file->isFile() && strtolower($file->getExtension()) === 'php') { $runtime_php .= file_get_contents($file->getPathname()); }
 }
-check(strpos($runtime_php, "'nmkr-connect'") === false && strpos($runtime_php, '"nmkr-connect"') === false, 'runtime PHP contains no legacy exact gettext-domain literal');
-$stale_basenames = array('nmkr-connect/' . 'nmkr-connect.php', 'connector-for-nmkr/' . 'nmkr-connect.php');
+check(strpos($runtime_php, "'nmkr-connect'") === false && strpos($runtime_php, '"nmkr-connect"') === false, 'runtime PHP contains no legacy nmkr-connect gettext-domain literal');\ncheck(strpos($runtime_php, "'connector-for-nmkr'") === false && strpos($runtime_php, '"connector-for-nmkr"') === false, 'runtime PHP contains no superseded connector-for-nmkr gettext-domain literal');
+$stale_basenames = array(\n    'nmkr-connect/' . 'nmkr-connect.php',\n    'connector-for-nmkr/' . 'nmkr-connect.php',\n    'connector-for-nmkr/' . 'connector-for-nmkr.php',\n    'rocsi-connector-for-nmkr/' . 'nmkr-connect.php',\n    'rocsi-connector-for-nmkr/' . 'connector-for-nmkr.php',\n);
 $basename_sources = array($root . '/.env.tests.example');
 foreach (array($root . '/scripts', $root . '/tests') as $scan_root) {
     $scan = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($scan_root, FilesystemIterator::SKIP_DOTS));
@@ -57,7 +57,7 @@ check(strpos($plugin, 'wp_add_privacy_policy_content') !== false, 'Privacy Polic
 check(strpos($plugin, "register_activation_hook(__FILE__, 'nmkr_connect_activate')") !== false, 'activation hook remains bound through the canonical bootstrap __FILE__');
 check(strpos($plugin, "register_deactivation_hook(__FILE__, 'nmkr_connect_deactivate')") !== false, 'deactivation hook remains bound through the canonical bootstrap __FILE__');
 check(strpos($plugin, "register_uninstall_hook(__FILE__, 'nmkr_connect_uninstall')") !== false, 'uninstall hook remains bound through the canonical bootstrap __FILE__');
-check(strpos($core, "'/connector-for-nmkr.php'") !== false && strpos($core, "'/nmkr-connect.php'") === false, 'settings fallback points to the canonical main plugin file');
+check(strpos($core, "'/rocsi-connector-for-nmkr.php'") !== false && strpos($core, "'/nmkr-connect.php'") === false && strpos($core, "'/connector-for-nmkr.php'") === false, 'settings fallback points only to the canonical main plugin file');
 check(strpos($core, "plugin_action_links_' . plugin_basename(NMKR_CONNECT_PLUGIN_FILE)") !== false, 'settings action link remains bound through the canonical plugin basename');
 $integrity = file_get_contents($root . '/scripts/nmkr-ajax-runtime-integrity.sh');
 $preflight = file_get_contents($root . '/scripts/nmkr-real-sync-preflight.sh');
@@ -68,10 +68,10 @@ check(strpos($builder, '[[ "$stable_tag" == "$version" ]]') !== false, 'package 
 $gitignore = file_get_contents($root . '/.gitignore');
 check(stripos($integrity, 'freemius') === false && strpos($integrity, 'composer.lock') !== false, 'runtime integrity is lock-aware and has no Freemius dependency contract');
 check(strpos($preflight, 'nmkr-ajax-runtime-integrity.sh') !== false, 'real-sync preflight delegates current deployment runtime integrity to the lock-aware helper');
-check(strpos($preflight, 'connector-for-nmkr/connector-for-nmkr.php') !== false, 'real-sync preflight defaults to the canonical installed plugin basename');
-check(strpos(file_get_contents($root . '/.env.tests.example'), 'NMKR_PLUGIN_SLUG=connector-for-nmkr/connector-for-nmkr.php') !== false, 'public test environment example defaults to the canonical installed plugin basename');
-check(strpos($builder, 'slug=${NMKR_PACKAGE_DIR:-connector-for-nmkr}') !== false && strpos($builder, 'Package directory must be connector-for-nmkr.') !== false, 'package builder is locked to the candidate WordPress.org directory slug');
-check(strpos($builder, "main_file='connector-for-nmkr.php'") !== false && strpos($builder, 'test ! -e nmkr-connect.php') !== false && strpos($builder, 'test ! -e "$verify/$slug/nmkr-connect.php"') !== false, 'package builder requires the canonical main plugin file and rejects the obsolete filename');
+check(strpos($preflight, 'rocsi-connector-for-nmkr/rocsi-connector-for-nmkr.php') !== false, 'real-sync preflight defaults to the canonical installed plugin basename');
+check(strpos(file_get_contents($root . '/.env.tests.example'), 'NMKR_PLUGIN_SLUG=rocsi-connector-for-nmkr/rocsi-connector-for-nmkr.php') !== false, 'public test environment example defaults to the canonical installed plugin basename');
+check(strpos($builder, 'slug=${NMKR_PACKAGE_DIR:-rocsi-connector-for-nmkr}') !== false && strpos($builder, 'Package directory must be rocsi-connector-for-nmkr.') !== false, 'package builder is locked to the candidate WordPress.org directory slug');
+check(strpos($builder, "main_file='rocsi-connector-for-nmkr.php'") !== false && strpos($builder, 'test ! -e nmkr-connect.php') !== false && strpos($builder, 'test ! -e connector-for-nmkr.php') !== false && strpos($builder, 'test ! -e "$verify/$slug/nmkr-connect.php"') !== false && strpos($builder, 'test ! -e "$verify/$slug/connector-for-nmkr.php"') !== false, 'package builder requires the canonical main plugin file and rejects obsolete or superseded filenames');
 check(strpos($builder, 'sha256sum "$(basename "$zip_path")"') !== false, 'package checksum sidecar records the ZIP basename rather than an absolute build path');
 check(strpos($builder, 'out=$(cd "$out" && pwd -P)') !== false, 'package builder resolves relative output directories before entering the temporary tree');
 check(preg_match('#^/dist/$#m', $gitignore) === 1, 'default package output directory is ignored so successful builds preserve a clean source tree');

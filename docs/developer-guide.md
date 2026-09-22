@@ -1,8 +1,8 @@
-# Connector for NMKR developer guide
+# ROCSI Connector for NMKR developer guide
 
 ## Purpose and scope
 
-Connector for NMKR is a WordPress plugin that retrieves Cardano and Solana NFT project and token data through NMKR, persists synchronized data in WordPress, exposes five shortcode displays, and provides administration, synchronization, role/capability, and optional engagement-analytics features. The code is organized primarily as procedural, `nmkr_`-prefixed PHP modules with administration and front-end JavaScript assets.
+ROCSI Connector for NMKR is a WordPress plugin that retrieves Cardano and Solana NFT project and token data through NMKR, persists synchronized data in WordPress, exposes five shortcode displays, and provides administration, synchronization, role/capability, and optional engagement-analytics features. The code is organized primarily as procedural, `nmkr_`-prefixed PHP modules with administration and front-end JavaScript assets.
 
 This guide describes the current repository for maintainers and prospective contributors. It is an onboarding map, not an exhaustive API reference or a guarantee that internal functions, hooks, constants, tables, options, or lifecycle behavior form a stable public API. Those implementation contracts—especially synchronization and persistence state—must not be changed casually.
 
@@ -40,7 +40,7 @@ The repository does not provide a self-contained Docker, Local, or `wp-env` Word
 
 | Path | Current responsibility |
 | --- | --- |
-| [`connector-for-nmkr.php`](../connector-for-nmkr.php) | Bootstrap; plugin constants; activation defaults, schema and roles; explicit module includes; deactivation cleanup; registered uninstall callback; asset and shortcode initialization. |
+| [`rocsi-connector-for-nmkr.php`](../rocsi-connector-for-nmkr.php) | Bootstrap; plugin constants; activation defaults, schema and roles; explicit module includes; deactivation cleanup; registered uninstall callback; asset and shortcode initialization. |
 | [`includes/api/`](../includes/api/) | NMKR HTTP request construction, response handling, throttling, and project/token/detail retrieval helpers. |
 | [`includes/database/`](../includes/database/) | Custom-table schema creation and verified upgrades, plus project, token, detail, history, and metric persistence helpers. |
 | [`includes/synchronization/`](../includes/synchronization/) | Run admission/ownership, worker lifecycle, sequential pagination, progress, checkpoints, metrics, failures, recovery, and terminalization; it also contains synchronization AJAX handlers. |
@@ -54,7 +54,7 @@ The repository does not provide a self-contained Docker, Local, or `wp-env` Word
 | [`scripts/`](../scripts/) | Public-safe regressions, private-environment orchestration, WP-CLI checks, and guarded controlled-sync validation. |
 | [`docs/`](./) and [`.github/workflows/`](../.github/workflows/) | Operational/testing documentation and public CI. |
 
-`composer.json` retains project metadata plus the PHP and license requirements used by validation; it has no autoload section and no runtime package dependency. `connector-for-nmkr.php` explicitly `require_once`s the procedural modules in load order, and the release package does not require `vendor/`.
+`composer.json` retains project metadata plus the PHP and license requirements used by validation; it has no autoload section and no runtime package dependency. `rocsi-connector-for-nmkr.php` explicitly `require_once`s the procedural modules in load order, and the release package does not require `vendor/`.
 
 ## Core data flows
 
@@ -62,13 +62,13 @@ The repository does not provide a self-contained Docker, Local, or `wp-env` Word
 
 ```mermaid
 flowchart LR
-    A[Settings → Connector for NMKR] --> B[WordPress Settings API]
+    A[Settings → ROCSI Connector for NMKR] --> B[WordPress Settings API]
     B --> C[Capability and settings nonce]
     C --> D[nmkr_connect_sanitize_options]
     D --> E[nmkr_connect_options]
 ```
 
-The page is registered with `add_options_page()` under **Settings → Connector for NMKR**. WordPress's Settings API supplies the save request and settings nonce, the option-page capability is mapped to `nmkr_manage_settings`, the page checks that capability, and the registered sanitization callback validates the submitted option values.
+The page is registered with `add_options_page()` under **Settings → ROCSI Connector for NMKR**. WordPress's Settings API supplies the save request and settings nonce, the option-page capability is mapped to `nmkr_manage_settings`, the page checks that capability, and the registered sanitization callback validates the submitted option values.
 
 ### Synchronization
 

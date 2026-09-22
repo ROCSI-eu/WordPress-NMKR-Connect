@@ -1,4 +1,4 @@
-=== Connector for NMKR ===
+=== ROCSI Connector for NMKR ===
 Contributors: cyberspaceinitiative
 Tags: nft, cardano, solana, nmkr, shortcode
 Requires at least: 5.8
@@ -12,7 +12,7 @@ Display synchronized NMKR Studio projects and tokens with five free shortcodes.
 
 == Description ==
 
-Connector for NMKR synchronizes configured NMKR Studio project and token information into WordPress and provides grid, list, carousel, single-token, and single-project displays. NMKR is a third-party service; this plugin is not an official NMKR product or an affiliation claim.
+ROCSI Connector for NMKR synchronizes configured NMKR Studio project and token information into WordPress and provides grid, list, carousel, single-token, and single-project displays. NMKR is a third-party service; this plugin is not an official NMKR product or an affiliation claim.
 
 Development and source code: https://github.com/ROCSI-eu/WordPress-NMKR-Connect
 
@@ -28,7 +28,7 @@ Site operators remain responsible for consent, disclosures, retention, and confi
 
 1. Install a purpose-built release ZIP through Plugins > Add New > Upload Plugin; do not use an automatic source archive as an installable artifact.
 2. Activate the plugin.
-3. Configure an NMKR Studio API credential under Connector for NMKR settings.
+3. Configure an NMKR Studio API credential under ROCSI Connector for NMKR settings.
 4. Review analytics/privacy settings. Analytics remains Off until explicitly enabled.
 5. Run synchronization only when ready, then add one of the documented shortcodes to a page.
 
@@ -49,5 +49,5 @@ Deactivation clears the recurring analytics cleanup event. Uninstall removes plu
 == Changelog ==
 
 = 0.25.0 =
-* Uses the public release identity Connector for NMKR with `connector-for-nmkr` as the text domain and package identity.
+* Uses the public release identity ROCSI Connector for NMKR with `rocsi-connector-for-nmkr` as the text domain and package identity.
 * Initial public production candidate: five free shortcodes, no licensing SDK, opt-in analytics, targeted lifecycle cleanup, privacy disclosures, and reproducible package tooling.

@@ -2,16 +2,16 @@
 
 **Status:** Maintainer policy
 
-This document defines how Connector for NMKR versions are selected and published. A version identifies a coherent, tested release; it is not a completion percentage and is not bumped for every pull request.
+This document defines how ROCSI Connector for NMKR versions are selected and published. A version identifies a coherent, tested release; it is not a completion percentage and is not bumped for every pull request.
 
 ## Canonical stable version
 
-The plugin header `Version` in `connector-for-nmkr.php` is the canonical stable release version.
+The plugin header `Version` in `rocsi-connector-for-nmkr.php` is the canonical stable release version.
 
 For a stable release:
 
 - `readme.txt` `Stable tag` must exactly match the plugin header version;
-- the release package filename must use the same version, for example `connector-for-nmkr-0.25.0.zip`;
+- the release package filename must use the same version, for example `rocsi-connector-for-nmkr-0.25.0.zip`;
 - stable release versions use a numeric three-component form: `X.Y.Z`;
 - release tooling and regression checks must fail on version drift rather than silently producing mismatched artifacts.
 
