@@ -120,4 +120,16 @@ nmkr_assert($GLOBALS['wpdb']->reads===$reads_before+1 && count($GLOBALS['wpdb']-
 $timeseries_template=end($GLOBALS['wpdb']->templates);
 nmkr_assert(strpos($timeseries_template,"DATE_FORMAT(event_ts, '%%Y-%%m-%%d %%H:00:00')")!==false,'analytics_timeseries_percent_escaping');
 
+$table_probe_contracts=array(
+    dirname(__DIR__).'/includes/analytics/nmkr-analytics-cron.php'=>1,
+    dirname(__DIR__).'/includes/pages/dashboard/nmkr-dashboard-core.php'=>4,
+    dirname(__DIR__).'/includes/synchronization/nmkr-sync-stats.php'=>2,
+);
+foreach($table_probe_contracts as $file=>$expected) {
+    $source=file_get_contents($file);
+    nmkr_assert(substr_count($source,'SHOW TABLES LIKE %s')===$expected,'table_probe_prepared_count');
+    nmkr_assert(substr_count($source,'$wpdb->esc_like(')>=$expected,'table_probe_like_escaping');
+    nmkr_assert(!preg_match('/SHOW TABLES LIKE [\'"][^\'"]*\$[A-Za-z_][A-Za-z0-9_]*/',$source),'table_probe_direct_interpolation');
+}
+
 echo "M4-06 targeted security contracts: PASS\n";

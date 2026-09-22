@@ -85,7 +85,9 @@ function nmkr_ensure_last_sync_time() {
     if (empty($last_sync_time)) {
         // Check if the metrics table exists
         $metrics_table = $wpdb->prefix . 'nmkr_sync_metrics';
-        $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$metrics_table'") === $metrics_table;
+        $table_exists = $wpdb->get_var(
+            $wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($metrics_table))
+        ) === $metrics_table;
         
         if ($table_exists) {
             // Get the last sync time from the metrics table
@@ -102,7 +104,9 @@ function nmkr_ensure_last_sync_time() {
         
         // Alternatively, check for sync records in the sync stats table
         $stats_table = $wpdb->prefix . 'nmkr_sync_stats';
-        $stats_table_exists = $wpdb->get_var("SHOW TABLES LIKE '$stats_table'") === $stats_table;
+        $stats_table_exists = $wpdb->get_var(
+            $wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($stats_table))
+        ) === $stats_table;
         
         if ($stats_table_exists) {
             // Get the last successful sync from the stats table
@@ -126,12 +130,16 @@ function nmkr_ensure_last_sync_time() {
         $has_projects = false;
         $has_tokens = false;
         
-        if ($wpdb->get_var("SHOW TABLES LIKE '$projects_table'") === $projects_table) {
+        if ($wpdb->get_var(
+            $wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($projects_table))
+        ) === $projects_table) {
             $project_count = $wpdb->get_var("SELECT COUNT(*) FROM $projects_table");
             $has_projects = $project_count > 0;
         }
         
-        if ($wpdb->get_var("SHOW TABLES LIKE '$tokens_table'") === $tokens_table) {
+        if ($wpdb->get_var(
+            $wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($tokens_table))
+        ) === $tokens_table) {
             $token_count = $wpdb->get_var("SELECT COUNT(*) FROM $tokens_table");
             $has_tokens = $token_count > 0;
         }
