@@ -60,7 +60,9 @@ function nmkr_analytics_purge_old_events() {
     $total_deleted = 0;
     
     // Check if table exists
-    $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$table_name'") === $table_name;
+    $table_exists = $wpdb->get_var(
+        $wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table_name))
+    ) === $table_name;
     if (!$table_exists) {
         if ($analytics_debug && function_exists('nmkr_log_data_sync')) {
             nmkr_log_data_sync('Analytics purge: Table does not exist', 'debug');

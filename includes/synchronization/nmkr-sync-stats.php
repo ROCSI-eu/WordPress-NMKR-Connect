@@ -115,7 +115,9 @@ function nmkr_get_last_sync_metrics() {
     $table_name = $wpdb->prefix . 'nmkr_sync_metrics';
 
     // Check if table exists
-    $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$table_name'") === $table_name;
+    $table_exists = $wpdb->get_var(
+        $wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table_name))
+    ) === $table_name;
     if (!$table_exists) {
         return false;
     }
@@ -235,7 +237,9 @@ function nmkr_get_recent_sync_stats($limit = 10) {
     $table_name = $wpdb->prefix . 'nmkr_sync_stats';
     
     // Check if table exists
-    $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$table_name'") === $table_name;
+    $table_exists = $wpdb->get_var(
+        $wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table_name))
+    ) === $table_name;
     if (!$table_exists) {
         return false;
     }
