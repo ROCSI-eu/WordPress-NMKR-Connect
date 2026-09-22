@@ -143,8 +143,7 @@ foreach(array(
 ) as $function_name) {
     $start=strpos($analytics_source,'function '.$function_name.'()');
     nmkr_assert($start!==false,'analytics_guard_function_missing');
-    $next=strpos($analytics_source, "
-function ", $start+1);
+    $next=strpos($analytics_source, "\nfunction ", $start+1);
     $body=substr($analytics_source,$start,$next===false?null:$next-$start);
     nmkr_assert(
         strpos($body,'nmkr_analytics_admin_ajax_guard(')!==false
