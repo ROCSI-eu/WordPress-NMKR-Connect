@@ -26,8 +26,15 @@ $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root .
 foreach ($iterator as $file) {
     if ($file->isFile() && strtolower($file->getExtension()) === 'php') { $runtime_php .= file_get_contents($file->getPathname()); }
 }
-check(strpos($runtime_php, "'nmkr-connect'") === false && strpos($runtime_php, '"nmkr-connect"') === false, 'runtime PHP contains no legacy nmkr-connect gettext-domain literal');\ncheck(strpos($runtime_php, "'connector-for-nmkr'") === false && strpos($runtime_php, '"connector-for-nmkr"') === false, 'runtime PHP contains no superseded connector-for-nmkr gettext-domain literal');
-$stale_basenames = array(\n    'nmkr-connect/' . 'nmkr-connect.php',\n    'connector-for-nmkr/' . 'nmkr-connect.php',\n    'connector-for-nmkr/' . 'connector-for-nmkr.php',\n    'rocsi-connector-for-nmkr/' . 'nmkr-connect.php',\n    'rocsi-connector-for-nmkr/' . 'connector-for-nmkr.php',\n);
+check(strpos($runtime_php, "'nmkr-connect'") === false && strpos($runtime_php, '"nmkr-connect"') === false, 'runtime PHP contains no legacy nmkr-connect gettext-domain literal');
+check(strpos($runtime_php, "'connector-for-nmkr'") === false && strpos($runtime_php, '"connector-for-nmkr"') === false, 'runtime PHP contains no superseded connector-for-nmkr gettext-domain literal');
+$stale_basenames = array(
+    'nmkr-connect/' . 'nmkr-connect.php',
+    'connector-for-nmkr/' . 'nmkr-connect.php',
+    'connector-for-nmkr/' . 'connector-for-nmkr.php',
+    'rocsi-connector-for-nmkr/' . 'nmkr-connect.php',
+    'rocsi-connector-for-nmkr/' . 'connector-for-nmkr.php',
+);
 $basename_sources = array($root . '/.env.tests.example');
 foreach (array($root . '/scripts', $root . '/tests') as $scan_root) {
     $scan = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($scan_root, FilesystemIterator::SKIP_DOTS));

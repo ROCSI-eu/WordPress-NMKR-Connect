@@ -8,7 +8,8 @@ slug=${NMKR_PACKAGE_DIR:-rocsi-connector-for-nmkr}
 [[ "$slug" == 'rocsi-connector-for-nmkr' ]] || { echo 'Package directory must be rocsi-connector-for-nmkr.' >&2; exit 1; }
 main_file='rocsi-connector-for-nmkr.php'
 test -f "$main_file" || { echo 'Canonical main plugin file is missing.' >&2; exit 1; }
-test ! -e nmkr-connect.php || { echo 'Obsolete main plugin file must not be present.' >&2; exit 1; }\ntest ! -e connector-for-nmkr.php || { echo 'Superseded pre-review main plugin file must not be present.' >&2; exit 1; }
+test ! -e nmkr-connect.php || { echo 'Obsolete main plugin file must not be present.' >&2; exit 1; }
+test ! -e connector-for-nmkr.php || { echo 'Superseded pre-review main plugin file must not be present.' >&2; exit 1; }
 plugin_name=$(sed -n 's/^[[:space:]]*Plugin Name:[[:space:]]*\(.*[^[:space:]]\)[[:space:]]*$/\1/p' "$main_file" | head -n 1)
 [[ "$plugin_name" == 'ROCSI Connector for NMKR' ]] || { echo 'Plugin Name header does not match the release identity.' >&2; exit 1; }
 text_domain=$(sed -n 's/^[[:space:]]*Text Domain:[[:space:]]*\([^[:space:]]*\)[[:space:]]*$/\1/p' "$main_file" | head -n 1)
@@ -42,7 +43,8 @@ verify=$(mktemp -d); unzip -q "$zip_path" -d "$verify"
 test "$(find "$verify" -mindepth 1 -maxdepth 1 -print | wc -l)" -eq 1
 test -d "$verify/$slug"
 test -f "$verify/$slug/$main_file" && test -f "$verify/$slug/readme.txt" && test -f "$verify/$slug/PACKAGE-MANIFEST.sha256"
-test ! -e "$verify/$slug/nmkr-connect.php"\ntest ! -e "$verify/$slug/connector-for-nmkr.php"
+test ! -e "$verify/$slug/nmkr-connect.php"
+test ! -e "$verify/$slug/connector-for-nmkr.php"
 test "$(grep -Il '^Plugin Name:' "$verify/$slug"/*.php 2>/dev/null | wc -l)" -eq 1
 grep -Eq '^Plugin Name:[[:space:]]*ROCSI Connector for NMKR[[:space:]]*$' "$verify/$slug/$main_file"
 grep -Eq '^Text Domain:[[:space:]]*rocsi-connector-for-nmkr[[:space:]]*$' "$verify/$slug/$main_file"
