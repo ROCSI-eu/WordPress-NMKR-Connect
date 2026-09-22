@@ -18,6 +18,13 @@ function wp_verify_nonce($nonce, $action) { return !empty($GLOBALS['nmkr_nonce']
 function current_user_can($cap) { return !empty($GLOBALS['nmkr_caps'][$cap]); }
 function wp_send_json_error($data, $status = 0) { throw new NmkrContractStop('error', $data, $status); }
 function wp_send_json_success($data = null) { throw new NmkrContractStop('success', $data, 200); }
+function nmkr_begin_response_output_guard() {
+    return array(
+        'buffer_level' => ob_get_level(),
+        'display_errors' => ini_get('display_errors'),
+    );
+}
+function nmkr_end_response_output_guard($guard) {}
 function get_option($name, $default = false) { return $GLOBALS['nmkr_options'][$name] ?? $default; }
 function get_transient($key) { $GLOBALS['nmkr_ledger'][]='cache-read'; return false; }
 function set_transient($key, $value, $ttl) { $GLOBALS['nmkr_ledger'][]='cache-write'; return true; }
