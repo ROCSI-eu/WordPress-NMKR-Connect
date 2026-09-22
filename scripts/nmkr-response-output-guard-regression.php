@@ -60,7 +60,7 @@ try {
     );
     $ini_sites = 0;
     foreach ($production as $name => $source) {
-        preg_match_all('/ini_set\\s*\\(\\s*[\\'"]display_errors[\\'"]/', $source, $matches);
+        preg_match_all("/ini_set\\s*\\(\\s*['\"]display_errors['\"]/", $source, $matches);
         $count = count($matches[0]);
         $ini_sites += $count;
         if ('utility' !== $name) {
