@@ -12,7 +12,7 @@ The script follows the same WP-CLI environment conventions as the existing smoke
 
 - `WP_PATH` optionally points WP-CLI at the WordPress installation.
 - `WP_CLI_BIN` defaults to `wp`.
-- `NMKR_PLUGIN_SLUG` defaults to `connector-for-nmkr/connector-for-nmkr.php`.
+- `NMKR_PLUGIN_SLUG` defaults to `rocsi-connector-for-nmkr/rocsi-connector-for-nmkr.php`.
 
 ## Targeted command
 

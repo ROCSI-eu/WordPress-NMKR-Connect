@@ -18,13 +18,13 @@ function nmkr_token_is_buyable( $token ) {
 
 function nmkr_token_status_label( $token ) {
     if ( ! empty( $token->minted ) ) {
-        return __( 'Minted', 'connector-for-nmkr' );
+        return __( 'Minted', 'rocsi-connector-for-nmkr' );
     }
     if ( isset( $token->sell_date ) && ! empty( $token->sell_date ) ) {
-        return __( 'Sold', 'connector-for-nmkr' );
+        return __( 'Sold', 'rocsi-connector-for-nmkr' );
     }
     if ( nmkr_has_active_reservation( $token->reserved_until ?? null ) ) {
-        return __( 'Reserved', 'connector-for-nmkr' );
+        return __( 'Reserved', 'rocsi-connector-for-nmkr' );
     }
-    return __( 'Available', 'connector-for-nmkr' );
+    return __( 'Available', 'rocsi-connector-for-nmkr' );
 }

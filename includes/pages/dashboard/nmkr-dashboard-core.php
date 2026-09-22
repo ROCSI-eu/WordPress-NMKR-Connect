@@ -1,8 +1,8 @@
 <?php
 /**
- * Connector for NMKR Dashboard Core
+ * ROCSI Connector for NMKR Dashboard Core
  *
- * Core functionality for the Connector for NMKR Dashboard
+ * Core functionality for the ROCSI Connector for NMKR Dashboard
  *
  * @package NMKR_Connect
  */
@@ -30,7 +30,7 @@ require_once plugin_dir_path(dirname(dirname(dirname(__FILE__)))) . 'includes/he
 require_once plugin_dir_path(dirname(dirname(dirname(__FILE__)))) . 'includes/helpers/nmkr-utility-functions.php';
 
 /**
- * Main function to render the Connector for NMKR Dashboard page.
+ * Main function to render the ROCSI Connector for NMKR Dashboard page.
  * 
  * This function initializes the dashboard structure and includes all necessary components,
  * delegating to specialized functions for stats, UI, and Ajax functionality.
@@ -38,10 +38,10 @@ require_once plugin_dir_path(dirname(dirname(dirname(__FILE__)))) . 'includes/he
 function nmkr_connect_dashboard_page() {
     if ( ! current_user_can( 'nmkr_view_dashboard' ) ) {
         if ( function_exists( 'nmkr_render_access_denied_page' ) ) {
-            nmkr_render_access_denied_page( __( 'Dashboard', 'connector-for-nmkr' ) );
+            nmkr_render_access_denied_page( __( 'Dashboard', 'rocsi-connector-for-nmkr' ) );
             return;
         }
-        wp_die( esc_html__( 'Access denied.', 'connector-for-nmkr' ) );
+        wp_die( esc_html__( 'Access denied.', 'rocsi-connector-for-nmkr' ) );
     }
     $can_manage_sync = current_user_can( 'nmkr_manage_sync' );
 
@@ -59,7 +59,7 @@ function nmkr_connect_dashboard_page() {
     $dashboard_nonce = wp_create_nonce('nmkr_dashboard_nonce');
     ?>
     <div class="wrap nmkr-dashboard">
-        <h1 class="center-text">Connector for NMKR Dashboard</h1>
+        <h1 class="center-text">ROCSI Connector for NMKR Dashboard</h1>
 
         <?php 
         // Render dashboard UI elements

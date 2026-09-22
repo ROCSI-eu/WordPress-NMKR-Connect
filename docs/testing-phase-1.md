@@ -47,7 +47,7 @@ The read-only WP-CLI smoke script remains available against a prepared private W
 ```bash
 WP_PATH=/path/to/wordpress \
 WP_CLI_BIN=wp \
-NMKR_PLUGIN_SLUG=connector-for-nmkr/connector-for-nmkr.php \
+NMKR_PLUGIN_SLUG=rocsi-connector-for-nmkr/rocsi-connector-for-nmkr.php \
 NMKR_DEBUG_LOG_RELATIVE_PATH=wp-content/debug.log \
 NMKR_DEBUG_LOG_LOOKBACK_MINUTES=30 \
 bash scripts/nmkr-wpcli-smoke.sh

@@ -351,11 +351,11 @@ function nmkr_log_data_sync($message, $type = 'info', $data = array()) {
     // Log to debug.log file if enabled
     if (nmkr_should_log_to('file')) {
         // Create a clean, simple log entry
-        nmkr_write_debug_log("[Connector for NMKR Sync] " . $message);
+        nmkr_write_debug_log("[ROCSI Connector for NMKR Sync] " . $message);
         
         // For errors and warnings, log the data separately
         if (($type === 'error' || $type === 'warning') && !empty($data)) {
-            nmkr_write_debug_log("[Connector for NMKR Sync] Error details: " . nmkr_format_log_value($data));
+            nmkr_write_debug_log("[ROCSI Connector for NMKR Sync] Error details: " . nmkr_format_log_value($data));
         }
     }
     
@@ -413,11 +413,11 @@ function nmkr_log_api_status($message, $type = 'info', $data = array()) {
     // Log to debug.log file if enabled
     if (nmkr_should_log_to('file')) {
         // Create a clean, simple log entry
-        nmkr_write_debug_log("[Connector for NMKR API] " . $message);
+        nmkr_write_debug_log("[ROCSI Connector for NMKR API] " . $message);
         
         // For errors and warnings, log the data separately
         if (($type === 'error' || $type === 'warning') && !empty($data)) {
-            nmkr_write_debug_log("[Connector for NMKR API] Error details: " . nmkr_format_log_value($data));
+            nmkr_write_debug_log("[ROCSI Connector for NMKR API] Error details: " . nmkr_format_log_value($data));
         }
     }
     
@@ -465,11 +465,11 @@ function nmkr_log_ui_status($message, $type = 'info', $data = array()) {
     // Log to debug.log file if enabled
     if (nmkr_should_log_to('file')) {
         // Create a clean, simple log entry
-        nmkr_write_debug_log("[Connector for NMKR UI Status] " . $message);
+        nmkr_write_debug_log("[ROCSI Connector for NMKR UI Status] " . $message);
         
         // For errors and warnings, log the data separately
         if (($type === 'error' || $type === 'warning') && !empty($data)) {
-            nmkr_write_debug_log("[Connector for NMKR UI Status] Error details: " . nmkr_format_log_value($data));
+            nmkr_write_debug_log("[ROCSI Connector for NMKR UI Status] Error details: " . nmkr_format_log_value($data));
         }
     }
     
@@ -555,7 +555,7 @@ function nmkr_with_sync_owner_lock($callback) {
     $lock_name = nmkr_sync_owner_lock_name();
     $acquired = (int) $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, %d)', $lock_name, 5));
     if ($acquired !== 1) {
-        return new WP_Error('sync_owner_lock_unavailable', __('Synchronization ownership is temporarily unavailable.', 'connector-for-nmkr'));
+        return new WP_Error('sync_owner_lock_unavailable', __('Synchronization ownership is temporarily unavailable.', 'rocsi-connector-for-nmkr'));
     }
     try {
         // All admission inspection and mutation happens on this DB connection
@@ -610,21 +610,21 @@ function nmkr_maintain_exact_finalizing_owner($expected_run_id, $expected_sync_s
 /** Atomically admit a single direct run. */
 function nmkr_admit_sync_owner($run_id) {
     if (!nmkr_is_valid_sync_run_id($run_id)) {
-        return new WP_Error('invalid_run_id', __('Invalid synchronization run identifier.', 'connector-for-nmkr'));
+        return new WP_Error('invalid_run_id', __('Invalid synchronization run identifier.', 'rocsi-connector-for-nmkr'));
     }
     return nmkr_with_sync_owner_lock(function () use ($run_id) {
         nmkr_refresh_sync_owner_cache();
         if (function_exists('nmkr_sync_start_blocked_by_finalization')
             && nmkr_sync_start_blocked_by_finalization(nmkr_get_sync_data())) {
-            return new WP_Error('sync_finalization_pending', __('Synchronization finalization is still pending.', 'connector-for-nmkr'));
+            return new WP_Error('sync_finalization_pending', __('Synchronization finalization is still pending.', 'rocsi-connector-for-nmkr'));
         }
         if (nmkr_get_sync_owner() !== false) {
-            return new WP_Error('sync_already_owned', __('A synchronization is already queued or running.', 'connector-for-nmkr'));
+            return new WP_Error('sync_already_owned', __('A synchronization is already queued or running.', 'rocsi-connector-for-nmkr'));
         }
         $now = gmdate('c');
         $owner = array('run_id' => $run_id, 'mode' => 'direct', 'state' => 'queued', 'sync_stats_id' => 0, 'created_at' => $now, 'updated_at' => $now, 'heartbeat_at' => $now, 'checkpoint_seq' => 0, 'safe_phase' => 'queued');
         if (!add_option('nmkr_sync_owner', $owner, '', 'no')) {
-            return new WP_Error('sync_already_owned', __('A synchronization is already queued or running.', 'connector-for-nmkr'));
+            return new WP_Error('sync_already_owned', __('A synchronization is already queued or running.', 'rocsi-connector-for-nmkr'));
         }
         return $owner;
     });
@@ -660,13 +660,13 @@ function nmkr_transition_sync_owner($run_id, $from_state, $to_state, $sync_stats
 
 /** Request cooperative termination of one exact direct run. */
 function nmkr_request_exact_sync_stop($run_id, $reason = 'user_requested') {
-    if (!nmkr_is_valid_sync_run_id($run_id)) return new WP_Error('invalid_run_id', __('Invalid synchronization run identifier.', 'connector-for-nmkr'));
+    if (!nmkr_is_valid_sync_run_id($run_id)) return new WP_Error('invalid_run_id', __('Invalid synchronization run identifier.', 'rocsi-connector-for-nmkr'));
     return nmkr_with_sync_owner_lock(function () use ($run_id, $reason) {
         $owner = nmkr_get_uncached_option_value('nmkr_sync_owner', false);
-        if (!is_array($owner) || !hash_equals((string) ($owner['run_id'] ?? ''), $run_id) || ($owner['mode'] ?? '') !== 'direct') return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this run.', 'connector-for-nmkr'));
-        if (($owner['state'] ?? '') === 'finalizing') return new WP_Error('sync_finalization_pending', __('Synchronization finalization is still pending.', 'connector-for-nmkr'));
+        if (!is_array($owner) || !hash_equals((string) ($owner['run_id'] ?? ''), $run_id) || ($owner['mode'] ?? '') !== 'direct') return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this run.', 'rocsi-connector-for-nmkr'));
+        if (($owner['state'] ?? '') === 'finalizing') return new WP_Error('sync_finalization_pending', __('Synchronization finalization is still pending.', 'rocsi-connector-for-nmkr'));
         if (($owner['state'] ?? '') === 'queued' && (int) ($owner['sync_stats_id'] ?? -1) === 0) return nmkr_cancel_exact_queued_sync_owner_locked($run_id, 'cancelled');
-        if (!in_array(($owner['state'] ?? ''), array('running', 'stop_requested'), true)) return new WP_Error('sync_owner_state_invalid', __('Synchronization cannot be stopped in its current state.', 'connector-for-nmkr'));
+        if (!in_array(($owner['state'] ?? ''), array('running', 'stop_requested'), true)) return new WP_Error('sync_owner_state_invalid', __('Synchronization cannot be stopped in its current state.', 'rocsi-connector-for-nmkr'));
         $requested_at = $owner['stop_requested_at'] ?? gmdate('c');
         $owner['state'] = 'stop_requested';
         $owner['stop_requested_at'] = $requested_at;
@@ -678,7 +678,7 @@ function nmkr_request_exact_sync_stop($run_id, $reason = 'user_requested') {
         if (!is_array($verified) || !hash_equals((string) ($verified['run_id'] ?? ''), $run_id)
             || ($verified['mode'] ?? '') !== 'direct' || (int) ($verified['sync_stats_id'] ?? -1) !== (int) ($owner['sync_stats_id'] ?? -1)
             || ($verified['state'] ?? '') !== 'stop_requested' || ($verified['stop_requested_at'] ?? '') !== $requested_at
-            || ($verified['stop_reason'] ?? '') !== $owner['stop_reason']) return new WP_Error('sync_stop_readback_failed', __('Synchronization stop could not be verified.', 'connector-for-nmkr'));
+            || ($verified['stop_reason'] ?? '') !== $owner['stop_reason']) return new WP_Error('sync_stop_readback_failed', __('Synchronization stop could not be verified.', 'rocsi-connector-for-nmkr'));
         return $verified;
     });
 }
@@ -714,18 +714,18 @@ function nmkr_sync_run_checkpoint($run_id, $sync_stats_id = null, $phase = '') {
 function nmkr_bind_exact_sync_history_owner($run_id, $sync_stats_id) {
     global $wpdb;
     $sync_stats_id = (int) $sync_stats_id;
-    if (!nmkr_is_valid_sync_run_id($run_id) || $sync_stats_id <= 0) return new WP_Error('sync_history_binding_invalid_input', __('Invalid synchronization history binding.', 'connector-for-nmkr'));
+    if (!nmkr_is_valid_sync_run_id($run_id) || $sync_stats_id <= 0) return new WP_Error('sync_history_binding_invalid_input', __('Invalid synchronization history binding.', 'rocsi-connector-for-nmkr'));
     $result = nmkr_with_sync_owner_lock(function () use ($run_id, $sync_stats_id, $wpdb) {
         $owner = nmkr_get_uncached_option_value('nmkr_sync_owner', false);
-        if (!is_array($owner) || !hash_equals((string) ($owner['run_id'] ?? ''), $run_id) || ($owner['mode'] ?? '') !== 'direct') return new WP_Error('sync_history_binding_owner_mismatch', __('Synchronization ownership no longer matches this run.', 'connector-for-nmkr'));
-        if ((int) ($owner['sync_stats_id'] ?? -1) !== 0 || !in_array(($owner['state'] ?? ''), array('running', 'stop_requested'), true)) return new WP_Error('sync_history_binding_owner_state_invalid', __('Synchronization ownership is not bindable.', 'connector-for-nmkr'));
+        if (!is_array($owner) || !hash_equals((string) ($owner['run_id'] ?? ''), $run_id) || ($owner['mode'] ?? '') !== 'direct') return new WP_Error('sync_history_binding_owner_mismatch', __('Synchronization ownership no longer matches this run.', 'rocsi-connector-for-nmkr'));
+        if ((int) ($owner['sync_stats_id'] ?? -1) !== 0 || !in_array(($owner['state'] ?? ''), array('running', 'stop_requested'), true)) return new WP_Error('sync_history_binding_owner_state_invalid', __('Synchronization ownership is not bindable.', 'rocsi-connector-for-nmkr'));
         $history = $wpdb->get_row($wpdb->prepare("SELECT id, run_id FROM {$wpdb->prefix}nmkr_sync_stats WHERE id = %d", $sync_stats_id), ARRAY_A);
-        if (!is_array($history) || (int) ($history['id'] ?? 0) !== $sync_stats_id) return new WP_Error('sync_history_binding_history_missing', __('Synchronization history is missing.', 'connector-for-nmkr'));
-        if (!hash_equals((string) ($history['run_id'] ?? ''), $run_id)) return new WP_Error('sync_history_binding_history_run_mismatch', __('Synchronization history belongs to another run.', 'connector-for-nmkr'));
+        if (!is_array($history) || (int) ($history['id'] ?? 0) !== $sync_stats_id) return new WP_Error('sync_history_binding_history_missing', __('Synchronization history is missing.', 'rocsi-connector-for-nmkr'));
+        if (!hash_equals((string) ($history['run_id'] ?? ''), $run_id)) return new WP_Error('sync_history_binding_history_run_mismatch', __('Synchronization history belongs to another run.', 'rocsi-connector-for-nmkr'));
         $owner['sync_stats_id'] = $sync_stats_id; $owner['updated_at'] = gmdate('c');
-        if (!update_option('nmkr_sync_owner', $owner, false)) return new WP_Error('sync_history_binding_update_failed', __('Synchronization history binding could not be persisted.', 'connector-for-nmkr'));
+        if (!update_option('nmkr_sync_owner', $owner, false)) return new WP_Error('sync_history_binding_update_failed', __('Synchronization history binding could not be persisted.', 'rocsi-connector-for-nmkr'));
         $verified = nmkr_get_uncached_option_value('nmkr_sync_owner', false);
-        if ($verified !== $owner) return new WP_Error('sync_history_binding_readback_failed', __('Synchronization history binding could not be verified.', 'connector-for-nmkr'));
+        if ($verified !== $owner) return new WP_Error('sync_history_binding_readback_failed', __('Synchronization history binding could not be verified.', 'rocsi-connector-for-nmkr'));
         return $verified;
     });
     return is_wp_error($result) && $result->get_error_code() === 'sync_owner_lock_unavailable' ? new WP_Error('sync_history_binding_lock_unavailable', $result->get_error_message()) : $result;
@@ -790,7 +790,7 @@ function nmkr_cleanup_bound_direct_sync_initialization_failure($run_id, $sync_st
 
     $sync_stats_id = (int) $sync_stats_id;
     if ($sync_stats_id <= 0) {
-        return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this worker.', 'connector-for-nmkr'));
+        return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this worker.', 'rocsi-connector-for-nmkr'));
     }
 
     return nmkr_with_sync_owner_lock(function () use ($wpdb, $run_id, $sync_stats_id, $error_message) {
@@ -803,7 +803,7 @@ function nmkr_cleanup_bound_direct_sync_initialization_failure($run_id, $sync_st
             || ($owner['mode'] ?? '') !== 'direct'
             || (int) ($owner['sync_stats_id'] ?? 0) !== $sync_stats_id
             || !in_array($owner_state, array('running', 'stop_requested'), true)) {
-            return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this worker.', 'connector-for-nmkr'));
+            return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this worker.', 'rocsi-connector-for-nmkr'));
         }
 
         $outcome = $owner_state === 'stop_requested' ? 'stopped' : 'failed';
@@ -827,7 +827,7 @@ function nmkr_cleanup_bound_direct_sync_initialization_failure($run_id, $sync_st
             // visible as independently discoverable retry evidence; there is
             // no current-run terminal data or callback handoff at this point.
             update_option('nmkr_sync_status', 'finalization_error');
-            return new WP_Error('sync_history_terminalization_failed', __('Failed to terminalize synchronization history.', 'connector-for-nmkr'));
+            return new WP_Error('sync_history_terminalization_failed', __('Failed to terminalize synchronization history.', 'rocsi-connector-for-nmkr'));
         }
 
         $terminal = array(
@@ -852,7 +852,7 @@ function nmkr_cleanup_bound_direct_sync_initialization_failure($run_id, $sync_st
             // stale recovery can retry this exact owner after persistence
             // becomes available again.
             update_option('nmkr_sync_status', 'finalization_error');
-            return new WP_Error('sync_data_terminalization_failed', __('Failed to publish terminal synchronization state.', 'connector-for-nmkr'));
+            return new WP_Error('sync_data_terminalization_failed', __('Failed to publish terminal synchronization state.', 'rocsi-connector-for-nmkr'));
         }
 
         // Establish an independently executable handoff before attempting the
@@ -868,14 +868,14 @@ function nmkr_cleanup_bound_direct_sync_initialization_failure($run_id, $sync_st
             // of the handoff; clearing active markers here would make the
             // retained owner undiscoverable after this request exits.
             update_option('nmkr_sync_status', 'finalization_error');
-            return new WP_Error('sync_owner_release_handoff_failed', __('Synchronization cleanup retry could not be scheduled.', 'connector-for-nmkr'));
+            return new WP_Error('sync_owner_release_handoff_failed', __('Synchronization cleanup retry could not be scheduled.', 'rocsi-connector-for-nmkr'));
         }
 
         nmkr_cleanup_failed_direct_sync_markers($outcome);
         update_option('nmkr_sync_error', $outcome === 'failed' ? (string) $error_message : '');
         delete_option('nmkr_sync_owner');
         if (nmkr_get_uncached_option_value('nmkr_sync_owner', false) !== false) {
-            return new WP_Error('sync_finalization_pending', __('Synchronization cleanup remains pending.', 'connector-for-nmkr'));
+            return new WP_Error('sync_finalization_pending', __('Synchronization cleanup remains pending.', 'rocsi-connector-for-nmkr'));
         }
         nmkr_clear_sync_finalization_resume($sync_stats_id);
 
@@ -898,7 +898,7 @@ function nmkr_cleanup_failed_queued_sync($run_id) {
  */
 function nmkr_cancel_exact_queued_sync_owner($run_id, $status = '') {
     if (!nmkr_is_valid_sync_run_id($run_id)) {
-        return new WP_Error('invalid_run_id', __('Invalid synchronization run identifier.', 'connector-for-nmkr'));
+        return new WP_Error('invalid_run_id', __('Invalid synchronization run identifier.', 'rocsi-connector-for-nmkr'));
     }
     return nmkr_with_sync_owner_lock(function () use ($run_id, $status) {
         return nmkr_cancel_exact_queued_sync_owner_locked($run_id, $status);
@@ -916,7 +916,7 @@ function nmkr_cancel_exact_queued_sync_owner_locked($run_id, $status = '') {
 
     wp_clear_scheduled_hook('nmkr_execute_sync_background', array($run_id));
     if (wp_next_scheduled('nmkr_execute_sync_background', array($run_id)) !== false) {
-        return new WP_Error('sync_queued_event_cleanup_failed', __('Synchronization event cleanup could not be verified.', 'connector-for-nmkr'));
+        return new WP_Error('sync_queued_event_cleanup_failed', __('Synchronization event cleanup could not be verified.', 'rocsi-connector-for-nmkr'));
     }
 
     update_option('nmkr_sync_in_progress', false);
@@ -929,7 +929,7 @@ function nmkr_cancel_exact_queued_sync_owner_locked($run_id, $status = '') {
         $markers_clean = $markers_clean && get_transient($key) === false;
     }
     if (!$markers_clean) {
-        return new WP_Error('sync_queued_cleanup_failed', __('Synchronization scheduling cleanup could not be verified.', 'connector-for-nmkr'));
+        return new WP_Error('sync_queued_cleanup_failed', __('Synchronization scheduling cleanup could not be verified.', 'rocsi-connector-for-nmkr'));
     }
     if ($status !== '') {
         update_option('nmkr_sync_status', (string) $status);
@@ -937,7 +937,7 @@ function nmkr_cancel_exact_queued_sync_owner_locked($run_id, $status = '') {
 
     delete_option('nmkr_sync_owner');
     if (nmkr_get_uncached_option_value('nmkr_sync_owner', false) !== false) {
-        return new WP_Error('sync_queued_owner_cleanup_failed', __('Synchronization ownership cleanup could not be verified.', 'connector-for-nmkr'));
+        return new WP_Error('sync_queued_owner_cleanup_failed', __('Synchronization ownership cleanup could not be verified.', 'rocsi-connector-for-nmkr'));
     }
     return true;
 }
@@ -959,24 +959,24 @@ function nmkr_coordinate_sync_cleanup($intent, $ownerless_callback) {
                 || (function_exists('nmkr_sync_start_blocked_by_finalization') && nmkr_sync_start_blocked_by_finalization($sync_data))
             );
             if ($finalization_pending) {
-                return new WP_Error('sync_finalization_pending', __('Synchronization finalization is still pending.', 'connector-for-nmkr'));
+                return new WP_Error('sync_finalization_pending', __('Synchronization finalization is still pending.', 'rocsi-connector-for-nmkr'));
             }
             return call_user_func($ownerless_callback);
         }
         if (!is_array($owner) || !nmkr_is_valid_sync_run_id((string) ($owner['run_id'] ?? ''))
             || ($owner['mode'] ?? '') !== 'direct') {
-            return new WP_Error('sync_owner_recovery_required', __('Synchronization ownership requires recovery before cleanup.', 'connector-for-nmkr'));
+            return new WP_Error('sync_owner_recovery_required', __('Synchronization ownership requires recovery before cleanup.', 'rocsi-connector-for-nmkr'));
         }
         if (($owner['state'] ?? '') === 'queued' && (int) ($owner['sync_stats_id'] ?? -1) === 0 && $intent === 'cancel') {
             return nmkr_cancel_exact_queued_sync_owner_locked((string) $owner['run_id'], 'cancelled');
         }
         if (($owner['state'] ?? '') === 'running') {
-            return new WP_Error('direct_stop_requires_cooperative_worker', __('The direct synchronization worker is already running and cannot be stopped safely yet.', 'connector-for-nmkr'));
+            return new WP_Error('direct_stop_requires_cooperative_worker', __('The direct synchronization worker is already running and cannot be stopped safely yet.', 'rocsi-connector-for-nmkr'));
         }
         if (($owner['state'] ?? '') === 'finalizing') {
-            return new WP_Error('sync_finalization_pending', __('Synchronization finalization is still pending.', 'connector-for-nmkr'));
+            return new WP_Error('sync_finalization_pending', __('Synchronization finalization is still pending.', 'rocsi-connector-for-nmkr'));
         }
-        return new WP_Error('sync_owner_recovery_required', __('Synchronization ownership requires recovery before cleanup.', 'connector-for-nmkr'));
+        return new WP_Error('sync_owner_recovery_required', __('Synchronization ownership requires recovery before cleanup.', 'rocsi-connector-for-nmkr'));
     });
 }
 
@@ -1176,7 +1176,7 @@ function nmkr_detect_and_recover_stale_sync() {
         nmkr_log_ui_status(
             sprintf(
                 /* translators: 1: ISO-8601 timestamp of the last sync update, 2: age of that update in seconds. */
-                __('[Connector for NMKR Recovery] Stale sync detected (last_update=%1$s, age=%2$d sec). State cleared; UI set to idle.', 'connector-for-nmkr'),
+                __('[ROCSI Connector for NMKR Recovery] Stale sync detected (last_update=%1$s, age=%2$d sec). State cleared; UI set to idle.', 'rocsi-connector-for-nmkr'),
                 $iso,
                 (int) $age
             ),

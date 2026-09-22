@@ -5,10 +5,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 
 function nmkr_connect_admin_menu() {
-    // Main menu page for Connector for NMKR
+    // Main menu page for ROCSI Connector for NMKR
     add_menu_page(
-        'Connector for NMKR Dashboard',      // Page title
-        'Connector for NMKR',                // Menu title
+        'ROCSI Connector for NMKR Dashboard',      // Page title
+        'ROCSI Connector for NMKR',                // Menu title
         'nmkr_access_plugin',                // Capability
         'nmkr-connect-dashboard',            // Menu slug
         'nmkr_connect_dashboard_page',       // Function to display the page content
@@ -50,8 +50,8 @@ function nmkr_connect_admin_menu() {
     if ( ! defined('NMKR_ANALYTICS_UI_ENABLED') || constant('NMKR_ANALYTICS_UI_ENABLED') ) {
         add_submenu_page(
             'nmkr-connect-dashboard',                 // Parent slug
-            __('Analytics', 'connector-for-nmkr'),   // Page title
-            __('Analytics', 'connector-for-nmkr'),   // Menu title
+            __('Analytics', 'rocsi-connector-for-nmkr'),   // Page title
+            __('Analytics', 'rocsi-connector-for-nmkr'),   // Menu title
             'nmkr_view_analytics',                    // Capability
             'nmkr-connect-analytics',                 // Menu slug
             'nmkr_connect_analytics_page'             // Callback function
@@ -85,12 +85,12 @@ add_action( 'admin_init', function () {
     }
 
     if ( function_exists( 'nmkr_render_access_denied_page' ) ) {
-        nmkr_render_access_denied_page( __( 'Connector for NMKR', 'connector-for-nmkr' ) );
+        nmkr_render_access_denied_page( __( 'ROCSI Connector for NMKR', 'rocsi-connector-for-nmkr' ) );
         exit;
     }
 
     // Fallback (should not happen if helper loaded)
-    wp_die( esc_html__( 'Access denied.', 'connector-for-nmkr' ) );
+    wp_die( esc_html__( 'Access denied.', 'rocsi-connector-for-nmkr' ) );
 }, 1 );
 
 /**

@@ -1,4 +1,4 @@
-# Connector for NMKR troubleshooting guide
+# ROCSI Connector for NMKR troubleshooting guide
 
 Start with observation, not deletion. Record the exact plugin commit/release when known, WordPress/PHP versions, affected page or shortcode, synchronization status, and sanitized error text. Never casually delete options, transients, history/metrics rows, owner state, tables, or plugin files.
 
@@ -34,14 +34,14 @@ Related guidance:
 
 - **Symptom:** a custom/source-built ZIP is missing plugin files, fails activation, or differs from the expected release layout.
 - **Likely causes:** a partial source tree was packaged, repository-only files were manually mixed into the ZIP, required plugin PHP/assets were omitted, or the upload was damaged.
-- **Safe checks:** inspect the archive locally and confirm it has one top-level plugin directory containing `connector-for-nmkr.php`, `readme.txt`, and the expected package manifest without publishing a full filesystem listing.
+- **Safe checks:** inspect the archive locally and confirm it has one top-level plugin directory containing `rocsi-connector-for-nmkr.php`, `readme.txt`, and the expected package manifest without publishing a full filesystem listing.
 - **Corrective action:** obtain a complete trusted release, or rebuild from a clean exact source checkout with `npm run build:package` and test the generated ZIP on staging. The current runtime does not require `vendor/` or `composer install`.
 - **Escalation information:** exact source commit, build command, package source, and the missing relative path only.
 - **Actions to avoid:** do not assemble runtime files piecemeal, copy files from an unrelated release, or publish private paths/environment files.
 
 ## 3. Settings access or save failure
 
-- **Symptom:** **Settings → Connector for NMKR** is absent/denied or values do not save.
+- **Symptom:** **Settings → ROCSI Connector for NMKR** is absent/denied or values do not save.
 - **Likely causes:** missing `nmkr_manage_settings`, expired session/settings nonce, security middleware, invalid values being clamped/rejected, or a persistence failure.
 - **Safe checks:** confirm the assigned role/capabilities; reload and sign in again; inspect the browser network response; compare allowed ranges in the [user guide](user-guide.md).
 - **Corrective action:** have an Administrator assign the least-privilege **NMKR Admin** role/capability, retry with a fresh page, and correct invalid input. Investigate proxy/security rules on staging if the request is blocked.
