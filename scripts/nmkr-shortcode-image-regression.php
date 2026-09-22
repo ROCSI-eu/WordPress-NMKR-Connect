@@ -1,7 +1,7 @@
 <?php
 /** Public-safe token image source and markup regression. */
 define('ABSPATH', __DIR__ . '/../');
-define('NMKR_CONNECT_PLUGIN_FILE', __DIR__ . '/../connector-for-nmkr.php');
+define('NMKR_CONNECT_PLUGIN_FILE', __DIR__ . '/../rocsi-connector-for-nmkr.php');
 
 $GLOBALS['nmkr_test_gateway'] = '';
 function apply_filters($hook, $value) { return 'nmkr_ipfs_gateway_base' === $hook ? $GLOBALS['nmkr_test_gateway'] : $value; }

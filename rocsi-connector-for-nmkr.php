@@ -1,6 +1,6 @@
 <?php
 /*
-Plugin Name: Connector for NMKR
+Plugin Name: ROCSI Connector for NMKR
 Description: WordPress plugin to synchronize and display NMKR Studio projects and tokens.
 Version: 0.25.0
 Requires at least: 5.8
@@ -8,7 +8,7 @@ Requires PHP: 7.4
 License: MIT
 License URI: https://opensource.org/license/mit/
 Author: Romanian - European Cyber Space Initiative 🇷🇴 🇪🇺 🌐
-Text Domain: connector-for-nmkr
+Text Domain: rocsi-connector-for-nmkr
 */
 
 // Exit if accessed directly
@@ -361,55 +361,55 @@ function nmkr_enqueue_admin_assets($hook) {
                 // Reuse existing dashboard nonce; endpoints will check this in PR-2+
                 'nonce'    => wp_create_nonce( 'nmkr_dashboard_nonce' ),
                 'i18n' => array(
-                'title'         => esc_html__( 'Analytics', 'connector-for-nmkr' ),
-                'loading'       => esc_html__( 'Loading…', 'connector-for-nmkr' ),
-                'noData'        => esc_html__( 'No data yet for the selected range.', 'connector-for-nmkr' ),
-                'invalidRange'  => esc_html__( 'Custom range must be ≤ 365 days.', 'connector-for-nmkr' ),
-                'apply'         => esc_html__( 'Apply', 'connector-for-nmkr' ),
-                'from'          => esc_html__( 'From', 'connector-for-nmkr' ),
-                'to'            => esc_html__( 'To', 'connector-for-nmkr' ),
-                'range'         => esc_html__( 'Range', 'connector-for-nmkr' ),
-                'shortcodeType' => esc_html__( 'Shortcode type', 'connector-for-nmkr' ),
-                'views'         => esc_html__( 'Views', 'connector-for-nmkr' ),
-                'clicks'        => esc_html__( 'Clicks', 'connector-for-nmkr' ),
-                'ctr'           => esc_html__( 'CTR', 'connector-for-nmkr' ),
-                'sort'          => esc_html__( 'Sort', 'connector-for-nmkr' ),
-                'topProjects'   => esc_html__( 'Top Projects', 'connector-for-nmkr' ),
-                'topTokens'     => esc_html__( 'Top Tokens',   'connector-for-nmkr' ),
-                'uid'           => esc_html__( 'UID',          'connector-for-nmkr' ),
-                'searchUid'     => esc_html__( 'Search UID prefix', 'connector-for-nmkr' ),
-                'search'        => esc_html__( 'Search',       'connector-for-nmkr' ),
-                'reset'         => esc_html__( 'Reset',        'connector-for-nmkr' ),
-                'prev'          => esc_html__( 'Prev',         'connector-for-nmkr' ),
-                'next'          => esc_html__( 'Next',         'connector-for-nmkr' ),
-                'page'          => esc_html__( 'Page',         'connector-for-nmkr' ),
-                'of'            => esc_html__( 'of',           'connector-for-nmkr' ),
-                'noResults'     => esc_html__( 'No results found.', 'connector-for-nmkr' ),
-                'error'         => esc_html__( 'Something went wrong.', 'connector-for-nmkr' ),
-                'exports'       => esc_html__( 'Exports', 'connector-for-nmkr' ),
-                'exportWhat'    => esc_html__( 'Data', 'connector-for-nmkr' ),
-                'exportFormat'  => esc_html__( 'Format', 'connector-for-nmkr' ),
-                'timeseries'    => esc_html__( 'Timeseries', 'connector-for-nmkr' ),
-                'breakdown'     => esc_html__( 'Shortcode Breakdown', 'connector-for-nmkr' ),
-                'csv'           => esc_html__( 'CSV', 'connector-for-nmkr' ),
-                'json'          => esc_html__( 'JSON', 'connector-for-nmkr' ),
-                'download'      => esc_html__( 'Download', 'connector-for-nmkr' ),
-                'currentView'   => esc_html__( 'Current view/page', 'connector-for-nmkr' ),
-                'noteExport'    => esc_html__( 'Exports reflect current filters; top lists export the current page.', 'connector-for-nmkr' ),
+                'title'         => esc_html__( 'Analytics', 'rocsi-connector-for-nmkr' ),
+                'loading'       => esc_html__( 'Loading…', 'rocsi-connector-for-nmkr' ),
+                'noData'        => esc_html__( 'No data yet for the selected range.', 'rocsi-connector-for-nmkr' ),
+                'invalidRange'  => esc_html__( 'Custom range must be ≤ 365 days.', 'rocsi-connector-for-nmkr' ),
+                'apply'         => esc_html__( 'Apply', 'rocsi-connector-for-nmkr' ),
+                'from'          => esc_html__( 'From', 'rocsi-connector-for-nmkr' ),
+                'to'            => esc_html__( 'To', 'rocsi-connector-for-nmkr' ),
+                'range'         => esc_html__( 'Range', 'rocsi-connector-for-nmkr' ),
+                'shortcodeType' => esc_html__( 'Shortcode type', 'rocsi-connector-for-nmkr' ),
+                'views'         => esc_html__( 'Views', 'rocsi-connector-for-nmkr' ),
+                'clicks'        => esc_html__( 'Clicks', 'rocsi-connector-for-nmkr' ),
+                'ctr'           => esc_html__( 'CTR', 'rocsi-connector-for-nmkr' ),
+                'sort'          => esc_html__( 'Sort', 'rocsi-connector-for-nmkr' ),
+                'topProjects'   => esc_html__( 'Top Projects', 'rocsi-connector-for-nmkr' ),
+                'topTokens'     => esc_html__( 'Top Tokens',   'rocsi-connector-for-nmkr' ),
+                'uid'           => esc_html__( 'UID',          'rocsi-connector-for-nmkr' ),
+                'searchUid'     => esc_html__( 'Search UID prefix', 'rocsi-connector-for-nmkr' ),
+                'search'        => esc_html__( 'Search',       'rocsi-connector-for-nmkr' ),
+                'reset'         => esc_html__( 'Reset',        'rocsi-connector-for-nmkr' ),
+                'prev'          => esc_html__( 'Prev',         'rocsi-connector-for-nmkr' ),
+                'next'          => esc_html__( 'Next',         'rocsi-connector-for-nmkr' ),
+                'page'          => esc_html__( 'Page',         'rocsi-connector-for-nmkr' ),
+                'of'            => esc_html__( 'of',           'rocsi-connector-for-nmkr' ),
+                'noResults'     => esc_html__( 'No results found.', 'rocsi-connector-for-nmkr' ),
+                'error'         => esc_html__( 'Something went wrong.', 'rocsi-connector-for-nmkr' ),
+                'exports'       => esc_html__( 'Exports', 'rocsi-connector-for-nmkr' ),
+                'exportWhat'    => esc_html__( 'Data', 'rocsi-connector-for-nmkr' ),
+                'exportFormat'  => esc_html__( 'Format', 'rocsi-connector-for-nmkr' ),
+                'timeseries'    => esc_html__( 'Timeseries', 'rocsi-connector-for-nmkr' ),
+                'breakdown'     => esc_html__( 'Shortcode Breakdown', 'rocsi-connector-for-nmkr' ),
+                'csv'           => esc_html__( 'CSV', 'rocsi-connector-for-nmkr' ),
+                'json'          => esc_html__( 'JSON', 'rocsi-connector-for-nmkr' ),
+                'download'      => esc_html__( 'Download', 'rocsi-connector-for-nmkr' ),
+                'currentView'   => esc_html__( 'Current view/page', 'rocsi-connector-for-nmkr' ),
+                'noteExport'    => esc_html__( 'Exports reflect current filters; top lists export the current page.', 'rocsi-connector-for-nmkr' ),
                 ),
                 'shortcodeTypes' => array(
-                    array('value' => '',         'label' => esc_html__( 'All shortcodes', 'connector-for-nmkr' )),
-                    array('value' => 'grid',     'label' => esc_html__( 'Grid', 'connector-for-nmkr' )),
-                    array('value' => 'list',     'label' => esc_html__( 'List', 'connector-for-nmkr' )),
-                    array('value' => 'carousel', 'label' => esc_html__( 'Carousel', 'connector-for-nmkr' )),
-                    array('value' => 'token',    'label' => esc_html__( 'Single Token', 'connector-for-nmkr' )),
-                    array('value' => 'project',  'label' => esc_html__( 'Single Project', 'connector-for-nmkr' )),
+                    array('value' => '',         'label' => esc_html__( 'All shortcodes', 'rocsi-connector-for-nmkr' )),
+                    array('value' => 'grid',     'label' => esc_html__( 'Grid', 'rocsi-connector-for-nmkr' )),
+                    array('value' => 'list',     'label' => esc_html__( 'List', 'rocsi-connector-for-nmkr' )),
+                    array('value' => 'carousel', 'label' => esc_html__( 'Carousel', 'rocsi-connector-for-nmkr' )),
+                    array('value' => 'token',    'label' => esc_html__( 'Single Token', 'rocsi-connector-for-nmkr' )),
+                    array('value' => 'project',  'label' => esc_html__( 'Single Project', 'rocsi-connector-for-nmkr' )),
                 ),
                 'ranges' => array(
-                    array('value' => '24h',   'label' => esc_html__( 'Last 24 hours', 'connector-for-nmkr' )),
-                    array('value' => '7d',    'label' => esc_html__( 'Last 7 days', 'connector-for-nmkr' )),
-                    array('value' => '30d',   'label' => esc_html__( 'Last 30 days', 'connector-for-nmkr' )),
-                    array('value' => 'custom','label' => esc_html__( 'Custom range', 'connector-for-nmkr' )),
+                    array('value' => '24h',   'label' => esc_html__( 'Last 24 hours', 'rocsi-connector-for-nmkr' )),
+                    array('value' => '7d',    'label' => esc_html__( 'Last 7 days', 'rocsi-connector-for-nmkr' )),
+                    array('value' => '30d',   'label' => esc_html__( 'Last 30 days', 'rocsi-connector-for-nmkr' )),
+                    array('value' => 'custom','label' => esc_html__( 'Custom range', 'rocsi-connector-for-nmkr' )),
                 ),
                 'defaults' => array(
                     'range'   => '7d',
@@ -515,8 +515,8 @@ function nmkr_enqueue_analytics_frontend() {
 /** Add suggested disclosure text to the WordPress Privacy Policy Guide. */
 function nmkr_connect_add_privacy_policy_content() {
     if (!function_exists('wp_add_privacy_policy_content')) { return; }
-    $text = '<p>' . esc_html__('Connector for NMKR analytics is disabled by default. If an administrator enables local analytics, interaction events, page context, token or project identifiers, session identifiers, consent state, and (for opted-in logged-in tracking) a WordPress user ID are stored in this site’s database for the configured retention period. If GA4 mode is deliberately selected and valid credentials are configured, event data is sent to Google Analytics. The plugin does not expose the GA4 API secret to visitors.', 'connector-for-nmkr') . '</p>';
-    $text .= '<p>' . esc_html__('The plugin communicates with NMKR Studio when an administrator configures and runs synchronization. Public displays may load token media from remote NMKR, IPFS, or configured gateway locations, which can disclose a visitor’s IP address and request metadata to those providers. Site administrators are responsible for choosing appropriate settings, consent handling, disclosures, and retention. This suggested text does not claim legal compliance.', 'connector-for-nmkr') . '</p>';
-    wp_add_privacy_policy_content('Connector for NMKR', wp_kses_post(wpautop($text)));
+    $text = '<p>' . esc_html__('ROCSI Connector for NMKR analytics is disabled by default. If an administrator enables local analytics, interaction events, page context, token or project identifiers, session identifiers, consent state, and (for opted-in logged-in tracking) a WordPress user ID are stored in this site’s database for the configured retention period. If GA4 mode is deliberately selected and valid credentials are configured, event data is sent to Google Analytics. The plugin does not expose the GA4 API secret to visitors.', 'rocsi-connector-for-nmkr') . '</p>';
+    $text .= '<p>' . esc_html__('The plugin communicates with NMKR Studio when an administrator configures and runs synchronization. Public displays may load token media from remote NMKR, IPFS, or configured gateway locations, which can disclose a visitor’s IP address and request metadata to those providers. Site administrators are responsible for choosing appropriate settings, consent handling, disclosures, and retention. This suggested text does not claim legal compliance.', 'rocsi-connector-for-nmkr') . '</p>';
+    wp_add_privacy_policy_content('ROCSI Connector for NMKR', wp_kses_post(wpautop($text)));
 }
 add_action('admin_init', 'nmkr_connect_add_privacy_policy_content');

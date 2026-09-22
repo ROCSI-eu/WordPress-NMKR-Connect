@@ -49,7 +49,7 @@ $GLOBALS['wpdb']=new NmkrContractWpdb(); $GLOBALS['nmkr_hooks']=array(); $GLOBAL
 
 /* Inventory is derived from the registration statements in tracked production PHP. */
 $registrations=array(); $GLOBALS['nmkr_ajax_hook_candidates']=array();
-$production_php=array(dirname(__DIR__).'/connector-for-nmkr.php');
+$production_php=array(dirname(__DIR__).'/rocsi-connector-for-nmkr.php');
 $iterator=new RecursiveIteratorIterator(new RecursiveDirectoryIterator(dirname(__DIR__).'/includes'));
 foreach ($iterator as $file) {
     if ($file->isFile() && $file->getExtension() === 'php') $production_php[]=$file->getPathname();

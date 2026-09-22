@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 WP_PATH="${WP_PATH:-}"
 WP_CLI_BIN="${WP_CLI_BIN:-wp}"
-NMKR_PLUGIN_SLUG="${NMKR_PLUGIN_SLUG:-connector-for-nmkr/connector-for-nmkr.php}"
+NMKR_PLUGIN_SLUG="${NMKR_PLUGIN_SLUG:-rocsi-connector-for-nmkr/rocsi-connector-for-nmkr.php}"
 NMKR_DEBUG_LOG_RELATIVE_PATH="${NMKR_DEBUG_LOG_RELATIVE_PATH:-wp-content/debug.log}"
 NMKR_DEBUG_LOG_LOOKBACK_MINUTES="${NMKR_DEBUG_LOG_LOOKBACK_MINUTES:-30}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

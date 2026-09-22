@@ -32,10 +32,10 @@ function nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, $phase) {
     if ($run_id === '') return true;
     $state = nmkr_sync_run_checkpoint($run_id, $sync_stats_id, $phase);
     if ($state === 'continue') return true;
-    if ($state === 'stop_requested') return new WP_Error('sync_stop_requested', __('Synchronization stop was requested.', 'connector-for-nmkr'));
-    if ($state === 'checkpoint_lock_failed') return new WP_Error('sync_checkpoint_lock_failed', __('Synchronization checkpoint lock is unavailable.', 'connector-for-nmkr'));
-    if ($state === 'checkpoint_persistence_failed') return new WP_Error('sync_checkpoint_persistence_failed', __('Synchronization checkpoint could not be persisted.', 'connector-for-nmkr'));
-    return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this worker.', 'connector-for-nmkr'));
+    if ($state === 'stop_requested') return new WP_Error('sync_stop_requested', __('Synchronization stop was requested.', 'rocsi-connector-for-nmkr'));
+    if ($state === 'checkpoint_lock_failed') return new WP_Error('sync_checkpoint_lock_failed', __('Synchronization checkpoint lock is unavailable.', 'rocsi-connector-for-nmkr'));
+    if ($state === 'checkpoint_persistence_failed') return new WP_Error('sync_checkpoint_persistence_failed', __('Synchronization checkpoint could not be persisted.', 'rocsi-connector-for-nmkr'));
+    return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this worker.', 'rocsi-connector-for-nmkr'));
 }
 
 /** Return true only for errors that must halt the exact direct worker. */
@@ -98,7 +98,7 @@ function nmkr_handle_sync_worker_halt($halt, $run_id, $sync_stats_id, $counters 
     $owner = nmkr_get_sync_owner();
     if (!is_array($owner) || !hash_equals((string) ($owner['run_id'] ?? ''), (string) $run_id)
         || ($owner['mode'] ?? '') !== 'direct' || ($owner['state'] ?? '') !== 'stop_requested'
-        || (int) ($owner['sync_stats_id'] ?? 0) !== (int) $sync_stats_id) return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this worker.', 'connector-for-nmkr'));
+        || (int) ($owner['sync_stats_id'] ?? 0) !== (int) $sync_stats_id) return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this worker.', 'rocsi-connector-for-nmkr'));
     $sync_data = nmkr_get_sync_data();
     $final = array(
         'run_id' => (string) $run_id,
@@ -130,7 +130,7 @@ function nmkr_handle_sync_worker_halt($halt, $run_id, $sync_stats_id, $counters 
         if (!is_array($owner) || !hash_equals((string) ($owner['run_id'] ?? ''), (string) $run_id)
             || ($owner['mode'] ?? '') !== 'direct' || ($owner['state'] ?? '') !== 'stop_requested'
             || (int) ($owner['sync_stats_id'] ?? 0) !== (int) $sync_stats_id) {
-            return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this worker.', 'connector-for-nmkr'));
+            return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this worker.', 'rocsi-connector-for-nmkr'));
         }
         nmkr_save_sync_data(array_merge(is_array($sync_data) ? $sync_data : array(), array(
             'stopped_recovery' => $stopped_recovery,
@@ -142,7 +142,7 @@ function nmkr_handle_sync_worker_halt($halt, $run_id, $sync_stats_id, $counters 
             && nmkr_is_valid_sync_finalization_record($sync_data['stopped_recovery'], $run_id, $sync_stats_id);
     }
     if (!$recovery_persisted) {
-        return new WP_Error('sync_stopped_recovery_persistence_failed', __('Synchronization stop recovery could not be verified.', 'connector-for-nmkr'));
+        return new WP_Error('sync_stopped_recovery_persistence_failed', __('Synchronization stop recovery could not be verified.', 'rocsi-connector-for-nmkr'));
     }
     // The exact Stop owner remains recoverable until its complete handoff has
     // been saved, read back, and given an executable retry event.
@@ -161,7 +161,7 @@ function nmkr_handle_sync_worker_halt($halt, $run_id, $sync_stats_id, $counters 
         if (!is_array($owner) || !hash_equals((string) ($owner['run_id'] ?? ''), (string) $run_id)
             || ($owner['mode'] ?? '') !== 'direct' || ($owner['state'] ?? '') !== 'stop_requested'
             || (int) ($owner['sync_stats_id'] ?? 0) !== (int) $sync_stats_id) {
-            return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this worker.', 'connector-for-nmkr'));
+            return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this worker.', 'rocsi-connector-for-nmkr'));
         }
     }
 
@@ -170,12 +170,12 @@ function nmkr_handle_sync_worker_halt($halt, $run_id, $sync_stats_id, $counters 
     // later Stop, polling, or stale-health invocation can reconstruct all five
     // counters and retry this bounded preparation safely.
     if (!is_array($prepared)) {
-        return new WP_Error('sync_stopped_finalization_pending', __('Synchronization stop finalization remains pending.', 'connector-for-nmkr'));
+        return new WP_Error('sync_stopped_finalization_pending', __('Synchronization stop finalization remains pending.', 'rocsi-connector-for-nmkr'));
     }
     $finalizing = nmkr_transition_sync_owner($run_id, 'stop_requested', 'finalizing', $sync_stats_id);
-    if (!nmkr_sync_owner_transition_succeeded($finalizing)) return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this worker.', 'connector-for-nmkr'));
-    $terminal = nmkr_sync_data_complete(false, __('Synchronization stopped by user.', 'connector-for-nmkr'), $prepared, false, true);
-    return is_array($terminal) ? $terminal : new WP_Error('sync_stopped_finalization_pending', __('Synchronization stop finalization remains pending.', 'connector-for-nmkr'));
+    if (!nmkr_sync_owner_transition_succeeded($finalizing)) return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this worker.', 'rocsi-connector-for-nmkr'));
+    $terminal = nmkr_sync_data_complete(false, __('Synchronization stopped by user.', 'rocsi-connector-for-nmkr'), $prepared, false, true);
+    return is_array($terminal) ? $terminal : new WP_Error('sync_stopped_finalization_pending', __('Synchronization stop finalization remains pending.', 'rocsi-connector-for-nmkr'));
 }
 
 /** Re-enter a durably reconstructible stopped handoff from polling/Stop recovery. */
@@ -187,7 +187,7 @@ function nmkr_resume_stopped_sync_recovery($run_id, $sync_stats_id) {
         return false;
     }
     return nmkr_handle_sync_worker_halt(
-        new WP_Error('sync_stop_requested', __('Synchronization stop was requested.', 'connector-for-nmkr')),
+        new WP_Error('sync_stop_requested', __('Synchronization stop was requested.', 'rocsi-connector-for-nmkr')),
         $run_id,
         $sync_stats_id,
         $record
@@ -241,7 +241,7 @@ function nmkr_log_direct_worker_throwable($throwable) {
 
     try {
         nmkr_write_debug_log(sprintf(
-            '[Connector for NMKR Sync] Direct worker Throwable [%s].',
+            '[ROCSI Connector for NMKR Sync] Direct worker Throwable [%s].',
             get_class($throwable)
         ));
     } catch (Throwable $logging_failure) {
@@ -260,14 +260,14 @@ function nmkr_log_direct_worker_throwable($throwable) {
 function nmkr_recover_direct_worker_throwable($throwable, $run_id, $sync_stats_id = null) {
     if (!($throwable instanceof Throwable)) return false;
 
-    $safe_message = __('Synchronization failed because of an unexpected runtime error.', 'connector-for-nmkr');
+    $safe_message = __('Synchronization failed because of an unexpected runtime error.', 'rocsi-connector-for-nmkr');
     nmkr_log_direct_worker_throwable($throwable);
 
     $owner = nmkr_get_sync_owner();
     if (!is_array($owner)
         || !hash_equals((string) ($owner['run_id'] ?? ''), (string) $run_id)
         || ($owner['mode'] ?? '') !== 'direct') {
-        return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this worker.', 'connector-for-nmkr'));
+        return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this worker.', 'rocsi-connector-for-nmkr'));
     }
 
     $owner_stats_id = (int) ($owner['sync_stats_id'] ?? 0);
@@ -278,7 +278,7 @@ function nmkr_recover_direct_worker_throwable($throwable, $run_id, $sync_stats_i
         // before cleaning up the still-unbound owner. A racing Stop retains
         // precedence after the orphan row has been made terminal.
         $binding_failure = nmkr_handle_sync_owner_binding_failure(
-            new WP_Error('sync_history_binding_interrupted', __('Synchronization history binding was interrupted.', 'connector-for-nmkr')),
+            new WP_Error('sync_history_binding_interrupted', __('Synchronization history binding was interrupted.', 'rocsi-connector-for-nmkr')),
             $run_id,
             $provisional_stats_id
         );
@@ -289,7 +289,7 @@ function nmkr_recover_direct_worker_throwable($throwable, $run_id, $sync_stats_i
         return $binding_failure;
     }
     if ($sync_stats_id !== null && $provisional_stats_id !== $owner_stats_id) {
-        return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this worker.', 'connector-for-nmkr'));
+        return new WP_Error('sync_owner_mismatch', __('Synchronization ownership no longer matches this worker.', 'rocsi-connector-for-nmkr'));
     }
     $sync_stats_id = $owner_stats_id;
 
@@ -319,7 +319,7 @@ function nmkr_recover_direct_worker_throwable($throwable, $run_id, $sync_stats_i
             : nmkr_finalize_pre_history_stop_on_early_failure($run_id);
         return $stopped !== false
             ? $stopped
-            : new WP_Error('sync_worker_recovery_pending', __('Synchronization failure recovery remains pending.', 'connector-for-nmkr'));
+            : new WP_Error('sync_worker_recovery_pending', __('Synchronization failure recovery remains pending.', 'rocsi-connector-for-nmkr'));
     }
 
     if ($owner_state === 'running') {
@@ -339,13 +339,13 @@ function nmkr_recover_direct_worker_throwable($throwable, $run_id, $sync_stats_i
 
             return $failed !== false
                 ? $failed
-                : new WP_Error('sync_worker_recovery_pending', __('Synchronization failure recovery remains pending.', 'connector-for-nmkr'));
+                : new WP_Error('sync_worker_recovery_pending', __('Synchronization failure recovery remains pending.', 'rocsi-connector-for-nmkr'));
         }
 
         $cleaned = nmkr_cleanup_failed_direct_sync($run_id, 0, $safe_message);
         return $cleaned === true
             ? new WP_Error('sync_worker_throwable', $safe_message)
-            : new WP_Error('sync_worker_recovery_pending', __('Synchronization failure recovery remains pending.', 'connector-for-nmkr'));
+            : new WP_Error('sync_worker_recovery_pending', __('Synchronization failure recovery remains pending.', 'rocsi-connector-for-nmkr'));
     }
 
     if ($owner_state === 'finalizing' && $sync_stats_id > 0) {
@@ -372,7 +372,7 @@ function nmkr_recover_direct_worker_throwable($throwable, $run_id, $sync_stats_i
         );
     }
 
-    return new WP_Error('sync_worker_recovery_pending', __('Synchronization failure recovery remains pending.', 'connector-for-nmkr'));
+    return new WP_Error('sync_worker_recovery_pending', __('Synchronization failure recovery remains pending.', 'rocsi-connector-for-nmkr'));
 }
 
 /**
@@ -386,7 +386,7 @@ function nmkr_finalize_stop_winning_worker_failure($run_id, $sync_stats_id, $cou
         || (int) ($owner['sync_stats_id'] ?? 0) !== (int) $sync_stats_id) return false;
 
     return nmkr_handle_sync_worker_halt(
-        new WP_Error('sync_stop_requested', __('Synchronization stop was requested.', 'connector-for-nmkr')),
+        new WP_Error('sync_stop_requested', __('Synchronization stop was requested.', 'rocsi-connector-for-nmkr')),
         $run_id,
         $sync_stats_id,
         $counters
@@ -439,7 +439,7 @@ function nmkr_finalize_pre_history_stop($run_id) {
         );
         if (!nmkr_save_sync_data($terminal) || nmkr_get_sync_data() !== $terminal) {
             update_option('nmkr_sync_status', 'stop_cleanup_error');
-            return new WP_Error('sync_stop_cleanup_pending', __('Synchronization Stop cleanup remains pending.', 'connector-for-nmkr'));
+            return new WP_Error('sync_stop_cleanup_pending', __('Synchronization Stop cleanup remains pending.', 'rocsi-connector-for-nmkr'));
         }
         wp_clear_scheduled_hook('nmkr_execute_sync_background', array($run_id));
         update_option('nmkr_sync_in_progress', false);
@@ -449,12 +449,12 @@ function nmkr_finalize_pre_history_stop($run_id) {
             && !get_option('nmkr_sync_in_progress', false) && !get_transient('nmkr_sync_in_progress');
         if (!$clean) {
             update_option('nmkr_sync_status', 'stop_cleanup_error');
-            return new WP_Error('sync_stop_cleanup_pending', __('Synchronization Stop cleanup remains pending.', 'connector-for-nmkr'));
+            return new WP_Error('sync_stop_cleanup_pending', __('Synchronization Stop cleanup remains pending.', 'rocsi-connector-for-nmkr'));
         }
         delete_option('nmkr_sync_owner');
         if (nmkr_get_sync_owner() !== false) {
             update_option('nmkr_sync_status', 'stop_cleanup_error');
-            return new WP_Error('sync_stop_cleanup_pending', __('Synchronization Stop cleanup remains pending.', 'connector-for-nmkr'));
+            return new WP_Error('sync_stop_cleanup_pending', __('Synchronization Stop cleanup remains pending.', 'rocsi-connector-for-nmkr'));
         }
         update_option('nmkr_sync_status', 'stopped');
         return nmkr_direct_sync_terminal_result('stopped', $run_id, 0);
@@ -1047,7 +1047,7 @@ function nmkr_sync_token_details($token_uid, $project_uid, &$sync_log, &$complet
                 if (is_array($owner) && hash_equals((string) ($owner['run_id'] ?? ''), (string) $run_id)
                     && ($owner['mode'] ?? '') === 'direct' && ($owner['state'] ?? '') === 'stop_requested'
                     && (int) ($owner['sync_stats_id'] ?? 0) === (int) $sync_stats_id) {
-                    return new WP_Error('sync_stop_requested', __('Synchronization stop was requested.', 'connector-for-nmkr'));
+                    return new WP_Error('sync_stop_requested', __('Synchronization stop was requested.', 'rocsi-connector-for-nmkr'));
                 }
                 return $details;
             }
@@ -1342,7 +1342,7 @@ function nmkr_sync_data($run_id = '') {
         // The exact run state already exists, so hand off exactly once.
         if (($bound_owner['state'] ?? '') === 'stop_requested') {
             return nmkr_handle_sync_worker_halt(
-                new WP_Error('sync_stop_requested', __('Synchronization stop was requested.', 'connector-for-nmkr')),
+                new WP_Error('sync_stop_requested', __('Synchronization stop was requested.', 'rocsi-connector-for-nmkr')),
                 $run_id,
                 $sync_stats_id
             );
@@ -1368,7 +1368,7 @@ function nmkr_sync_data($run_id = '') {
         
         try {
             $total_steps = 100;
-            nmkr_update_sync_progress(0, 100, __('Initializing synchronization', 'connector-for-nmkr'));
+            nmkr_update_sync_progress(0, 100, __('Initializing synchronization', 'rocsi-connector-for-nmkr'));
             $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'before_projects_request');
             if (is_wp_error($halt)) return nmkr_handle_direct_worker_error($halt, $run_id, $sync_stats_id);
             $projects = nmkr_connect_fetch_projects(nmkr_build_sync_api_execution_context($run_id, $sync_stats_id, 'projects'));
@@ -1376,18 +1376,18 @@ function nmkr_sync_data($run_id = '') {
             $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'after_projects_request');
             if (is_wp_error($halt)) return nmkr_handle_direct_worker_error($halt, $run_id, $sync_stats_id);
             if (is_wp_error($projects)) throw new Exception($projects->get_error_message());
-            if (!is_array($projects)) throw new Exception(__('The project collection had an invalid shape.', 'connector-for-nmkr'));
-            nmkr_update_sync_progress(5, 100, __('Validating and storing projects', 'connector-for-nmkr'));
+            if (!is_array($projects)) throw new Exception(__('The project collection had an invalid shape.', 'rocsi-connector-for-nmkr'));
+            nmkr_update_sync_progress(5, 100, __('Validating and storing projects', 'rocsi-connector-for-nmkr'));
         } catch (Exception $e) {
-            throw new Exception(__('Failed to fetch the project collection.', 'connector-for-nmkr'));
+            throw new Exception(__('Failed to fetch the project collection.', 'rocsi-connector-for-nmkr'));
         }
 
         $completed_steps = 5;
         $project_uids = nmkr_sync_projects($sync_log, $completed_steps, 100, $run_id, $sync_stats_id, $projects, 5, 15);
         unset($projects);
         if (is_wp_error($project_uids)) return nmkr_handle_direct_worker_error($project_uids, $run_id, $sync_stats_id);
-        if (empty($project_uids)) throw new Exception(__('No projects synchronized successfully.', 'connector-for-nmkr'));
-        nmkr_update_sync_progress(15, 100, __('Discovering token pages', 'connector-for-nmkr'));
+        if (empty($project_uids)) throw new Exception(__('No projects synchronized successfully.', 'rocsi-connector-for-nmkr'));
+        nmkr_update_sync_progress(15, 100, __('Discovering token pages', 'rocsi-connector-for-nmkr'));
 
         // nmkr_sync_projects() retains its legacy raw item counter for older
         // callers. The direct worker must start streaming from its bounded
@@ -1418,7 +1418,7 @@ function nmkr_sync_data($run_id = '') {
             $within = $terminal ? 1.0 : min(0.9, $page_number / ($page_number + 1));
             $percent = min(94, 15 + ($project_index * $slice) + ($slice * $within));
             /* translators: %d: number of unique tokens discovered so far. */
-            nmkr_update_sync_progress((int) floor($percent), 100, sprintf(__('Discovered %d unique tokens; totals remain provisional', 'connector-for-nmkr'), $unique_count));
+            nmkr_update_sync_progress((int) floor($percent), 100, sprintf(__('Discovered %d unique tokens; totals remain provisional', 'rocsi-connector-for-nmkr'), $unique_count));
         };
         $persist_counters = function () use (&$total_tokens, &$total_successful_tokens, &$total_failed_tokens, &$total_skipped_tokens, &$token_details_synced, $run_id, $sync_stats_id) {
             return nmkr_persist_direct_worker_counters($run_id, $sync_stats_id, array(
@@ -1443,7 +1443,7 @@ function nmkr_sync_data($run_id = '') {
                 if (!$persist_counters()) {
                     return new WP_Error(
                         'nmkr_sync_counter_persistence_failed',
-                        __('Synchronization progress could not be persisted.', 'connector-for-nmkr')
+                        __('Synchronization progress could not be persisted.', 'rocsi-connector-for-nmkr')
                     );
                 }
                 return $result;
@@ -1452,11 +1452,11 @@ function nmkr_sync_data($run_id = '') {
             if ($result === true) { $successful_details++; $total_successful_tokens++; $token_details_synced++; }
             elseif (is_wp_error($result) && $result->get_error_code() === 'validation_failure') { $skipped_details++; $total_skipped_tokens++; }
             elseif (is_wp_error($result)) { $failed_details++; $total_failed_tokens++; }
-            else return new WP_Error('nmkr_token_processing_invalid_result', __('Token processing returned an invalid result.', 'connector-for-nmkr'));
+            else return new WP_Error('nmkr_token_processing_invalid_result', __('Token processing returned an invalid result.', 'rocsi-connector-for-nmkr'));
             if (!$persist_counters()) {
                 return new WP_Error(
                     'nmkr_sync_counter_persistence_failed',
-                    __('Synchronization progress could not be persisted.', 'connector-for-nmkr')
+                    __('Synchronization progress could not be persisted.', 'rocsi-connector-for-nmkr')
                 );
             }
             $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'after_stream_token_processing'); if (is_wp_error($halt)) return $halt;
@@ -1473,10 +1473,10 @@ function nmkr_sync_data($run_id = '') {
         ));
         $total_tokens = (int) $stream_result['total_tokens'];
         unset($stream_result);
-        nmkr_update_sync_progress(95, 100, __('Reconciling authoritative synchronization totals', 'connector-for-nmkr'));
+        nmkr_update_sync_progress(95, 100, __('Reconciling authoritative synchronization totals', 'rocsi-connector-for-nmkr'));
         /* translators: %d: total number of unique tokens discovered during traversal. */
-        $sync_log[] = sprintf(__('Token traversal complete: %d unique tokens.', 'connector-for-nmkr'), $total_tokens);
-        nmkr_update_sync_progress(99, 100, __('Finalizing synchronization', 'connector-for-nmkr'));
+        $sync_log[] = sprintf(__('Token traversal complete: %d unique tokens.', 'rocsi-connector-for-nmkr'), $total_tokens);
+        nmkr_update_sync_progress(99, 100, __('Finalizing synchronization', 'rocsi-connector-for-nmkr'));
 
         // The last safe boundary is before any success-only finalization state.
         $halt = nmkr_sync_worker_checkpoint($run_id, $sync_stats_id, 'before_completed_finalization');
@@ -1549,7 +1549,7 @@ function nmkr_sync_data($run_id = '') {
             // the exact cooperative Stop.
             if (nmkr_sync_owner_matches($run_id, 'stop_requested', $sync_stats_id)) {
                 return nmkr_handle_sync_worker_halt(
-                    new WP_Error('sync_stop_requested', __('Synchronization stop was requested.', 'connector-for-nmkr')),
+                    new WP_Error('sync_stop_requested', __('Synchronization stop was requested.', 'rocsi-connector-for-nmkr')),
                     $run_id,
                     $sync_stats_id,
                     array(
@@ -1618,7 +1618,7 @@ function nmkr_sync_data($run_id = '') {
         $private_error_msg = 'Critical error during synchronization: ' . $e->getMessage();
         $error_msg = $e instanceof Exception
             ? $private_error_msg
-            : __('Synchronization failed because of an unexpected runtime error.', 'connector-for-nmkr');
+            : __('Synchronization failed because of an unexpected runtime error.', 'rocsi-connector-for-nmkr');
         $sync_log[] = 'CRITICAL ERROR: ' . $error_msg;
         if ($e instanceof Exception) {
             nmkr_log_data_sync($private_error_msg, 'error', array(
@@ -1632,7 +1632,7 @@ function nmkr_sync_data($run_id = '') {
                 'throwable_class' => get_class($e),
             ));
             nmkr_write_debug_log(sprintf(
-                '[Connector for NMKR Sync] Runtime Throwable [%s].',
+                '[ROCSI Connector for NMKR Sync] Runtime Throwable [%s].',
                 get_class($e)
             ));
         }
@@ -1723,7 +1723,7 @@ function nmkr_sync_data($run_id = '') {
         if (defined('DOING_AJAX') && DOING_AJAX) {
             return array(
                 'success' => false,
-                'message' => __('Synchronization failed. Review the private server diagnostics for details.', 'connector-for-nmkr'),
+                'message' => __('Synchronization failed. Review the private server diagnostics for details.', 'rocsi-connector-for-nmkr'),
                 'error_code' => 'critical_sync_failure',
                 'log' => $sync_log,
                 'progress' => ($total_steps > 0 ? (int)round(($completed_steps / $total_steps) * 100) : 0)
@@ -1764,7 +1764,7 @@ function nmkr_convert_to_bytes($memory_limit) {
 function nmkr_start_sync() {
     // Retained only for compatibility. Direct synchronization must begin at
     // the authorized AJAX admission boundary so it has an exact run owner.
-    return new WP_Error('legacy_sync_start_unavailable', __('Legacy synchronization start is unavailable. Use the authorized synchronization start action.', 'connector-for-nmkr'));
+    return new WP_Error('legacy_sync_start_unavailable', __('Legacy synchronization start is unavailable. Use the authorized synchronization start action.', 'rocsi-connector-for-nmkr'));
 }
 
 /**
@@ -1800,7 +1800,7 @@ function nmkr_log_sync_summary(&$sync_log, $project_uids, $token_total, $success
     
     // Create the summary message
     $summary_lines = array(
-        '[Connector for NMKR Sync] ✅ Token sync summary:',
+        '[ROCSI Connector for NMKR Sync] ✅ Token sync summary:',
         '- Total projects: ' . $total_projects,
         '- Total tokens: ' . $total_tokens,
         '- Successfully synced: ' . $successful_tokens,

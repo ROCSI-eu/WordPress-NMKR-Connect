@@ -1,6 +1,6 @@
 <?php
 /**
- * Connector for NMKR Dashboard AJAX Handlers
+ * ROCSI Connector for NMKR Dashboard AJAX Handlers
  *
  * AJAX handlers specific to the dashboard functionality.
  *
@@ -40,7 +40,7 @@ function nmkr_check_api_status() {
     
     // Capability: view dashboard
     if ( ! current_user_can( 'nmkr_view_dashboard' ) ) {
-        wp_send_json_error( array( 'message' => __( 'Forbidden', 'connector-for-nmkr' ) ), 403 );
+        wp_send_json_error( array( 'message' => __( 'Forbidden', 'rocsi-connector-for-nmkr' ) ), 403 );
         wp_die();
     }
     
@@ -155,7 +155,7 @@ function nmkr_get_sync_statistics_ajax() {
     
     // Capability: view dashboard
     if ( ! current_user_can( 'nmkr_view_dashboard' ) ) {
-        wp_send_json_error( array( 'message' => __( 'Forbidden', 'connector-for-nmkr' ) ), 403 );
+        wp_send_json_error( array( 'message' => __( 'Forbidden', 'rocsi-connector-for-nmkr' ) ), 403 );
         wp_die();
     }
     
@@ -353,7 +353,7 @@ function nmkr_store_active_metrics_ajax() {
     
     // Capability: manage synchronization and its dashboard-side metrics/log writes.
     if ( ! current_user_can( 'nmkr_manage_sync' ) ) {
-        wp_send_json_error( array( 'message' => __( 'Forbidden', 'connector-for-nmkr' ) ), 403 );
+        wp_send_json_error( array( 'message' => __( 'Forbidden', 'rocsi-connector-for-nmkr' ) ), 403 );
         wp_die();
     }
     
@@ -469,7 +469,7 @@ function nmkr_clear_all_logs_ajax() {
     
     // Check user capabilities
     if ( ! current_user_can( 'nmkr_manage_sync' ) ) {
-        wp_send_json_error( array( 'message' => __( 'Forbidden', 'connector-for-nmkr' ) ), 403 );
+        wp_send_json_error( array( 'message' => __( 'Forbidden', 'rocsi-connector-for-nmkr' ) ), 403 );
         wp_die();
     }
     
@@ -496,7 +496,7 @@ function nmkr_clear_all_logs_ajax() {
             get_class($e),
             (int) $e->getCode()
         ));
-        wp_send_json_error(['message' => __('Logs could not be cleared.', 'connector-for-nmkr'), 'error_code' => 'log_clear_failed']);
+        wp_send_json_error(['message' => __('Logs could not be cleared.', 'rocsi-connector-for-nmkr'), 'error_code' => 'log_clear_failed']);
     }
     
     wp_die();
@@ -519,7 +519,7 @@ function nmkr_clear_section_logs_ajax() {
     
     // Check user capabilities
     if ( ! current_user_can( 'nmkr_manage_sync' ) ) {
-        wp_send_json_error( array( 'message' => __( 'Forbidden', 'connector-for-nmkr' ) ), 403 );
+        wp_send_json_error( array( 'message' => __( 'Forbidden', 'rocsi-connector-for-nmkr' ) ), 403 );
         wp_die();
     }
     
@@ -555,7 +555,7 @@ function nmkr_clear_section_logs_ajax() {
             get_class($e),
             (int) $e->getCode()
         ));
-        wp_send_json_error(['message' => __('The selected logs could not be cleared.', 'connector-for-nmkr'), 'error_code' => 'section_log_clear_failed']);
+        wp_send_json_error(['message' => __('The selected logs could not be cleared.', 'rocsi-connector-for-nmkr'), 'error_code' => 'section_log_clear_failed']);
     }
     
     wp_die();
