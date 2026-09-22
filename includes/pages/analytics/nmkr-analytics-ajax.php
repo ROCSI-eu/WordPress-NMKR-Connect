@@ -185,6 +185,7 @@ function nmkr_analytics_admin_request() {
     );
 
     foreach ( $keys as $key ) {
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Every caller invokes nmkr_analytics_admin_ajax_guard() before this helper reads request data.
         if ( ! isset( $_POST[ $key ] ) || is_array( $_POST[ $key ] ) ) {
             continue;
         }

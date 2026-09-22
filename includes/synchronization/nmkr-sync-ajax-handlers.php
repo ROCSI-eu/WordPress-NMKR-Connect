@@ -277,7 +277,24 @@ function nmkr_cleanup_sync_jobs_handler() {
     $context = isset( $_POST['context'] ) && is_scalar( $_POST['context'] )
         ? sanitize_text_field( wp_unslash( $_POST['context'] ) )
         : 'manual_cleanup';
-    $clear_data = isset($_POST['clear_data']) ? (bool) $_POST['clear_data'] : true;
+    $clear_data = true;
+    if ( isset( $_POST['clear_data'] ) ) {
+        if ( ! is_scalar( $_POST['clear_data'] ) ) {
+            wp_send_json_error(
+                array( 'message' => __( 'Invalid cleanup request.', 'rocsi-connector-for-nmkr' ), 'error_code' => 'invalid_clear_data' ),
+                400
+            );
+        }
+        $clear_data_raw = sanitize_text_field( wp_unslash( (string) $_POST['clear_data'] ) );
+        $clear_data_validated = filter_var( $clear_data_raw, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE );
+        if ( null === $clear_data_validated ) {
+            wp_send_json_error(
+                array( 'message' => __( 'Invalid cleanup request.', 'rocsi-connector-for-nmkr' ), 'error_code' => 'invalid_clear_data' ),
+                400
+            );
+        }
+        $clear_data = $clear_data_validated;
+    }
     
     $result = nmkr_coordinate_sync_cleanup('generic', function () use ($context, $clear_data) {
         return nmkr_clear_sync_jobs_ownerless($context, $clear_data);
@@ -340,10 +357,20 @@ function nmkr_sync_progress_handler() {
     
     try {
         // ** ENHANCED ERROR HANDLING: Parameter Validation **
-        $is_recovery = $can_manage_sync && isset($_POST['recovery'])
-            && is_scalar($_POST['recovery']) && !empty($_POST['recovery']);
-        $is_stalled_check = $can_manage_sync && isset($_POST['check_stalled'])
-            && is_scalar($_POST['check_stalled']) && !empty($_POST['check_stalled']);
+        $recovery_requested = isset( $_POST['recovery'] ) && is_scalar( $_POST['recovery'] )
+            ? filter_var(
+                sanitize_text_field( wp_unslash( (string) $_POST['recovery'] ) ),
+                FILTER_VALIDATE_BOOLEAN
+            )
+            : false;
+        $stalled_check_requested = isset( $_POST['check_stalled'] ) && is_scalar( $_POST['check_stalled'] )
+            ? filter_var(
+                sanitize_text_field( wp_unslash( (string) $_POST['check_stalled'] ) ),
+                FILTER_VALIDATE_BOOLEAN
+            )
+            : false;
+        $is_recovery = $can_manage_sync && $recovery_requested;
+        $is_stalled_check = $can_manage_sync && $stalled_check_requested;
         
         try {
             $progress_raw = get_transient('nmkr_sync_progress');
@@ -392,8 +419,14 @@ function nmkr_sync_progress_handler() {
                 ];
             }
 
-            // Optional fast-path override: compute fresh live metrics only when explicitly requested
-            if (!empty($_POST['force_metrics'])) {
+            // Optional fast-path override: compute fresh live metrics only when explicitly requested.
+            $force_metrics = isset( $_POST['force_metrics'] ) && is_scalar( $_POST['force_metrics'] )
+                ? filter_var(
+                    sanitize_text_field( wp_unslash( (string) $_POST['force_metrics'] ) ),
+                    FILTER_VALIDATE_BOOLEAN
+                )
+                : false;
+            if ( $force_metrics ) {
                 try {
                     $forced_stats = nmkr_get_sync_stats(); // lightweight; no heavy DB scans
                     if (is_array($forced_stats) && !empty($forced_stats)) {
@@ -849,7 +882,15 @@ function nmkr_stop_sync_handler() {
     if (!current_user_can('nmkr_manage_sync')) {
         wp_send_json_error(array('message' => __('Forbidden', 'rocsi-connector-for-nmkr')), 403);
     }
-    $run_id = isset($_POST['run_id']) ? sanitize_text_field(wp_unslash($_POST['run_id'])) : '';
+    if ( isset( $_POST['run_id'] ) && ! is_scalar( $_POST['run_id'] ) ) {
+        wp_send_json_error(
+            array( 'message' => __( 'An exact synchronization run identifier is required.', 'rocsi-connector-for-nmkr' ), 'error_code' => 'invalid_run_id' ),
+            400
+        );
+    }
+    $run_id = isset( $_POST['run_id'] )
+        ? sanitize_text_field( wp_unslash( (string) $_POST['run_id'] ) )
+        : '';
     $owner = nmkr_get_sync_owner();
     // A supplied ID always selects exact direct-run semantics. Never let a
     // stale browser request fall through into destructive legacy cleanup.
@@ -876,7 +917,24 @@ function nmkr_stop_sync_handler() {
         wp_send_json_error(array('message' => __('Synchronization ownership requires recovery.', 'rocsi-connector-for-nmkr'), 'error_code' => 'sync_owner_recovery_required'), 409);
     }
     // Legacy ownerless Stop remains supported, but it is never selected for a direct run.
-    $force = !empty($_POST['force']);
+    $force = false;
+    if ( isset( $_POST['force'] ) ) {
+        if ( ! is_scalar( $_POST['force'] ) ) {
+            wp_send_json_error(
+                array( 'message' => __( 'Invalid stop request.', 'rocsi-connector-for-nmkr' ), 'error_code' => 'invalid_force' ),
+                400
+            );
+        }
+        $force_raw = sanitize_text_field( wp_unslash( (string) $_POST['force'] ) );
+        $force_validated = filter_var( $force_raw, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE );
+        if ( null === $force_validated ) {
+            wp_send_json_error(
+                array( 'message' => __( 'Invalid stop request.', 'rocsi-connector-for-nmkr' ), 'error_code' => 'invalid_force' ),
+                400
+            );
+        }
+        $force = $force_validated;
+    }
     $result = nmkr_coordinate_sync_cleanup('cancel', function () use ($force) {
         return nmkr_stop_ownerless_sync($force);
     });
