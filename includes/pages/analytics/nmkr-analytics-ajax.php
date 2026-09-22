@@ -811,9 +811,10 @@ function nmkr_analytics_export_ajax() {
  * @param string $fname  filename base (no extension)
  * @param array  $headers ordered column keys
  * @param array  $rows    list of associative arrays
+ * @param array  $response_guard Response-guard state for this export request.
  */
-function nmkr_analytics_stream_export($format, $fname, $headers, $rows) {
-    ob_end_clean();
+function nmkr_analytics_stream_export($format, $fname, $headers, $rows, $response_guard) {
+    nmkr_end_response_output_guard($response_guard);
 
     if ($format === 'json') {
         header('Content-Type: application/json; charset=utf-8');
