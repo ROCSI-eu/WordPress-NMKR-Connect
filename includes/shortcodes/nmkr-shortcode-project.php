@@ -48,112 +48,22 @@ function nmkr_shortcode_project($atts) {
 
     // Enqueue frontend analytics scaffold
     nmkr_enqueue_analytics_frontend();
+    nmkr_connect_enqueue_style_asset( 'nmkr-shortcode-project', 'css/nmkr-shortcode-project.css' );
 
     // Initialize output with project details
     $output = '';
-    
+
     // Print buy button styles once
     if ( function_exists('nmkr_print_buy_button_styles_once') ) {
         nmkr_print_buy_button_styles_once();
     }
-    
-    $output .= '
-    <style>
-        .nmkr-single-project {
-            text-align: center;
-            margin: 20px auto;
-            border: 1px solid #ddd;
-            padding: 20px;
-            background-color: #f9f9f9;
-            max-width: 800px;
-        }
-        .nmkr-single-project h4 {
-            margin-bottom: 15px;
-            font-size: 24px;
-        }
-        .nmkr-single-project p {
-            margin-bottom: 10px;
-        }
-        .nmkr-project-logo {
-            max-width: 200px;
-            height: auto;
-            margin: 10px 0;
-            cursor: pointer;
-        }
-        .nmkr-project-meta {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 20px;
-            margin: 20px 0;
-        }
-        .nmkr-project-meta-item {
-            background-color: #fff;
-            padding: 10px 20px;
-            border-radius: 5px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .nmkr-project-links {
-            margin-top: 20px;
-        }
-        .nmkr-project-link {
-            display: inline-block;
-            padding: 10px 20px;
-            background-color: #2196f3;
-            color: white;
-            text-decoration: none;
-            border-radius: 5px;
-            margin: 5px;
-            transition: background-color 0.3s ease;
-        }
-        .nmkr-project-link:hover {
-            background-color: #1976d2;
-        }
-        .nmkr-featured-token {
-            margin-top: 20px;
-            padding: 20px;
-            background-color: #fff;
-            border-radius: 8px;
-            border: 1px solid #ddd;
-        }
-        .nmkr-featured-token img {
-            max-width: 150px;
-            height: auto;
-            border-radius: 4px;
-            margin-bottom: 10px;
-            cursor: pointer;
-        }
-        .nmkr-status {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 0.9em;
-            margin: 10px 0;
-            background-color: #e3f2fd;
-            color: #1565c0;
-        }
-        .nmkr-btn {
-            display: inline-block;
-            padding: 8px 16px;
-            background-color: #11F250;
-            color: black;
-            text-decoration: none;
-            border-radius: 5px;
-            margin-top: 10px;
-            font-weight: bold;
-            transition: background-color 0.3s ease;
-        }
-        .nmkr-btn:hover {
-            background-color: #0edf47;
-        }
-    </style>';
 
     // Render project selector if allowed
     if ( $allow_user_select ) {
         $projects = $wpdb->get_results( "SELECT project_uid, project_name, project_url FROM {$projects_table} ORDER BY created_at DESC" );
         $output .= nmkr_render_project_selector_simple( $projects, $active_project_uid );
     }
-    
+
     $output .= '<div class="nmkr-single-project"'
         . ' data-nmkr-evt="view"'
         . ' data-nmkr-shortcode="project"'
@@ -222,12 +132,12 @@ function nmkr_shortcode_project($atts) {
 
         $output .= '<div class="nmkr-featured-token">';
         $output .= '<h5>' . esc_html__( 'Featured Token', 'rocsi-connector-for-nmkr' ) . '</h5>';
-        
+
         // Token image (opens lightbox)
         $output .= nmkr_get_token_image_markup( $featured, $featured->token_name, '' );
-        
+
         $output .= '<h6>' . esc_html( $featured->token_name ) . '</h6>';
-        
+
         // Status + buy button
         $output .= '<div class="nmkr-status">' . esc_html( $status_label ) . '</div>';
         if ( $buyable && ! empty( $featured->payment_gateway_link ) ) {
@@ -263,8 +173,8 @@ function nmkr_shortcode_project($atts) {
     $output .= '</div>';
 
     // Print lightbox once at the end
-    if ( function_exists('nmkr_print_lightbox_once') ) { 
-        nmkr_print_lightbox_once(); 
+    if ( function_exists('nmkr_print_lightbox_once') ) {
+        nmkr_print_lightbox_once();
     }
 
     return $output;

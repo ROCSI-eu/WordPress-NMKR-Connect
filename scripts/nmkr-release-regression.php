@@ -28,6 +28,7 @@ foreach ($iterator as $file) {
 }
 check(strpos($runtime_php, "'nmkr-connect'") === false && strpos($runtime_php, '"nmkr-connect"') === false, 'runtime PHP contains no legacy nmkr-connect gettext-domain literal');
 check(strpos($runtime_php, "'connector-for-nmkr'") === false && strpos($runtime_php, '"connector-for-nmkr"') === false, 'runtime PHP contains no superseded connector-for-nmkr gettext-domain literal');
+check(preg_match('/<(style|script)(?:\s|>)/i', $runtime_php) !== 1, 'production PHP emits no direct style or script tags');
 $stale_basenames = array(
     'nmkr-connect/' . 'nmkr-connect.php',
     'connector-for-nmkr/' . 'nmkr-connect.php',
@@ -53,8 +54,9 @@ foreach ($basename_sources as $file) {
 check(empty($stale_basename_files), 'current test and tooling defaults contain no stale installed plugin basename');
 $validation = file_get_contents($root . '/includes/pages/settings/nmkr-settings-validation.php');
 $core = file_get_contents($root . '/includes/pages/settings/nmkr-settings-core.php');
+$settings_js = file_get_contents($root . '/js/admin/nmkr-settings.js');
 $helpers = file_get_contents($root . '/includes/helpers/nmkr-analytics-helpers.php');
-check(substr_count($validation, "'analytics_mode' => 'off'") >= 1 && strpos($core, "val('off')") !== false, 'analytics defaults and reset are Off');
+check(substr_count($validation, "'analytics_mode' => 'off'") >= 1 && strpos($settings_js, "val('off')") !== false, 'analytics defaults and reset are Off');
 check(strpos($validation, "'analytics_require_consent' => 1") !== false && strpos($helpers, ': true;') !== false, 'consent defaults fail safe');
 check(substr_count($plugin, "wp_clear_scheduled_hook('nmkr_analytics_purge_daily')") === 2, 'deactivation and uninstall clear analytics cron');
 $roles = file_get_contents($root . '/includes/roles/nmkr-roles.php');

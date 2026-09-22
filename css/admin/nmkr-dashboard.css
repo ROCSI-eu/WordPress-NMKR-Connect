@@ -1,0 +1,710 @@
+/* Global Panel Styling */
+.nmkr-dashboard {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.nmkr-dashboard .panel {
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    border-radius: 6px;
+    padding: 20px;
+    margin-bottom: 25px;
+    position: relative;
+    overflow: hidden;
+}
+
+.nmkr-dashboard .panel h2 {
+    margin-top: 0;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #f0f0f1;
+}
+
+.nmkr-dashboard .panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.nmkr-dashboard .panel-section {
+    padding: 15px 0;
+    border-top: 1px solid #f0f0f1;
+}
+
+.nmkr-dashboard .panel-section:first-child {
+    border-top: none;
+    padding-top: 0;
+}
+
+.nmkr-dashboard .panel-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding-top: 15px;
+}
+
+.nmkr-dashboard .center-text {
+    text-align: center;
+}
+
+.nmkr-dashboard .panel-description {
+    color: #666;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+/* Panel description specific styling overrides */
+.nmkr-dashboard .panel-description.legend-title {
+    font-weight: bold;
+    text-align: left;
+    margin-bottom: 5px !important;
+}
+
+/* Status Colors */
+.nmkr-dashboard .status-excellent {
+    color: #46b450;
+}
+
+.nmkr-dashboard .status-good {
+    color: #ffb900;
+}
+
+.nmkr-dashboard .status-warning {
+    color: #f56e28;
+}
+
+.nmkr-dashboard .status-critical {
+    color: #dc3232;
+}
+
+.nmkr-dashboard .status-neutral {
+    color: #666;
+}
+
+/* API status loading animation */
+.api-status-loading {
+    display: inline-block;
+    position: relative;
+    color: #666;
+}
+
+.api-status-loading:after {
+    content: '...';
+    position: absolute;
+    width: 20px;
+    text-align: left;
+    animation: dots 1.5s infinite;
+}
+
+@keyframes dots {
+    0%, 20% { content: '.'; }
+    40% { content: '..'; }
+    60%, 100% { content: '...'; }
+}
+
+/* API Status Panel specific styling */
+.api-status-panel #api-status {
+    margin-bottom: 20px;
+    min-height: 30px; /* Add minimum height to prevent layout shifts */
+}
+
+/* Ensure consistency in panel heights during loading */
+.api-status-panel {
+    min-height: 180px;
+}
+
+/* Sync Controls Styling */
+.sync-data .sync-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    min-height: 120px;
+    margin-bottom: 160px; /* Space for active metrics when they appear */
+    position: relative;
+}
+
+/* Info Box Styling */
+.nmkr-info-box {
+    display: flex;
+    align-items: center;
+    background-color: #f0f6fc;
+    border-left: 4px solid #2271b1;
+    padding: 12px 15px;
+    margin-bottom: 20px;
+    border-radius: 2px;
+}
+
+.nmkr-info-box .dashicons {
+    font-size: 24px;
+    color: #2271b1;
+    margin-right: 12px;
+}
+
+.nmkr-info-box p {
+    margin: 0;
+    color: #50575e;
+    font-size: 14px;
+}
+
+/* Sync Statistics Panel Styling */
+.sync-statistics .sync-stats {
+    text-align: left;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.sync-statistics .sync-stats p {
+    margin: 8px 0;
+    color: #50575e;
+}
+
+.sync-statistics .performance-metrics {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #e5e5e5;
+}
+
+.sync-statistics .performance-metrics p {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 8px 0;
+}
+
+.sync-statistics .performance-metrics span {
+    font-family: monospace;
+    background: #f0f0f1;
+    padding: 2px 8px;
+    border-radius: 3px;
+}
+
+.sync-statistics .performance-legend {
+    margin-top: 15px;
+    padding: 10px;
+    background-color: #f9f9f9;
+    border-radius: 4px;
+    font-size: 0.85em;
+}
+
+.sync-statistics .legend-title {
+    font-weight: bold;
+    margin-bottom: 5px !important;
+}
+
+.sync-statistics .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 5px;
+}
+
+.sync-statistics .legend-dot {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 2px;
+}
+
+.sync-statistics .legend-dot.status-excellent {
+    background-color: #46b450;
+}
+
+.sync-statistics .legend-dot.status-good {
+    background-color: #ffb900;
+}
+
+.sync-statistics .legend-dot.status-warning {
+    background-color: #f56e28;
+}
+
+.sync-statistics .legend-dot.status-critical {
+    background-color: #dc3232;
+}
+
+.sync-statistics .legend-desc {
+    margin-top: 5px !important;
+    color: #666 !important;
+    line-height: 1.4;
+}
+
+.sync-statistics .stats-separator {
+    margin: 15px 0 10px;
+    border: 0;
+    height: 1px;
+    background-color: #e5e5e5;
+}
+
+/* Sync Controls Styling */
+.sync-data .sync-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.sync-data .sync-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+}
+
+.sync-data #nmkr-sync-progress-container {
+    margin-top: 15px;
+    background-color: #f0f0f1;
+    border-radius: 4px;
+    overflow: hidden;
+    height: 24px;
+}
+
+.sync-data #nmkr-sync-progress-bar {
+    height: 100%;
+    background-color: #2271b1;
+    color: white;
+    text-align: center;
+    line-height: 24px;
+    transition: width 0.3s ease;
+}
+
+.sync-data .sync-status-message {
+    text-align: center;
+    margin-top: 10px;
+    min-height: 20px;
+    display: block; /* Ensure it takes up space even when empty */
+}
+
+/* Style for the inline phase label next to the status message */
+#status-message .sync-phase-label {
+    display: inline-block;
+    margin-left: 0.5em;
+    font-size: 1rem;
+    font-weight: 500;
+    color: #444; /* adjust as needed to match your theme */
+    vertical-align: middle;
+}
+
+.sync-data .button-danger {
+    background-color: #dc3232;
+    border-color: #b32d2e;
+    color: white;
+}
+
+.sync-data .button-danger:hover {
+    background-color: #b32d2e;
+    border-color: #b32d2e;
+}
+
+/* Active Sync Metrics Styling */
+.sync-data #active-sync-metrics {
+    background-color: #f9f9f9;
+    border-radius: 6px;
+    padding: 10px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    margin-top: 20px;
+    position: relative;
+    width: calc(100% - 20px); /* Account for padding */
+}
+
+.sync-data #active-sync-metrics .panel-description {
+    margin: 0 0 10px 0;
+    font-size: 1.1em;
+    font-weight: bold;
+}
+
+.sync-data .active-metrics-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-top: 10px;
+}
+
+.sync-data .active-metric {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: rgba(0,0,0,0.02);
+    padding: 8px 12px;
+    border-radius: 4px;
+    border: 1px solid #e5e5e5;
+}
+
+.sync-data .active-metric .label {
+    margin-bottom: 5px;
+    font-size: 13px;
+}
+
+.sync-data .active-metric .value {
+    font-family: monospace;
+    background: #fff;
+    padding: 3px 8px;
+    border-radius: 3px;
+    border: 1px solid #e5e5e5;
+    font-weight: bold;
+    min-width: 60px;
+    text-align: center;
+    display: inline-block;
+}
+
+/* Debug Logs Panel Styling */
+.debug-logs-panel .log-section {
+    margin-bottom: 15px;
+}
+
+.debug-logs-panel .log-section details {
+    border: 1px solid #e5e5e5;
+    border-radius: 4px;
+    background: #f9f9f9;
+}
+
+.debug-logs-panel .log-section summary {
+    padding: 12px 15px;
+    cursor: pointer;
+    font-weight: bold;
+    background: #f0f0f1;
+    border-bottom: 1px solid #e5e5e5;
+    user-select: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.debug-logs-panel .log-section summary:hover {
+    background: #e5e5e5;
+}
+
+.debug-logs-panel .log-section[open] summary {
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.debug-logs-panel .log-section summary .log-section-title {
+    transition: all 0.2s ease;
+}
+
+.debug-logs-panel .log-entry-count {
+    background: #666;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    font-weight: normal;
+}
+
+.debug-logs-panel .log-entries {
+    max-height: 400px;
+    overflow-y: auto;
+    padding: 0;
+}
+
+.debug-logs-panel .log-entry {
+    padding: 10px 15px;
+    border-bottom: 1px solid #e5e5e5;
+    font-size: 0.9em;
+}
+
+.debug-logs-panel .log-entry:last-child {
+    border-bottom: none;
+}
+
+.debug-logs-panel .log-entry .log-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+.debug-logs-panel .log-entry .log-timestamp {
+    color: #666;
+    font-family: monospace;
+    font-size: 0.85em;
+}
+
+.debug-logs-panel .log-entry .log-type {
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.8em;
+    text-transform: uppercase;
+    font-weight: bold;
+}
+
+.debug-logs-panel .log-entry .log-type.info {
+    background: #d1ecf1;
+    color: #0c5460;
+}
+
+.debug-logs-panel .log-entry .log-type.debug {
+    background: #e2e3e5;
+    color: #383d41;
+}
+
+.debug-logs-panel .log-entry .log-type.warning {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.debug-logs-panel .log-entry .log-type.error {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.debug-logs-panel .log-entry .log-message {
+    margin: 5px 0;
+    color: #333;
+}
+
+.debug-logs-panel .log-entry .log-data {
+    background: #f8f9fa;
+    padding: 8px;
+    border-radius: 3px;
+    border-left: 3px solid #dee2e6;
+    margin-top: 8px;
+    font-family: monospace;
+    font-size: 0.8em;
+    white-space: pre-wrap;
+    word-break: break-all;
+    color: #495057;
+}
+
+.debug-logs-panel .no-logs {
+    padding: 20px;
+    text-align: center;
+    color: #666;
+    font-style: italic;
+}
+
+/* Debug Logs Filter Controls */
+.debug-logs-panel .filter-controls {
+    background: #ffffff;
+    border: 1px solid #c3c4c7;
+    border-radius: 6px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+.debug-logs-panel .filter-controls fieldset {
+    border: none;
+    margin: 0;
+    padding: 0;
+}
+
+.debug-logs-panel .filter-controls legend {
+    font-weight: 600;
+    font-size: 14px;
+    color: #1d2327;
+    margin-bottom: 15px;
+    padding: 0;
+}
+
+.debug-logs-panel .filter-controls .filter-fields-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 15px;
+    justify-items: center;
+}
+
+.debug-logs-panel .filter-controls .filter-group {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 220px;
+}
+
+.debug-logs-panel .filter-controls .filter-group label {
+    font-weight: 600;
+    margin-bottom: 6px;
+    font-size: 13px;
+    color: #1d2327;
+    line-height: 1.4;
+}
+
+.debug-logs-panel .filter-controls input[type="text"],
+.debug-logs-panel .filter-controls select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #8c8f94;
+    border-radius: 4px;
+    font-size: 14px;
+    background: #ffffff;
+    box-sizing: border-box;
+    line-height: 1.4;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.debug-logs-panel .filter-controls input[type="text"]:focus,
+.debug-logs-panel .filter-controls select:focus {
+    border-color: #2271b1;
+    box-shadow: 0 0 0 1px #2271b1;
+    outline: none;
+}
+
+.debug-logs-panel .filter-controls input[type="text"]::placeholder {
+    color: #888;
+    font-style: italic;
+    opacity: 1;
+}
+
+.debug-logs-panel .filter-controls .filter-actions {
+    text-align: center;
+    padding-top: 10px;
+    border-top: 1px solid #f0f0f1;
+}
+
+.debug-logs-panel .filter-controls .clear-filters-btn {
+    padding: 8px 16px;
+    background: #f6f7f7;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    color: #50575e;
+    text-decoration: none;
+    display: inline-block;
+    transition: all 0.15s ease-in-out;
+}
+
+.debug-logs-panel .filter-controls .clear-filters-btn:hover {
+    background: #f0f0f1;
+    border-color: #8c8f94;
+    color: #1d2327;
+}
+
+.debug-logs-panel .filter-controls .clear-filters-btn:focus {
+    border-color: #2271b1;
+    box-shadow: 0 0 0 1px #2271b1;
+    outline: none;
+}
+
+/* Responsive adjustments */
+@media (max-width: 782px) {
+    .debug-logs-panel .filter-controls .filter-fields-container {
+        grid-template-columns: 1fr;
+        gap: 12px;
+        justify-items: stretch;
+    }
+
+    .debug-logs-panel .filter-controls .filter-group {
+        max-width: none;
+    }
+
+    .debug-logs-panel .filter-controls {
+        padding: 15px;
+    }
+}
+
+@media (min-width: 783px) and (max-width: 1200px) {
+    .debug-logs-panel .filter-controls .filter-fields-container {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.debug-logs-panel .filter-note {
+    font-size: 0.9em;
+    color: #666;
+    margin-bottom: 15px;
+    padding: 8px 12px;
+    background: #f0f6fc;
+    border-left: 3px solid #2271b1;
+    border-radius: 2px;
+}
+
+/* Hidden log entries during filtering */
+.debug-logs-panel .log-entry.nmkr-filtered-hidden {
+    display: none;
+}
+
+/* Show "no results" message when all entries are filtered out */
+.debug-logs-panel .no-filtered-results {
+    display: none;
+    padding: 20px;
+    text-align: center;
+    color: #666;
+    font-style: italic;
+}
+
+.debug-logs-panel .no-filtered-results.show {
+    display: block;
+}
+
+/* Clear Logs Controls Styling */
+.debug-logs-panel .clear-logs-controls {
+    text-align: center;
+    margin: 20px 0;
+    padding: 15px;
+    border-top: 1px solid #f0f0f1;
+}
+
+.debug-logs-panel .clear-all-logs-btn {
+    background: #dc3232;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: background-color 0.2s ease;
+}
+
+.debug-logs-panel .clear-all-logs-btn:hover:not(.disabled) {
+    background: #a00;
+}
+
+.debug-logs-panel .clear-all-logs-btn:focus:not(.disabled) {
+    box-shadow: 0 0 0 2px #007cba;
+    outline: none;
+}
+
+.debug-logs-panel .clear-all-logs-btn.disabled {
+    background: #ccc;
+    color: #999;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Individual Section Clear Buttons */
+.debug-logs-panel .log-section summary {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.debug-logs-panel .clear-section-logs-btn {
+    background: #dc3232;
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 500;
+    margin-left: 10px;
+    transition: background-color 0.2s ease;
+    flex-shrink: 0;
+}
+
+.debug-logs-panel .clear-section-logs-btn:hover:not(.disabled) {
+    background: #a00;
+}
+
+.debug-logs-panel .clear-section-logs-btn:focus:not(.disabled) {
+    box-shadow: 0 0 0 2px #007cba;
+    outline: none;
+}
+
+.debug-logs-panel .clear-section-logs-btn.disabled {
+    background: #ccc;
+    color: #999;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.debug-logs-panel .log-section summary .log-section-title {
+    flex-grow: 1;
+}
+
+.debug-logs-panel .log-section summary .log-entry-count {
+    margin-right: auto;
+}

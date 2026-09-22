@@ -64,18 +64,19 @@ function nmkr_shortcode_grid($atts) {
 
     // Enqueue frontend analytics scaffold
     nmkr_enqueue_analytics_frontend();
+    nmkr_connect_enqueue_style_asset( 'nmkr-shortcode-grid', 'css/nmkr-shortcode-grid.css' );
 
     // Apply filters if needed
     if (!empty($search_query) || $filter_minted !== '') {
         $filtered_tokens = [];
         foreach ($tokens as $token) {
-            $matches_search = empty($search_query) || 
-                stripos($token->token_name, $search_query) !== false || 
+            $matches_search = empty($search_query) ||
+                stripos($token->token_name, $search_query) !== false ||
                 (isset($token->title) && stripos($token->title, $search_query) !== false);
-            
-            $matches_minted = $filter_minted === '' || 
+
+            $matches_minted = $filter_minted === '' ||
                 (isset($token->minted) && (int)$token->minted === (int)$filter_minted);
-            
+
             if ($matches_search && $matches_minted) {
                 $filtered_tokens[] = $token;
             }
@@ -85,154 +86,11 @@ function nmkr_shortcode_grid($atts) {
 
     // Initialize output
     $output = '';
-    
+
     // Print buy button styles once
     if ( function_exists('nmkr_print_buy_button_styles_once') ) {
         nmkr_print_buy_button_styles_once();
     }
-    
-    $output .= '
-    <style>
-        /* Custom styles for Grid View */
-        .nmkr-project-details {
-            border: 1px solid #ddd;
-            background-color: #f9f9f9;
-            padding: 20px;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-        .nmkr-project-counters {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 15px;
-            margin: 15px 0;
-            font-size: 14px;
-        }
-        .nmkr-counter-item {
-            background-color: #fff;
-            padding: 8px 15px;
-            border-radius: 5px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        .nmkr-token-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 20px;
-            padding: 20px;
-        }
-        .nmkr-token-card {
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 15px;
-            text-align: center;
-            transition: transform 0.3s ease;
-        }
-        .nmkr-token-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        }
-        .nmkr-token-image {
-            max-width: 100%;
-            height: auto;
-            border-radius: 4px;
-            margin-bottom: 10px;
-            cursor: pointer;
-        }
-        .nmkr-token-title {
-            font-size: 1.2em;
-            margin: 10px 0;
-            color: #333;
-        }
-        .nmkr-token-price {
-            margin: 10px 0;
-        }
-        
-        .nmkr-price-badge {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: 500;
-            margin-right: 8px;
-        }
-        
-        .nmkr-price-ada {
-            background-color: #e8f5e9;
-            color: #2e7d32;
-            border: 1px solid #c8e6c9;
-        }
-        
-        .nmkr-price-sol {
-            background-color: #e3f2fd;
-            color: #1565c0;
-            border: 1px solid #bbdefb;
-        }
-        .nmkr-token-status {
-            display: inline-block;
-            padding: 3px 8px;
-            border-radius: 12px;
-            font-size: 0.9em;
-            margin: 5px 0;
-        }
-        .nmkr-token-status.minted {
-            background-color: #e8f5e9;
-            color: #2e7d32;
-        }
-        .nmkr-token-status.unminted {
-            background-color: #fff3e0;
-            color: #e65100;
-        }
-        .nmkr-token-status.reserved {
-            background-color: #e3f2fd;
-            color: #1565c0;
-        }
-        .nmkr-token-status.sold {
-            background-color: #fbe9e7;
-            color: #d84315;
-        }
-        .nmkr-token-meta {
-            font-size: 0.9em;
-            color: #666;
-            margin: 5px 0;
-        }
-        .nmkr-token-actions {
-            margin-top: 15px;
-        }
-        .nmkr-token-button {
-            display: inline-block;
-            padding: 8px 16px;
-            background-color: #2196f3;
-            color: white;
-            text-decoration: none;
-            border-radius: 4px;
-            transition: background-color 0.3s ease;
-        }
-        .nmkr-token-button:hover {
-            background-color: #1976d2;
-        }
-        .nmkr-token-button:disabled {
-            background-color: #bdbdbd;
-            cursor: not-allowed;
-        }
-        .nmkr-search-filter {
-            margin: 20px 0;
-            text-align: center;
-        }
-        .nmkr-search-input {
-            padding: 8px;
-            border-radius: 4px;
-            border: 1px solid #ddd;
-            min-width: 200px;
-            margin-right: 10px;
-        }
-        .nmkr-filter-select {
-            padding: 8px;
-            border-radius: 4px;
-            border: 1px solid #ddd;
-            margin-left: 10px;
-        }
-    </style>';
 
     // Render project selector if allowed
     if ( $allow_user_select ) {
@@ -262,7 +120,7 @@ function nmkr_shortcode_grid($atts) {
     if (!empty($selected_project->description)) {
         $output .= '<p>' . esc_html($selected_project->description) . '</p>';
     }
-    
+
     // Project counters
     $output .= '<div class="nmkr-project-counters">';
     $output .= '<div class="nmkr-counter-item"><strong>' . esc_html__('Total','rocsi-connector-for-nmkr') . ':</strong> ' . esc_html($counters->total_tokens) . '</div>';
@@ -271,7 +129,7 @@ function nmkr_shortcode_grid($atts) {
     $output .= '<div class="nmkr-counter-item"><strong>' . esc_html__('Reserved','rocsi-connector-for-nmkr') . ':</strong> ' . esc_html($counters->reserved_active_count) . '</div>';
     $output .= '<div class="nmkr-counter-item"><strong>' . esc_html__('Available','rocsi-connector-for-nmkr') . ':</strong> ' . esc_html($counters->available_count) . '</div>';
     $output .= '</div>';
-    
+
     // Project links
     if (!empty($selected_project->project_url)) {
         $output .= '<p><strong>Website:</strong> <a href="' . esc_url($selected_project->project_url) . '" target="_blank">' . esc_html($selected_project->project_url) . '</a></p>';
@@ -288,23 +146,23 @@ function nmkr_shortcode_grid($atts) {
             . ' data-nmkr-token-uid="' . esc_attr(!empty($token->token_uid) ? $token->token_uid : '') . '"'
             . ' data-nmkr-id="grid:' . esc_attr(!empty($token->token_uid) ? $token->token_uid : $active_project_uid) . '"'
             . '>';
-        
+
         // Token image
         $alt = !empty($token->token_name) ? $token->token_name : (!empty($token->asset_name) ? $token->asset_name : 'Token');
         $output .= nmkr_get_token_image_markup($token, $alt, 'nmkr-token-image');
-        
+
         // Token title
         $output .= '<h3 class="nmkr-token-title">' . esc_html($token->token_name) . '</h3>';
-        
+
         // Token status using helper
         $status_label = nmkr_token_status_label( $token );
         $status_class = strtolower($status_label);
         $output .= '<span class="nmkr-token-status ' . $status_class . '">' . esc_html($status_label) . '</span>';
-        
+
         // Token price
         $price_html = nmkr_render_token_price_badges( $token );
         if ( $price_html ) { $output .= $price_html; }
-        
+
         // Token metadata
         $output .= '<div class="nmkr-token-meta">';
         if (!empty($token->series)) {
@@ -314,7 +172,7 @@ function nmkr_shortcode_grid($atts) {
             $output .= '<div>Asset: ' . esc_html($token->asset_name) . '</div>';
         }
         $output .= '</div>';
-        
+
         // Token actions using helper
         $buyable = nmkr_token_is_buyable( $token );
         $output .= '<div class="nmkr-token-actions">';
@@ -335,14 +193,14 @@ function nmkr_shortcode_grid($atts) {
             }
         }
         $output .= '</div>';
-        
+
         $output .= '</div>';
     }
     $output .= '</div>';
 
     // Print lightbox once
-    if ( function_exists('nmkr_print_lightbox_once') ) { 
-        nmkr_print_lightbox_once(); 
+    if ( function_exists('nmkr_print_lightbox_once') ) {
+        nmkr_print_lightbox_once();
     }
 
     return $output;

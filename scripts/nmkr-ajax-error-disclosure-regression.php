@@ -2,7 +2,7 @@
 /** Public-safe source-contract regression for privileged AJAX serialization. */
 $sync = file_get_contents(__DIR__ . '/../includes/synchronization/nmkr-sync-ajax-handlers.php');
 $logs = file_get_contents(__DIR__ . '/../includes/pages/dashboard/nmkr-dashboard-ajax.php');
-$ui = file_get_contents(__DIR__ . '/../includes/pages/dashboard/nmkr-dashboard-ui.php');
+$ui = file_get_contents(__DIR__ . '/../js/admin/nmkr-dashboard.js');
 
 function nmkr_contract_assert($condition, $case) {
     if (!$condition) {

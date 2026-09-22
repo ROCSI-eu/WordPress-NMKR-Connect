@@ -23,8 +23,8 @@ function nmkr_api_key_field_callback() {
     $options = get_option('nmkr_connect_options');
     $api_key = isset($options['api_key']) ? $options['api_key'] : '';
     ?>
-    <input type="password" 
-           name="nmkr_connect_options[api_key]" 
+    <input type="password"
+           name="nmkr_connect_options[api_key]"
            id="nmkr_api_key"
            value="<?php echo esc_attr($api_key); ?>"
            class="regular-text"
@@ -61,132 +61,7 @@ function nmkr_sync_profile_field_callback() {
         <?php endforeach; ?>
     </select>
     <p class="description">Select a synchronization profile to automatically configure all settings below. Choose based on your server resources and synchronization needs.</p>
-    <script type="text/javascript">
-        document.addEventListener('DOMContentLoaded', function() {
-            const profileSelect = document.getElementById('nmkr_sync_profile');
-            const batchSizeInput = document.getElementById('nmkr_sync_batch_size');
-            const batchDelayInput = document.getElementById('nmkr_sync_batch_delay');
-            const initialIntervalInput = document.querySelector('input[name="nmkr_connect_options[sync_initial_interval]"]');
-            const maxIntervalInput = document.querySelector('input[name="nmkr_connect_options[sync_max_interval]"]');
-            const intervalIncreaseInput = document.querySelector('input[name="nmkr_connect_options[sync_interval_increase]"]');
-            const intervalDecreaseInput = document.querySelector('input[name="nmkr_connect_options[sync_interval_decrease]"]');
-            const maxErrorsInput = document.querySelector('input[name="nmkr_connect_options[sync_max_errors]"]');
-            
-            if (!profileSelect || !batchSizeInput || !batchDelayInput || !initialIntervalInput ||
-                !maxIntervalInput || !intervalIncreaseInput || !intervalDecreaseInput || !maxErrorsInput) {
-                return;
-            }
 
-            // Define the profiles - keep in sync with PHP function nmkr_get_sync_profiles()
-            const profiles = {
-                'light': {
-                    batch_size: 3,
-                    batch_delay: 3,
-                    initial_interval: 2000,
-                    max_interval: 20000,
-                    interval_increase: 1.5,
-                    interval_decrease: 0.7,
-                    max_errors: 5
-                },
-                'balanced': {
-                    batch_size: 5,
-                    batch_delay: 2,
-                    initial_interval: 1000,
-                    max_interval: 30000,
-                    interval_increase: 2.0,
-                    interval_decrease: 0.5,
-                    max_errors: 3
-                },
-                'aggressive': {
-                    batch_size: 10,
-                    batch_delay: 1,
-                    initial_interval: 500,
-                    max_interval: 10000,
-                    interval_increase: 2.5,
-                    interval_decrease: 0.3,
-                    max_errors: 2
-                }
-            };
-            
-            // Function to apply profile settings
-            function applyProfile(profile) {
-                if (profile === 'custom') {
-                    return; // Don't change anything for custom profile
-                }
-                
-                const settings = profiles[profile];
-                if (settings) {
-                    batchSizeInput.value = settings.batch_size;
-                    batchDelayInput.value = settings.batch_delay;
-                    initialIntervalInput.value = settings.initial_interval;
-                    maxIntervalInput.value = settings.max_interval;
-                    intervalIncreaseInput.value = settings.interval_increase;
-                    intervalDecreaseInput.value = settings.interval_decrease;
-                    maxErrorsInput.value = settings.max_errors;
-                }
-            }
-            
-            // Function to check if current settings match a profile
-            function detectCurrentProfile() {
-                // If no profile is selected or custom is selected, check if settings match any profile
-                if (profileSelect.value === 'custom' || !profileSelect.value) {
-                    for (const profile in profiles) {
-                        const settings = profiles[profile];
-                        const matchesProfile = 
-                            parseInt(batchSizeInput.value) === settings.batch_size &&
-                            parseInt(batchDelayInput.value) === settings.batch_delay &&
-                            parseInt(initialIntervalInput.value) === settings.initial_interval &&
-                            parseInt(maxIntervalInput.value) === settings.max_interval &&
-                            parseFloat(intervalIncreaseInput.value) === settings.interval_increase &&
-                            parseFloat(intervalDecreaseInput.value) === settings.interval_decrease &&
-                            parseInt(maxErrorsInput.value) === settings.max_errors;
-                        
-                        if (matchesProfile) {
-                            profileSelect.value = profile;
-                            return;
-                        }
-                    }
-                    // If no match found, set to custom
-                    profileSelect.value = 'custom';
-                }
-            }
-            
-            // Handle profile selection change
-            profileSelect.addEventListener('change', function() {
-                const selectedProfile = this.value;
-                if (selectedProfile !== 'custom') {
-                    if (confirm('Changing the synchronization profile will update all settings below. Continue?')) {
-                        applyProfile(selectedProfile);
-                    } else {
-                        // Revert to custom if user cancels
-                        this.value = 'custom';
-                    }
-                }
-            });
-            
-            // Set to custom if any individual settings are changed
-            const allInputs = [batchSizeInput, batchDelayInput, initialIntervalInput, 
-                             maxIntervalInput, intervalIncreaseInput, 
-                             intervalDecreaseInput, maxErrorsInput];
-            
-            allInputs.forEach(input => {
-                if (input) {
-                    input.addEventListener('change', function() {
-                        profileSelect.value = 'custom';
-                    });
-                }
-            });
-            
-            // On page load, detect the current profile or apply the selected profile
-            if (profileSelect.value !== 'custom') {
-                // If a non-custom profile is selected, apply its settings
-                applyProfile(profileSelect.value);
-            } else {
-                // Otherwise, try to detect if current settings match a profile
-                detectCurrentProfile();
-            }
-        });
-    </script>
     <?php
 }
 
@@ -195,8 +70,8 @@ function nmkr_sync_batch_size_field_callback() {
     $options = get_option('nmkr_connect_options');
     $batch_size = isset($options['sync_batch_size']) ? $options['sync_batch_size'] : 5;
     ?>
-    <input type="number" 
-           name="nmkr_connect_options[sync_batch_size]" 
+    <input type="number"
+           name="nmkr_connect_options[sync_batch_size]"
            id="nmkr_sync_batch_size"
            value="<?php echo esc_attr($batch_size); ?>"
            min="1"
@@ -212,8 +87,8 @@ function nmkr_sync_batch_delay_field_callback() {
     $options = get_option('nmkr_connect_options');
     $batch_delay = isset($options['sync_batch_delay']) ? $options['sync_batch_delay'] : 2;
     ?>
-    <input type="number" 
-           name="nmkr_connect_options[sync_batch_delay]" 
+    <input type="number"
+           name="nmkr_connect_options[sync_batch_delay]"
            id="nmkr_sync_batch_delay"
            value="<?php echo esc_attr($batch_delay); ?>"
            min="1"
@@ -229,8 +104,8 @@ function nmkr_sync_initial_interval_field_callback() {
     $options = get_option('nmkr_connect_options');
     $value = isset($options['sync_initial_interval']) ? $options['sync_initial_interval'] : 1000;
     ?>
-    <input type="number" 
-           name="nmkr_connect_options[sync_initial_interval]" 
+    <input type="number"
+           name="nmkr_connect_options[sync_initial_interval]"
            value="<?php echo esc_attr($value); ?>"
            min="100"
            max="5000"
@@ -246,8 +121,8 @@ function nmkr_sync_max_interval_field_callback() {
     $options = get_option('nmkr_connect_options');
     $value = isset($options['sync_max_interval']) ? $options['sync_max_interval'] : 30000;
     ?>
-    <input type="number" 
-           name="nmkr_connect_options[sync_max_interval]" 
+    <input type="number"
+           name="nmkr_connect_options[sync_max_interval]"
            value="<?php echo esc_attr($value); ?>"
            min="1000"
            max="30000"
@@ -263,8 +138,8 @@ function nmkr_sync_interval_increase_field_callback() {
     $options = get_option('nmkr_connect_options');
     $value = isset($options['sync_interval_increase']) ? $options['sync_interval_increase'] : 2.0;
     ?>
-    <input type="number" 
-           name="nmkr_connect_options[sync_interval_increase]" 
+    <input type="number"
+           name="nmkr_connect_options[sync_interval_increase]"
            value="<?php echo esc_attr($value); ?>"
            min="1.1"
            max="3"
@@ -280,8 +155,8 @@ function nmkr_sync_interval_decrease_field_callback() {
     $options = get_option('nmkr_connect_options');
     $value = isset($options['sync_interval_decrease']) ? $options['sync_interval_decrease'] : 0.5;
     ?>
-    <input type="number" 
-           name="nmkr_connect_options[sync_interval_decrease]" 
+    <input type="number"
+           name="nmkr_connect_options[sync_interval_decrease]"
            value="<?php echo esc_attr($value); ?>"
            min="0.1"
            max="0.9"
@@ -297,8 +172,8 @@ function nmkr_sync_max_errors_field_callback() {
     $options = get_option('nmkr_connect_options');
     $value = isset($options['sync_max_errors']) ? $options['sync_max_errors'] : 3;
     ?>
-    <input type="number" 
-           name="nmkr_connect_options[sync_max_errors]" 
+    <input type="number"
+           name="nmkr_connect_options[sync_max_errors]"
            value="<?php echo esc_attr($value); ?>"
            min="1"
            max="10"
@@ -322,8 +197,8 @@ function nmkr_debug_enabled_field_callback() {
         && !empty($options['log_to_dashboard'])
         && !empty($options['sync_debug_enabled']);
     ?>
-    <input type="checkbox" 
-           name="nmkr_connect_options[debug_enabled]" 
+    <input type="checkbox"
+           name="nmkr_connect_options[debug_enabled]"
            id="nmkr_debug_enabled"
            value="1"
            <?php checked(1, $debug_enabled); ?>
@@ -347,102 +222,7 @@ function nmkr_debug_enabled_field_callback() {
             </span>
         </p>
     </div>
-    <script type="text/javascript">
-        document.addEventListener('DOMContentLoaded', function() {
-            const debugCheckbox = document.getElementById('nmkr_debug_enabled');
-            const logToDebugFileCheckbox = document.getElementById('nmkr_log_to_debug_file');
-            const logToDashboardCheckbox = document.getElementById('nmkr_log_to_dashboard');
-            const syncDebugCheckbox = document.getElementById('nmkr_sync_debug_enabled');
-            const apiDebugCheckbox = document.getElementById('nmkr_api_debug_enabled');
-            const uiDebugCheckbox = document.getElementById('nmkr_ui_debug_enabled');
-            const performanceDebugCheckbox = document.getElementById('nmkr_performance_debug_enabled');
-            const logThrottleCheckbox = document.getElementById('nmkr_log_throttle_enabled');
-            const logRetentionLimitInput = document.getElementById('nmkr_log_retention_limit');
-            const dashboardSyncLoggingStatus = document.getElementById('nmkr-dashboard-sync-logging-status');
-            const dashboardSyncLoggingStatusText = document.getElementById('nmkr-dashboard-sync-logging-status-text');
-            const dashboardSyncLoggingActiveText = <?php echo wp_json_encode(__('Dashboard Sync Logging is active. Sync logs will be stored for the Dashboard Debug Logs panel.', 'rocsi-connector-for-nmkr')); ?>;
-            const dashboardSyncLoggingInactiveText = <?php echo wp_json_encode(__('Dashboard Sync Logging is not active. To see sync logs in the Dashboard, enable Debug Logging Controls, Enable Logging to Dashboard Logs, and Enable Data Synchronization Logging.', 'rocsi-connector-for-nmkr')); ?>;
-            
-            if (!debugCheckbox || !logToDebugFileCheckbox || !logToDashboardCheckbox ||
-                !syncDebugCheckbox || !apiDebugCheckbox || !uiDebugCheckbox ||
-                !performanceDebugCheckbox || !logThrottleCheckbox || !logRetentionLimitInput ||
-                !dashboardSyncLoggingStatus || !dashboardSyncLoggingStatusText) {
-                return;
-            }
 
-            // Function to update the state of all dependent checkboxes
-            function updateDependentCheckboxes() {
-                if (debugCheckbox.checked) {
-                    // Enable destination toggles when master debug is enabled
-                    logToDebugFileCheckbox.disabled = false;
-                    logToDashboardCheckbox.disabled = false;
-                    
-                    // Enable log retention limit input when debug is enabled
-                    logRetentionLimitInput.disabled = false;
-                    
-                    // Check if at least one destination is selected
-                    const hasDestination = logToDebugFileCheckbox.checked || logToDashboardCheckbox.checked;
-                    
-                    if (hasDestination) {
-                        // Enable log type checkboxes when master debug is on AND at least one destination is selected
-                        syncDebugCheckbox.disabled = false;
-                        apiDebugCheckbox.disabled = false;
-                        uiDebugCheckbox.disabled = false;
-                        performanceDebugCheckbox.disabled = false;
-                        logThrottleCheckbox.disabled = false;
-                    } else {
-                        // Disable and uncheck log type checkboxes when no destination is selected
-                        syncDebugCheckbox.disabled = true;
-                        syncDebugCheckbox.checked = false;
-                        apiDebugCheckbox.disabled = true;
-                        apiDebugCheckbox.checked = false;
-                        uiDebugCheckbox.disabled = true;
-                        uiDebugCheckbox.checked = false;
-                        performanceDebugCheckbox.disabled = true;
-                        performanceDebugCheckbox.checked = false;
-                        logThrottleCheckbox.disabled = true;
-                        logThrottleCheckbox.checked = false;
-                    }
-                } else {
-                    // If master debug is disabled, disable and uncheck all dependent options
-                    logToDebugFileCheckbox.disabled = true;
-                    logToDebugFileCheckbox.checked = false;
-                    logToDashboardCheckbox.disabled = true;
-                    logToDashboardCheckbox.checked = false;
-                    
-                    // Disable log retention limit input when debug is disabled
-                    logRetentionLimitInput.disabled = true;
-                    
-                    syncDebugCheckbox.disabled = true;
-                    syncDebugCheckbox.checked = false;
-                    apiDebugCheckbox.disabled = true;
-                    apiDebugCheckbox.checked = false;
-                    uiDebugCheckbox.disabled = true;
-                    uiDebugCheckbox.checked = false;
-                    performanceDebugCheckbox.disabled = true;
-                    performanceDebugCheckbox.checked = false;
-                    logThrottleCheckbox.disabled = true;
-                    logThrottleCheckbox.checked = false;
-                }
-
-                const dashboardSyncLoggingActive = debugCheckbox.checked && logToDashboardCheckbox.checked && syncDebugCheckbox.checked;
-                dashboardSyncLoggingStatus.classList.toggle('notice-success', dashboardSyncLoggingActive);
-                dashboardSyncLoggingStatus.classList.toggle('notice-warning', !dashboardSyncLoggingActive);
-                dashboardSyncLoggingStatusText.textContent = dashboardSyncLoggingActive
-                    ? dashboardSyncLoggingActiveText
-                    : dashboardSyncLoggingInactiveText;
-            }
-            
-            // Initial state
-            updateDependentCheckboxes();
-            
-            // Add event listeners for changes
-            debugCheckbox.addEventListener('change', updateDependentCheckboxes);
-            logToDebugFileCheckbox.addEventListener('change', updateDependentCheckboxes);
-            logToDashboardCheckbox.addEventListener('change', updateDependentCheckboxes);
-            syncDebugCheckbox.addEventListener('change', updateDependentCheckboxes);
-        });
-    </script>
     <?php
 }
 
@@ -451,8 +231,8 @@ function nmkr_log_to_debug_file_field_callback() {
     $options = get_option('nmkr_connect_options');
     $log_to_debug_file = isset($options['log_to_debug_file']) ? $options['log_to_debug_file'] : false;
     ?>
-    <input type="checkbox" 
-           name="nmkr_connect_options[log_to_debug_file]" 
+    <input type="checkbox"
+           name="nmkr_connect_options[log_to_debug_file]"
            id="nmkr_log_to_debug_file"
            value="1"
            <?php checked(1, $log_to_debug_file); ?>
@@ -468,8 +248,8 @@ function nmkr_log_to_dashboard_field_callback() {
     $options = get_option('nmkr_connect_options');
     $log_to_dashboard = isset($options['log_to_dashboard']) ? $options['log_to_dashboard'] : false;
     ?>
-    <input type="checkbox" 
-           name="nmkr_connect_options[log_to_dashboard]" 
+    <input type="checkbox"
+           name="nmkr_connect_options[log_to_dashboard]"
            id="nmkr_log_to_dashboard"
            value="1"
            <?php checked(1, $log_to_dashboard); ?>
@@ -493,8 +273,8 @@ function nmkr_api_debug_enabled_field_callback() {
     $debug_enabled = isset($options['debug_enabled']) ? $options['debug_enabled'] : false;
     $has_destination = !empty($options['log_to_debug_file']) || !empty($options['log_to_dashboard']);
     ?>
-    <input type="checkbox" 
-           name="nmkr_connect_options[api_debug_enabled]" 
+    <input type="checkbox"
+           name="nmkr_connect_options[api_debug_enabled]"
            id="nmkr_api_debug_enabled"
            value="1"
            <?php checked(1, $api_debug_enabled); ?>
@@ -513,8 +293,8 @@ function nmkr_sync_debug_enabled_field_callback() {
     $debug_enabled = isset($options['debug_enabled']) ? $options['debug_enabled'] : false;
     $has_destination = !empty($options['log_to_debug_file']) || !empty($options['log_to_dashboard']);
     ?>
-    <input type="checkbox" 
-           name="nmkr_connect_options[sync_debug_enabled]" 
+    <input type="checkbox"
+           name="nmkr_connect_options[sync_debug_enabled]"
            id="nmkr_sync_debug_enabled"
            value="1"
            <?php checked(1, $sync_debug_enabled); ?>
@@ -533,8 +313,8 @@ function nmkr_ui_debug_enabled_field_callback() {
     $debug_enabled = isset($options['debug_enabled']) ? $options['debug_enabled'] : false;
     $has_destination = !empty($options['log_to_debug_file']) || !empty($options['log_to_dashboard']);
     ?>
-    <input type="checkbox" 
-           name="nmkr_connect_options[ui_debug_enabled]" 
+    <input type="checkbox"
+           name="nmkr_connect_options[ui_debug_enabled]"
            id="nmkr_ui_debug_enabled"
            value="1"
            <?php checked(1, $ui_debug_enabled); ?>
@@ -553,8 +333,8 @@ function nmkr_performance_debug_enabled_field_callback() {
     $debug_enabled = isset($options['debug_enabled']) ? $options['debug_enabled'] : false;
     $has_destination = !empty($options['log_to_debug_file']) || !empty($options['log_to_dashboard']);
     ?>
-    <input type="checkbox" 
-           name="nmkr_connect_options[performance_debug_enabled]" 
+    <input type="checkbox"
+           name="nmkr_connect_options[performance_debug_enabled]"
            id="nmkr_performance_debug_enabled"
            value="1"
            <?php checked(1, $performance_debug_enabled); ?>
@@ -573,8 +353,8 @@ function nmkr_log_throttle_enabled_field_callback() {
     $debug_enabled = isset($options['debug_enabled']) ? $options['debug_enabled'] : false;
     $has_destination = !empty($options['log_to_debug_file']) || !empty($options['log_to_dashboard']);
     ?>
-    <input type="checkbox" 
-           name="nmkr_connect_options[log_throttle_enabled]" 
+    <input type="checkbox"
+           name="nmkr_connect_options[log_throttle_enabled]"
            id="nmkr_log_throttle_enabled"
            value="1"
            <?php checked(1, $log_throttle_enabled); ?>
@@ -592,8 +372,8 @@ function nmkr_log_retention_limit_field_callback() {
     $log_retention_limit = isset($options['log_retention_limit']) ? $options['log_retention_limit'] : 100;
     $debug_enabled = isset($options['debug_enabled']) ? $options['debug_enabled'] : false;
     ?>
-    <input type="number" 
-           name="nmkr_connect_options[log_retention_limit]" 
+    <input type="number"
+           name="nmkr_connect_options[log_retention_limit]"
            id="nmkr_log_retention_limit"
            value="<?php echo esc_attr($log_retention_limit); ?>"
            min="1"
@@ -635,8 +415,8 @@ function nmkr_analytics_retention_days_field_callback() {
     $options = get_option('nmkr_connect_options');
     $analytics_retention_days = isset($options['analytics_retention_days']) ? $options['analytics_retention_days'] : 90;
     ?>
-    <input type="number" 
-           name="nmkr_connect_options[analytics_retention_days]" 
+    <input type="number"
+           name="nmkr_connect_options[analytics_retention_days]"
            id="nmkr_analytics_retention_days"
            value="<?php echo esc_attr($analytics_retention_days); ?>"
            min="7"
@@ -655,8 +435,8 @@ function nmkr_analytics_track_logged_in_field_callback() {
     $options = get_option('nmkr_connect_options');
     $analytics_track_logged_in = isset($options['analytics_track_logged_in']) ? $options['analytics_track_logged_in'] : false;
     ?>
-    <input type="checkbox" 
-           name="nmkr_connect_options[analytics_track_logged_in]" 
+    <input type="checkbox"
+           name="nmkr_connect_options[analytics_track_logged_in]"
            id="nmkr_analytics_track_logged_in"
            value="1"
            <?php checked(1, $analytics_track_logged_in); ?>
@@ -672,8 +452,8 @@ function nmkr_analytics_require_consent_field_callback() {
     $options = get_option('nmkr_connect_options');
     $analytics_require_consent = isset($options['analytics_require_consent']) ? $options['analytics_require_consent'] : true;
     ?>
-    <input type="checkbox" 
-           name="nmkr_connect_options[analytics_require_consent]" 
+    <input type="checkbox"
+           name="nmkr_connect_options[analytics_require_consent]"
            id="nmkr_analytics_require_consent"
            value="1"
            <?php checked(1, $analytics_require_consent); ?>
@@ -689,8 +469,8 @@ function nmkr_analytics_sample_rate_field_callback() {
     $options = get_option('nmkr_connect_options');
     $analytics_sample_rate = isset($options['analytics_sample_rate']) ? $options['analytics_sample_rate'] : 1.0;
     ?>
-    <input type="number" 
-           name="nmkr_connect_options[analytics_sample_rate]" 
+    <input type="number"
+           name="nmkr_connect_options[analytics_sample_rate]"
            id="nmkr_analytics_sample_rate"
            value="<?php echo esc_attr($analytics_sample_rate); ?>"
            min="0"
@@ -709,8 +489,8 @@ function nmkr_analytics_remove_on_uninstall_field_callback() {
     $options = get_option('nmkr_connect_options');
     $analytics_remove_on_uninstall = isset($options['analytics_remove_on_uninstall']) ? $options['analytics_remove_on_uninstall'] : true;
     ?>
-    <input type="checkbox" 
-           name="nmkr_connect_options[analytics_remove_on_uninstall]" 
+    <input type="checkbox"
+           name="nmkr_connect_options[analytics_remove_on_uninstall]"
            id="nmkr_analytics_remove_on_uninstall"
            value="1"
            <?php checked(1, $analytics_remove_on_uninstall); ?>
@@ -726,8 +506,8 @@ function nmkr_analytics_debug_field_callback() {
     $options = get_option('nmkr_connect_options');
     $analytics_debug = isset($options['analytics_debug']) ? $options['analytics_debug'] : false;
     ?>
-    <input type="checkbox" 
-           name="nmkr_connect_options[analytics_debug]" 
+    <input type="checkbox"
+           name="nmkr_connect_options[analytics_debug]"
            id="nmkr_analytics_debug"
            value="1"
            <?php checked(1, $analytics_debug); ?>
@@ -775,7 +555,7 @@ function nmkr_ga4_api_secret_field_callback() {
 
 /**
  * Get synchronization profiles with their predefined settings
- * 
+ *
  * @return array An array of synchronization profiles with their settings
  */
 function nmkr_get_sync_profiles() {

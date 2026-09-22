@@ -362,7 +362,7 @@ function nmkr_connect_settings_page() {
     ?>
     <div class="wrap">
         <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
-        
+
         <form action="options.php" method="post">
             <?php
             settings_fields('nmkr_connect_settings_group');
@@ -377,74 +377,5 @@ function nmkr_connect_settings_page() {
         </form>
     </div>
 
-    <script type="text/javascript">
-        document.addEventListener('DOMContentLoaded', function() {
-            const toggleButton = document.getElementById('toggle_api_key_visibility');
-            const apiKeyInput = document.getElementById('nmkr_api_key');
-            
-            if (!toggleButton || !apiKeyInput) {
-                return;
-            }
-
-            toggleButton.addEventListener('click', function() {
-                if (apiKeyInput.type === 'password') {
-                    apiKeyInput.type = 'text';
-                    toggleButton.textContent = 'Hide';
-                } else {
-                    apiKeyInput.type = 'password';
-                    toggleButton.textContent = 'Show';
-                }
-            });
-        });
-    </script>
-
-    <script>
-    jQuery(document).ready(function($) {
-        $('#nmkr-reset-defaults').on('click', function() {
-            if (confirm('Are you sure you want to reset all settings to their default values?')) {
-                // Store current API key
-                const currentApiKey = $('#nmkr_api_key').val();
-                
-                // Reset Sync Settings
-                $('#nmkr_sync_profile').val('balanced');
-                $('#nmkr_sync_batch_size').val('5');
-                $('#nmkr_sync_batch_delay').val('2');
-                $('input[name="nmkr_connect_options[sync_initial_interval]"]').val('1000');
-                $('input[name="nmkr_connect_options[sync_max_interval]"]').val('30000');
-                $('input[name="nmkr_connect_options[sync_interval_increase]"]').val('2.0');
-                $('input[name="nmkr_connect_options[sync_interval_decrease]"]').val('0.5');
-                $('input[name="nmkr_connect_options[sync_max_errors]"]').val('3');
-                
-                // Reset Debug Settings - ensure they are disabled by default
-                $('#nmkr_debug_enabled').prop('checked', false);
-                $('#nmkr_log_to_debug_file').prop('checked', false).prop('disabled', true);
-                $('#nmkr_log_to_dashboard').prop('checked', false).prop('disabled', true);
-                $('#nmkr_api_debug_enabled').prop('checked', false).prop('disabled', true);
-                $('#nmkr_sync_debug_enabled').prop('checked', false).prop('disabled', true);
-                $('#nmkr_ui_debug_enabled').prop('checked', false).prop('disabled', true);
-                $('#nmkr_performance_debug_enabled').prop('checked', false).prop('disabled', true);
-                $('#nmkr_log_throttle_enabled').prop('checked', false).prop('disabled', true);
-                $('#nmkr_log_retention_limit').val('100').prop('disabled', true);
-                
-                // Reset Analytics & Privacy Settings
-                $('#nmkr_analytics_mode').val('off');
-                $('#nmkr_ga4_measurement_id').val('');
-                $('#nmkr_ga4_api_secret').val('');
-                $('#nmkr_analytics_retention_days').val('90');
-                $('#nmkr_analytics_track_logged_in').prop('checked', false);
-                $('#nmkr_analytics_require_consent').prop('checked', true);
-                $('#nmkr_analytics_sample_rate').val('1');
-                $('#nmkr_analytics_remove_on_uninstall').prop('checked', true);
-                $('#nmkr_analytics_debug').prop('checked', false);
-
-                // Restore API key
-                $('#nmkr_api_key').val(currentApiKey);
-                
-                // Show success message
-                alert('Settings have been reset to defaults. Click "Save Settings" to apply.');
-            }
-        });
-    });
-    </script>
     <?php
 }
