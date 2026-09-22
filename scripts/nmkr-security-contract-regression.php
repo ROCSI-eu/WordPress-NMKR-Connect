@@ -78,6 +78,82 @@ nmkr_assert($GLOBALS['nmkr_ajax_hook_candidates'] === $registered_hooks, 'ajax_r
 nmkr_assert($registrations === $expected, 'ajax_registration_surface_unclassified');
 foreach($privileged as $action=>$callback) nmkr_assert(!isset($registrations['wp_ajax_nopriv_'.$action]), 'privileged_nopriv_registration');
 
+/*
+ * Keep the $_GET/$_POST/$_REQUEST surface explicit. A new consumer must be
+ * classified here before public checks pass, so request authorization does not
+ * silently expand.
+ */
+$request_consumers=array();
+foreach($production_php as $file) {
+    $relative=str_replace(dirname(__DIR__).'/', '', $file);
+    $function='(file scope)';
+    foreach(file($file) as $line) {
+        if (preg_match('/^\s*function\s+([A-Za-z0-9_]+)\s*\(/', $line, $m)) $function=$m[1];
+        if (
+            strpos($line, '$_GET') !== false
+            || strpos($line, '$_POST') !== false
+            || strpos($line, '$_REQUEST') !== false
+        ) {
+            $request_consumers[$relative.'::'.$function]=true;
+        }
+    }
+}
+$request_consumers=array_keys($request_consumers);
+sort($request_consumers);
+$expected_request_consumers=array(
+    'includes/helpers/nmkr-projects-util.php::nmkr_get_active_project_uid_single',
+    'includes/helpers/nmkr-projects-util.php::nmkr_render_project_selector_simple',
+    'includes/menus/nmkr-admin-menu.php::nmkr_connect_admin_menu',
+    'includes/pages/analytics/nmkr-analytics-ajax.php::nmkr_analytics_admin_ajax_guard',
+    'includes/pages/analytics/nmkr-analytics-ajax.php::nmkr_analytics_admin_request',
+    'includes/pages/dashboard/nmkr-dashboard-ajax.php::nmkr_check_api_status',
+    'includes/pages/dashboard/nmkr-dashboard-ajax.php::nmkr_clear_all_logs_ajax',
+    'includes/pages/dashboard/nmkr-dashboard-ajax.php::nmkr_clear_section_logs_ajax',
+    'includes/pages/dashboard/nmkr-dashboard-ajax.php::nmkr_get_sync_statistics_ajax',
+    'includes/pages/dashboard/nmkr-dashboard-ajax.php::nmkr_store_active_metrics_ajax',
+    'includes/pages/projects/nmkr-projects.php::nmkr_connect_projects_page',
+    'includes/shortcodes/nmkr-shortcode-carousel.php::nmkr_shortcode_carousel',
+    'includes/shortcodes/nmkr-shortcode-grid.php::nmkr_shortcode_grid',
+    'includes/shortcodes/nmkr-shortcode-list.php::nmkr_shortcode_list',
+    'includes/synchronization/nmkr-sync-ajax-handlers.php::nmkr_cleanup_sync_jobs_handler',
+    'includes/synchronization/nmkr-sync-ajax-handlers.php::nmkr_force_stop_sync_handler',
+    'includes/synchronization/nmkr-sync-ajax-handlers.php::nmkr_stop_sync_handler',
+    'includes/synchronization/nmkr-sync-ajax-handlers.php::nmkr_sync_progress_handler',
+);
+sort($expected_request_consumers);
+nmkr_assert($request_consumers===$expected_request_consumers,'request_input_surface_unclassified');
+
+$settings_source=file_get_contents(dirname(__DIR__).'/includes/pages/settings/nmkr-settings-core.php');
+nmkr_assert(strpos($settings_source, "settings_fields('nmkr_connect_settings_group')")!==false,'settings_nonce_source_missing');
+$projects_source=file_get_contents(dirname(__DIR__).'/includes/pages/projects/nmkr-projects.php');
+$projects_function=substr($projects_source,strpos($projects_source,'function nmkr_connect_projects_page()'));
+nmkr_assert(
+    strpos($projects_function, "current_user_can( 'nmkr_view_projects' )") < strpos($projects_function, "check_admin_referer( 'nmkr_projects_filter', 'nmkr_projects_filter_nonce' )")
+    && substr_count($projects_function, "wp_nonce_field( 'nmkr_projects_filter', 'nmkr_projects_filter_nonce' )")>=2,
+    'projects_filter_guard_contract'
+);
+$analytics_source=file_get_contents(dirname(__DIR__).'/includes/pages/analytics/nmkr-analytics-ajax.php');
+foreach(array(
+    'nmkr_analytics_kpis_ajax',
+    'nmkr_analytics_timeseries_ajax',
+    'nmkr_analytics_top_projects_ajax',
+    'nmkr_analytics_top_tokens_ajax',
+    'nmkr_analytics_breakdown_ajax',
+    'nmkr_analytics_export_ajax',
+) as $function_name) {
+    $start=strpos($analytics_source,'function '.$function_name.'()');
+    nmkr_assert($start!==false,'analytics_guard_function_missing');
+    $next=strpos($analytics_source, "
+function ", $start+1);
+    $body=substr($analytics_source,$start,$next===false?null:$next-$start);
+    nmkr_assert(
+        strpos($body,'nmkr_analytics_admin_ajax_guard(')!==false
+        && strpos($body,'nmkr_analytics_admin_request()')!==false
+        && strpos($body,'nmkr_analytics_admin_ajax_guard(')<strpos($body,'nmkr_analytics_admin_request()'),
+        'analytics_guard_order_'.$function_name
+    );
+}
+
 require dirname(__DIR__).'/includes/pages/settings/nmkr-settings-validation.php';
 require dirname(__DIR__).'/includes/pages/settings/nmkr-settings-core.php';
 nmkr_connect_register_settings(); nmkr_connect_add_settings_page();

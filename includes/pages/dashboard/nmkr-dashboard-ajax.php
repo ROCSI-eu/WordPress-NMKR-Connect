@@ -176,9 +176,13 @@ function nmkr_get_sync_statistics_ajax() {
     if ( ! in_array( $request_type, $valid_request_types, true ) ) {
         $request_type = 'completed';
     }
-    $force_refresh = isset($_POST['force_refresh']) && $_POST['force_refresh'] === 'true';
+    $force_refresh = false;
+    if ( isset( $_POST['force_refresh'] ) && is_scalar( $_POST['force_refresh'] ) ) {
+        $force_refresh_raw = sanitize_text_field( wp_unslash( (string) $_POST['force_refresh'] ) );
+        $force_refresh = filter_var( $force_refresh_raw, FILTER_VALIDATE_BOOLEAN );
+    }
     
-    // If force_refresh is true, clear any cached option values
+    // If force_refresh is true, clear any cached values
     if ($force_refresh) {
         // Clear any cached metrics to force a fresh DB read
         wp_cache_delete('nmkr_sync_metrics', 'nmkr');
@@ -190,14 +194,8 @@ function nmkr_get_sync_statistics_ajax() {
             nmkr_log_ui_status('UI: Refreshing active sync metrics display (forced refresh)', 'debug');
         }
         
-        // Re-check the last_sync_time option to get fresh data (only if requesting completed metrics)
         if ($request_type === 'completed') {
-            $last_sync_time = get_option('nmkr_last_sync_time', '', true); // Force a fresh read
-            if (!empty($last_sync_time)) {
-                update_option('nmkr_last_sync_time', $last_sync_time);
-            }
-            
-            // Log UI status update
+            // The completed statistics read below consumes the refreshed cache state.
             nmkr_log_ui_status('UI: Refreshing completed sync statistics display (forced refresh)', 'debug');
         }
     }
