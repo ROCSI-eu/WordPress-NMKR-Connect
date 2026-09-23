@@ -41,7 +41,7 @@ PRODUCTION should behave like an ordinary WordPress installation consuming the p
 
 - Keep deployment commands and evidence public-safe: never commit secrets, credentials, private URLs, customer data, sensitive logs, or unnecessary infrastructure details.
 - Stop on repository/SHA mismatch, dirty or ambiguous source state, unhealthy WordPress, active synchronization, unexpected persistent-state changes, or unclear rollback.
-- Use Git for code rollback; use state backups only when persistent or irreversible data is at risk.
+- Use Git to roll back source-controlled development changes; use validated backups/snapshots only when persistent or irreversible state is at risk.
 - Development and release validation must not silently change the role of an environment.
 
 For validation depth and exact-head requirements, see [validation-policy.md](validation-policy.md).
