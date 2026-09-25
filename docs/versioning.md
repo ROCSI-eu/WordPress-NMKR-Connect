@@ -56,13 +56,8 @@ The gate does not require a specific user count or elapsed time.
 
 Version changes belong to an explicit release-preparation change, not unrelated feature/fix PRs unless that PR is intentionally becoming the release candidate.
 
-Before an immutable tag or release:
+The canonical WordPress.org publication procedure is the [WordPress.org release/update checklist](wordpress-org-release.md). It requires one exact version to agree across the plugin header, `readme.txt` `Stable tag`, current changelog entry, purpose-built package, and numeric WordPress.org SVN tag before publication.
 
-1. use the exact reviewed candidate SHA;
-2. run the focused release/package checks and any risk-based DEV validation required by the changes included in that release;
-3. verify plugin header, `Stable tag`, changelog, and package filename consistency;
-4. build the purpose-built package from a clean exact source tree;
-5. record provenance/checksum as required by the release process;
-6. create the immutable tag/release only through an explicit release task.
+User-facing changelog text is maintained deliberately; it is not auto-generated from commit history. Keep the current release entry in `readme.txt` and move older history to `changelog.txt` when needed to keep the directory readme compact.
 
 If a released artifact needs correction, publish a new version. Do not rewrite an already published immutable release tag.
