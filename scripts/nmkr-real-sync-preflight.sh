@@ -324,34 +324,49 @@ DEPLOYMENT_INTEGRITY_STATUS="PASS"
 ORIGIN_SHA256="$(python3 - "${NMKR_REAL_SYNC_ALLOWED_ORIGIN:-}" "${WP_BASE_URL:-}" <<'PY'
 import hashlib,sys,urllib.parse
 allowed, base = sys.argv[1:3]
-def norm(value):
+def parse(value, allow_path):
     p=urllib.parse.urlsplit(value.strip())
     try: port = p.port
     except ValueError: raise SystemExit(1)
-    if p.scheme != 'https' or not p.hostname or p.username or p.password or p.query or p.fragment or p.path not in ('','/') or port is not None:
+    if p.scheme != 'https' or not p.hostname or p.username or p.password or p.query or p.fragment or port is not None:
         raise SystemExit(1)
     host=p.hostname.lower().rstrip('.')
-    if '*' in host:
+    if '*' in host or not host:
         raise SystemExit(1)
-    return 'https://' + host
-na, nb = norm(allowed), norm(base)
-if na != nb: raise SystemExit(1)
-print(hashlib.sha256(na.encode()).hexdigest())
+    path=p.path.rstrip('/')
+    if not allow_path and path:
+        raise SystemExit(1)
+    if path and (not path.startswith('/') or '//' in path or any(part in ('.','..') for part in path.split('/'))):
+        raise SystemExit(1)
+    origin='https://' + host
+    return origin, origin + path
+allowed_origin, _ = parse(allowed, False)
+base_origin, _ = parse(base, True)
+if allowed_origin != base_origin: raise SystemExit(1)
+print(hashlib.sha256(allowed_origin.encode()).hexdigest())
 PY
 )" || { mark_fail ORIGIN_GUARD_STATUS; fail_gate "origin-guard" "$DIAGNOSTIC_FILE"; }
 WP_HOME="$(wp_cli option get home --skip-plugins --skip-themes --skip-packages 2>/dev/null)" || { mark_fail ORIGIN_GUARD_STATUS; fail_gate "origin-guard" "$DIAGNOSTIC_FILE"; }
 WP_SITEURL="$(wp_cli option get siteurl --skip-plugins --skip-themes --skip-packages 2>/dev/null)" || { mark_fail ORIGIN_GUARD_STATUS; fail_gate "origin-guard" "$DIAGNOSTIC_FILE"; }
-python3 - "$ORIGIN_SHA256" "$WP_HOME" "$WP_SITEURL" <<'PY' || { mark_fail ORIGIN_GUARD_STATUS; fail_gate "origin-guard" "$DIAGNOSTIC_FILE"; }
+python3 - "$ORIGIN_SHA256" "${WP_BASE_URL:-}" "$WP_HOME" "$WP_SITEURL" <<'PY' || { mark_fail ORIGIN_GUARD_STATUS; fail_gate "origin-guard" "$DIAGNOSTIC_FILE"; }
 import hashlib,sys,urllib.parse
-expected = sys.argv[1]
-def digest(value):
+expected, base = sys.argv[1:3]
+def normalize(value):
     p=urllib.parse.urlsplit(value.strip())
-    try: port = p.port
+    try: port=p.port
     except ValueError: raise SystemExit(1)
-    if p.scheme!='https' or not p.hostname or p.username or p.password or p.query or p.fragment or p.path not in ('','/') or port is not None: raise SystemExit(1)
-    origin = 'https://' + p.hostname.lower().rstrip('.')
-    return hashlib.sha256(origin.encode()).hexdigest()
-if any(digest(v) != expected for v in sys.argv[2:]): raise SystemExit(1)
+    if p.scheme!='https' or not p.hostname or p.username or p.password or p.query or p.fragment or port is not None: raise SystemExit(1)
+    host=p.hostname.lower().rstrip('.')
+    if '*' in host or not host: raise SystemExit(1)
+    path=p.path.rstrip('/')
+    if path and (not path.startswith('/') or '//' in path or any(part in ('.','..') for part in path.split('/'))): raise SystemExit(1)
+    origin='https://' + host
+    return origin, origin + path
+base_origin, normalized_base = normalize(base)
+if hashlib.sha256(base_origin.encode()).hexdigest() != expected: raise SystemExit(1)
+for value in sys.argv[3:]:
+    _, normalized = normalize(value)
+    if normalized != normalized_base: raise SystemExit(1)
 PY
 ORIGIN_GUARD_STATUS="PASS"
 
