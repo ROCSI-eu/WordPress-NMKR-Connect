@@ -18,8 +18,14 @@ check(preg_match('/^Version:\s*([0-9]+\.[0-9]+\.[0-9]+)\s*$/mi', $plugin, $plugi
 check(preg_match('/^Stable tag:\s*([0-9]+\.[0-9]+\.[0-9]+)\s*$/mi', $readme, $stable_tag_match) === 1, 'directory readme declares a numeric three-component stable tag');
 $plugin_version = $plugin_version_match[1];
 $stable_tag = $stable_tag_match[1];
-check($plugin_version === '0.25.0', 'first public stable release is 0.25.0');
 check($stable_tag === $plugin_version, 'plugin version and stable tag agree');
+$changelog_parts = preg_split('/^== Changelog ==\\s*$/mi', $readme, 2);
+check(count($changelog_parts) === 2, 'directory readme contains a Changelog section');
+$changelog_body = ltrim($changelog_parts[1]);
+$current_changelog_match = array();
+check(preg_match('/\\A=\\s*([0-9]+\\.[0-9]+\\.[0-9]+)\\s*=\\s*\\R/', $changelog_body, $current_changelog_match) === 1, 'directory changelog starts with a numeric release entry');
+check($current_changelog_match[1] === $plugin_version, 'current changelog entry matches plugin version and stable tag');
+check(preg_match('/\\A=\\s*' . preg_quote($plugin_version, '/') . '\\s*=\\s*\\R(?:\\s*\\R)*\\*\\s+\\S/', $changelog_body) === 1, 'current changelog entry contains user-facing release text');
 check(preg_match('/Requires at least:\s*5\.8/i', $plugin) && preg_match('/Requires at least:\s*5\.8/i', $readme), 'plugin and directory metadata agree on WordPress 5.8 minimum');
 $runtime_php = $plugin;
 $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root . '/includes', FilesystemIterator::SKIP_DOTS));
