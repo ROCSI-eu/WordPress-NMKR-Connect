@@ -33,7 +33,7 @@
     "test:real-sync:phase16a:regression": "bash scripts/nmkr-real-sync-phase16a-regression.sh",
     "test:synthetic:provider": "php scripts/nmkr-synthetic-provider-regression.php",
     "test:synthetic:controller": "bash scripts/nmkr-synthetic-run-regression.sh",
-    "test:release": "php scripts/nmkr-release-regression.php",
+    "test:release": "php scripts/nmkr-release-regression.php && bash scripts/nmkr-package-reproducibility-regression.sh",
     "build:package": "bash scripts/nmkr-build-package.sh"
   },
   "devDependencies": {
