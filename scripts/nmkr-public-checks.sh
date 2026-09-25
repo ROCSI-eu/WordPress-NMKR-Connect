@@ -89,3 +89,4 @@ php scripts/nmkr-admin-menu-regression.php
 
 printf '\n== Release-readiness regressions ==\n'
 php scripts/nmkr-release-regression.php
+bash scripts/nmkr-package-reproducibility-regression.sh
