@@ -63,11 +63,9 @@ wp_with_plugin_link() {
   printf '%s' "$wp_dir"
 }
 
-create_required_vendor() {
+create_composer_vendor() {
   local plugin_dir="$1"
-  mkdir -p "$plugin_dir/vendor/freemius/wordpress-sdk/includes" "$plugin_dir/vendor/composer"
-  touch "$plugin_dir/vendor/freemius/wordpress-sdk/start.php"
-  touch "$plugin_dir/vendor/freemius/wordpress-sdk/includes/class-freemius.php"
+  mkdir -p "$plugin_dir/vendor/composer"
   touch "$plugin_dir/vendor/autoload.php" "$plugin_dir/vendor/composer/installed.php"
 }
 
@@ -380,49 +378,48 @@ NO_VENDOR_DEPLOY="$TMP/deployed-no-vendor"; git clone -q "$SRC1" "$NO_VENDOR_DEP
 NO_VENDOR_WP="$(wp_with_plugin_link "$NO_VENDOR_DEPLOY" no-vendor)"
 NO_VENDOR_STATE="$TMP/no-vendor-state"; NO_VENDOR_OUT="$TMP/no-vendor.out"
 if base_env WP_PATH="$NO_VENDOR_WP" NMKR_PHASE2_LOG_DIR="$NO_VENDOR_STATE" NMKR_DEPLOYED_PLUGIN_PATH="$NO_VENDOR_DEPLOY" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$NO_VENDOR_OUT" 2>&1; then
-  fail "deployed checkout without vendor unexpectedly passed"
+  fail "Freemius-free checkout without vendor unexpectedly passed full preflight"
 fi
-grep -q 'failed gate: deployment-integrity' "$NO_VENDOR_OUT" || { cat "$NO_VENDOR_OUT"; fail "deployed checkout without vendor did not fail deployment-integrity"; }
-[[ -z "$(find "$NO_VENDOR_STATE" -name real-sync-preflight.receipt.json -print -quit 2>/dev/null)" ]] || fail "deployed checkout without vendor created receipt"
-pass "deployed checkout without required vendor fails closed"
+grep -q 'failed gate: origin-guard' "$NO_VENDOR_OUT" || { cat "$NO_VENDOR_OUT"; fail "Freemius-free checkout without vendor did not pass deployment integrity"; }
+[[ -z "$(find "$NO_VENDOR_STATE" -name real-sync-preflight.receipt.json -print -quit 2>/dev/null)" ]] || fail "Freemius-free checkout without vendor created receipt"
+pass "Freemius-free checkout without vendor passes deployment integrity"
 
-for missing_case in start class; do
-  MISSING_DEPLOY="$TMP/deployed-missing-$missing_case"; git clone -q "$SRC1" "$MISSING_DEPLOY"; create_required_vendor "$MISSING_DEPLOY"
-  if [[ "$missing_case" == "start" ]]; then
-    rm -f "$MISSING_DEPLOY/vendor/freemius/wordpress-sdk/start.php"
+for missing_case in autoload installed; do
+  MISSING_DEPLOY="$TMP/deployed-missing-$missing_case"; git clone -q "$SRC1" "$MISSING_DEPLOY"; create_composer_vendor "$MISSING_DEPLOY"
+  if [[ "$missing_case" == "autoload" ]]; then
+    rm -f "$MISSING_DEPLOY/vendor/autoload.php"
   else
-    rm -f "$MISSING_DEPLOY/vendor/freemius/wordpress-sdk/includes/class-freemius.php"
+    rm -f "$MISSING_DEPLOY/vendor/composer/installed.php"
   fi
   MISSING_WP="$(wp_with_plugin_link "$MISSING_DEPLOY" "missing-$missing_case")"
   MISSING_OUT="$TMP/missing-$missing_case.out"
   if base_env WP_PATH="$MISSING_WP" NMKR_PHASE2_LOG_DIR="$TMP/missing-$missing_case-state" NMKR_DEPLOYED_PLUGIN_PATH="$MISSING_DEPLOY" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$MISSING_OUT" 2>&1; then
-    fail "missing Freemius $missing_case file unexpectedly passed"
+    fail "missing Composer $missing_case file unexpectedly passed"
   fi
-  grep -q 'failed gate: deployment-integrity' "$MISSING_OUT" || { cat "$MISSING_OUT"; fail "missing Freemius $missing_case file did not fail deployment-integrity"; }
+  grep -q 'failed gate: deployment-integrity' "$MISSING_OUT" || { cat "$MISSING_OUT"; fail "missing Composer $missing_case file did not fail deployment-integrity"; }
 done
-pass "missing required Freemius files fail closed"
+pass "incomplete ignored Composer runtime fails closed"
 
-for symlink_case in start class; do
-  SYMLINK_DEPLOY="$TMP/deployed-symlink-$symlink_case"; git clone -q "$SRC1" "$SYMLINK_DEPLOY"; create_required_vendor "$SYMLINK_DEPLOY"
-  if [[ "$symlink_case" == "start" ]]; then
-    rm -f "$SYMLINK_DEPLOY/vendor/freemius/wordpress-sdk/start.php"
-    ln -s "$SYMLINK_DEPLOY/vendor/autoload.php" "$SYMLINK_DEPLOY/vendor/freemius/wordpress-sdk/start.php"
+for symlink_case in autoload installed; do
+  SYMLINK_DEPLOY="$TMP/deployed-symlink-$symlink_case"; git clone -q "$SRC1" "$SYMLINK_DEPLOY"; create_composer_vendor "$SYMLINK_DEPLOY"
+  if [[ "$symlink_case" == "autoload" ]]; then
+    rm -f "$SYMLINK_DEPLOY/vendor/autoload.php"
+    ln -s "$SYMLINK_DEPLOY/vendor/composer/installed.php" "$SYMLINK_DEPLOY/vendor/autoload.php"
   else
-    rm -f "$SYMLINK_DEPLOY/vendor/freemius/wordpress-sdk/includes/class-freemius.php"
-    ln -s "$SYMLINK_DEPLOY/vendor/autoload.php" "$SYMLINK_DEPLOY/vendor/freemius/wordpress-sdk/includes/class-freemius.php"
+    rm -f "$SYMLINK_DEPLOY/vendor/composer/installed.php"
+    ln -s "$SYMLINK_DEPLOY/vendor/autoload.php" "$SYMLINK_DEPLOY/vendor/composer/installed.php"
   fi
   SYMLINK_WP="$(wp_with_plugin_link "$SYMLINK_DEPLOY" "symlink-$symlink_case")"
   SYMLINK_OUT="$TMP/symlink-$symlink_case.out"
   if base_env WP_PATH="$SYMLINK_WP" NMKR_PHASE2_LOG_DIR="$TMP/symlink-$symlink_case-state" NMKR_DEPLOYED_PLUGIN_PATH="$SYMLINK_DEPLOY" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$SYMLINK_OUT" 2>&1; then
-    fail "symlinked Freemius $symlink_case file unexpectedly passed"
+    fail "symlinked Composer $symlink_case file unexpectedly passed"
   fi
-  grep -q 'failed gate: deployment-integrity' "$SYMLINK_OUT" || { cat "$SYMLINK_OUT"; fail "symlinked Freemius $symlink_case file did not fail deployment-integrity"; }
+  grep -q 'failed gate: deployment-integrity' "$SYMLINK_OUT" || { cat "$SYMLINK_OUT"; fail "symlinked Composer $symlink_case file did not fail deployment-integrity"; }
 done
-pass "symlinked required Freemius files fail closed"
+pass "symlinked ignored Composer runtime fails closed"
 
 [[ -z "$(git -C "$SRC1" -c core.fileMode=true status --porcelain=v1 --untracked-files=all)" ]] || fail "source fixture dirty before structural checkout test"
 STRUCT_CLONE="$TMP/deployed-structural"; git clone -q "$SRC1" "$STRUCT_CLONE"
-create_required_vendor "$STRUCT_CLONE"
 STRUCT_WP="$(wp_with_plugin_link "$STRUCT_CLONE" structural)"
 STRUCT_OUT="$TMP/structural.out"
 if base_env WP_PATH="$STRUCT_WP" NMKR_PHASE2_LOG_DIR="$TMP/valid-state-structural" NMKR_DEPLOYED_PLUGIN_PATH="$STRUCT_CLONE" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$STRUCT_OUT" 2>&1; then fail "structural clean checkout unexpectedly passed full preflight"; fi
@@ -433,21 +430,16 @@ OVERRIDE_OTHER="$TMP/deployed-override-other"; git clone -q "$SRC1" "$OVERRIDE_O
 run_expect_fail "override not matching active plugin path" base_env WP_PATH="$STRUCT_WP" NMKR_PHASE2_LOG_DIR="$TMP/override-mismatch-state" NMKR_DEPLOYED_PLUGIN_PATH="$OVERRIDE_OTHER" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh"
 
 VENDOR_ALLOWED_WP="$TMP/wp-vendor-allowed"; mkdir -p "$VENDOR_ALLOWED_WP/wp-content/plugins"; git clone -q "$SRC1" "$VENDOR_ALLOWED_WP/wp-content/plugins/rocsi-connector-for-nmkr"
-mkdir -p "$VENDOR_ALLOWED_WP/wp-content/plugins/rocsi-connector-for-nmkr/vendor/freemius/wordpress-sdk/includes" "$VENDOR_ALLOWED_WP/wp-content/plugins/rocsi-connector-for-nmkr/vendor/composer"
-touch "$VENDOR_ALLOWED_WP/wp-content/plugins/rocsi-connector-for-nmkr/vendor/freemius/wordpress-sdk/start.php"
-touch "$VENDOR_ALLOWED_WP/wp-content/plugins/rocsi-connector-for-nmkr/vendor/freemius/wordpress-sdk/includes/class-freemius.php"
-touch "$VENDOR_ALLOWED_WP/wp-content/plugins/rocsi-connector-for-nmkr/vendor/autoload.php" "$VENDOR_ALLOWED_WP/wp-content/plugins/rocsi-connector-for-nmkr/vendor/composer/installed.php"
+create_composer_vendor "$VENDOR_ALLOWED_WP/wp-content/plugins/rocsi-connector-for-nmkr"
 VENDOR_ALLOWED_OUT="$TMP/vendor-allowed.out"
 if base_env WP_PATH="$VENDOR_ALLOWED_WP" NMKR_PHASE2_LOG_DIR="$TMP/allowed-vendor-state" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$VENDOR_ALLOWED_OUT" 2>&1; then
-  fail "allowed ignored vendor dependencies unexpectedly passed full preflight"
+  fail "allowed ignored Composer runtime unexpectedly passed full preflight"
 fi
-grep -q 'failed gate: origin-guard' "$VENDOR_ALLOWED_OUT" || { cat "$VENDOR_ALLOWED_OUT"; fail "allowed ignored vendor dependencies did not reach later guard"; }
-pass "required ignored vendor dependencies allowed"
+grep -q 'failed gate: origin-guard' "$VENDOR_ALLOWED_OUT" || { cat "$VENDOR_ALLOWED_OUT"; fail "allowed ignored Composer runtime did not reach later guard"; }
+pass "minimal ignored Composer runtime allowed"
 
 VENDOR_WP="$TMP/wp-vendor"; mkdir -p "$VENDOR_WP/wp-content/plugins"; git clone -q "$SRC1" "$VENDOR_WP/wp-content/plugins/rocsi-connector-for-nmkr"
-mkdir -p "$VENDOR_WP/wp-content/plugins/rocsi-connector-for-nmkr/vendor/freemius/wordpress-sdk/includes"
-touch "$VENDOR_WP/wp-content/plugins/rocsi-connector-for-nmkr/vendor/freemius/wordpress-sdk/start.php"
-touch "$VENDOR_WP/wp-content/plugins/rocsi-connector-for-nmkr/vendor/freemius/wordpress-sdk/includes/class-freemius.php"
+create_composer_vendor "$VENDOR_WP/wp-content/plugins/rocsi-connector-for-nmkr"
 touch "$VENDOR_WP/wp-content/plugins/rocsi-connector-for-nmkr/vendor/unexpected-runtime.php"
 VENDOR_UNEXPECTED_OUT="$TMP/vendor-unexpected.out"
 if base_env WP_PATH="$VENDOR_WP" NMKR_PHASE2_LOG_DIR="$TMP/ignored-runtime-state" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$VENDOR_UNEXPECTED_OUT" 2>&1; then
@@ -460,9 +452,7 @@ for ignored_case in env:.env node:node_modules/ignored.js zip:archive.zip php:ig
   case_label="${ignored_case%%:*}"
   case_path="${ignored_case#*:}"
   CASE_WP="$TMP/wp-ignored-$case_label"; mkdir -p "$CASE_WP/wp-content/plugins"; git clone -q "$SRC1" "$CASE_WP/wp-content/plugins/rocsi-connector-for-nmkr"
-  mkdir -p "$CASE_WP/wp-content/plugins/rocsi-connector-for-nmkr/vendor/freemius/wordpress-sdk/includes" "$CASE_WP/wp-content/plugins/rocsi-connector-for-nmkr/$(dirname "$case_path")"
-  touch "$CASE_WP/wp-content/plugins/rocsi-connector-for-nmkr/vendor/freemius/wordpress-sdk/start.php"
-  touch "$CASE_WP/wp-content/plugins/rocsi-connector-for-nmkr/vendor/freemius/wordpress-sdk/includes/class-freemius.php"
+  mkdir -p "$CASE_WP/wp-content/plugins/rocsi-connector-for-nmkr/$(dirname "$case_path")"
   touch "$CASE_WP/wp-content/plugins/rocsi-connector-for-nmkr/$case_path"
   CASE_OUT="$TMP/ignored-$case_label.out"
   if base_env WP_PATH="$CASE_WP" NMKR_PHASE2_LOG_DIR="$TMP/ignored-$case_label-state" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$CASE_OUT" 2>&1; then
