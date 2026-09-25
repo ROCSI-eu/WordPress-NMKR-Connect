@@ -34,6 +34,16 @@ export function routeDecisionForAction(action, mode = 'prepare', startAlreadySen
 }
 export const routeDecision = routeDecisionForAction;
 
+export function wordpressUrl(path, baseUrl) {
+  const base = new URL(baseUrl);
+  if (base.protocol !== 'https:' || base.username || base.password || base.search || base.hash || base.port) throw new Error('invalid-wordpress-base-url');
+  const relative = String(path || '').replace(/^\/+/, '');
+  if (!relative || relative.startsWith('//') || relative.split('/').some((part) => part === '.' || part === '..')) throw new Error('invalid-wordpress-relative-url');
+  const normalizedBase = new URL(base.toString());
+  if (!normalizedBase.pathname.endsWith('/')) normalizedBase.pathname += '/';
+  return new URL(relative, normalizedBase).toString();
+}
+
 function normalizedHttpOrigin(value, baseUrl) {
   const parsed = new URL(value, baseUrl);
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
@@ -156,7 +166,7 @@ async function login(page, baseUrl) {
   const user = process.env.WP_ADMIN_USER;
   const pass = process.env.WP_ADMIN_PASSWORD;
   if (!user || !pass) throw new Error('wp-credentials-required');
-  await page.goto(new URL('/wp-login.php', baseUrl).toString(), { waitUntil: 'domcontentloaded' });
+  await page.goto(wordpressUrl('/wp-login.php', baseUrl), { waitUntil: 'domcontentloaded' });
   await page.fill('#user_login', user);
   await page.fill('#user_pass', pass);
   await Promise.all([page.waitForNavigation({ waitUntil: 'domcontentloaded' }).catch(() => null), page.click('#wp-submit')]);
@@ -191,13 +201,13 @@ async function realCli() {
       return route.continue();
     });
     await login(page, baseUrl);
-    await page.goto(new URL(dashboardPath, baseUrl).toString(), { waitUntil: 'domcontentloaded' });
+    await page.goto(wordpressUrl(dashboardPath, baseUrl), { waitUntil: 'domcontentloaded' });
     const nonce = await extractNonce(page);
     if (!nonce) throw new Error('sync-nonce-missing');
     routingMode = 'frozen';
     await authorizeWithController();
     routingMode = 'after-start';
-    const adminAjaxUrl = new URL('/wp-admin/admin-ajax.php', baseUrl).toString();
+    const adminAjaxUrl = wordpressUrl('/wp-admin/admin-ajax.php', baseUrl);
     const result = await runExactlyOnceSync({
       adminAjaxUrl,
       nonce,
