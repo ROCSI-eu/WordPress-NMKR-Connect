@@ -12,6 +12,9 @@ run_expect_fail() {
   if "$@" >/dev/null 2>&1; then fail "$label unexpectedly passed"; fi
   pass "$label"
 }
+
+! grep -Eq 'vendor/freemius/|wordpress-sdk' "$ROOT/scripts/nmkr-real-sync-preflight.sh" || fail "real-sync preflight retains stale Freemius SDK assumptions"
+pass "real-sync preflight contains no stale Freemius SDK paths"
 make_repo() {
   local dir="$1"
   mkdir -p "$dir/scripts"
