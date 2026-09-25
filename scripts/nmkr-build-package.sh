@@ -30,6 +30,9 @@ rm -f "$work/$slug"/{AGENTS.md,.gitattributes,.gitignore,.env.tests.example,comp
 find "$work/$slug" -type f \( -name '.env*' -o -name '*.zip' -o -name '*.log' -o -name '*.trace' -o -name '*.webm' -o -name 'nmkr-connect-auth-*.json' \) -delete
 ( cd "$work/$slug" && find . -type f ! -name 'PACKAGE-MANIFEST.sha256' -print | LC_ALL=C sort | sed 's#^./##' | while IFS= read -r f; do sha256sum "$f"; done > PACKAGE-MANIFEST.sha256 )
 manifest="$work/$slug/PACKAGE-MANIFEST.sha256"
+release_epoch=$(git show -s --format=%ct HEAD)
+[[ "$release_epoch" =~ ^[0-9]+$ ]] || { echo 'Unable to resolve release commit timestamp.' >&2; exit 1; }
+touch -d "@$release_epoch" "$manifest"
 ( cd "$work/$slug" && sha256sum -c PACKAGE-MANIFEST.sha256 >/dev/null )
 zip_path="$out/$slug-$version.zip"
 rm -f "$zip_path" "$zip_path.sha256"
