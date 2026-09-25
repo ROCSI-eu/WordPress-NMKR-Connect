@@ -545,6 +545,32 @@ if [[ -d "$ORIGIN_STATE" ]]; then
 fi
 pass "origin failure does not persist raw origin"
 
+SUBDIR_WPCLI_MOCK="$TMP/wpcli-subdir-mock"
+cat > "$SUBDIR_WPCLI_MOCK" <<'EOF'
+#!/usr/bin/env bash
+if [[ "$1" == --path=* ]]; then shift; fi
+if [[ "$1 $2 $3" == "option get home" || "$1 $2 $3" == "option get siteurl" ]]; then
+  printf '%s\n' "${NMKR_FAKE_WP_BASE:-https://example.invalid/wp-dev}"
+  exit 0
+fi
+exit 0
+EOF
+chmod +x "$SUBDIR_WPCLI_MOCK"
+SUBDIR_OUT="$TMP/subdir-origin.out"
+if base_env WP_CLI_BIN="$SUBDIR_WPCLI_MOCK" WP_PATH="$STRUCT_WP" NMKR_PHASE2_LOG_DIR="$TMP/subdir-origin-state" NMKR_DEPLOYED_PLUGIN_PATH="$STRUCT_CLONE" WP_BASE_URL="https://example.invalid/wp-dev" NMKR_REAL_SYNC_ALLOWED_ORIGIN="https://example.invalid" NMKR_FAKE_WP_BASE="https://example.invalid/wp-dev/" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$SUBDIR_OUT" 2>&1; then
+  fail "subdirectory preflight unexpectedly passed all later gates"
+fi
+grep -q 'failed gate:' "$SUBDIR_OUT" || fail "subdirectory preflight did not reach a later fail-closed gate"
+! grep -q 'failed gate: origin-guard' "$SUBDIR_OUT" || { cat "$SUBDIR_OUT"; fail "subdirectory preflight was rejected by origin guard"; }
+pass "subdirectory WordPress base passes origin guard"
+
+SUBDIR_MISMATCH_OUT="$TMP/subdir-origin-mismatch.out"
+if base_env WP_CLI_BIN="$SUBDIR_WPCLI_MOCK" WP_PATH="$STRUCT_WP" NMKR_PHASE2_LOG_DIR="$TMP/subdir-origin-mismatch-state" NMKR_DEPLOYED_PLUGIN_PATH="$STRUCT_CLONE" WP_BASE_URL="https://example.invalid/wp-dev" NMKR_REAL_SYNC_ALLOWED_ORIGIN="https://example.invalid" NMKR_FAKE_WP_BASE="https://example.invalid/wp-other" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh" >"$SUBDIR_MISMATCH_OUT" 2>&1; then
+  fail "subdirectory path mismatch unexpectedly passed"
+fi
+grep -q 'failed gate: origin-guard' "$SUBDIR_MISMATCH_OUT" || { cat "$SUBDIR_MISMATCH_OUT"; fail "subdirectory path mismatch did not fail origin guard"; }
+pass "subdirectory path mismatch fails closed"
+
 MISMATCH="$TMP/deployed-mismatch"; git clone -q "$SRC1" "$MISMATCH"; git -C "$MISMATCH" config user.email public@example.invalid; git -C "$MISMATCH" config user.name PublicTest; echo mismatch > "$MISMATCH/mismatch.txt"; git -C "$MISMATCH" add mismatch.txt; git -C "$MISMATCH" commit -q -m mismatch
 MISMATCH_WP="$(wp_with_plugin_link "$MISMATCH" mismatch)"
 run_expect_fail "source/deployed commit mismatch" base_env WP_PATH="$MISMATCH_WP" NMKR_PHASE2_LOG_DIR="$TMP/valid-state-mismatch" NMKR_DEPLOYED_PLUGIN_PATH="$MISMATCH" bash "$SRC1/scripts/nmkr-real-sync-preflight.sh"

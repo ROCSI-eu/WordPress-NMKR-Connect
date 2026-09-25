@@ -86,21 +86,32 @@ PY
 origin_digest() {
   python3 - "$1" "$2" "$3" "$4" <<'PY'
 import hashlib, sys, urllib.parse
-values = sys.argv[1:5]
-def norm(value):
+allowed, base, home, siteurl = sys.argv[1:5]
+def parse(value, allow_path):
     p = urllib.parse.urlsplit(value.strip())
     try: port = p.port
     except ValueError: raise SystemExit(1)
-    if p.scheme != 'https' or not p.hostname or p.username or p.password or p.query or p.fragment or p.path not in ('','/') or port is not None:
+    if p.scheme != 'https' or not p.hostname or p.username or p.password or p.query or p.fragment or port is not None:
         raise SystemExit(1)
     host = p.hostname.lower().rstrip('.')
     if '*' in host or not host:
         raise SystemExit(1)
-    return 'https://' + host
-normalized = [norm(v) for v in values]
-if any(v != normalized[0] for v in normalized):
+    path = p.path.rstrip('/')
+    if not allow_path and path:
+        raise SystemExit(1)
+    if path and (not path.startswith('/') or '//' in path or any(part in ('.','..') for part in path.split('/'))):
+        raise SystemExit(1)
+    origin = 'https://' + host
+    return origin, origin + path
+allowed_origin, _ = parse(allowed, False)
+base_origin, normalized_base = parse(base, True)
+if allowed_origin != base_origin:
     raise SystemExit(1)
-print(hashlib.sha256(normalized[0].encode()).hexdigest())
+for value in (home, siteurl):
+    _, normalized = parse(value, True)
+    if normalized != normalized_base:
+        raise SystemExit(1)
+print(hashlib.sha256(allowed_origin.encode()).hexdigest())
 PY
 }
 

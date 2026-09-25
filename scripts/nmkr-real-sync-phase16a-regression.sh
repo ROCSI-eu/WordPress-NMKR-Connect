@@ -294,12 +294,13 @@ for sync_class in absent terminal active unknown; do
     pass "post-run sync_data_classification=$sync_class rejected after one authorized synthetic Start"
   fi
 done
-for case in "allowed origin mismatch" "wordpress home mismatch" "wordpress siteurl mismatch" "http origin" "explicit port" "path query fragment" "missing administrator identifier" "capability failure"; do
+for case in "allowed origin mismatch" "wordpress home mismatch" "wordpress siteurl mismatch" "wordpress path mismatch" "http origin" "explicit port" "path query fragment" "missing administrator identifier" "capability failure"; do
   D="$TMP/${case// /_}"; mkdir -m700 "$D"; mkdir -p "$D/runs/phase15"; chmod 700 "$D/runs" "$D/runs/phase15"; R="$D/runs/phase15/real-sync-preflight.receipt.json"; make_receipt "$R"; PRE="$TMP/${case// /_}.pre.json"; POST="$TMP/${case// /_}.post.json"; state_json 1 1 1 1 abc >"$PRE"; state_json 2 2 2 2 abc >"$POST"; : >"$TMP/$case.driver"
   extra=(WP_ADMIN_USER="admin@example.invalid")
   case "$case" in
     "allowed origin mismatch") extra=(NMKR_REAL_SYNC_ALLOWED_ORIGIN="https://other.invalid");;
     "wordpress home mismatch"|"wordpress siteurl mismatch") extra=(NMKR_FAKE_WP_ORIGIN="https://other.invalid");;
+    "wordpress path mismatch") extra=(WP_BASE_URL="https://example.invalid/wp-dev" NMKR_FAKE_WP_ORIGIN="https://example.invalid/wp-other");;
     "http origin") extra=(NMKR_REAL_SYNC_ALLOWED_ORIGIN="http://example.invalid" WP_BASE_URL="http://example.invalid" NMKR_FAKE_WP_ORIGIN="http://example.invalid");;
     "explicit port") extra=(NMKR_REAL_SYNC_ALLOWED_ORIGIN="https://example.invalid:443" WP_BASE_URL="https://example.invalid:443" NMKR_FAKE_WP_ORIGIN="https://example.invalid:443");;
     "path query fragment") extra=(NMKR_REAL_SYNC_ALLOWED_ORIGIN="https://example.invalid/path?x=1#f" WP_BASE_URL="https://example.invalid/path?x=1#f" NMKR_FAKE_WP_ORIGIN="https://example.invalid/path?x=1#f");;
@@ -312,6 +313,10 @@ done
 D="$TMP/origin_normalization"; mkdir -m700 "$D"; mkdir -p "$D/runs/phase15"; chmod 700 "$D/runs" "$D/runs/phase15"; R="$D/runs/phase15/real-sync-preflight.receipt.json"; C="$D/runs/phase15/real-sync-preflight.receipt.consumed.json"; make_receipt "$R"; PRE="$TMP/origin_norm.pre.json"; POST="$TMP/origin_norm.post.json"; state_json 1 1 1 1 abc >"$PRE"; state_json 2 2 2 2 abc >"$POST"; LOG="$TMP/origin_norm.driver"
 base_env "$D" NMKR_REAL_SYNC_ALLOWED_ORIGIN="https://EXAMPLE.INVALID." WP_BASE_URL="https://example.invalid" NMKR_FAKE_WP_ORIGIN="https://example.invalid." NMKR_PHASE16A_RECEIPT="$R" NMKR_FAKE_PRE_STATE="$PRE" NMKR_FAKE_POST_STATE="$POST" NMKR_FAKE_DRIVER_LOG="$LOG" NMKR_FAKE_CONSUMED="$C" bash "$ROOT/scripts/nmkr-real-sync-phase16a.sh" >/dev/null 2>&1 || fail "origin normalization unexpectedly failed"
 pass "origin hostname case and trailing-dot normalization"
+
+D="$TMP/subdirectory_base"; mkdir -m700 "$D"; mkdir -p "$D/runs/phase15"; chmod 700 "$D/runs" "$D/runs/phase15"; R="$D/runs/phase15/real-sync-preflight.receipt.json"; C="$D/runs/phase15/real-sync-preflight.receipt.consumed.json"; make_receipt "$R"; PRE="$TMP/subdir.pre.json"; POST="$TMP/subdir.post.json"; state_json 1 1 1 1 abc >"$PRE"; state_json 2 2 2 2 abc >"$POST"; LOG="$TMP/subdir.driver"
+base_env "$D" WP_BASE_URL="https://example.invalid/wp-dev" NMKR_REAL_SYNC_ALLOWED_ORIGIN="https://example.invalid" NMKR_FAKE_WP_ORIGIN="https://example.invalid/wp-dev/" NMKR_PHASE16A_RECEIPT="$R" NMKR_FAKE_PRE_STATE="$PRE" NMKR_FAKE_POST_STATE="$POST" NMKR_FAKE_DRIVER_LOG="$LOG" NMKR_FAKE_CONSUMED="$C" bash "$ROOT/scripts/nmkr-real-sync-phase16a.sh" >/dev/null 2>&1 || fail "subdirectory WordPress base unexpectedly failed"
+pass "subdirectory WordPress base is accepted without weakening origin binding"
 for case in "consumed destination collision" "expired receipt" "insufficient remaining lifetime after dashboard bootstrap" "stale backup"; do
   D="$TMP/${case// /_}"; mkdir -m700 "$D"; mkdir -p "$D/runs/phase15"; chmod 700 "$D/runs" "$D/runs/phase15"; R="$D/runs/phase15/real-sync-preflight.receipt.json"; make_receipt "$R"
   case "$case" in
@@ -510,7 +515,7 @@ grep -q "^before:unconsumed$" "$LOG" || fail "active history authorization did n
 [[ -f "$R" && ! -e "$C" ]] || fail "active history authorization consumed receipt artifact"
 pass "controller rejects active history snapshot before receipt consumption and synthetic Start"
 node --input-type=module <<'NODE' >"$TMP/driver-state.out"
-import {runExactlyOnceSync, actionFromRequestLike, routeDecisionForAction, frozenRouteDecisionForUrl, buildStartForm, buildProgressForm} from './scripts/nmkr-real-sync-phase16a-driver.mjs';
+import {runExactlyOnceSync, actionFromRequestLike, routeDecisionForAction, frozenRouteDecisionForUrl, buildStartForm, buildProgressForm, wordpressUrl} from './scripts/nmkr-real-sync-phase16a-driver.mjs';
 const secret='nonce-fixture-value'; let starts=[], polls=[];
 const fakeClock = () => {
   let fakeNow = 0;
@@ -519,6 +524,10 @@ const fakeClock = () => {
 const sf=buildStartForm(secret), pf=buildProgressForm(secret);
 if(sf.action!=='nmkr_start_sync'||sf.nonce!==secret||Object.hasOwn(sf,'nmkr_sync_nonce')) throw Error('Start form shape failed');
 if(pf.action!=='nmkr_sync_progress'||pf.nonce!==secret||Object.hasOwn(pf,'nmkr_sync_nonce')) throw Error('Progress form shape failed');
+const subdirBase='https://example.invalid/wp-dev';
+if(wordpressUrl('/wp-login.php',subdirBase)!=='https://example.invalid/wp-dev/wp-login.php') throw Error('subdirectory login URL escaped base path');
+if(wordpressUrl('/wp-admin/admin.php?page=nmkr-connect-dashboard',subdirBase)!=='https://example.invalid/wp-dev/wp-admin/admin.php?page=nmkr-connect-dashboard') throw Error('subdirectory dashboard URL escaped base path');
+if(wordpressUrl('/wp-admin/admin-ajax.php',subdirBase)!=='https://example.invalid/wp-dev/wp-admin/admin-ajax.php') throw Error('subdirectory admin AJAX URL escaped base path');
 let result=await runExactlyOnceSync({nonce:secret,receipt:{maxDurationSeconds:20,pollTimeoutSeconds:5},sleep:async()=>{},transport:{start:async x=>{starts.push(x.nonce);return {status:200,json:{success:true}}},poll:async x=>{polls.push(x.nonce); return polls.length===1?{status:200,json:{data:{progress:10,in_progress:true,metrics:{api_requests:1}}}}:{status:200,json:{data:{progress:100,completed:true}}}}}});
 if(!result.ok||starts.length!==1||starts[0]!==secret||polls.some(n=>n!==secret)) throw Error('nonce propagation failed');
 if(JSON.stringify(result).includes(secret)) throw Error('nonce leaked in sanitized output');
