@@ -281,7 +281,7 @@ with open(ignored_file, 'rb') as handle:
     raw = handle.read()
 ignored = [entry.decode('utf-8', 'surrogateescape') for entry in raw.split(b'\0') if entry]
 allowed_files = {'vendor/autoload.php'}
-allowed_prefixes = ('vendor/composer/', 'vendor/freemius/wordpress-sdk/')
+allowed_prefixes = ('vendor/composer/',)
 for relpath in ignored:
     if not (relpath in allowed_files or relpath.startswith(allowed_prefixes)):
         raise SystemExit(1)
@@ -293,24 +293,29 @@ for relpath in ignored:
         current = os.path.join(current, part)
         if os.path.islink(current):
             raise SystemExit(1)
+
+# A current Freemius-free deployment may legitimately have no ignored vendor
+# runtime at all. If Composer runtime files are present, require the minimal
+# autoloader metadata pair and keep the same symlink/path confinement checks.
 required = (
-    'vendor/freemius/wordpress-sdk/start.php',
-    'vendor/freemius/wordpress-sdk/includes/class-freemius.php',
+    'vendor/autoload.php',
+    'vendor/composer/installed.php',
 )
-for relpath in required:
-    full = os.path.normpath(os.path.join(root, relpath))
-    if not (full == root or full.startswith(root.rstrip(os.sep) + os.sep)):
-        raise SystemExit(1)
-    real = os.path.realpath(full)
-    if not (real == root or real.startswith(root.rstrip(os.sep) + os.sep)):
-        raise SystemExit(1)
-    current = root
-    for part in relpath.split('/'):
-        current = os.path.join(current, part)
-        if os.path.islink(current):
+if ignored:
+    for relpath in required:
+        full = os.path.normpath(os.path.join(root, relpath))
+        if not (full == root or full.startswith(root.rstrip(os.sep) + os.sep)):
             raise SystemExit(1)
-    if not os.path.isfile(full):
-        raise SystemExit(1)
+        real = os.path.realpath(full)
+        if not (real == root or real.startswith(root.rstrip(os.sep) + os.sep)):
+            raise SystemExit(1)
+        current = root
+        for part in relpath.split('/'):
+            current = os.path.join(current, part)
+            if os.path.islink(current):
+                raise SystemExit(1)
+        if not os.path.isfile(full):
+            raise SystemExit(1)
 PY
   rm -f "$DEPLOYED_IGNORED_FILE"
 fi
