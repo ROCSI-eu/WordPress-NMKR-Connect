@@ -153,7 +153,7 @@ Keep WordPress and dependencies maintained, grant minimal access, use HTTPS, pro
 | Symptoms, read-only diagnosis, and safe escalation | [Troubleshooting guide](docs/troubleshooting.md) |
 | Developers and contributors | [Developer guide](docs/developer-guide.md) |
 | Maintainers choosing proportional checks | [Validation policy](docs/validation-policy.md) |
-| Maintainers planning releases and version bumps | [Versioning and release policy](docs/versioning.md) |
+| Maintainers planning releases and version bumps | [Versioning and release policy](docs/versioning.md) and [WordPress.org release/update checklist](docs/wordpress-org-release.md) |
 | DEV/STAGING/PRODUCTION release responsibilities | [Deployment policy](docs/deployment-policy.md) |
 | Security audit, evidence, limitations, and Proof of Achievement | [Milestone 4 audit and evidence hub](docs/milestone-4/README.md) |
 
