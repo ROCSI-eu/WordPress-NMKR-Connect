@@ -18,7 +18,7 @@ Milestone 5 evidence is recorded in [evidence-register.md](evidence-register.md)
 
 This Proof of Achievement should link to the detailed evidence rather than reproduce private raw logs, credentials, analytics identifiers, support transcripts, infrastructure details, or user data. Public claims must remain bounded by what each evidence source actually measures.
 
-A GitHub release counter is evidence of that counter, not automatically distinct human downloads. WordPress.org active-install values may be bucketed or rounded. Site analytics must use the documented unique-user/visitor definition and measurement window. Event attendance and feedback counts must represent distinct humans. Causality between a post-launch adjustment and adoption/usability outcomes must not be overstated.
+A GitHub release counter is evidence of that counter, not automatically distinct human downloads. WordPress.org active-install values may be bucketed or rounded. For the site-traffic requirement, Cloudflare Web Analytics `Visits` is the selected source-defined metric for the fixed canonical URL/window; it must not be relabelled as deduplicated people/users. Event attendance and feedback counts must represent distinct humans. Causality between a post-launch adjustment and adoption/usability outcomes must not be overstated.
 
 ## 1. Release and distribution evidence
 
@@ -113,7 +113,7 @@ This table is a scaffolded snapshot. [traceability.md](traceability.md) remains 
 | `M5-REQ-010` | IN PROGRESS | Existing public documentation foundations exist; complete final release-accurate handover review. |
 | `M5-REQ-011` | IN PROGRESS | Public source exists; final release SHA/tree/tag/release provenance remains outstanding. |
 | `M5-REQ-012` | NOT STARTED | Deliver and summarize initial post-launch support. |
-| `M5-REQ-013` | NOT SUBMITTED | Submit the plugin to WordPress.org and record actual reviewer/directory state. |
+| `M5-REQ-013` | COMPLETE | WordPress.org approved and published `ROCSI Connector for NMKR` 0.25.0 under slug `rocsi-connector-for-nmkr`; see #111/#128. |
 | `M5-REQ-014` | NOT STARTED | Allocate/select post-launch work from genuine usage/feedback evidence. |
 | `M5-REQ-015` | NOT STARTED | Document, implement, verify, and release a qualifying genuine adjustment where required by the evidence contract. |
 | `M5-REQ-016` | NOT STARTED | Capture time-stamped adoption metric checkpoints and final report. |
