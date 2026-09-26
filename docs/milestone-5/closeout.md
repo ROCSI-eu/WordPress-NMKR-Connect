@@ -11,12 +11,12 @@ The dedicated reviewer-facing synthesis lives in [proof-of-achievement.md](proof
 
 | Item | Target/disposition | Current state | Evidence |
 | --- | --- | --- | --- |
-| WordPress.org submission | Submitted in accordance with current requirements; actual approval/listing status stated separately | NOT SUBMITTED | TBD |
+| WordPress.org submission/publication | Approved, SVN-published, and publicly available as `ROCSI Connector for NMKR` 0.25.0 | COMPLETE | #111, #128 |
 | GitHub installable release | Public, exact provenance/checksum recorded | NOT STARTED | TBD |
 | Marketing channels | >=2 targeted channels launched | NOT STARTED | TBD |
 | Downloads | >=25 combined under documented methodology | NOT STARTED | TBD |
 | Active installations | >=10 under documented methodology | NOT STARTED | TBD |
-| Plugin webpage unique visits | >=250 | NOT STARTED | TBD |
+| Plugin webpage unique visits | >=250 Cloudflare Web Analytics `Visits` on the fixed canonical URL/window; source definition/limitations preserved | IN PROGRESS — CONTRACT SELECTED; BASELINE PENDING | #163 / `adoption-and-metrics.md` |
 | Community event | >=10 distinct attendees | NOT STARTED | TBD |
 | Detailed feedback | >=5 distinct users collected/analyzed | NOT STARTED | TBD |
 | Initial early-adopter support | Delivered and summarized | NOT STARTED | TBD |
