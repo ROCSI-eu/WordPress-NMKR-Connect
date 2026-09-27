@@ -5,16 +5,16 @@
 
 This matrix maps the accepted final Statement of Milestones requirements to the current internal work-package plan and eventual evidence. It records status, not achievement by implication. Evidence columns remain `TBD` until evidence actually exists.
 
-Current implementation checkpoint: M5-01, M5-02, and M5-03 are complete. WordPress.org approved **ROCSI Connector for NMKR** with final slug `rocsi-connector-for-nmkr`, and version `0.25.0` was published through SVN revision `3708672` on 23 September 2026. Public directory/API/download availability was verified under issues #111 and #128. M5-04 is now in progress against the canonical landing page `https://connector-for-nmkr.rocsi.eu/`; the selected website metric is Cloudflare Web Analytics `Visits`, with the formal pre-campaign baseline still pending.
+Current implementation checkpoint: M5-01, M5-02, and M5-03 are complete. WordPress.org approved **ROCSI Connector for NMKR** with final slug `rocsi-connector-for-nmkr`, and version `0.25.0` was published through SVN revision `3708672` on 23 September 2026. Public directory/API/download availability was verified under issues #111 and #128. M5-04 has now captured the formal synchronized pre-campaign T0 baseline at `2026-09-27T05:21:31Z` against `https://connector-for-nmkr.rocsi.eu/`, recorded as `M5-EVD-001`. M5-05 campaign execution has not yet begun.
 
 ## Requirement-to-delivery matrix
 
 | ID | Final-milestone requirement / acceptance | Expected evidence | Current status | Planned package(s) | Evidence IDs |
 | --- | --- | --- | --- | --- | --- |
 | `M5-REQ-001` | Launch targeted marketing campaigns across at least two relevant channels | Campaign posts/pages, timestamps, platform analytics/reports | NOT STARTED | M5-04, M5-05, M5-08 | TBD |
-| `M5-REQ-002` | Reach at least 25 plugin downloads from WordPress Plugin Directory and GitHub combined | WordPress.org download data and GitHub release-asset counters, with methodology/limitations | NOT STARTED | M5-03, M5-08 | TBD |
-| `M5-REQ-003` | Reach at least 10 unique active installations | WordPress.org active-install evidence where available plus privacy-safe corroboration if needed | NOT STARTED | M5-03, M5-08 | TBD |
-| `M5-REQ-004` | Reach at least 250 unique visits to the NMKR Connect plugin webpage | Cloudflare Web Analytics `Visits` for the canonical URL and fixed campaign window, with source definition/limitations preserved | IN PROGRESS — CONTRACT SELECTED; BASELINE PENDING | M5-04, M5-05, M5-08 | TBD |
+| `M5-REQ-002` | Reach at least 25 plugin downloads from WordPress Plugin Directory and GitHub combined | WordPress.org download data and GitHub release-asset counters, with methodology/limitations | IN PROGRESS — T0 BASELINE CAPTURED: WordPress.org 42 cumulative; no GitHub Release asset | M5-03, M5-08 | `M5-EVD-001` |
+| `M5-REQ-003` | Reach at least 10 unique active installations | WordPress.org active-install evidence where available plus privacy-safe corroboration if needed | IN PROGRESS — T0 BASELINE CAPTURED: `Fewer than 10` public bucket | M5-03, M5-08 | `M5-EVD-001` |
+| `M5-REQ-004` | Reach at least 250 unique visits to the NMKR Connect plugin webpage | Cloudflare Web Analytics `Visits` for the canonical URL and fixed campaign window, with source definition/limitations preserved | IN PROGRESS — T0 BASELINE CAPTURED: 10 Visits rolling snapshot; campaign not launched | M5-04, M5-05, M5-08 | `M5-EVD-001` |
 | `M5-REQ-005` | Conduct community engagement with at least 10 attendees | Event announcement, attendance count, date/platform, public-safe summary | NOT STARTED | M5-05 | TBD |
 | `M5-REQ-006` | Collect and analyze detailed feedback from at least 5 users | Distinct-user, public-safe feedback summaries and analysis; private identity mapping retained only when necessary | NOT STARTED | M5-05, M5-06 | TBD |
 | `M5-REQ-007` | Collect/analyze adoption metrics, user feedback, and engagement results | Consolidated adoption/community report with source definitions and limitations | NOT STARTED | M5-08 | TBD |
@@ -26,7 +26,7 @@ Current implementation checkpoint: M5-01, M5-02, and M5-03 are complete. WordPre
 | `M5-REQ-013` | Submit NMKR Connect to WordPress Plugin Directory in accordance with official requirements | Submission/review record plus final public directory/SVN publication evidence | COMPLETE — APPROVED, SVN-PUBLISHED, PUBLICLY AVAILABLE (`0.25.0`) | M5-01, M5-02, M5-03 | #111, #128 |
 | `M5-REQ-014` | Allocate resources for early bug fixes/minor feature adjustments based on post-launch evidence | Issue/decision trail and selected post-launch work | NOT STARTED | M5-06, M5-07 | TBD |
 | `M5-REQ-015` | Early bug fixes/minor adjustments are documented, implemented, and verified for functionality | PR/commit/release/test/DEV evidence for a genuine qualifying adjustment | NOT STARTED | M5-07 | TBD |
-| `M5-REQ-016` | Continue monitoring/reporting adoption metrics | Time-stamped metric checkpoints and final close-out report | NOT STARTED | M5-04, M5-08, M5-10 | TBD |
+| `M5-REQ-016` | Continue monitoring/reporting adoption metrics | Time-stamped metric checkpoints and final close-out report | IN PROGRESS — T0 CHECKPOINT RECORDED | M5-04, M5-08, M5-10 | `M5-EVD-001` |
 | `M5-REQ-017` | Incorporate user feedback into future-update prioritization | Feedback-to-issue/decision/prioritization mapping | NOT STARTED | M5-06, M5-07, M5-08 | TBD |
 | `M5-REQ-018` | Report the impact of implemented adjustments on adoption/usability/performance where evidence permits | Pre/post observation and limitations; no causal overclaim | NOT STARTED | M5-07, M5-08 | TBD |
 

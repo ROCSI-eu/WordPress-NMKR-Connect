@@ -77,6 +77,22 @@ Each evidence record should include:
 - **Status:** VERIFIED
 - **Limitations/non-claims:** exact-head and post-merge DEV validation and focused release/package checks passed without real NMKR synchronization. Package execution was not repeated on DEV because that VM lacked the `zip` command. This foundation establishes M5-02 completion only; final release publication, name/slug selection, WordPress.org submission, and directory acceptance remain pending under M5-03.
 
+## Executed evidence entries
+
+### M5-EVD-001 — synchronized pre-campaign adoption baseline
+
+- **Requirements:** `M5-REQ-002`, `M5-REQ-003`, `M5-REQ-004`, `M5-REQ-016`
+- **Work package:** M5-04
+- **Description:** synchronized T0 baseline. Cloudflare showed **10 Visits / 11 Page views** for the canonical filtered page. WordPress.org reported **42** cumulative downloads and the public active-install bucket **Fewer than 10**. GitHub Releases was empty, so no installable GitHub Release asset existed at T0.
+- **Source/platform:** Cloudflare Web Analytics; WordPress.org Plugins API/public directory; GitHub Releases API/repository
+- **Captured UTC:** `2026-09-27T05:21:31Z` (Europe/Bucharest `2026-09-27 08:21:31`, UTC+03:00)
+- **Relevant SHA/version:** website `3671f1bd24646385b316fa84ab621b8e53356e8a`; plugin main `f14d53dd80405c8a1062dabafdb7b7cee56d7f2f`; WordPress.org `0.25.0`; SVN r`3708672`
+- **Public/private class:** public aggregate values and methodology; authenticated Cloudflare screenshot retained separately as corroboration
+- **Public reference:** canonical landing page, WordPress.org plugin page, GitHub repository, issue #163, and website Phase 6 issue #11
+- **Private corroboration:** YES
+- **Status:** VERIFIED
+- **Limitations/non-claims:** Cloudflare `Visits` are not deduplicated people. Filters were Site `rocsi.eu`, Exclude bots `Yes`, Host `connector-for-nmkr.rocsi.eu`, Path `/`, with dashboard window `Last 24 hours (GMT+3)`. That is a rolling pre-campaign snapshot, not a cumulative counter. WordPress.org `downloaded=42` is cumulative and not a distinct-human count. Active installs are publicly bucketed as `Fewer than 10`; do not infer an exact count. GitHub asset baseline is not applicable because no Release asset existed. Pre-baseline verification traffic is excluded from campaign growth claims.
+
 ## Public/private evidence boundary
 
 ### Suitable for the public repository
