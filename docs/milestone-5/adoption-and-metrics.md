@@ -9,9 +9,9 @@ Measurement definitions and baselines must be established **before** campaign la
 
 | Metric | Target | Planned primary source | Current status |
 | --- | ---: | --- | --- |
-| Plugin downloads | >=25 combined | WordPress.org download data + GitHub installable release-asset counter | BASELINE PENDING |
-| Active installations | >=10 | WordPress.org active-install signal; privacy-safe corroboration if required | PUBLIC LISTING LIVE; FORMAL BASELINE PENDING |
-| Unique plugin-page visits | >=250 | Cloudflare Web Analytics `Visits` for the canonical landing page and fixed campaign window | CONTRACT SELECTED; BEACON/BASELINE PENDING |
+| Plugin downloads | >=25 combined | WordPress.org download data + GitHub installable release-asset counter | T0 BASELINE CAPTURED — WordPress.org `42`; no GitHub Release asset |
+| Active installations | >=10 | WordPress.org active-install signal; privacy-safe corroboration if required | T0 BASELINE CAPTURED — `Fewer than 10` |
+| Unique plugin-page visits | >=250 | Cloudflare Web Analytics `Visits` for the canonical landing page and fixed campaign window | T0 BASELINE CAPTURED — 10 Visits snapshot; campaign not launched |
 | Community attendance | >=10 distinct attendees | Event attendance record | NOT STARTED |
 | Detailed user feedback | >=5 distinct users | Feedback/support records using public-safe opaque IDs | NOT STARTED |
 
@@ -71,7 +71,7 @@ If stronger uniqueness corroboration is required, prefer voluntary, privacy-safe
 
 Prefer the public WordPress.org active-install signal. If WordPress.org reports a bucket such as `Fewer than 10` or `10+`, report that bucket rather than inventing a precise value. Additional aggregate installation data may be supporting evidence only after its privacy and measurement meaning are verified.
 
-As of the 26 September 2026 M5-04 reconciliation, the public WordPress.org listing for `rocsi-connector-for-nmkr` is live at version `0.25.0` and reports **fewer than 10 active installations**. This is a checkpoint, not yet the formal M5-05 baseline.
+As of the formal T0 checkpoint on 27 September 2026, the public WordPress.org listing for `rocsi-connector-for-nmkr` is live at version `0.25.0` and reports **Fewer than 10 active installations**. The WordPress.org Plugins API returned `active_installs=0`, but that numeric field must not be interpreted as a precise zero-install claim because the public directory exposes a bucketed/rounded signal.
 
 ### Unique visits / Cloudflare Visits
 
@@ -105,7 +105,7 @@ Publish aggregate counts, methodology, windows, source/platform, and redacted su
 
 ## Baseline record
 
-Populate immediately before M5-05:
+Formal pre-campaign baseline captured immediately before M5-05:
 
 | Item | Value |
 | --- | --- |
@@ -115,15 +115,20 @@ Populate immediately before M5-05:
 | Metric definition | External/direct entry pageview under Cloudflare's documented definition; not a deduplicated person/user count |
 | Measurement host/path | `connector-for-nmkr.rocsi.eu` + `/` |
 | Installation mode | Manual JS snippet in canonical Next.js frontend only |
-| Baseline UTC (`T0`) | TBD |
-| Pre-campaign Cloudflare Visits snapshot/window | TBD |
-| Campaign end UTC | TBD |
-| GitHub release asset | TBD |
-| GitHub asset baseline | TBD |
+| Baseline UTC (`T0`) | `2026-09-27T05:21:31Z` |
+| Europe/Bucharest local time | `2026-09-27 08:21:31` (UTC+03:00) |
+| Cloudflare site/property | `Web Analytics for rocsi.eu` |
+| Cloudflare filters | Site is in `rocsi.eu`; Exclude bots = `Yes`; Host = `connector-for-nmkr.rocsi.eu`; Path = `/` |
+| Pre-campaign Cloudflare Visits snapshot/window | **10 Visits**; supporting **11 Page views**; dashboard window `Last 24 hours (GMT+3)` immediately before T0 |
+| Cloudflare baseline interpretation | Rolling dashboard snapshot establishing pre-campaign state; campaign evidence must use an interval beginning at T0 rather than subtracting future rolling 24-hour snapshots blindly |
+| Campaign end UTC | TBD — to be fixed by M5-05 execution |
+| GitHub release asset | None at T0; repository Releases collection was empty |
+| GitHub asset baseline | NOT APPLICABLE at T0 because no installable GitHub Release asset existed |
 | WordPress.org plugin/slug | `ROCSI Connector for NMKR` / `rocsi-connector-for-nmkr` |
 | WordPress.org version | `0.25.0` |
-| WordPress.org download baseline | TBD |
-| WordPress.org active-install baseline | TBD — current pre-baseline checkpoint is `Fewer than 10` |
+| WordPress.org download baseline | **42** cumulative downloads at synchronized T0 read |
+| WordPress.org active-install baseline | **Fewer than 10** (public bucket; do not infer a precise count) |
+| Evidence record | `M5-EVD-001` |
 
 ## Checkpoint record
 
