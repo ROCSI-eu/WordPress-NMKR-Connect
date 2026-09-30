@@ -36,6 +36,8 @@ assets=(
   icon-256x256.png
 )
 
+png_signature="89 50 4e 47 0d 0a 1a 0a"
+
 for name in "${assets[@]}"; do
   source_file="$repo_root/.wordpress-org/$name"
   target_file="$svn_root/assets/$name"
@@ -43,6 +45,12 @@ for name in "${assets[@]}"; do
   if [[ ! -f "$source_file" ]]; then
     echo "Missing Git source asset: $source_file" >&2
     exit 68
+  fi
+
+  actual_signature="$(od -An -tx1 -N8 "$source_file" | tr -s ' ' | sed 's/^ //')"
+  if [[ "$actual_signature" != "$png_signature" ]]; then
+    echo "Source asset is not a PNG: $source_file" >&2
+    exit 69
   fi
 
   cp "$source_file" "$target_file"
