@@ -59,7 +59,7 @@ for name in "${assets[@]}"; do
 
   if [[ "$(svn propget svn:mime-type "$target_file")" != "image/png" ]]; then
     echo "Failed to set image/png MIME type on $target_file" >&2
-    exit 69
+    exit 70
   fi
 done
 
