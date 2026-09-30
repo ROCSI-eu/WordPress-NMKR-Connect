@@ -56,6 +56,18 @@ Before any server commit:
 - compare `trunk/` and `tags/X.Y.Z/` release payloads and inspect `svn status` plus `svn diff --summarize`;
 - leave `assets/` unchanged unless separately intended and reviewed.
 
+### When Plugin Directory assets intentionally change
+
+Keep the reviewed source copies under `.wordpress-org/` in Git. Stage those assets into the WordPress.org SVN checkout with:
+
+```bash
+bash scripts/nmkr-stage-wordpress-org-assets.sh /path/to/wordpress-org-svn-checkout
+```
+
+The helper copies the four canonical PNG icon/banner files into SVN `assets/`, verifies that each source has a PNG signature, adds new files when needed, and sets plus verifies `svn:mime-type=image/png`. It does not commit to SVN.
+
+Before committing an asset-only update, inspect `svn status assets/` and the relevant SVN diff/property changes. Do not change the plugin version, `readme.txt`, or changelog for an asset-only correction unless the release itself also requires those changes.
+
 The release is **not ready** if the plugin version, trunk Stable tag, numeric SVN tag, tagged Stable tag, or current changelog entry disagree.
 
 ## 4. Publish deliberately
