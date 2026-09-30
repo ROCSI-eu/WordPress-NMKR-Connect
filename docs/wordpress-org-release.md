@@ -56,6 +56,18 @@ Before any server commit:
 - compare `trunk/` and `tags/X.Y.Z/` release payloads and inspect `svn status` plus `svn diff --summarize`;
 - leave `assets/` unchanged unless separately intended and reviewed.
 
+### WordPress.org directory branding assets
+
+When an icon or banner update is intentionally reviewed, keep GitHub's `.wordpress-org/` directory as the source of truth and stage the four PNG assets through:
+
+```bash
+bash scripts/nmkr-wporg-prepare-assets.sh /path/to/rocsi-connector-for-nmkr-svn
+```
+
+The helper verifies the official SVN repository, requires a clean `assets/` directory, copies the reviewed Git assets, adds new files when needed, and explicitly sets `svn:mime-type` to `image/png` on every PNG. Review the emitted `svn status` and `svn diff` before committing.
+
+Keep SVN credentials out of the helper, repository, shell history, chat, and logs. Authenticate only at the separate `svn commit` step.
+
 The release is **not ready** if the plugin version, trunk Stable tag, numeric SVN tag, tagged Stable tag, or current changelog entry disagree.
 
 ## 4. Publish deliberately
