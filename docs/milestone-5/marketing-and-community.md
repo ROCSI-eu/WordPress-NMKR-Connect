@@ -12,9 +12,9 @@ M5-03 provides usable WordPress.org and formal GitHub `0.25.0` release paths, M5
 - Canonical campaign page: `https://connector-for-nmkr.rocsi.eu/`.
 - Sealed T0 baseline: `M5-EVD-001`, captured 27 September 2026.
 - Synchronized pre-campaign checkpoint: `M5-EVD-003`, captured 5 October 2026 with Cloudflare `9 Visits / 9 Page views`, WordPress.org `77` cumulative downloads / `Fewer than 10` active-install bucket, and GitHub installable-asset counter `0`.
-- Campaign actions: first targeted public action published from `@NMKRConnect` on X; prior website/branding/social-profile work remains launch infrastructure and is not retroactive campaign evidence.
+- Campaign actions: targeted public actions are now live on two distinct channels — `@NMKRConnect` on X and the ROCSI LinkedIn company page; prior website/branding/social-profile work remains launch infrastructure and is not retroactive campaign evidence.
 - Launch boundary: `2026-10-05T17:28:48.194Z`, the publication time encoded by public X status `2107161092187365609`; `M5-EVD-003` remains the immediately preceding synchronized pre-campaign checkpoint.
-- Remaining launch scope: at least one additional relevant channel, the community demo/Q&A, real attendance evidence, detailed feedback collection, and campaign-period metric checkpoints.
+- Remaining launch scope: capture available platform analytics for the two public actions, conduct the community demo/Q&A, preserve real attendance evidence, collect detailed feedback, and record campaign-period metric checkpoints.
 
 ## Objectives
 
@@ -79,7 +79,8 @@ Campaign launched. Add one dated row per real campaign action.
 
 | UTC | Channel | Action/public reference | Measurement/evidence ID | Result/notes |
 | --- | --- | --- | --- | --- |
-| `2026-10-05T17:28:48.194Z` | X / `@NMKRConnect` | First targeted M5-05 post: https://x.com/NMKRConnect/status/2107161092187365609 | `M5-EVD-004` | Campaign launch boundary. Post targets NMKR Studio + WordPress users, links the official WordPress.org install route and canonical documentation site, and invites feedback. This is one channel only; no visit/download/install/feedback result is inferred from publication itself. |
+| `2026-10-05T17:28:48.194Z` | X / `@NMKRConnect` | First targeted M5-05 post: https://x.com/NMKRConnect/status/2107161092187365609 | `M5-EVD-004` | Campaign launch boundary. Post targets NMKR Studio + WordPress users, links the official WordPress.org install route and canonical documentation site, and invites feedback. No visit/download/install/feedback result is inferred from publication itself. |
+| `2026-10-05T17:56:12.806Z` | LinkedIn / ROCSI company page | Second targeted M5-05 post: https://www.linkedin.com/feed/update/urn:li:activity:7512933679732527104 | `M5-EVD-005` | Second distinct public channel. Post targets WordPress/NMKR users, links the open-source repository, official WordPress.org install route, and canonical documentation site, and requests concrete install/setup/synchronization/documentation/use-case feedback. Platform analytics and actual feedback remain pending. |
 
 ## Completion boundary
 
