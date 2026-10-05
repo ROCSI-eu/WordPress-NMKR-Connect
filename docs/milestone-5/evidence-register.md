@@ -137,6 +137,21 @@ Each evidence record should include:
 - **Status:** CAPTURED
 - **Limitations/non-claims:** this is one targeted channel action, so the >=2-channel requirement is not yet satisfied. Publication itself proves no download, installation, visit, attendee, or feedback count and establishes no causal impact. The post invites feedback but does not count as feedback received. No pre-campaign WordPress.org activity is attributed to the campaign. The exact UTC is derived from the public X status ID `2107161092187365609`; independent content/analytics verification can promote this record from `CAPTURED` to `VERIFIED` without changing the launch boundary.
 
+
+### M5-EVD-005 — second targeted M5-05 campaign action
+
+- **Requirements:** `M5-REQ-001`
+- **Work package:** M5-05 / issue #164
+- **Description:** second targeted Milestone 5 campaign action was published from the ROCSI LinkedIn company page. The post targets WordPress users working with NMKR Studio, identifies public plugin version `0.25.0`, links the open-source repository, official WordPress.org install route, and canonical documentation site, and requests concrete feedback about setup friction, synchronization behaviour, documentation gaps, and missing use cases.
+- **Source/platform:** LinkedIn public company-page post
+- **Captured UTC:** publication boundary `2026-10-05T17:56:12.806Z`
+- **Relevant SHA/version:** public plugin `0.25.0`; released source `5b12e674e6312170cae132f40c710e97fe29dfdf`; campaign launch remains `M5-EVD-004`
+- **Public/private class:** public
+- **Public reference:** https://www.linkedin.com/feed/update/urn:li:activity:7512933679732527104
+- **Private corroboration:** NOT NEEDED for the public post reference; authenticated LinkedIn analytics, if captured later, remain separately bounded
+- **Status:** CAPTURED
+- **Limitations/non-claims:** X and LinkedIn now provide two distinct targeted public channels, but this record does not by itself complete all M5-05 acceptance criteria because platform analytics, the community event, attendance, feedback, and campaign-period adoption measurements remain outstanding. Publication proves no visit, download, installation, attendee, or feedback count. The feedback request does not count as feedback received. The UTC is derived from LinkedIn activity ID `7512933679732527104`; independent platform/content verification can promote this record from `CAPTURED` to `VERIFIED` without changing the recorded publication boundary.
+
 ## Public/private evidence boundary
 
 ### Suitable for the public repository
