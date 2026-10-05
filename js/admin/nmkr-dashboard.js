@@ -145,8 +145,31 @@ jQuery(document).ready(function($) {
         });
     });
 
+    const completedStatsRetryDelays = [750, 1500, 2500];
+
+    function hasCanonicalLatestRun(latestRun) {
+        if (!latestRun || typeof latestRun !== 'object') {
+            return false;
+        }
+
+        return [
+            'terminal_result',
+            'status',
+            'items_processed',
+            'items_successful',
+            'items_failed',
+            'items_skipped',
+            'token_details_synced'
+        ].every(function(field) {
+            return latestRun[field] !== null && typeof latestRun[field] !== 'undefined';
+        });
+    }
+
     // Function to refresh completed sync metrics only (for the statistics panel)
-    function refreshCompletedMetrics() {
+    function refreshCompletedMetrics(options) {
+        options = options || {};
+        const retryPendingLatestRun = options.retryPendingLatestRun === true;
+        const retryAttempt = Number.isInteger(options.retryAttempt) ? options.retryAttempt : 0;
         // Log metrics refresh
         $.ajax({
             url: ajaxurl,
@@ -181,13 +204,25 @@ jQuery(document).ready(function($) {
                     $('#request-count').text(response.data.api_requests);
                     const latestRun = response.data.latest_run || {};
                     const latestValue = value => value === null || typeof value === 'undefined' ? '—' : String(value);
-                    $('#latest-run-terminal-result').text(latestValue(latestRun.terminal_result));
-                    $('#latest-run-status').text(latestValue(latestRun.status));
-                    $('#latest-run-processed').text(latestValue(latestRun.items_processed));
-                    $('#latest-run-successful').text(latestValue(latestRun.items_successful));
-                    $('#latest-run-failed').text(latestValue(latestRun.items_failed));
-                    $('#latest-run-skipped').text(latestValue(latestRun.items_skipped));
-                    $('#latest-run-token-details').text(latestValue(latestRun.token_details_synced));
+                    const latestRunReady = hasCanonicalLatestRun(latestRun);
+
+                    if (latestRunReady || !retryPendingLatestRun || retryAttempt >= completedStatsRetryDelays.length) {
+                        $('#latest-run-terminal-result').text(latestValue(latestRun.terminal_result));
+                        $('#latest-run-status').text(latestValue(latestRun.status));
+                        $('#latest-run-processed').text(latestValue(latestRun.items_processed));
+                        $('#latest-run-successful').text(latestValue(latestRun.items_successful));
+                        $('#latest-run-failed').text(latestValue(latestRun.items_failed));
+                        $('#latest-run-skipped').text(latestValue(latestRun.items_skipped));
+                        $('#latest-run-token-details').text(latestValue(latestRun.token_details_synced));
+                    } else {
+                        const retryDelay = completedStatsRetryDelays[retryAttempt];
+                        setTimeout(function() {
+                            refreshCompletedMetrics({
+                                retryPendingLatestRun: true,
+                                retryAttempt: retryAttempt + 1
+                            });
+                        }, retryDelay);
+                    }
 
                     // Update with classes for color coding
                     $('#avg-response-time')
@@ -512,8 +547,11 @@ jQuery(document).ready(function($) {
         $('#nmkr-stop-sync-button').hide();
         $('#nmkr-sync-button').show().prop('disabled', false);
 
-        // Refresh completed metrics after sync finishes
-        setTimeout(refreshCompletedMetrics, 500);
+        // The terminal history row can become visible just after the completion
+        // signal. Retry only this read path, with a small bounded schedule.
+        setTimeout(function() {
+            refreshCompletedMetrics({ retryPendingLatestRun: true, retryAttempt: 0 });
+        }, 500);
     });
 
     // Custom event handler for sync stop (namespaced to avoid conflicts)
@@ -523,8 +561,10 @@ jQuery(document).ready(function($) {
         $('#nmkr-stop-sync-button').hide();
         $('#nmkr-sync-button').show().prop('disabled', false);
 
-        // Refresh completed metrics after sync stops
-        setTimeout(refreshCompletedMetrics, 500);
+        // Stopped terminal history uses the same bounded canonical-history refresh.
+        setTimeout(function() {
+            refreshCompletedMetrics({ retryPendingLatestRun: true, retryAttempt: 0 });
+        }, 500);
     });
 
     // Custom event handlers for progress and status updates (namespaced)
