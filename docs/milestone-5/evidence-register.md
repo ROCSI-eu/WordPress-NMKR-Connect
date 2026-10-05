@@ -122,6 +122,21 @@ Each evidence record should include:
 - **Status:** VERIFIED
 - **Limitations/non-claims:** Cloudflare values are a rolling 24-hour dashboard snapshot and are not subtracted from T0 to derive campaign visits. WordPress.org `77` is a cumulative platform download counter, not distinct human downloaders. The numerical increase from T0 (`42`) to T1 (`77`) occurred before the targeted M5-05 campaign and is not attributed to that campaign. WordPress.org's API `active_installs=0` field is not interpreted as precise zero because the public directory exposes the bucket `Fewer than 10`. GitHub asset counters measure asset downloads, not distinct people. Campaign measurement begins only when the first M5-05 campaign action UTC is recorded; if launch is materially delayed, recapture a fresh synchronized checkpoint.
 
+
+### M5-EVD-004 — first targeted M5-05 campaign action
+
+- **Requirements:** `M5-REQ-001`
+- **Work package:** M5-05 / issue #164
+- **Description:** first real targeted Milestone 5 campaign action was published from `@NMKRConnect` on X. The post addresses NMKR Studio users who use WordPress, identifies public plugin version `0.25.0`, links the official WordPress.org install route and canonical documentation site, and invites genuine user feedback. Its publication UTC establishes the M5-05 campaign launch boundary.
+- **Source/platform:** X public post / `@NMKRConnect`
+- **Captured UTC:** publication boundary `2026-10-05T17:28:48.194Z`
+- **Relevant SHA/version:** public plugin `0.25.0`; released source `5b12e674e6312170cae132f40c710e97fe29dfdf`; synchronized pre-campaign checkpoint `M5-EVD-003` preceded launch
+- **Public/private class:** public
+- **Public reference:** https://x.com/NMKRConnect/status/2107161092187365609
+- **Private corroboration:** NOT NEEDED for the public post reference; any authenticated platform analytics captured later remain separately bounded
+- **Status:** CAPTURED
+- **Limitations/non-claims:** this is one targeted channel action, so the >=2-channel requirement is not yet satisfied. Publication itself proves no download, installation, visit, attendee, or feedback count and establishes no causal impact. The post invites feedback but does not count as feedback received. No pre-campaign WordPress.org activity is attributed to the campaign. The exact UTC is derived from the public X status ID `2107161092187365609`; independent content/analytics verification can promote this record from `CAPTURED` to `VERIFIED` without changing the launch boundary.
+
 ## Public/private evidence boundary
 
 ### Suitable for the public repository
