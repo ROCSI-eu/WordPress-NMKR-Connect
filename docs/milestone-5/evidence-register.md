@@ -93,6 +93,20 @@ Each evidence record should include:
 - **Status:** VERIFIED
 - **Limitations/non-claims:** Cloudflare `Visits` are not deduplicated people. Filters were Site `rocsi.eu`, Exclude bots `Yes`, Host `connector-for-nmkr.rocsi.eu`, Path `/`, with dashboard window `Last 24 hours (GMT+3)`. That is a rolling pre-campaign snapshot, not a cumulative counter. WordPress.org `downloaded=42` is cumulative and not a distinct-human count. Active installs are publicly bucketed as `Fewer than 10`; do not infer an exact count. GitHub asset baseline is not applicable because no Release asset existed. Pre-baseline verification traffic is excluded from campaign growth claims.
 
+### M5-EVD-002 — formal GitHub 0.25.0 release publication
+
+- **Requirements:** `M5-REQ-002`, `M5-REQ-011`, `M5-REQ-016`
+- **Work package:** M5 pre-launch distribution provenance / issue #188
+- **Description:** formal GitHub Release `0.25.0` was published for the already-public WordPress.org stable version. The tag resolves exactly to the approved source commit. The installable asset and checksum asset were published, and their initial GitHub download counters were captured at zero.
+- **Source/platform:** GitHub Release/tag/assets API and public repository
+- **Captured UTC:** `2026-10-05T13:47:12Z`
+- **Relevant SHA/version:** tag `0.25.0` -> commit `5b12e674e6312170cae132f40c710e97fe29dfdf`; tree `941b7f21ecd67a22a0ae84f90cc700fb88cbceb3`; installable asset SHA-256 `d0f80324736a4e91b21bb512e22ee03c249c2b730076a35bafa29a70daf36ef6`
+- **Public/private class:** public
+- **Public reference:** https://github.com/ROCSI-eu/WordPress-NMKR-Connect/releases/tag/0.25.0 and issue #188
+- **Private corroboration:** NOT NEEDED
+- **Status:** VERIFIED
+- **Limitations/non-claims:** this release was created after the sealed M5 T0 checkpoint, where no GitHub Release asset existed. Initial `download_count=0` is a platform counter baseline, not a human-adopter count. The GitHub asset is the public WordPress.org-generated versioned ZIP whose extracted payload was independently verified identical to a package built from the exact approved source SHA; its archive hash remains distinct from the historical reviewer-submission ZIP hash. This evidence does not by itself establish a new synchronized Cloudflare/WordPress.org/GitHub adoption checkpoint or complete the campaign download requirement.
+
 ## Public/private evidence boundary
 
 ### Suitable for the public repository
