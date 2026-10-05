@@ -1,9 +1,9 @@
 # Release and WordPress.org submission
 
-**Status:** COMPLETE — WORDPRESS.ORG APPROVED, SVN-PUBLISHED, AND PUBLICLY AVAILABLE\
+**Status:** COMPLETE — WORDPRESS.ORG APPROVED/PUBLISHED; FORMAL GITHUB `0.25.0` RELEASE ALSO PUBLISHED\
 **Document type:** Finalized first-release/submission record
 
-Milestone 5 M5-03 is complete for the first public WordPress.org release.
+Milestone 5 M5-03 is complete for the first public WordPress.org release. A formal GitHub Release for the same immutable `0.25.0` source was subsequently published on 5 October 2026 to close the public-distribution provenance gap before M5-05.
 
 WordPress.org approved **ROCSI Connector for NMKR** with final slug/text-domain/package identity **`rocsi-connector-for-nmkr`**. Version **`0.25.0`** was published through WordPress.org SVN at revision **`3708672`** on **2026-09-23 07:04:31Z**, and the public directory/API/download path was verified afterward.
 
@@ -33,8 +33,16 @@ The historical first submission used **Connector for NMKR** / `connector-for-nmk
 | Publication UTC | `2026-09-23 07:04:31Z` |
 | Public directory/API/download verification | PASS |
 | Public versioned download verification | PASS |
+| Git tag | `0.25.0` -> `5b12e674e6312170cae132f40c710e97fe29dfdf` |
+| GitHub Release | https://github.com/ROCSI-eu/WordPress-NMKR-Connect/releases/tag/0.25.0 |
+| GitHub Release publication UTC | `2026-10-05T13:47:12Z` |
+| GitHub installable asset | `rocsi-connector-for-nmkr.0.25.0.zip` |
+| GitHub-reported asset SHA-256 | `d0f80324736a4e91b21bb512e22ee03c249c2b730076a35bafa29a70daf36ef6` |
+| Initial GitHub installable-asset `download_count` | `0` |
 
 The historical reviewed ZIP hash is preserved as evidence of the package reviewed by WordPress.org. WordPress.org generates its own public ZIP from SVN; that generated artifact is not substituted for the historical reviewed ZIP hash.
+
+The GitHub Release attaches that public WordPress.org-generated versioned ZIP. Before publication, its extracted 71-file payload was compared with a package built from the exact approved source SHA and found identical. The archive hash remains intentionally distinct from the historical reviewer-submission ZIP hash, and both provenance records are preserved.
 
 ## Review and publication history
 
@@ -44,6 +52,7 @@ The historical reviewed ZIP hash is preserved as evidence of the package reviewe
 4. The owner-approved identity became `ROCSI Connector for NMKR` / `rocsi-connector-for-nmkr`.
 5. WordPress.org approved the corrected submission and assigned the final slug.
 6. Issue #128 performed the guarded first SVN publication and verified public availability.
+7. Issue #188 verified the public WordPress.org-generated ZIP against the exact source payload and published formal GitHub tag/release `0.25.0` with checksum evidence.
 
 No real NMKR synchronization was required for submission or publication.
 
@@ -62,6 +71,6 @@ For every release after `0.25.0`:
 
 ## Measurement handoff
 
-M5-03 publication completion makes the public distribution path usable for M5-04/M5-05 adoption measurement. It does **not** establish any download, active-install, visit, attendee, or feedback threshold by itself.
+M5-03 publication completion makes the public distribution path usable for M5-04/M5-05 adoption measurement. The formal GitHub Release was added after the sealed T0 checkpoint and is recorded separately as `M5-EVD-002`; T0 correctly remains a state where no GitHub Release asset existed. Neither publication event establishes any final download, active-install, visit, attendee, or feedback threshold by itself.
 
 The current adoption/measurement contract is maintained in [adoption-and-metrics.md](adoption-and-metrics.md).

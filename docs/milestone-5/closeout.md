@@ -12,16 +12,16 @@ The dedicated reviewer-facing synthesis lives in [proof-of-achievement.md](proof
 | Item | Target/disposition | Current state | Evidence |
 | --- | --- | --- | --- |
 | WordPress.org submission/publication | Approved, SVN-published, and publicly available as `ROCSI Connector for NMKR` 0.25.0 | COMPLETE | #111, #128 |
-| GitHub installable release | Public, exact provenance/checksum recorded | NOT STARTED | TBD |
+| GitHub installable release | Public, exact provenance/checksum recorded | COMPLETE — `0.25.0` published 2026-10-05 with exact tag/source and asset digest verified | `M5-EVD-002`, #188 |
 | Marketing channels | >=2 targeted channels launched | NOT STARTED | TBD |
-| Downloads | >=25 combined under documented methodology | NOT STARTED | TBD |
-| Active installations | >=10 under documented methodology | NOT STARTED | TBD |
-| Plugin webpage unique visits | >=250 Cloudflare Web Analytics `Visits` on the fixed canonical URL/window; source definition/limitations preserved | IN PROGRESS — CONTRACT SELECTED; BASELINE PENDING | #163 / `adoption-and-metrics.md` |
+| Downloads | >=25 combined under documented methodology | IN PROGRESS — T0 WordPress.org cumulative counter `42`; GitHub installable asset added post-T0 with initial counter `0`; final reconciliation pending | `M5-EVD-001`, `M5-EVD-002` |
+| Active installations | >=10 under documented methodology | IN PROGRESS — T0 public WordPress.org bucket `Fewer than 10`; threshold not yet demonstrated | `M5-EVD-001` |
+| Plugin webpage unique visits | >=250 Cloudflare Web Analytics `Visits` on the fixed canonical URL/window; source definition/limitations preserved | IN PROGRESS — T0 baseline captured at 10 Visits; campaign not launched | `M5-EVD-001`, #163 / `adoption-and-metrics.md` |
 | Community event | >=10 distinct attendees | NOT STARTED | TBD |
 | Detailed feedback | >=5 distinct users collected/analyzed | NOT STARTED | TBD |
 | Initial early-adopter support | Delivered and summarized | NOT STARTED | TBD |
 | Post-launch fix/minor adjustment | Genuine change documented, implemented, verified, and observed; or unresolved contingency truthfully handled | NOT STARTED | TBD |
-| Ongoing adoption monitoring | Checkpoints/final report present | NOT STARTED | TBD |
+| Ongoing adoption monitoring | Checkpoints/final report present | IN PROGRESS — T0 plus GitHub post-T0 distribution checkpoint recorded; synchronized pre-campaign checkpoint pending | `M5-EVD-001`, `M5-EVD-002` |
 | Feedback-driven prioritization | Traceable feedback-to-decision record | NOT STARTED | TBD |
 | Final public source/docs | Current, reviewed, public | IN PLANNING | TBD |
 | PCR | Submitted and reviewer-accessible | NOT STARTED | TBD |
