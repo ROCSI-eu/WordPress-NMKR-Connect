@@ -1,6 +1,6 @@
 # Adoption and metrics
 
-**Status:** IN PROGRESS — T0 BASELINE CAPTURED; POST-T0 GITHUB RELEASE RECORDED; PRE-CAMPAIGN CHECKPOINT PENDING\
+**Status:** IN PROGRESS — T0 SEALED; T1 SYNCHRONIZED PRE-CAMPAIGN CHECKPOINT CAPTURED; CAMPAIGN NOT YET LAUNCHED\
 **Document type:** Measurement contract and eventual results record
 
 Measurement definitions and baselines must be established **before** campaign launch so that later results are defensible and reproducible.
@@ -9,9 +9,9 @@ Measurement definitions and baselines must be established **before** campaign la
 
 | Metric | Target | Planned primary source | Current status |
 | --- | ---: | --- | --- |
-| Plugin downloads | >=25 combined | WordPress.org download data + GitHub installable release-asset counter | T0 BASELINE CAPTURED — WordPress.org `42`; formal GitHub Release added post-T0 with initial installable-asset count `0` |
-| Active installations | >=10 | WordPress.org active-install signal; privacy-safe corroboration if required | T0 BASELINE CAPTURED — `Fewer than 10` |
-| Unique plugin-page visits | >=250 | Cloudflare Web Analytics `Visits` for the canonical landing page and fixed campaign window | T0 BASELINE CAPTURED — 10 Visits snapshot; campaign not launched |
+| Plugin downloads | >=25 combined | WordPress.org download data + GitHub installable release-asset counter | T1 PRE-CAMPAIGN CHECKPOINT — WordPress.org `77` cumulative; GitHub installable asset `0`; campaign delta not yet started |
+| Active installations | >=10 | WordPress.org active-install signal; privacy-safe corroboration if required | T1 PRE-CAMPAIGN CHECKPOINT — public WordPress.org bucket remains `Fewer than 10` |
+| Unique plugin-page visits | >=250 | Cloudflare Web Analytics `Visits` for the canonical landing page and fixed campaign window | T1 PRE-CAMPAIGN CHECKPOINT — 9 Visits / 9 Page views in the filtered rolling 24-hour view; campaign not launched |
 | Community attendance | >=10 distinct attendees | Event attendance record | NOT STARTED |
 | Detailed user feedback | >=5 distinct users | Feedback/support records using public-safe opaque IDs | NOT STARTED |
 
@@ -150,9 +150,35 @@ A formal GitHub Release for the already-public `0.25.0` version was published af
 
 This is a distribution/provenance checkpoint, not the synchronized pre-campaign adoption checkpoint. Before M5-05 launches, capture Cloudflare, WordPress.org, and GitHub at one new bounded checkpoint and preserve the source/window definitions.
 
+## Synchronized pre-campaign checkpoint (T1)
+
+A new bounded checkpoint was captured after the formal GitHub Release and before any M5-05 campaign action. This preserves the sealed T0 record while establishing the current distribution/traffic state from which campaign execution can begin.
+
+| Item | Value |
+| --- | --- |
+| Checkpoint window UTC | `2026-10-05T16:59:31Z` to `2026-10-05T17:00:11Z` |
+| Europe/Bucharest local window | approximately `2026-10-05 19:59:31–20:00:11` (UTC+03:00) |
+| Canonical landing URL | `https://connector-for-nmkr.rocsi.eu/` |
+| Cloudflare source | Web Analytics for `rocsi.eu` |
+| Cloudflare filters | Site is in `rocsi.eu`; Exclude bots = `Yes`; Host = `connector-for-nmkr.rocsi.eu`; Path = `/` |
+| Cloudflare window | `Last 24 hours (GMT+3)` |
+| Cloudflare Visits | **9** |
+| Cloudflare Page views | **9** |
+| WordPress.org version | `0.25.0` |
+| WordPress.org cumulative downloads | **77** |
+| WordPress.org active-install signal | **Fewer than 10** public bucket; API field `active_installs=0` is not treated as a precise zero-install claim |
+| GitHub Release | `0.25.0` |
+| GitHub installable asset `download_count` | **0** |
+| GitHub checksum asset `download_count` | **0** |
+| Evidence record | `M5-EVD-003` |
+
+The WordPress.org cumulative counter increased from 42 at T0 to 77 at T1, a numerical change of +35 before the targeted M5-05 campaign launched. This is **pre-campaign platform activity**, not evidence that the planned campaign caused those downloads and not proof of 35 distinct human downloaders.
+
+The Cloudflare T1 value is another rolling 24-hour snapshot, so it must not be subtracted from T0 to manufacture a campaign visit delta. M5-05 should record the first campaign action UTC and evaluate campaign traffic using an interval beginning at that launch boundary. If campaign launch is materially delayed, capture a fresh synchronized checkpoint rather than relying on stale T1 values.
+
 ## Checkpoint record
 
-Add dated checkpoints during the campaign/support period rather than relying on one retrospective screenshot. `M5-EVD-002` records the post-T0 GitHub Release publication only; it is not a synchronized campaign checkpoint. The next checkpoint must read Cloudflare, WordPress.org, and GitHub together immediately before M5-05 launch and preserve the Cloudflare metric definition, filters/window, and measurement limitations.
+Add dated checkpoints during the campaign/support period rather than relying on one retrospective screenshot. `M5-EVD-003` is the synchronized pre-campaign checkpoint after GitHub Release publication. The first M5-05 campaign action must record its exact UTC and the campaign measurement interval must begin from that launch boundary; refresh T1 first if launch is materially delayed.
 
 ## Final results
 
