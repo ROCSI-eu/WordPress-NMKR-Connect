@@ -39,7 +39,7 @@ Current verified foundations:
 - [`M5-FND-002`](evidence-register.md#m5-fnd-002--m5-01-release-readiness-analysis-and-owner-decisions) records M5-01 release-readiness analysis and owner decisions.
 - [`M5-FND-003`](evidence-register.md#m5-fnd-003--m5-02-validated-release-architecture) records the validated M5-02 release architecture.
 
-These are foundations only. They do not prove a public GitHub release, WordPress.org submission/approval, download threshold, or active-install threshold.
+These foundation entries do not by themselves prove contractual outcomes. Executed release/distribution evidence now also includes [`M5-EVD-002`](evidence-register.md#m5-evd-002--formal-github-0250-release-publication), which verifies the public GitHub `0.25.0` tag/release, exact source provenance, installable asset digest, and initial GitHub asset counter. WordPress.org approval/publication remains independently evidenced under #111/#128. Neither release record by itself proves the final campaign download or active-install thresholds.
 
 ## 2. Adoption, marketing, and community evidence
 
@@ -102,7 +102,7 @@ This table is a scaffolded snapshot. [traceability.md](traceability.md) remains 
 | ID | Current disposition | Evidence / next proof requirement |
 | --- | --- | --- |
 | `M5-REQ-001` | NOT STARTED | Execute and verify targeted marketing across at least two channels. |
-| `M5-REQ-002` | NOT STARTED | Record and reconcile qualifying WordPress.org/GitHub download evidence. |
+| `M5-REQ-002` | IN PROGRESS | T0 WordPress.org baseline and post-T0 GitHub Release/asset counter are recorded in `M5-EVD-001`/`M5-EVD-002`; final campaign reconciliation remains. |
 | `M5-REQ-003` | NOT STARTED | Record qualifying active-install evidence with measurement limitations. |
 | `M5-REQ-004` | NOT STARTED | Record at least 250 unique visits to the canonical plugin webpage under the defined analytics method. |
 | `M5-REQ-005` | NOT STARTED | Record at least 10 distinct attendees at the community event. |
@@ -111,12 +111,12 @@ This table is a scaffolded snapshot. [traceability.md](traceability.md) remains 
 | `M5-REQ-008` | NOT STARTED | Produce and submit the PCR; record public/reviewer-accessible evidence. |
 | `M5-REQ-009` | NOT STARTED | Produce and submit the public PCV; record public URL and submission evidence. |
 | `M5-REQ-010` | IN PROGRESS | Existing public documentation foundations exist; complete final release-accurate handover review. |
-| `M5-REQ-011` | IN PROGRESS | Public source exists; final release SHA/tree/tag/release provenance remains outstanding. |
+| `M5-REQ-011` | IN PROGRESS | Public `0.25.0` tag/release SHA/tree/package provenance is verified in `M5-EVD-002`; the final close-out repository/evidence snapshot remains outstanding. |
 | `M5-REQ-012` | NOT STARTED | Deliver and summarize initial post-launch support. |
 | `M5-REQ-013` | COMPLETE | WordPress.org approved and published `ROCSI Connector for NMKR` 0.25.0 under slug `rocsi-connector-for-nmkr`; see #111/#128. |
 | `M5-REQ-014` | NOT STARTED | Allocate/select post-launch work from genuine usage/feedback evidence. |
 | `M5-REQ-015` | NOT STARTED | Document, implement, verify, and release a qualifying genuine adjustment where required by the evidence contract. |
-| `M5-REQ-016` | NOT STARTED | Capture time-stamped adoption metric checkpoints and final report. |
+| `M5-REQ-016` | IN PROGRESS | T0 and the post-T0 GitHub distribution checkpoint are recorded; synchronized campaign checkpoints and final report remain. |
 | `M5-REQ-017` | NOT STARTED | Record traceable feedback-to-prioritization decisions. |
 | `M5-REQ-018` | NOT STARTED | Report observed impact of implemented adjustments where evidence supports it. |
 
