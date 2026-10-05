@@ -103,8 +103,8 @@ This table is a scaffolded snapshot. [traceability.md](traceability.md) remains 
 | --- | --- | --- |
 | `M5-REQ-001` | NOT STARTED | Execute and verify targeted marketing across at least two channels. |
 | `M5-REQ-002` | IN PROGRESS | T0 WordPress.org baseline and post-T0 GitHub Release/asset counter are recorded in `M5-EVD-001`/`M5-EVD-002`; final campaign reconciliation remains. |
-| `M5-REQ-003` | NOT STARTED | Record qualifying active-install evidence with measurement limitations. |
-| `M5-REQ-004` | NOT STARTED | Record at least 250 unique visits to the canonical plugin webpage under the defined analytics method. |
+| `M5-REQ-003` | IN PROGRESS | T0 captured the public WordPress.org bucket `Fewer than 10`; the >=10 threshold is not yet demonstrated. |
+| `M5-REQ-004` | IN PROGRESS | T0 captured 10 Cloudflare `Visits` under the defined host/path/window; campaign traffic and the >=250 threshold remain outstanding. |
 | `M5-REQ-005` | NOT STARTED | Record at least 10 distinct attendees at the community event. |
 | `M5-REQ-006` | NOT STARTED | Collect and analyze detailed feedback from at least 5 distinct users. |
 | `M5-REQ-007` | NOT STARTED | Consolidate adoption, feedback, and engagement outcomes. |
