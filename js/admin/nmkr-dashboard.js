@@ -1,3 +1,39 @@
+const NMKR_COMPLETED_STATS_RETRY_DELAYS = Object.freeze([750, 1500, 2500]);
+
+function nmkrHasCanonicalLatestRun(latestRun) {
+    if (!latestRun || typeof latestRun !== 'object') {
+        return false;
+    }
+
+    return [
+        'terminal_result',
+        'status',
+        'items_processed',
+        'items_successful',
+        'items_failed',
+        'items_skipped',
+        'token_details_synced'
+    ].every(function(field) {
+        return latestRun[field] !== null && typeof latestRun[field] !== 'undefined';
+    });
+}
+
+function nmkrCompletedStatsRetryDelay(attempt) {
+    if (!Number.isInteger(attempt) || attempt < 0 || attempt >= NMKR_COMPLETED_STATS_RETRY_DELAYS.length) {
+        return null;
+    }
+
+    return NMKR_COMPLETED_STATS_RETRY_DELAYS[attempt];
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        nmkrHasCanonicalLatestRun,
+        nmkrCompletedStatsRetryDelay
+    };
+}
+
+if (typeof jQuery !== 'undefined') {
 jQuery(document).ready(function($) {
     // Cache nonce values ONCE to avoid repeated DOM queries
     const syncNonce = $('#nmkr-sync-nonce').val();
@@ -145,26 +181,6 @@ jQuery(document).ready(function($) {
         });
     });
 
-    const completedStatsRetryDelays = [750, 1500, 2500];
-
-    function hasCanonicalLatestRun(latestRun) {
-        if (!latestRun || typeof latestRun !== 'object') {
-            return false;
-        }
-
-        return [
-            'terminal_result',
-            'status',
-            'items_processed',
-            'items_successful',
-            'items_failed',
-            'items_skipped',
-            'token_details_synced'
-        ].every(function(field) {
-            return latestRun[field] !== null && typeof latestRun[field] !== 'undefined';
-        });
-    }
-
     // Function to refresh completed sync metrics only (for the statistics panel)
     function refreshCompletedMetrics(options) {
         options = options || {};
@@ -204,9 +220,11 @@ jQuery(document).ready(function($) {
                     $('#request-count').text(response.data.api_requests);
                     const latestRun = response.data.latest_run || {};
                     const latestValue = value => value === null || typeof value === 'undefined' ? '—' : String(value);
-                    const latestRunReady = hasCanonicalLatestRun(latestRun);
+                    const latestRunReady = nmkrHasCanonicalLatestRun(latestRun);
 
-                    if (latestRunReady || !retryPendingLatestRun || retryAttempt >= completedStatsRetryDelays.length) {
+                    const retryDelay = nmkrCompletedStatsRetryDelay(retryAttempt);
+
+                    if (latestRunReady || !retryPendingLatestRun || retryDelay === null) {
                         $('#latest-run-terminal-result').text(latestValue(latestRun.terminal_result));
                         $('#latest-run-status').text(latestValue(latestRun.status));
                         $('#latest-run-processed').text(latestValue(latestRun.items_processed));
@@ -215,7 +233,6 @@ jQuery(document).ready(function($) {
                         $('#latest-run-skipped').text(latestValue(latestRun.items_skipped));
                         $('#latest-run-token-details').text(latestValue(latestRun.token_details_synced));
                     } else {
-                        const retryDelay = completedStatsRetryDelays[retryAttempt];
                         setTimeout(function() {
                             refreshCompletedMetrics({
                                 retryPendingLatestRun: true,
@@ -898,3 +915,4 @@ jQuery(document).ready(function($) {
         updateClearLogButtonStates(false);
     });
 });
+}
