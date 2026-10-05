@@ -65,6 +65,22 @@ test.describe("NMKR Connect sync-state regression", () => {
       "NMKR_DASHBOARD_PATH",
       "/wp-admin/admin.php?page=nmkr-connect-dashboard",
     );
+    let postCompletionStatisticsReads = 0;
+    const statisticsData = {
+      last_sync_time: "2026-07-09 11:20 UTC",
+      total_projects: 3,
+      total_tokens: 14,
+      total_sync_duration: "12.5s",
+      total_api_time: "1.25s",
+      average_response_time: "310.00ms",
+      average_response_time_raw: 0.31,
+      api_requests: 4,
+      memory_usage: "24.5 MB",
+      memory_usage_raw: 24.5,
+      response_time_class: "status-excellent",
+      memory_class: "status-excellent",
+    };
+
     const harness = await installNmkrSyncAjaxHarness(page, {
       onSyncProgress: ({ progressCallCount, state }) => {
         const payload = progressPayload(progressCallCount);
@@ -72,22 +88,49 @@ test.describe("NMKR Connect sync-state regression", () => {
           state.completionSeen || payload.data.finished === true;
         return { body: payload };
       },
-      syncStatisticsPayload: {
-        success: true,
-        data: {
-          last_sync_time: "2026-07-09 11:20 UTC",
-          total_projects: 3,
-          total_tokens: 14,
-          total_sync_duration: "12.5s",
-          total_api_time: "1.25s",
-          average_response_time: "310.00ms",
-          average_response_time_raw: 0.31,
-          api_requests: 4,
-          memory_usage: "24.5 MB",
-          memory_usage_raw: 24.5,
-          response_time_class: "status-excellent",
-          memory_class: "status-excellent",
+      handlers: {
+        nmkr_get_sync_statistics: ({ state }) => {
+          if (state.completionSeen) {
+            postCompletionStatisticsReads += 1;
+          }
+
+          const latestRunReady =
+            state.completionSeen && postCompletionStatisticsReads >= 3;
+
+          return {
+            body: {
+              success: true,
+              data: {
+                ...statisticsData,
+                latest_run: latestRunReady
+                  ? {
+                      terminal_result: "success",
+                      status: "completed",
+                      items_processed: 100,
+                      items_successful: 100,
+                      items_failed: 0,
+                      items_skipped: 0,
+                      token_details_synced: 100,
+                    }
+                  : {
+                      terminal_result: null,
+                      status: null,
+                      items_processed: null,
+                      items_successful: null,
+                      items_failed: null,
+                      items_skipped: null,
+                      token_details_synced: null,
+                    },
+              },
+            },
+          };
         },
+        nmkr_store_active_metrics: () => ({
+          body: {
+            success: true,
+            data: { message: "Test stub: dashboard telemetry write skipped." },
+          },
+        }),
       },
     });
 
@@ -139,9 +182,21 @@ test.describe("NMKR Connect sync-state regression", () => {
     await expect(page.locator("#total-tokens")).toContainText("14");
     await expect(page.locator("#request-count")).toContainText("4");
 
+    await expect(page.locator("#latest-run-terminal-result")).toHaveText(
+      "success",
+      { timeout: 5000 },
+    );
+    await expect(page.locator("#latest-run-status")).toHaveText("completed");
+    await expect(page.locator("#latest-run-processed")).toHaveText("100");
+    await expect(page.locator("#latest-run-successful")).toHaveText("100");
+    await expect(page.locator("#latest-run-failed")).toHaveText("0");
+    await expect(page.locator("#latest-run-skipped")).toHaveText("0");
+    await expect(page.locator("#latest-run-token-details")).toHaveText("100");
+
     expect(harness.blockedActions).toEqual([]);
     expect(harness.progressCallCount()).toBeGreaterThanOrEqual(2);
-    expect(harness.statisticsCallCount()).toBeGreaterThanOrEqual(1);
-    expect(harness.statisticsCallsAfterCompletion()).toBeGreaterThanOrEqual(1);
+    expect(harness.statisticsCallCount()).toBeGreaterThanOrEqual(3);
+    expect(harness.statisticsCallsAfterCompletion()).toBeGreaterThanOrEqual(3);
+    expect(postCompletionStatisticsReads).toBeGreaterThanOrEqual(3);
   });
 });
