@@ -1,9 +1,9 @@
 # Marketing and community
 
-**Status:** READY FOR FINAL PRE-LAUNCH CHECKPOINT / NOT LAUNCHED\
+**Status:** READY TO LAUNCH / NOT YET LAUNCHED\
 **Document type:** Campaign plan and eventual execution record
 
-M5-03 now provides usable WordPress.org and formal GitHub `0.25.0` release paths, and M5-04 has established the canonical landing URL, metric definitions, and sealed T0 baseline. Marketing remains intentionally unlaunched until one new synchronized Cloudflare/WordPress.org/GitHub checkpoint is captured immediately before the first M5-05 campaign action.
+M5-03 provides usable WordPress.org and formal GitHub `0.25.0` release paths, M5-04 established the canonical landing URL and sealed T0 baseline, and `M5-EVD-003` now records the synchronized Cloudflare/WordPress.org/GitHub pre-campaign checkpoint. Marketing remains unlaunched only because the first real M5-05 campaign action has not yet been executed.
 
 ## Current launch-readiness state
 
@@ -11,8 +11,9 @@ M5-03 now provides usable WordPress.org and formal GitHub `0.25.0` release paths
 - Formal GitHub Release: `0.25.0`, published 5 October 2026 and recorded as `M5-EVD-002`.
 - Canonical campaign page: `https://connector-for-nmkr.rocsi.eu/`.
 - Sealed T0 baseline: `M5-EVD-001`, captured 27 September 2026.
+- Synchronized pre-campaign checkpoint: `M5-EVD-003`, captured 5 October 2026 with Cloudflare `9 Visits / 9 Page views`, WordPress.org `77` cumulative downloads / `Fewer than 10` active-install bucket, and GitHub installable-asset counter `0`.
 - Campaign actions: none yet; prior website/branding/social-profile work is launch infrastructure, not retroactive campaign evidence.
-- Remaining launch gate: capture one synchronized pre-campaign Cloudflare/WordPress.org/GitHub checkpoint, then fix the first campaign action UTC and begin the execution log.
+- Launch boundary: the next real campaign action should record its exact UTC and become the start of the campaign execution log. If launch is materially delayed, refresh the synchronized checkpoint first.
 
 ## Objectives
 
