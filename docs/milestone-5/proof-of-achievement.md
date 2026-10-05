@@ -102,9 +102,9 @@ This table is a scaffolded snapshot. [traceability.md](traceability.md) remains 
 | ID | Current disposition | Evidence / next proof requirement |
 | --- | --- | --- |
 | `M5-REQ-001` | NOT STARTED | Execute and verify targeted marketing across at least two channels. |
-| `M5-REQ-002` | IN PROGRESS | T0 WordPress.org baseline and post-T0 GitHub Release/asset counter are recorded in `M5-EVD-001`/`M5-EVD-002`; final campaign reconciliation remains. |
-| `M5-REQ-003` | IN PROGRESS | T0 captured the public WordPress.org bucket `Fewer than 10`; the >=10 threshold is not yet demonstrated. |
-| `M5-REQ-004` | IN PROGRESS | T0 captured 10 Cloudflare `Visits` under the defined host/path/window; campaign traffic and the >=250 threshold remain outstanding. |
+| `M5-REQ-002` | IN PROGRESS | `M5-EVD-003` records T1 at WordPress.org `77` cumulative and GitHub installable asset `0`; the increase before launch is not attributed to the campaign and final campaign reconciliation remains. |
+| `M5-REQ-003` | IN PROGRESS | T1 still reports the public WordPress.org bucket `Fewer than 10`; the >=10 threshold is not yet demonstrated. |
+| `M5-REQ-004` | IN PROGRESS | T1 captured `9 Visits / 9 Page views` in the same filtered rolling 24-hour view; campaign traffic and the >=250 threshold remain outstanding. |
 | `M5-REQ-005` | NOT STARTED | Record at least 10 distinct attendees at the community event. |
 | `M5-REQ-006` | NOT STARTED | Collect and analyze detailed feedback from at least 5 distinct users. |
 | `M5-REQ-007` | NOT STARTED | Consolidate adoption, feedback, and engagement outcomes. |
@@ -116,7 +116,7 @@ This table is a scaffolded snapshot. [traceability.md](traceability.md) remains 
 | `M5-REQ-013` | COMPLETE | WordPress.org approved and published `ROCSI Connector for NMKR` 0.25.0 under slug `rocsi-connector-for-nmkr`; see #111/#128. |
 | `M5-REQ-014` | NOT STARTED | Allocate/select post-launch work from genuine usage/feedback evidence. |
 | `M5-REQ-015` | NOT STARTED | Document, implement, verify, and release a qualifying genuine adjustment where required by the evidence contract. |
-| `M5-REQ-016` | IN PROGRESS | T0 and the post-T0 GitHub distribution checkpoint are recorded; synchronized campaign checkpoints and final report remain. |
+| `M5-REQ-016` | IN PROGRESS | T0, the post-T0 GitHub distribution checkpoint, and synchronized T1 pre-campaign checkpoint are recorded; campaign checkpoints and final report remain. |
 | `M5-REQ-017` | NOT STARTED | Record traceable feedback-to-prioritization decisions. |
 | `M5-REQ-018` | NOT STARTED | Report observed impact of implemented adjustments where evidence supports it. |
 
