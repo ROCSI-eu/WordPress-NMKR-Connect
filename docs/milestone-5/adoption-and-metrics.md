@@ -1,6 +1,6 @@
 # Adoption and metrics
 
-**Status:** IN PROGRESS — MEASUREMENT CONTRACT SELECTED; BASELINE NOT YET CAPTURED\
+**Status:** IN PROGRESS — T0 BASELINE CAPTURED; POST-T0 GITHUB RELEASE RECORDED; PRE-CAMPAIGN CHECKPOINT PENDING\
 **Document type:** Measurement contract and eventual results record
 
 Measurement definitions and baselines must be established **before** campaign launch so that later results are defensible and reproducible.
@@ -9,7 +9,7 @@ Measurement definitions and baselines must be established **before** campaign la
 
 | Metric | Target | Planned primary source | Current status |
 | --- | ---: | --- | --- |
-| Plugin downloads | >=25 combined | WordPress.org download data + GitHub installable release-asset counter | T0 BASELINE CAPTURED — WordPress.org `42`; no GitHub Release asset |
+| Plugin downloads | >=25 combined | WordPress.org download data + GitHub installable release-asset counter | T0 BASELINE CAPTURED — WordPress.org `42`; formal GitHub Release added post-T0 with initial installable-asset count `0` |
 | Active installations | >=10 | WordPress.org active-install signal; privacy-safe corroboration if required | T0 BASELINE CAPTURED — `Fewer than 10` |
 | Unique plugin-page visits | >=250 | Cloudflare Web Analytics `Visits` for the canonical landing page and fixed campaign window | T0 BASELINE CAPTURED — 10 Visits snapshot; campaign not launched |
 | Community attendance | >=10 distinct attendees | Event attendance record | NOT STARTED |
@@ -130,9 +130,29 @@ Formal pre-campaign baseline captured immediately before M5-05:
 | WordPress.org active-install baseline | **Fewer than 10** (public bucket; do not infer a precise count) |
 | Evidence record | `M5-EVD-001` |
 
+## Post-T0 GitHub release checkpoint
+
+A formal GitHub Release for the already-public `0.25.0` version was published after T0. This does **not** rewrite the sealed T0 baseline, where no GitHub Release asset existed.
+
+| Item | Value |
+| --- | --- |
+| GitHub Release | https://github.com/ROCSI-eu/WordPress-NMKR-Connect/releases/tag/0.25.0 |
+| Published UTC | `2026-10-05T13:47:12Z` |
+| Tag | `0.25.0` |
+| Tag target | `5b12e674e6312170cae132f40c710e97fe29dfdf` |
+| Exact source tree | `941b7f21ecd67a22a0ae84f90cc700fb88cbceb3` |
+| Installable asset | `rocsi-connector-for-nmkr.0.25.0.zip` |
+| GitHub-reported asset SHA-256 | `d0f80324736a4e91b21bb512e22ee03c249c2b730076a35bafa29a70daf36ef6` |
+| Initial installable-asset `download_count` | **0** |
+| Checksum asset | `rocsi-connector-for-nmkr.0.25.0.zip.sha256` |
+| Initial checksum-asset `download_count` | **0** |
+| Evidence record | `M5-EVD-002` |
+
+This is a distribution/provenance checkpoint, not the synchronized pre-campaign adoption checkpoint. Before M5-05 launches, capture Cloudflare, WordPress.org, and GitHub at one new bounded checkpoint and preserve the source/window definitions.
+
 ## Checkpoint record
 
-Add dated checkpoints during the campaign/support period rather than relying on one retrospective screenshot. Each checkpoint should reference an `M5-EVD-*` entry and preserve the Cloudflare metric definition, filters/window, and measurement limitations.
+Add dated checkpoints during the campaign/support period rather than relying on one retrospective screenshot. `M5-EVD-002` records the post-T0 GitHub Release publication only; it is not a synchronized campaign checkpoint. The next checkpoint must read Cloudflare, WordPress.org, and GitHub together immediately before M5-05 launch and preserve the Cloudflare metric definition, filters/window, and measurement limitations.
 
 ## Final results
 
