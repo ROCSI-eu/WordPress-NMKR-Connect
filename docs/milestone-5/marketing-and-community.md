@@ -1,9 +1,18 @@
 # Marketing and community
 
-**Status:** PLANNED / NOT LAUNCHED\
+**Status:** READY FOR FINAL PRE-LAUNCH CHECKPOINT / NOT LAUNCHED\
 **Document type:** Campaign plan and eventual execution record
 
-Marketing must not launch until M5-03 provides a usable public release path and M5-04 has established the canonical landing URL, metric definitions, and baselines.
+M5-03 now provides usable WordPress.org and formal GitHub `0.25.0` release paths, and M5-04 has established the canonical landing URL, metric definitions, and sealed T0 baseline. Marketing remains intentionally unlaunched until one new synchronized Cloudflare/WordPress.org/GitHub checkpoint is captured immediately before the first M5-05 campaign action.
+
+## Current launch-readiness state
+
+- WordPress.org stable release: `0.25.0`, public and verified.
+- Formal GitHub Release: `0.25.0`, published 5 October 2026 and recorded as `M5-EVD-002`.
+- Canonical campaign page: `https://connector-for-nmkr.rocsi.eu/`.
+- Sealed T0 baseline: `M5-EVD-001`, captured 27 September 2026.
+- Campaign actions: none yet; prior website/branding/social-profile work is launch infrastructure, not retroactive campaign evidence.
+- Remaining launch gate: capture one synchronized pre-campaign Cloudflare/WordPress.org/GitHub checkpoint, then fix the first campaign action UTC and begin the execution log.
 
 ## Objectives
 
