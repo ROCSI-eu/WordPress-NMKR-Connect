@@ -34,6 +34,7 @@
     "test:synthetic:provider": "php scripts/nmkr-synthetic-provider-regression.php",
     "test:synthetic:controller": "bash scripts/nmkr-synthetic-run-regression.sh",
     "test:release": "php scripts/nmkr-release-regression.php && bash scripts/nmkr-package-reproducibility-regression.sh",
+    "test:completed-stats-refresh": "node scripts/nmkr-completed-stats-refresh-regression.js",
     "build:package": "bash scripts/nmkr-build-package.sh"
   },
   "devDependencies": {

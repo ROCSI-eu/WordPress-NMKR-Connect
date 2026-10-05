@@ -17,6 +17,9 @@ bash scripts/nmkr-real-sync-phase16a-regression.sh
 printf '\n== Canonical synchronization terminalization regression ==\n'
 bash scripts/nmkr-sync-terminalization-regression.sh
 
+printf '\n== Completed statistics refresh regression ==\n'
+node scripts/nmkr-completed-stats-refresh-regression.js
+
 printf '\n== Isolated synthetic provider regression ==\n'
 for script in scripts/nmkr-synthetic-*.php; do
   php -l "$script"
