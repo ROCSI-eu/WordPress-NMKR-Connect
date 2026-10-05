@@ -107,6 +107,21 @@ Each evidence record should include:
 - **Status:** VERIFIED
 - **Limitations/non-claims:** this release was created after the sealed M5 T0 checkpoint, where no GitHub Release asset existed. Initial `download_count=0` is a platform counter baseline, not a human-adopter count. The GitHub asset is the public WordPress.org-generated versioned ZIP whose extracted payload was independently verified identical to a package built from the exact approved source SHA; its archive hash remains distinct from the historical reviewer-submission ZIP hash. This evidence does not by itself establish a new synchronized Cloudflare/WordPress.org/GitHub adoption checkpoint or complete the campaign download requirement.
 
+### M5-EVD-003 — synchronized pre-campaign adoption checkpoint
+
+- **Requirements:** `M5-REQ-002`, `M5-REQ-003`, `M5-REQ-004`, `M5-REQ-016`
+- **Work package:** M5 pre-launch measurement / issue #188
+- **Description:** captured Cloudflare Web Analytics, WordPress.org, and GitHub release-asset counters in one bounded pre-campaign checkpoint after publication of the formal GitHub `0.25.0` Release and before any M5-05 campaign action.
+- **Source/platform:** Cloudflare Web Analytics authenticated dashboard; WordPress.org Plugins API/public listing; GitHub Release API/public repository
+- **Captured UTC:** checkpoint window `2026-10-05T16:59:31Z` to `2026-10-05T17:00:11Z`
+- **Relevant SHA/version:** plugin `0.25.0`; GitHub Release/tag `0.25.0`; exact released source remains `5b12e674e6312170cae132f40c710e97fe29dfdf`
+- **Observed values:** Cloudflare `9 Visits / 9 Page views` for `Last 24 hours (GMT+3)` with Site=`rocsi.eu`, Exclude bots=`Yes`, Host=`connector-for-nmkr.rocsi.eu`, Path=`/`; WordPress.org cumulative downloads `77`; public active-install bucket `Fewer than 10`; GitHub installable asset `download_count=0`; GitHub checksum asset `download_count=0`.
+- **Public/private class:** public aggregate values / private authenticated-dashboard corroboration
+- **Public reference:** issue #188 and maintained Milestone 5 measurement documents; GitHub Release https://github.com/ROCSI-eu/WordPress-NMKR-Connect/releases/tag/0.25.0
+- **Private corroboration:** YES — authenticated Cloudflare screenshot retained outside the public repository
+- **Status:** VERIFIED
+- **Limitations/non-claims:** Cloudflare values are a rolling 24-hour dashboard snapshot and are not subtracted from T0 to derive campaign visits. WordPress.org `77` is a cumulative platform download counter, not distinct human downloaders. The numerical increase from T0 (`42`) to T1 (`77`) occurred before the targeted M5-05 campaign and is not attributed to that campaign. WordPress.org's API `active_installs=0` field is not interpreted as precise zero because the public directory exposes the bucket `Fewer than 10`. GitHub asset counters measure asset downloads, not distinct people. Campaign measurement begins only when the first M5-05 campaign action UTC is recorded; if launch is materially delayed, recapture a fresh synchronized checkpoint.
+
 ## Public/private evidence boundary
 
 ### Suitable for the public repository
