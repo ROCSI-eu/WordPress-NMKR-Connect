@@ -54,6 +54,8 @@ Final synthesis should evaluate the contractual campaign/adoption outcomes using
 
 Evidence should distinguish measured platform values from inferred or estimated concepts and should preserve any measurement limitations explicitly.
 
+Campaign execution is now underway on two distinct targeted public channels: X at `2026-10-05T17:28:48.194Z` (`M5-EVD-004`) and LinkedIn at `2026-10-05T17:56:12.806Z` (`M5-EVD-005`). These records establish executed channel actions and public references only; platform analytics, campaign outcomes, community attendance, and feedback results remain separate evidence.
+
 ## 3. Support, user feedback, and post-launch enhancement evidence
 
 Final synthesis should use [support-and-feedback.md](support-and-feedback.md) and [post-launch-enhancements.md](post-launch-enhancements.md) to record:
@@ -101,10 +103,10 @@ This table is a scaffolded snapshot. [traceability.md](traceability.md) remains 
 
 | ID | Current disposition | Evidence / next proof requirement |
 | --- | --- | --- |
-| `M5-REQ-001` | NOT STARTED | Execute and verify targeted marketing across at least two channels. |
+| `M5-REQ-001` | IN PROGRESS | `M5-EVD-004` and `M5-EVD-005` record targeted public actions on X and LinkedIn; capture available platform analytics/reports before final reconciliation. |
 | `M5-REQ-002` | IN PROGRESS | `M5-EVD-003` records T1 at WordPress.org `77` cumulative and GitHub installable asset `0`; the increase before launch is not attributed to the campaign and final campaign reconciliation remains. |
 | `M5-REQ-003` | IN PROGRESS | T1 still reports the public WordPress.org bucket `Fewer than 10`; the >=10 threshold is not yet demonstrated. |
-| `M5-REQ-004` | IN PROGRESS | T1 captured `9 Visits / 9 Page views` in the same filtered rolling 24-hour view; campaign traffic and the >=250 threshold remain outstanding. |
+| `M5-REQ-004` | IN PROGRESS | T1 captured `9 Visits / 9 Page views` as pre-campaign context; `M5-EVD-004` fixes campaign start at `2026-10-05T17:28:48.194Z`; campaign-period Visits and the >=250 threshold remain outstanding. |
 | `M5-REQ-005` | NOT STARTED | Record at least 10 distinct attendees at the community event. |
 | `M5-REQ-006` | NOT STARTED | Collect and analyze detailed feedback from at least 5 distinct users. |
 | `M5-REQ-007` | NOT STARTED | Consolidate adoption, feedback, and engagement outcomes. |
@@ -116,7 +118,7 @@ This table is a scaffolded snapshot. [traceability.md](traceability.md) remains 
 | `M5-REQ-013` | COMPLETE | WordPress.org approved and published `ROCSI Connector for NMKR` 0.25.0 under slug `rocsi-connector-for-nmkr`; see #111/#128. |
 | `M5-REQ-014` | NOT STARTED | Allocate/select post-launch work from genuine usage/feedback evidence. |
 | `M5-REQ-015` | NOT STARTED | Document, implement, verify, and release a qualifying genuine adjustment where required by the evidence contract. |
-| `M5-REQ-016` | IN PROGRESS | T0, the post-T0 GitHub distribution checkpoint, and synchronized T1 pre-campaign checkpoint are recorded; campaign checkpoints and final report remain. |
+| `M5-REQ-016` | IN PROGRESS | T0, post-T0 GitHub distribution, synchronized T1, and both recorded campaign-action boundaries are preserved; campaign-period metric checkpoints and final report remain. |
 | `M5-REQ-017` | NOT STARTED | Record traceable feedback-to-prioritization decisions. |
 | `M5-REQ-018` | NOT STARTED | Report observed impact of implemented adjustments where evidence supports it. |
 
