@@ -1394,9 +1394,10 @@ jQuery(document).ready(function($) {
         // Update last sync time first, then trigger the event
         // This ensures the stats panel has the latest data before any event handlers run
         updateLastSyncTime('sync_completed', function() {
-            // Trigger an event to notify other scripts that sync has completed
-            // This will allow other components to refresh their displays
+            // Preserve the historical underscore event for compatibility and
+            // emit the namespaced dashboard event used by the completed-statistics refresh.
             $(document).trigger('nmkr_sync_completed');
+            $(document).trigger('nmkr:sync:completed');
         });
     };
 
