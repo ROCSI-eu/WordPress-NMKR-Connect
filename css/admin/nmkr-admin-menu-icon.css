@@ -1,0 +1,27 @@
+/*
+ * ROCSI Connector for NMKR top-level wp-admin menu icon.
+ *
+ * The mask deliberately reduces the public WordPress <-> connector <-> NMKR
+ * identity to two endpoint rings and the central connector node so it remains
+ * legible at WordPress admin-menu size. currentColor lets WordPress preserve
+ * normal, hover, active, collapsed-menu, and admin color-scheme states.
+ */
+
+#adminmenu #toplevel_page_nmkr-connect-dashboard .wp-menu-image::before {
+    content: "";
+    display: block;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    margin: 7px auto 0;
+    background-color: currentColor;
+    -webkit-mask: url("../../images/nmkr-admin-menu-icon.svg") center / 20px 20px no-repeat;
+    mask: url("../../images/nmkr-admin-menu-icon.svg") center / 20px 20px no-repeat;
+}
+
+/* Keep the glyph visually centered when WordPress collapses the admin menu. */
+.folded #adminmenu #toplevel_page_nmkr-connect-dashboard .wp-menu-image::before,
+.auto-fold #adminmenu #toplevel_page_nmkr-connect-dashboard .wp-menu-image::before {
+    margin-right: auto;
+    margin-left: auto;
+}
