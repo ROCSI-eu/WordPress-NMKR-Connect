@@ -125,7 +125,10 @@ test.describe('NMKR Connect analytics page regression', () => {
     test.skip(!analyticsAvailable, 'Analytics UI is not available in this environment.');
 
     await expect(analyticsWrap).toBeAttached();
-    await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Analytics', exact: true })).toBeVisible();
+    await expect(page.locator('.nmkr-analytics-mode-state')).toBeVisible();
+    await expect(page.locator('#nmkr-analytics-mode-title')).toBeVisible();
+    await expect(page.locator('#nmkr-analytics-state')).toHaveAttribute('role', 'status');
 
     for (const selector of [
       '#nmkr-analytics-filters',
@@ -155,6 +158,15 @@ test.describe('NMKR Connect analytics page regression', () => {
     }
 
     await expectButtonElement(page.locator('#nmkr-f-apply'));
+    await expect(page.locator('#nmkr-analytics-state')).toHaveClass(/is-empty/);
+    await expect(page.locator('#nmkr-analytics-state')).toContainText('No analytics data');
+
+    await page.setViewportSize({ width: 390, height: 900 });
+    const analyticsFitsViewport = await analyticsWrap.evaluate(
+      (element) => element.scrollWidth <= element.clientWidth + 1,
+    );
+    expect(analyticsFitsViewport).toBe(true);
+
     expect(unexpectedAnalyticsAjaxActions).toEqual([]);
   });
 });

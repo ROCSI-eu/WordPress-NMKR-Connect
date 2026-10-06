@@ -2,7 +2,7 @@ import { expect, Locator, test } from '@playwright/test';
 import { env, expectWpAdmin, loginToWpAdmin, urlFor } from './helpers/wp-admin';
 
 async function expectType(locator: Locator, type: string): Promise<void> {
-  await expect(locator).toBeVisible();
+  await expect(locator).toBeAttached();
   await expect(locator).toHaveAttribute('type', type);
 }
 
@@ -26,10 +26,13 @@ test.describe('NMKR Connect settings page regression', () => {
 
     await expect(page.locator('form[action="options.php"][method="post"]')).toBeVisible();
 
-    await expect(page.getByText('API Settings', { exact: true })).toBeVisible();
-    await expect(page.getByText('Synchronization Settings', { exact: true })).toBeVisible();
-    await expect(page.getByText('Debug Settings', { exact: true })).toBeVisible();
-    await expect(page.getByText('Analytics & Privacy', { exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'NMKR API connection' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Synchronization profile' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Measurement mode and privacy controls' })).toBeVisible();
+
+    await expect(page.locator('#nmkr-settings-sync-advanced')).not.toHaveAttribute('open', '');
+    await expect(page.locator('#nmkr-settings-diagnostics')).not.toHaveAttribute('open', '');
 
     await expectType(page.locator('#nmkr_api_key'), 'password');
     await expectType(page.locator('#toggle_api_key_visibility'), 'button');
@@ -52,8 +55,8 @@ test.describe('NMKR Connect settings page regression', () => {
     await expectType(page.locator('#nmkr_performance_debug_enabled'), 'checkbox');
     await expectType(page.locator('#nmkr_log_throttle_enabled'), 'checkbox');
     await expectType(page.locator('#nmkr_log_retention_limit'), 'number');
-    await expect(page.locator('#nmkr-dashboard-sync-logging-status')).toBeVisible();
-    await expect(page.locator('#nmkr-dashboard-sync-logging-status-text')).toBeVisible();
+    await expect(page.locator('#nmkr-dashboard-sync-logging-status')).toBeAttached();
+    await expect(page.locator('#nmkr-dashboard-sync-logging-status-text')).toBeAttached();
 
     await expectSelectOptions(page.locator('#nmkr_analytics_mode'), ['off', 'custom', 'ga4', 'both']);
     await expectType(page.locator('#nmkr_ga4_measurement_id'), 'text');
@@ -67,5 +70,20 @@ test.describe('NMKR Connect settings page regression', () => {
 
     await expect(page.getByRole('button', { name: 'Save Settings' })).toBeVisible();
     await expectType(page.locator('#nmkr-reset-defaults'), 'button');
+
+    await page.locator('#nmkr-settings-sync-advanced > summary').click();
+    await expect(page.locator('#nmkr_sync_batch_size')).toBeVisible();
+
+    await page.locator('#nmkr-settings-diagnostics > summary').click();
+    await expect(page.locator('#nmkr_debug_enabled')).toBeVisible();
+    await expect(page.locator('#nmkr-dashboard-sync-logging-status')).toBeVisible();
+    await expect(page.locator('#nmkr-dashboard-sync-logging-status-text')).toBeVisible();
+
+    await page.setViewportSize({ width: 390, height: 900 });
+    const settingsWrap = page.locator('.nmkr-settings-wrap');
+    const settingsFitViewport = await settingsWrap.evaluate(
+      (element) => element.scrollWidth <= element.clientWidth + 1,
+    );
+    expect(settingsFitViewport).toBe(true);
   });
 });

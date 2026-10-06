@@ -423,6 +423,13 @@
     const kpisEl  = $('#nmkr-analytics-kpis');
     const charts  = $('#nmkr-analytics-charts');
     const tablesWrap = $('#nmkr-analytics-tables');
+    const reportState = $('#nmkr-analytics-state');
+
+    function setReportState(kind, message) {
+      if (!reportState) return;
+      reportState.className = 'nmkr-analytics-state is-' + kind;
+      reportState.textContent = message;
+    }
 
     // Build Filters UI
     filters.innerHTML = '';
@@ -687,6 +694,7 @@
 
       try {
         setKPIsLoading();
+        setReportState('loading', i18n.loading || 'Loading…');
 
         const [kpis, series] = await Promise.all([
           postAjax('nmkr_analytics_kpis', f),
@@ -707,6 +715,16 @@
         // Build sequences (label slimming: show YYYY-MM-DD or HH:00)
         const seqViews  = data.map(p => ({ x: p.x, y: p.v.views }));
         const seqClicks = data.map(p => ({ x: p.x, y: p.v.clicks }));
+
+        const hasReportData = (kpis.views || 0) > 0
+          || (kpis.clicks || 0) > 0
+          || (series.series || []).length > 0;
+        setReportState(
+          hasReportData ? 'ready' : 'empty',
+          hasReportData
+            ? (i18n.loaded || 'Analytics report loaded.')
+            : (i18n.noData || 'No data yet for the selected range.')
+        );
 
         if (!seqViews.length) {
           const ctx = chartA.canvas.getContext('2d');
@@ -730,6 +748,7 @@
         $('#nmkr-kpi-clicks').textContent = '–';
         $('#nmkr-kpi-ctr').textContent    = '–';
         const msg = (err && err.message) ? err.message : 'Error';
+        setReportState('error', (i18n.error || 'Something went wrong.') + ' ' + msg);
         const help = $('.nmkr-help') || el('div', {class:'nmkr-help'});
         help.textContent = msg;
         charts.append(help);

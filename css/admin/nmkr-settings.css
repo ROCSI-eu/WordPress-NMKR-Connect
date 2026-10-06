@@ -1,0 +1,317 @@
+.nmkr-settings-wrap {
+    max-width: 1080px;
+}
+
+.nmkr-settings-header {
+    margin: 22px 0 24px;
+}
+
+.nmkr-settings-header h1 {
+    margin: 2px 0 8px;
+    padding: 0;
+    font-size: 28px;
+    line-height: 1.2;
+}
+
+.nmkr-settings-eyebrow,
+.nmkr-settings-kicker {
+    margin: 0;
+    color: var(--nmkr-admin-accent);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.nmkr-settings-intro {
+    max-width: 780px;
+    margin: 0;
+    color: var(--nmkr-admin-text-muted);
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.nmkr-settings-form {
+    display: grid;
+    gap: 18px;
+}
+
+.nmkr-settings-form .nmkr-settings-group,
+.nmkr-settings-diagnostics-body {
+    margin: 0 !important;
+}
+
+.nmkr-settings-group-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 8px;
+}
+
+.nmkr-settings-group-heading h2 {
+    margin: 3px 0 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    font-size: 18px;
+    line-height: 1.3;
+}
+
+.nmkr-settings-group-heading > .dashicons {
+    width: 30px;
+    height: 30px;
+    color: var(--nmkr-admin-accent);
+    font-size: 28px;
+    line-height: 30px;
+}
+
+.nmkr-settings-group > p,
+.nmkr-settings-diagnostics-body > p {
+    max-width: 760px;
+    color: var(--nmkr-admin-text-muted);
+    line-height: 1.55;
+}
+
+.nmkr-settings-wrap .form-table {
+    margin: 10px 0 0;
+}
+
+.nmkr-settings-wrap .form-table th {
+    width: 220px;
+    padding: 16px 14px 16px 0;
+    vertical-align: top;
+}
+
+.nmkr-settings-wrap .form-table td {
+    padding: 12px 0;
+    vertical-align: top;
+}
+
+.nmkr-settings-wrap .form-table input[type="text"],
+.nmkr-settings-wrap .form-table input[type="password"],
+.nmkr-settings-wrap .form-table select {
+    max-width: 100%;
+}
+
+.nmkr-settings-wrap .description {
+    max-width: 680px;
+    color: var(--nmkr-admin-text-muted);
+    line-height: 1.5;
+}
+
+.nmkr-profile-recommendations {
+    margin: 14px 0 6px;
+    padding: 12px 14px;
+    border-left: 3px solid var(--nmkr-admin-accent);
+    background: var(--nmkr-admin-surface-subtle);
+}
+
+.nmkr-profile-recommendations > strong {
+    display: block;
+    margin-bottom: 6px;
+}
+
+.nmkr-profile-recommendations ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.nmkr-profile-recommendations li {
+    margin: 4px 0;
+}
+
+.nmkr-settings-subgroup {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid var(--nmkr-admin-divider);
+}
+
+.nmkr-settings-subgroup h3 {
+    margin: 0 0 4px;
+    font-size: 15px;
+}
+
+.nmkr-settings-disclosure,
+.nmkr-settings-diagnostics {
+    border: 1px solid var(--nmkr-admin-border);
+    border-radius: var(--nmkr-admin-radius);
+    background: var(--nmkr-admin-surface);
+}
+
+.nmkr-settings-disclosure {
+    margin-top: 18px;
+}
+
+.nmkr-settings-diagnostics {
+    margin: 0;
+}
+
+.nmkr-settings-disclosure > summary,
+.nmkr-settings-diagnostics > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    cursor: pointer;
+    padding: 14px 16px;
+}
+
+.nmkr-settings-disclosure > summary > span:first-child,
+.nmkr-settings-diagnostics > summary > span:first-child {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.nmkr-settings-disclosure > summary small,
+.nmkr-settings-diagnostics > summary small {
+    color: var(--nmkr-admin-text-muted);
+    font-weight: 400;
+}
+
+.nmkr-settings-disclosure > summary .dashicons,
+.nmkr-settings-diagnostics > summary .dashicons {
+    transition: transform 0.15s ease;
+}
+
+.nmkr-settings-disclosure[open] > summary .dashicons,
+.nmkr-settings-diagnostics[open] > summary .dashicons {
+    transform: rotate(180deg);
+}
+
+.nmkr-settings-disclosure-body {
+    padding: 0 16px 14px;
+    border-top: 1px solid var(--nmkr-admin-divider);
+}
+
+.nmkr-settings-diagnostics-body {
+    border: 0 !important;
+    border-top: 1px solid var(--nmkr-admin-divider) !important;
+    border-radius: 0 0 var(--nmkr-admin-radius) var(--nmkr-admin-radius) !important;
+    box-shadow: none !important;
+}
+
+.nmkr-settings-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding: 11px 13px;
+    border-left: 3px solid var(--nmkr-admin-warning);
+    background: #fff8e5;
+}
+
+.nmkr-settings-warning .dashicons {
+    flex: 0 0 auto;
+    color: #8a6500;
+}
+
+.nmkr-settings-warning p {
+    margin: 0;
+    line-height: 1.5;
+}
+
+.nmkr-dashboard-logging-status {
+    margin-top: 10px !important;
+    padding: 8px 12px !important;
+}
+
+.nmkr-dashboard-logging-status p {
+    margin: 0;
+}
+
+.nmkr-settings-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 0 0 32px;
+    padding: 14px 16px;
+    border: 1px solid var(--nmkr-admin-border);
+    border-radius: var(--nmkr-admin-radius);
+    background: var(--nmkr-admin-surface);
+}
+
+.nmkr-settings-actions > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.nmkr-settings-actions p {
+    margin: 0;
+    color: var(--nmkr-admin-text-muted);
+    font-size: 12px;
+    line-height: 1.4;
+    text-align: right;
+}
+
+#nmkr-reset-defaults {
+    border-color: #b32d2e;
+    color: #b32d2e;
+}
+
+#nmkr-reset-defaults:hover,
+#nmkr-reset-defaults:focus {
+    border-color: #8f2424;
+    color: #8f2424;
+}
+
+@media (max-width: 782px) {
+    .nmkr-settings-header {
+        margin-top: 16px;
+    }
+
+    .nmkr-settings-wrap .form-table,
+    .nmkr-settings-wrap .form-table tbody,
+    .nmkr-settings-wrap .form-table tr,
+    .nmkr-settings-wrap .form-table th,
+    .nmkr-settings-wrap .form-table td {
+        display: block;
+        width: 100%;
+    }
+
+    .nmkr-settings-wrap .form-table th {
+        padding: 14px 0 4px;
+    }
+
+    .nmkr-settings-wrap .form-table td {
+        padding: 4px 0 12px;
+    }
+
+    .nmkr-settings-wrap .regular-text {
+        width: 100%;
+    }
+
+    .nmkr-settings-actions {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .nmkr-settings-actions p {
+        text-align: left;
+    }
+}
+
+@media (max-width: 480px) {
+    .nmkr-settings-group-heading {
+        align-items: flex-start;
+    }
+
+    .nmkr-settings-actions > div {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .nmkr-settings-actions .button {
+        width: 100%;
+        text-align: center;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .nmkr-settings-disclosure > summary .dashicons,
+    .nmkr-settings-diagnostics > summary .dashicons {
+        transition: none;
+    }
+}

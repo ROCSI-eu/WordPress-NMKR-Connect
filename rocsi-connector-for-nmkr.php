@@ -407,6 +407,11 @@ function nmkr_enqueue_admin_assets($hook) {
     }
 
     if ( strpos( $hook, 'nmkr-connect-settings' ) !== false ) {
+        nmkr_connect_enqueue_style_asset(
+            'nmkr-settings-admin',
+            'css/admin/nmkr-settings.css',
+            array( 'nmkr-admin-foundation' )
+        );
         nmkr_connect_enqueue_script_asset(
             'nmkr-settings',
             'js/admin/nmkr-settings.js',
@@ -458,9 +463,6 @@ function nmkr_enqueue_admin_assets($hook) {
             $analytics_css_ver
         );
 
-        // Load a dedicated RTL stylesheet on RTL sites (replaces the LTR file)
-        wp_style_add_data('nmkr-analytics-dashboard', 'rtl', 'replace');
-
         // Localize runtime config (no network calls yet)
         wp_localize_script(
             'nmkr-analytics-dashboard',
@@ -472,7 +474,8 @@ function nmkr_enqueue_admin_assets($hook) {
                 'i18n' => array(
                 'title'         => esc_html__( 'Analytics', 'rocsi-connector-for-nmkr' ),
                 'loading'       => esc_html__( 'Loading…', 'rocsi-connector-for-nmkr' ),
-                'noData'        => esc_html__( 'No data yet for the selected range.', 'rocsi-connector-for-nmkr' ),
+                'noData'        => esc_html__( 'No analytics data is available for the selected range.', 'rocsi-connector-for-nmkr' ),
+                'loaded'        => esc_html__( 'Analytics report loaded.', 'rocsi-connector-for-nmkr' ),
                 'invalidRange'  => esc_html__( 'Custom range must be ≤ 365 days.', 'rocsi-connector-for-nmkr' ),
                 'apply'         => esc_html__( 'Apply', 'rocsi-connector-for-nmkr' ),
                 'from'          => esc_html__( 'From', 'rocsi-connector-for-nmkr' ),

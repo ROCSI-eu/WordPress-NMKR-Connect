@@ -58,6 +58,13 @@ function nmkr_connect_register_settings() {
         'nmkr-connect-settings'
     );
 
+    add_settings_section(
+        'nmkr_connect_sync_advanced_section',
+        'Advanced Synchronization Tuning',
+        '__return_false',
+        'nmkr-connect-settings'
+    );
+
     // Add Synchronization Profile field
     add_settings_field(
         'nmkr_sync_profile',
@@ -73,7 +80,7 @@ function nmkr_connect_register_settings() {
         'Batch Size',
         'nmkr_sync_batch_size_field_callback',
         'nmkr-connect-settings',
-        'nmkr_connect_sync_section'
+        'nmkr_connect_sync_advanced_section'
     );
 
     // Add Batch Delay field
@@ -82,7 +89,7 @@ function nmkr_connect_register_settings() {
         'Delay Between Batches (seconds)',
         'nmkr_sync_batch_delay_field_callback',
         'nmkr-connect-settings',
-        'nmkr_connect_sync_section'
+        'nmkr_connect_sync_advanced_section'
     );
 
     // Add Initial Polling Interval field
@@ -91,7 +98,7 @@ function nmkr_connect_register_settings() {
         'Initial Polling Interval (ms)',
         'nmkr_sync_initial_interval_field_callback',
         'nmkr-connect-settings',
-        'nmkr_connect_sync_section'
+        'nmkr_connect_sync_advanced_section'
     );
 
     // Add Maximum Polling Interval field
@@ -100,7 +107,7 @@ function nmkr_connect_register_settings() {
         'Maximum Polling Interval (ms)',
         'nmkr_sync_max_interval_field_callback',
         'nmkr-connect-settings',
-        'nmkr_connect_sync_section'
+        'nmkr_connect_sync_advanced_section'
     );
 
     // Add Interval Increase Factor field
@@ -109,7 +116,7 @@ function nmkr_connect_register_settings() {
         'Interval Increase Factor',
         'nmkr_sync_interval_increase_field_callback',
         'nmkr-connect-settings',
-        'nmkr_connect_sync_section'
+        'nmkr_connect_sync_advanced_section'
     );
 
     // Add Interval Decrease Factor field
@@ -118,7 +125,7 @@ function nmkr_connect_register_settings() {
         'Interval Decrease Factor',
         'nmkr_sync_interval_decrease_field_callback',
         'nmkr-connect-settings',
-        'nmkr_connect_sync_section'
+        'nmkr_connect_sync_advanced_section'
     );
 
     // Add Maximum Error Count field
@@ -127,7 +134,7 @@ function nmkr_connect_register_settings() {
         'Maximum Error Count',
         'nmkr_sync_max_errors_field_callback',
         'nmkr-connect-settings',
-        'nmkr_connect_sync_section'
+        'nmkr_connect_sync_advanced_section'
     );
 
     // Add WordPress Debug Settings section
@@ -227,6 +234,27 @@ function nmkr_connect_register_settings() {
         'nmkr-connect-settings'
     );
 
+    add_settings_section(
+        'nmkr_analytics_ga4_section',
+        __('GA4 Delivery', 'rocsi-connector-for-nmkr'),
+        '__return_false',
+        'nmkr-connect-settings'
+    );
+
+    add_settings_section(
+        'nmkr_analytics_privacy_section',
+        __('Privacy & Retention', 'rocsi-connector-for-nmkr'),
+        '__return_false',
+        'nmkr-connect-settings'
+    );
+
+    add_settings_section(
+        'nmkr_analytics_debug_section',
+        __('Analytics Diagnostics', 'rocsi-connector-for-nmkr'),
+        '__return_false',
+        'nmkr-connect-settings'
+    );
+
     // Add Analytics Mode field
     add_settings_field(
         'nmkr_analytics_mode',
@@ -242,7 +270,7 @@ function nmkr_connect_register_settings() {
         'GA4 Measurement ID',
         'nmkr_ga4_measurement_id_field_callback',
         'nmkr-connect-settings',
-        'nmkr_analytics_section'
+        'nmkr_analytics_ga4_section'
     );
 
     // Add GA4 API Secret field
@@ -251,7 +279,7 @@ function nmkr_connect_register_settings() {
         'GA4 API Secret',
         'nmkr_ga4_api_secret_field_callback',
         'nmkr-connect-settings',
-        'nmkr_analytics_section'
+        'nmkr_analytics_ga4_section'
     );
 
     // Add Analytics Retention Days field
@@ -260,7 +288,7 @@ function nmkr_connect_register_settings() {
         'Data Retention (Days)',
         'nmkr_analytics_retention_days_field_callback',
         'nmkr-connect-settings',
-        'nmkr_analytics_section'
+        'nmkr_analytics_privacy_section'
     );
 
     // Add Track Logged In Users field
@@ -269,7 +297,7 @@ function nmkr_connect_register_settings() {
         'Track Logged In Users',
         'nmkr_analytics_track_logged_in_field_callback',
         'nmkr-connect-settings',
-        'nmkr_analytics_section'
+        'nmkr_analytics_privacy_section'
     );
 
     // Add Require Consent field
@@ -278,7 +306,7 @@ function nmkr_connect_register_settings() {
         'Require User Consent',
         'nmkr_analytics_require_consent_field_callback',
         'nmkr-connect-settings',
-        'nmkr_analytics_section'
+        'nmkr_analytics_privacy_section'
     );
 
     // Add Sample Rate field
@@ -287,7 +315,7 @@ function nmkr_connect_register_settings() {
         'Sample Rate',
         'nmkr_analytics_sample_rate_field_callback',
         'nmkr-connect-settings',
-        'nmkr_analytics_section'
+        'nmkr_analytics_privacy_section'
     );
 
     // Add Remove on Uninstall field
@@ -296,7 +324,7 @@ function nmkr_connect_register_settings() {
         'Remove Data on Uninstall',
         'nmkr_analytics_remove_on_uninstall_field_callback',
         'nmkr-connect-settings',
-        'nmkr_analytics_section'
+        'nmkr_analytics_privacy_section'
     );
 
     // Add Analytics Debug field
@@ -305,7 +333,7 @@ function nmkr_connect_register_settings() {
         'Enable Analytics Debug',
         'nmkr_analytics_debug_field_callback',
         'nmkr-connect-settings',
-        'nmkr_analytics_section'
+        'nmkr_analytics_debug_section'
     );
 }
 add_action('admin_init', 'nmkr_connect_register_settings');
@@ -361,21 +389,133 @@ function nmkr_connect_settings_page() {
     }
     ?>
     <div class="wrap nmkr-admin-shell nmkr-settings-wrap">
-        <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+        <header class="nmkr-settings-header">
+            <div>
+                <p class="nmkr-settings-eyebrow"><?php esc_html_e( 'ROCSI Connector for NMKR', 'rocsi-connector-for-nmkr' ); ?></p>
+                <h1><?php esc_html_e( 'Settings', 'rocsi-connector-for-nmkr' ); ?></h1>
+                <p class="nmkr-settings-intro"><?php esc_html_e( 'Configure the NMKR connection and normal synchronization first. Analytics, privacy, and diagnostics remain available without crowding the primary setup path.', 'rocsi-connector-for-nmkr' ); ?></p>
+            </div>
+        </header>
 
-        <form action="options.php" method="post">
-            <?php
-            settings_fields('nmkr_connect_settings_group');
-            do_settings_sections('nmkr-connect-settings');
-            ?>
-            <div class="submit">
-                <?php submit_button('Save Settings', 'primary', 'submit', false); ?>
-                <button type="button" id="nmkr-reset-defaults" class="button button-secondary">
-                    Reset to Defaults
-                </button>
+        <?php settings_errors(); ?>
+
+        <form action="options.php" method="post" class="nmkr-settings-form">
+            <?php settings_fields('nmkr_connect_settings_group'); ?>
+
+            <section id="nmkr-settings-api" class="panel nmkr-settings-group" aria-labelledby="nmkr-settings-api-title">
+                <div class="nmkr-settings-group-heading">
+                    <div>
+                        <p class="nmkr-settings-kicker"><?php esc_html_e( 'Primary setup', 'rocsi-connector-for-nmkr' ); ?></p>
+                        <h2 id="nmkr-settings-api-title"><?php esc_html_e( 'NMKR API connection', 'rocsi-connector-for-nmkr' ); ?></h2>
+                    </div>
+                    <span class="dashicons dashicons-admin-links" aria-hidden="true"></span>
+                </div>
+                <?php nmkr_connect_api_section_callback(); ?>
+                <table class="form-table" role="presentation"><tbody>
+                    <?php do_settings_fields( 'nmkr-connect-settings', 'nmkr_connect_api_section' ); ?>
+                </tbody></table>
+            </section>
+
+            <section id="nmkr-settings-sync" class="panel nmkr-settings-group" aria-labelledby="nmkr-settings-sync-title">
+                <div class="nmkr-settings-group-heading">
+                    <div>
+                        <p class="nmkr-settings-kicker"><?php esc_html_e( 'Synchronization', 'rocsi-connector-for-nmkr' ); ?></p>
+                        <h2 id="nmkr-settings-sync-title"><?php esc_html_e( 'Synchronization profile', 'rocsi-connector-for-nmkr' ); ?></h2>
+                    </div>
+                    <span class="dashicons dashicons-update" aria-hidden="true"></span>
+                </div>
+                <?php nmkr_connect_sync_section_callback(); ?>
+                <table class="form-table" role="presentation"><tbody>
+                    <?php do_settings_fields( 'nmkr-connect-settings', 'nmkr_connect_sync_section' ); ?>
+                </tbody></table>
+
+                <details class="nmkr-settings-disclosure" id="nmkr-settings-sync-advanced">
+                    <summary>
+                        <span>
+                            <strong><?php esc_html_e( 'Advanced synchronization tuning', 'rocsi-connector-for-nmkr' ); ?></strong>
+                            <small><?php esc_html_e( 'Batch size, delays, polling intervals, and error thresholds.', 'rocsi-connector-for-nmkr' ); ?></small>
+                        </span>
+                        <span class="dashicons dashicons-arrow-down-alt2" aria-hidden="true"></span>
+                    </summary>
+                    <div class="nmkr-settings-disclosure-body">
+                        <p class="description"><?php esc_html_e( 'These values are normally managed by the selected synchronization profile. Change them only when you intentionally need a custom runtime profile.', 'rocsi-connector-for-nmkr' ); ?></p>
+                        <table class="form-table" role="presentation"><tbody>
+                            <?php do_settings_fields( 'nmkr-connect-settings', 'nmkr_connect_sync_advanced_section' ); ?>
+                        </tbody></table>
+                    </div>
+                </details>
+            </section>
+
+            <section id="nmkr-settings-analytics" class="panel nmkr-settings-group" aria-labelledby="nmkr-settings-analytics-title">
+                <div class="nmkr-settings-group-heading">
+                    <div>
+                        <p class="nmkr-settings-kicker"><?php esc_html_e( 'Analytics & privacy', 'rocsi-connector-for-nmkr' ); ?></p>
+                        <h2 id="nmkr-settings-analytics-title"><?php esc_html_e( 'Measurement mode and privacy controls', 'rocsi-connector-for-nmkr' ); ?></h2>
+                    </div>
+                    <span class="dashicons dashicons-chart-bar" aria-hidden="true"></span>
+                </div>
+                <?php nmkr_connect_analytics_section_callback(); ?>
+
+                <div class="nmkr-settings-subgroup">
+                    <h3><?php esc_html_e( 'Measurement mode', 'rocsi-connector-for-nmkr' ); ?></h3>
+                    <table class="form-table" role="presentation"><tbody>
+                        <?php do_settings_fields( 'nmkr-connect-settings', 'nmkr_analytics_section' ); ?>
+                    </tbody></table>
+                </div>
+
+                <div class="nmkr-settings-subgroup">
+                    <h3><?php esc_html_e( 'GA4 delivery', 'rocsi-connector-for-nmkr' ); ?></h3>
+                    <p class="description"><?php esc_html_e( 'These credentials are used only when GA4 or Both mode is selected.', 'rocsi-connector-for-nmkr' ); ?></p>
+                    <table class="form-table" role="presentation"><tbody>
+                        <?php do_settings_fields( 'nmkr-connect-settings', 'nmkr_analytics_ga4_section' ); ?>
+                    </tbody></table>
+                </div>
+
+                <div class="nmkr-settings-subgroup">
+                    <h3><?php esc_html_e( 'Privacy & retention', 'rocsi-connector-for-nmkr' ); ?></h3>
+                    <table class="form-table" role="presentation"><tbody>
+                        <?php do_settings_fields( 'nmkr-connect-settings', 'nmkr_analytics_privacy_section' ); ?>
+                    </tbody></table>
+                </div>
+            </section>
+
+            <details id="nmkr-settings-diagnostics" class="nmkr-settings-diagnostics">
+                <summary>
+                    <span>
+                        <strong><?php esc_html_e( 'Diagnostics & debug logging', 'rocsi-connector-for-nmkr' ); ?></strong>
+                        <small><?php esc_html_e( 'Advanced logging destinations, categories, retention, and analytics diagnostics.', 'rocsi-connector-for-nmkr' ); ?></small>
+                    </span>
+                    <span class="dashicons dashicons-arrow-down-alt2" aria-hidden="true"></span>
+                </summary>
+                <div class="panel nmkr-settings-diagnostics-body">
+                    <div class="nmkr-settings-warning">
+                        <span class="dashicons dashicons-warning" aria-hidden="true"></span>
+                        <p><?php esc_html_e( 'Diagnostic logging can increase database or debug.log volume. Enable only the destinations and categories you need, then disable them after troubleshooting.', 'rocsi-connector-for-nmkr' ); ?></p>
+                    </div>
+                    <?php nmkr_connect_wp_debug_section_callback(); ?>
+                    <table class="form-table" role="presentation"><tbody>
+                        <?php do_settings_fields( 'nmkr-connect-settings', 'nmkr_connect_wp_debug_section' ); ?>
+                    </tbody></table>
+
+                    <div class="nmkr-settings-subgroup">
+                        <h3><?php esc_html_e( 'Analytics diagnostics', 'rocsi-connector-for-nmkr' ); ?></h3>
+                        <table class="form-table" role="presentation"><tbody>
+                            <?php do_settings_fields( 'nmkr-connect-settings', 'nmkr_analytics_debug_section' ); ?>
+                        </tbody></table>
+                    </div>
+                </div>
+            </details>
+
+            <div class="nmkr-settings-actions">
+                <div>
+                    <?php submit_button( __( 'Save Settings', 'rocsi-connector-for-nmkr' ), 'primary', 'submit', false ); ?>
+                    <button type="button" id="nmkr-reset-defaults" class="button button-secondary">
+                        <?php esc_html_e( 'Reset to Defaults', 'rocsi-connector-for-nmkr' ); ?>
+                    </button>
+                </div>
+                <p><?php esc_html_e( 'Reset changes the form values only. Use Save Settings to persist the reset.', 'rocsi-connector-for-nmkr' ); ?></p>
             </div>
         </form>
     </div>
-
     <?php
 }

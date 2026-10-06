@@ -35,14 +35,13 @@ function nmkr_api_key_field_callback() {
 
 // Synchronization Settings Section Callback
 function nmkr_connect_sync_section_callback() {
-    echo '<p>Configure synchronization batch processing settings below. These settings control how many tokens are processed at once and the delay between batches.</p>';
-    echo '<p>To quickly configure all synchronization settings at once, use the "Synchronization Profile" dropdown below.</p>';
-    echo '<div class="nmkr-profile-recommendations" style="background-color: #f8f9fa; border-left: 4px solid #0073aa; padding: 12px 16px; margin: 15px 0;">';
-    echo '<h4 style="margin-top: 0; color: #0073aa;">Profile Recommendations:</h4>';
-    echo '<ul style="margin-bottom: 0;">';
-    echo '<li><strong>Light Profile:</strong> Recommended for shared hosting environments to reduce server load and maintain stability.</li>';
-    echo '<li><strong>Balanced Profile:</strong> Optimal for most WordPress sites, offering a good compromise between performance and server resources.</li>';
-    echo '<li><strong>Aggressive Profile:</strong> Suitable for dedicated servers with ample resources, can significantly speed up synchronization.</li>';
+    echo '<p>' . esc_html__( 'Choose a synchronization profile for normal operation. The profile controls the advanced batch, polling, and error-tolerance values shown below.', 'rocsi-connector-for-nmkr' ) . '</p>';
+    echo '<div class="nmkr-profile-recommendations">';
+    echo '<strong>' . esc_html__( 'Profile guidance', 'rocsi-connector-for-nmkr' ) . '</strong>';
+    echo '<ul>';
+    echo '<li><strong>' . esc_html__( 'Light:', 'rocsi-connector-for-nmkr' ) . '</strong> ' . esc_html__( 'lower server load for constrained/shared hosting.', 'rocsi-connector-for-nmkr' ) . '</li>';
+    echo '<li><strong>' . esc_html__( 'Balanced:', 'rocsi-connector-for-nmkr' ) . '</strong> ' . esc_html__( 'recommended starting point for most WordPress sites.', 'rocsi-connector-for-nmkr' ) . '</li>';
+    echo '<li><strong>' . esc_html__( 'Aggressive:', 'rocsi-connector-for-nmkr' ) . '</strong> ' . esc_html__( 'faster synchronization for servers with ample resources.', 'rocsi-connector-for-nmkr' ) . '</li>';
     echo '</ul>';
     echo '</div>';
 }
@@ -186,7 +185,7 @@ function nmkr_sync_max_errors_field_callback() {
 
 // Debug Settings Section Callback
 function nmkr_connect_wp_debug_section_callback() {
-    echo '<p>Configure debug logging for various plugin processes.</p>';
+    echo '<p>' . esc_html__( 'Debug logging is optional. Enable the master control, choose at least one destination, then enable only the categories needed for troubleshooting.', 'rocsi-connector-for-nmkr' ) . '</p>';
 }
 
 // Debug Enabled Field Callback
@@ -207,9 +206,8 @@ function nmkr_debug_enabled_field_callback() {
         <?php esc_html_e('Enable this to unlock the logging controls below. This setting does not write logs by itself; select at least one logging destination and one log category for logs to be written.', 'rocsi-connector-for-nmkr'); ?>
     </p>
     <div id="nmkr-dashboard-sync-logging-status"
-         class="<?php echo esc_attr($dashboard_sync_logging_active ? 'notice notice-success inline' : 'notice notice-warning inline'); ?>"
-         style="margin-top: 10px; padding: 8px 12px;">
-        <p style="margin: 0;">
+         class="<?php echo esc_attr($dashboard_sync_logging_active ? 'notice notice-success inline nmkr-dashboard-logging-status' : 'notice notice-warning inline nmkr-dashboard-logging-status'); ?>">
+        <p>
             <strong><?php esc_html_e('Dashboard Sync Logging:', 'rocsi-connector-for-nmkr'); ?></strong>
             <span id="nmkr-dashboard-sync-logging-status-text">
                 <?php
