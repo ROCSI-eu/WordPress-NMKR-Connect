@@ -99,6 +99,9 @@ php scripts/nmkr-dashboard-ui-regression.php
 printf '\n== Projects + Shortcodes admin UI regression ==\n'
 php scripts/nmkr-projects-shortcodes-ui-regression.php
 
+printf '\n== Analytics + Settings admin UI regression ==\n'
+php scripts/nmkr-analytics-settings-ui-regression.php
+
 printf '\n== Release-readiness regressions ==\n'
 php scripts/nmkr-release-regression.php
 bash scripts/nmkr-package-reproducibility-regression.sh
