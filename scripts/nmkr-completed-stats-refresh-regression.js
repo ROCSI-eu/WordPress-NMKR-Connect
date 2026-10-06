@@ -7,7 +7,9 @@ const path = require('path');
 
 const {
     nmkrHasCanonicalLatestRun,
-    nmkrCompletedStatsRetryDelay
+    nmkrCompletedStatsRetryDelay,
+    nmkrCompletedSummaryMessage,
+    nmkrShouldOpenDiagnostics
 } = require('../js/admin/nmkr-dashboard.js');
 
 const canonicalRun = {
@@ -38,6 +40,36 @@ assert.strictEqual(nmkrCompletedStatsRetryDelay(2), 2500);
 assert.strictEqual(nmkrCompletedStatsRetryDelay(3), null);
 assert.strictEqual(nmkrCompletedStatsRetryDelay(-1), null);
 assert.strictEqual(nmkrCompletedStatsRetryDelay(1.5), null);
+
+assert.strictEqual(
+    nmkrCompletedSummaryMessage('No synchronization done yet'),
+    'No completed synchronization has been recorded yet.'
+);
+assert.strictEqual(
+    nmkrCompletedSummaryMessage('2026-10-06 10:30:00'),
+    'Review the latest run outcome and synchronized totals.'
+);
+assert.strictEqual(
+    nmkrCompletedSummaryMessage(''),
+    'No completed synchronization has been recorded yet.'
+);
+
+assert.strictEqual(nmkrShouldOpenDiagnostics('#nmkr-debug-logs'), true);
+assert.strictEqual(nmkrShouldOpenDiagnostics('#other-section'), false);
+assert.strictEqual(nmkrShouldOpenDiagnostics(''), false);
+
+const dashboardSource = fs.readFileSync(
+    path.join(__dirname, '..', 'js', 'admin', 'nmkr-dashboard.js'),
+    'utf8'
+);
+assert.ok(
+    dashboardSource.includes("$('#nmkr-sync-summary-message').text("),
+    'completed statistics refresh must update summary guidance'
+);
+assert.ok(
+    dashboardSource.includes("$(window).on('hashchange.nmkrDashboardDiagnostics', openDiagnosticsForHash);"),
+    'diagnostics disclosure must respond to debug-log fragment navigation'
+);
 
 const progressSource = fs.readFileSync(
     path.join(__dirname, '..', 'js', 'nmkr-sync-progress.js'),

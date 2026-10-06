@@ -414,6 +414,7 @@
 /* Diagnostics are intentionally subordinate to the operator workflow. */
 .nmkr-dashboard-diagnostics {
     margin: 20px 0 32px;
+    scroll-margin-top: 32px;
     border: 1px solid var(--nmkr-admin-border);
     border-radius: var(--nmkr-admin-radius);
     background: var(--nmkr-admin-surface);

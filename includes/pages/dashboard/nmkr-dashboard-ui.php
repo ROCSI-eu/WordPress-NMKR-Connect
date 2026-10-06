@@ -158,7 +158,7 @@ function nmkr_render_sync_statistics_panel($initial_stats) {
                 <p class="nmkr-dashboard-card-kicker">Latest synchronized state</p>
                 <h2 id="nmkr-sync-summary-title">Synchronization Summary</h2>
             </div>
-            <p><?php echo esc_html( $has_sync_history ? 'Review the latest run outcome and synchronized totals.' : 'No completed synchronization has been recorded yet.' ); ?></p>
+            <p id="nmkr-sync-summary-message"><?php echo esc_html( $has_sync_history ? 'Review the latest run outcome and synchronized totals.' : 'No completed synchronization has been recorded yet.' ); ?></p>
         </div>
 
         <div class="nmkr-summary-grid">
@@ -246,8 +246,7 @@ function nmkr_render_debug_logs_panel($can_manage_sync) {
 
     ?>
     <!-- Debug Logs Panel -->
-    <a id="nmkr-debug-logs"></a>
-    <details class="nmkr-dashboard-diagnostics">
+    <details id="nmkr-debug-logs" class="nmkr-dashboard-diagnostics">
         <summary>
             <span>
                 <strong>Diagnostics</strong>

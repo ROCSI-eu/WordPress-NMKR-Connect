@@ -117,6 +117,7 @@ test.describe('NMKR Connect dashboard page regression', () => {
     await expect(statisticsPanel.getByRole('heading', { name: 'Synchronization Summary' })).toBeVisible();
     await expect(statisticsPanel.locator('.nmkr-summary-grid')).toBeAttached();
     await expect(statisticsPanel.locator('.nmkr-summary-card')).toHaveCount(5);
+    await expect(statisticsPanel.locator('#nmkr-sync-summary-message')).toBeAttached();
 
     for (const selector of [
       '#last-synced',
@@ -151,8 +152,13 @@ test.describe('NMKR Connect dashboard page regression', () => {
     const debugLogsPanel = page.locator('.debug-logs-panel');
 
     if (await diagnostics.count()) {
+      await expect(diagnostics).toHaveAttribute('id', 'nmkr-debug-logs');
       await expect(diagnostics).not.toHaveAttribute('open', '');
-      await diagnostics.locator(':scope > summary').click();
+
+      await page.evaluate(() => {
+        window.location.hash = '#nmkr-debug-logs';
+      });
+      await expect(diagnostics).toHaveAttribute('open', '');
       await expect(debugLogsPanel).toBeVisible();
 
       for (const selector of [

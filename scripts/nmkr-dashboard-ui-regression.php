@@ -38,11 +38,11 @@ $ui_contracts = array(
     'nmkr-active-metrics-summary'        => 'active run summary is separated from performance diagnostics',
     'Live performance details'           => 'active performance telemetry is progressively disclosed',
     'nmkr-summary-grid'                  => 'latest synchronized state uses a scannable summary grid',
+    'id="nmkr-sync-summary-message"'      => 'summary guidance has a stable refresh target',
     'id="latest-run-result"'             => 'latest run detail target remains stable',
     'id="performance-stats"'             => 'performance statistics target remains stable',
     'id="nmkr-performance-details"'      => 'performance diagnostics are progressively disclosed',
-    'class="nmkr-dashboard-diagnostics"' => 'debug logs are subordinate to the operator workflow',
-    'id="nmkr-debug-logs"'               => 'debug-log anchor remains stable',
+    'id="nmkr-debug-logs" class="nmkr-dashboard-diagnostics"' => 'debug-log deep link targets the diagnostics disclosure',
 );
 foreach ( $ui_contracts as $needle => $message ) {
     nmkr_dashboard_ui_assert( false !== strpos( $ui, $needle ), $message );
