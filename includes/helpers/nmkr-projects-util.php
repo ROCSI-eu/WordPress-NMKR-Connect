@@ -124,7 +124,7 @@ function nmkr_render_project_selector_simple( $projects, $active_uid ) {
     $query_args = wp_unslash( $_GET );
 
     ob_start(); ?>
-    <form method="get" action="<?php echo esc_url( $action ); ?>" class="nmkr-project-selector" style="margin:12px 0;">
+    <form method="get" action="<?php echo esc_url( $action ); ?>" class="nmkr-project-selector">
         <?php
         foreach ( $query_args as $k => $v ) {
             if ( $k === 'nmkr_project' ) { continue; }
@@ -135,10 +135,10 @@ function nmkr_render_project_selector_simple( $projects, $active_uid ) {
             echo '<input type="hidden" name="' . esc_attr( $key ) . '" value="' . esc_attr( $value ) . '">';
         }
         ?>
-        <label for="nmkr_project" style="margin-right:6px;">
+        <label for="nmkr_project" class="nmkr-project-selector-label">
             <?php esc_html_e( 'Select a Project:', 'rocsi-connector-for-nmkr' ); ?>
         </label>
-        <select id="nmkr_project" name="nmkr_project" onchange="this.form.submit()" style="min-width:260px;">
+        <select id="nmkr_project" name="nmkr_project" onchange="this.form.submit()">
             <?php foreach ( $projects as $p ): ?>
                 <option value="<?php echo esc_attr( $p->project_uid ); ?>" <?php selected( $p->project_uid, $active_uid ); ?>>
                     <?php
@@ -155,7 +155,7 @@ function nmkr_render_project_selector_simple( $projects, $active_uid ) {
                 </option>
             <?php endforeach; ?>
         </select>
-        <noscript><button type="submit"><?php esc_html_e('Go', 'rocsi-connector-for-nmkr'); ?></button></noscript>
+        <noscript><button type="submit" class="nmkr-filter-submit"><?php esc_html_e('Go', 'rocsi-connector-for-nmkr'); ?></button></noscript>
     </form>
     <?php
     return ob_get_clean();

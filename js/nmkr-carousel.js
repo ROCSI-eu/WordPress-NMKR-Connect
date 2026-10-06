@@ -1,26 +1,27 @@
-function scrollCarousel(direction) {
-    const container = document.querySelector(".nmkr-carousel-container");
-    const scrollAmount = container.offsetWidth / 2;
-    if (direction === "left") {
-        container.scrollBy({ left: -scrollAmount, behavior: "smooth" });
-    } else {
-        container.scrollBy({ left: scrollAmount, behavior: "smooth" });
+(function () {
+    'use strict';
+
+    function scrollCarousel(wrapper, direction) {
+        const container = wrapper.querySelector('.nmkr-carousel-container');
+        if (!container) return;
+
+        const amount = Math.max(container.clientWidth * 0.8, 220);
+        const reducedMotion = window.matchMedia
+            && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        container.scrollBy({
+            left: direction === 'prev' ? -amount : amount,
+            behavior: reducedMotion ? 'auto' : 'smooth'
+        });
     }
-}
 
-document.addEventListener("DOMContentLoaded", function() {
-    // Auto-scroll logic
-    let autoScroll = setInterval(function() {
-        scrollCarousel("right");
-    }, 5000);
+    document.addEventListener('click', function (event) {
+        const button = event.target.closest('.nmkr-carousel-control');
+        if (!button) return;
 
-    document.querySelector(".nmkr-carousel-container").addEventListener("mouseover", function() {
-        clearInterval(autoScroll);
+        const wrapper = button.closest('.nmkr-carousel-wrapper');
+        if (!wrapper) return;
+
+        scrollCarousel(wrapper, button.getAttribute('data-nmkr-carousel-direction'));
     });
-
-    document.querySelector(".nmkr-carousel-container").addEventListener("mouseout", function() {
-        autoScroll = setInterval(function() {
-            scrollCarousel("right");
-        }, 5000);
-    });
-});
+})();
