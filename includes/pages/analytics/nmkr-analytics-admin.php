@@ -16,7 +16,7 @@ function nmkr_connect_analytics_page() {
     }
 
     ?>
-    <div class="wrap nmkr-analytics-wrap">
+    <div class="wrap nmkr-admin-shell nmkr-analytics-wrap">
         <h1><?php echo esc_html__( 'Analytics', 'rocsi-connector-for-nmkr' ); ?></h1>
 
         <!-- Filters Bar (placeholder; wired in PR-4) -->

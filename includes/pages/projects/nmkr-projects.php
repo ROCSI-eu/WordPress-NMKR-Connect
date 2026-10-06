@@ -58,7 +58,7 @@ function nmkr_connect_projects_page() {
     }
 
     ?>
-    <div class="wrap nmkr-dashboard">
+    <div class="wrap nmkr-admin-shell nmkr-dashboard">
         <h1 class="center-text">NMKR Projects and Tokens</h1>
 
         <div class="panel">

@@ -360,7 +360,7 @@ function nmkr_connect_settings_page() {
         wp_die( esc_html__( 'Access denied.', 'rocsi-connector-for-nmkr' ) );
     }
     ?>
-    <div class="wrap">
+    <div class="wrap nmkr-admin-shell nmkr-settings-wrap">
         <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
 
         <form action="options.php" method="post">

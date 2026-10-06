@@ -1,58 +1,6 @@
-/* Global Panel Styling */
 .nmkr-dashboard {
     max-width: 800px;
     margin: 0 auto;
-}
-
-.nmkr-dashboard .panel {
-    background: #fff;
-    border: 1px solid #e5e5e5;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    border-radius: 6px;
-    padding: 20px;
-    margin-bottom: 25px;
-    position: relative;
-    overflow: hidden;
-}
-
-.nmkr-dashboard .panel h2 {
-    margin-top: 0;
-    padding-bottom: 15px;
-    border-bottom: 1px solid #f0f0f1;
-}
-
-.nmkr-dashboard .panel-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 15px;
-}
-
-.nmkr-dashboard .panel-section {
-    padding: 15px 0;
-    border-top: 1px solid #f0f0f1;
-}
-
-.nmkr-dashboard .panel-section:first-child {
-    border-top: none;
-    padding-top: 0;
-}
-
-.nmkr-dashboard .panel-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    padding-top: 15px;
-}
-
-.nmkr-dashboard .center-text {
-    text-align: center;
-}
-
-.nmkr-dashboard .panel-description {
-    color: #666;
-    margin-bottom: 15px;
-    text-align: center;
 }
 
 /* Panel description specific styling overrides */
@@ -60,27 +8,6 @@
     font-weight: bold;
     text-align: left;
     margin-bottom: 5px !important;
-}
-
-/* Status Colors */
-.nmkr-dashboard .status-excellent {
-    color: #46b450;
-}
-
-.nmkr-dashboard .status-good {
-    color: #ffb900;
-}
-
-.nmkr-dashboard .status-warning {
-    color: #f56e28;
-}
-
-.nmkr-dashboard .status-critical {
-    color: #dc3232;
-}
-
-.nmkr-dashboard .status-neutral {
-    color: #666;
 }
 
 /* API status loading animation */
@@ -123,29 +50,6 @@
     min-height: 120px;
     margin-bottom: 160px; /* Space for active metrics when they appear */
     position: relative;
-}
-
-/* Info Box Styling */
-.nmkr-info-box {
-    display: flex;
-    align-items: center;
-    background-color: #f0f6fc;
-    border-left: 4px solid #2271b1;
-    padding: 12px 15px;
-    margin-bottom: 20px;
-    border-radius: 2px;
-}
-
-.nmkr-info-box .dashicons {
-    font-size: 24px;
-    color: #2271b1;
-    margin-right: 12px;
-}
-
-.nmkr-info-box p {
-    margin: 0;
-    color: #50575e;
-    font-size: 14px;
 }
 
 /* Sync Statistics Panel Styling */

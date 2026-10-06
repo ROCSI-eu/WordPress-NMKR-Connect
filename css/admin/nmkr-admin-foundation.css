@@ -1,0 +1,195 @@
+/*
+ * Shared ROCSI Connector for NMKR admin UI foundation.
+ *
+ * Keep cross-page primitives here. Page-specific layouts and interactions belong
+ * in their existing stylesheets so the facelift can proceed one focused stage at
+ * a time without coupling unrelated screens.
+ */
+
+.nmkr-admin-shell {
+    --nmkr-admin-surface: #fff;
+    --nmkr-admin-surface-subtle: #f6f7f7;
+    --nmkr-admin-border: #e5e5e5;
+    --nmkr-admin-divider: #f0f0f1;
+    --nmkr-admin-text-muted: #50575e;
+    --nmkr-admin-accent: #2271b1;
+    --nmkr-admin-success: #46b450;
+    --nmkr-admin-caution: #ffb900;
+    --nmkr-admin-warning: #f56e28;
+    --nmkr-admin-danger: #dc3232;
+    --nmkr-admin-radius: 6px;
+    --nmkr-admin-space-1: 5px;
+    --nmkr-admin-space-2: 10px;
+    --nmkr-admin-space-3: 15px;
+    --nmkr-admin-space-4: 20px;
+    --nmkr-admin-space-5: 25px;
+
+    box-sizing: border-box;
+}
+
+.nmkr-admin-shell *,
+.nmkr-admin-shell *::before,
+.nmkr-admin-shell *::after {
+    box-sizing: inherit;
+}
+
+/* Shared page/panel vocabulary. */
+.nmkr-admin-shell .panel {
+    position: relative;
+    overflow: hidden;
+    margin-bottom: var(--nmkr-admin-space-5);
+    padding: var(--nmkr-admin-space-4);
+    border: 1px solid var(--nmkr-admin-border);
+    border-radius: var(--nmkr-admin-radius);
+    background: var(--nmkr-admin-surface);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.nmkr-admin-shell .panel h2 {
+    margin-top: 0;
+    padding-bottom: var(--nmkr-admin-space-3);
+    border-bottom: 1px solid var(--nmkr-admin-divider);
+}
+
+.nmkr-admin-shell .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--nmkr-admin-space-2);
+    margin-bottom: var(--nmkr-admin-space-3);
+}
+
+.nmkr-admin-shell .panel-section {
+    padding: var(--nmkr-admin-space-3) 0;
+    border-top: 1px solid var(--nmkr-admin-divider);
+}
+
+.nmkr-admin-shell .panel-section:first-child {
+    padding-top: 0;
+    border-top: 0;
+}
+
+.nmkr-admin-shell .panel-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--nmkr-admin-space-2);
+    padding-top: var(--nmkr-admin-space-3);
+}
+
+.nmkr-admin-shell .center-text {
+    text-align: center;
+}
+
+.nmkr-admin-shell .panel-description {
+    margin-bottom: var(--nmkr-admin-space-3);
+    color: var(--nmkr-admin-text-muted);
+    text-align: center;
+}
+
+/* Shared informational callout. */
+.nmkr-admin-shell .nmkr-info-box {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: var(--nmkr-admin-space-4);
+    padding: 12px 15px;
+    border-left: 4px solid var(--nmkr-admin-accent);
+    border-radius: 2px;
+    background: #f0f6fc;
+}
+
+.nmkr-admin-shell .nmkr-info-box .dashicons {
+    flex: 0 0 auto;
+    margin: 0;
+    color: var(--nmkr-admin-accent);
+    font-size: 24px;
+}
+
+.nmkr-admin-shell .nmkr-info-box p {
+    margin: 0;
+    color: var(--nmkr-admin-text-muted);
+    font-size: 14px;
+}
+
+/* Existing semantic status vocabulary, centralized for all plugin admin screens. */
+.nmkr-admin-shell .status-excellent {
+    color: var(--nmkr-admin-success);
+}
+
+.nmkr-admin-shell .status-good {
+    color: var(--nmkr-admin-caution);
+}
+
+.nmkr-admin-shell .status-warning {
+    color: var(--nmkr-admin-warning);
+}
+
+.nmkr-admin-shell .status-critical {
+    color: var(--nmkr-admin-danger);
+}
+
+.nmkr-admin-shell .status-neutral {
+    color: #666;
+}
+
+/* Reusable states/actions for later facelift stages. */
+.nmkr-admin-shell .nmkr-admin-empty,
+.nmkr-admin-shell .nmkr-admin-state {
+    padding: var(--nmkr-admin-space-4);
+    border: 1px solid var(--nmkr-admin-border);
+    border-radius: var(--nmkr-admin-radius);
+    background: var(--nmkr-admin-surface-subtle);
+}
+
+.nmkr-admin-shell .nmkr-admin-advanced {
+    margin-top: var(--nmkr-admin-space-4);
+    border-top: 1px solid var(--nmkr-admin-divider);
+    padding-top: var(--nmkr-admin-space-3);
+}
+
+/* Supplement WordPress focus styling without replacing its normal :focus fallback. */
+.nmkr-admin-shell a:focus-visible,
+.nmkr-admin-shell button:focus-visible,
+.nmkr-admin-shell input:focus-visible,
+.nmkr-admin-shell select:focus-visible,
+.nmkr-admin-shell textarea:focus-visible,
+.nmkr-admin-shell summary:focus-visible {
+    outline: 2px solid var(--nmkr-admin-accent);
+    outline-offset: 2px;
+}
+
+@media (max-width: 782px) {
+    .nmkr-admin-shell .panel {
+        padding: var(--nmkr-admin-space-3);
+    }
+
+    .nmkr-admin-shell .panel-header,
+    .nmkr-admin-shell .panel-actions,
+    .nmkr-admin-shell .nmkr-info-box {
+        align-items: stretch;
+    }
+
+    .nmkr-admin-shell .panel-header {
+        flex-direction: column;
+    }
+
+    .nmkr-admin-shell .panel-actions {
+        justify-content: flex-start;
+    }
+
+    .nmkr-admin-shell .nmkr-info-box {
+        align-items: flex-start;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .nmkr-admin-shell *,
+    .nmkr-admin-shell *::before,
+    .nmkr-admin-shell *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+    }
+}

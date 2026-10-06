@@ -13,7 +13,7 @@ function nmkr_display_shortcodes_page() {
         wp_die( esc_html__( 'Access denied.', 'rocsi-connector-for-nmkr' ) );
     }
     ?>
-    <div class="wrap nmkr-dashboard">
+    <div class="wrap nmkr-admin-shell nmkr-dashboard">
         <h1 class="center-text">ROCSI Connector for NMKR - Shortcodes</h1>
 
         <div class="panel">

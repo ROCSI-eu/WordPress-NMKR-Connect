@@ -317,9 +317,39 @@ function nmkr_enqueue_lazy_loading_script() {
 }
 add_action('wp_enqueue_scripts', 'nmkr_enqueue_lazy_loading_script');
 
+/**
+ * Whether an admin hook belongs to one of this plugin's maintained screens.
+ *
+ * @param string $hook WordPress admin page hook.
+ * @return bool
+ */
+function nmkr_connect_is_plugin_admin_hook( $hook ) {
+    $screen_fragments = array(
+        'nmkr-connect-dashboard',
+        'nmkr-connect-projects',
+        'nmkr-connect-shortcodes',
+        'nmkr-connect-analytics',
+        'nmkr-connect-settings',
+    );
+
+    foreach ( $screen_fragments as $fragment ) {
+        if ( false !== strpos( (string) $hook, $fragment ) ) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 // Enqueue admin scripts for NMKR pages
 function nmkr_enqueue_admin_assets($hook) {
-    if (strpos($hook, 'nmkr') !== false) {
+    $is_plugin_screen = nmkr_connect_is_plugin_admin_hook( $hook );
+
+    if ( $is_plugin_screen ) {
+        nmkr_connect_enqueue_style_asset(
+            'nmkr-admin-foundation',
+            'css/admin/nmkr-admin-foundation.css'
+        );
         // Enqueue constants first (with cache-busting by filemtime)
         $base_url = plugin_dir_url(__FILE__);
         $base_dir = plugin_dir_path(__FILE__);
@@ -356,7 +386,7 @@ function nmkr_enqueue_admin_assets($hook) {
 
     // Keep reviewer-remediation assets scoped to their existing admin pages.
     if ( strpos( $hook, 'nmkr-connect-dashboard' ) !== false ) {
-        nmkr_connect_enqueue_style_asset( 'nmkr-dashboard', 'css/admin/nmkr-dashboard.css' );
+        nmkr_connect_enqueue_style_asset( 'nmkr-dashboard', 'css/admin/nmkr-dashboard.css', array( 'nmkr-admin-foundation' ) );
         nmkr_connect_enqueue_script_asset(
             'nmkr-dashboard',
             'js/admin/nmkr-dashboard.js',
@@ -366,14 +396,14 @@ function nmkr_enqueue_admin_assets($hook) {
     }
 
     if ( strpos( $hook, 'nmkr-connect-projects' ) !== false ) {
-        nmkr_connect_enqueue_style_asset( 'nmkr-projects-admin', 'css/admin/nmkr-projects.css' );
+        nmkr_connect_enqueue_style_asset( 'nmkr-projects-admin', 'css/admin/nmkr-projects.css', array( 'nmkr-admin-foundation' ) );
         if ( function_exists( 'nmkr_enqueue_lightbox_assets' ) ) {
             nmkr_enqueue_lightbox_assets();
         }
     }
 
     if ( strpos( $hook, 'nmkr-connect-shortcodes' ) !== false ) {
-        nmkr_connect_enqueue_style_asset( 'nmkr-shortcodes-admin', 'css/admin/nmkr-shortcodes.css' );
+        nmkr_connect_enqueue_style_asset( 'nmkr-shortcodes-admin', 'css/admin/nmkr-shortcodes.css', array( 'nmkr-admin-foundation' ) );
     }
 
     if ( strpos( $hook, 'nmkr-connect-settings' ) !== false ) {
@@ -424,7 +454,7 @@ function nmkr_enqueue_admin_assets($hook) {
         wp_enqueue_style(
             'nmkr-analytics-dashboard',
             $base_url . $analytics_css_rel,
-            array(),
+            array( 'nmkr-admin-foundation' ),
             $analytics_css_ver
         );
 
