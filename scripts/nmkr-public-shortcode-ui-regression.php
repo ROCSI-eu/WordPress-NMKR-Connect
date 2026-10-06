@@ -157,8 +157,10 @@ nmkr_public_shortcode_ui_assert(
 nmkr_public_shortcode_ui_assert(
     false !== strpos( $lightbox_js, "event.key === 'Enter'" )
         && false !== strpos( $lightbox_js, "event.key === ' '" )
+        && false !== strpos( $lightbox_js, "event.key === 'Tab'" )
+        && false !== strpos( $lightbox_js, 'trapLightboxFocus' )
         && false !== strpos( $lightbox_js, "event.key === 'Escape'" ),
-    'lightbox supports keyboard open and escape-to-close'
+    'lightbox supports keyboard open, modal focus trapping, and escape-to-close'
 );
 
 foreach ( array( $grid_source, $list_source, $carousel_source, $token_source, $project_source ) as $source ) {

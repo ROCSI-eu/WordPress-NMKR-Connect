@@ -43,6 +43,31 @@
         previousFocus = null;
     }
 
+    function trapLightboxFocus(event, lightbox) {
+        const focusable = Array.from(lightbox.querySelectorAll(
+            'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )).filter(function (element) {
+            return !element.hidden && element.getAttribute('aria-hidden') !== 'true';
+        });
+
+        if (!focusable.length) {
+            event.preventDefault();
+            return;
+        }
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        const active = document.activeElement;
+
+        if (event.shiftKey && (active === first || !lightbox.contains(active))) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && (active === last || !lightbox.contains(active))) {
+            event.preventDefault();
+            first.focus();
+        }
+    }
+
     document.addEventListener('click', function (event) {
         const trigger = event.target.closest('[data-nmkr-lightbox-trigger="1"]');
         if (trigger) {
@@ -69,12 +94,17 @@
             return;
         }
 
-        if (event.key === 'Escape') {
-            const lightbox = getLightbox();
-            if (lightbox && lightbox.classList.contains('is-open')) {
-                event.preventDefault();
-                closeLightbox();
-            }
+        const lightbox = getLightbox();
+        const isOpen = lightbox && lightbox.classList.contains('is-open');
+
+        if (isOpen && event.key === 'Tab') {
+            trapLightboxFocus(event, lightbox);
+            return;
+        }
+
+        if (isOpen && event.key === 'Escape') {
+            event.preventDefault();
+            closeLightbox();
         }
     });
 

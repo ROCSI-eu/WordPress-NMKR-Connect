@@ -126,7 +126,12 @@ ${styles}</style>
   await page.keyboard.press('Enter');
   await expect(page.locator('#nmkr-lightbox')).toHaveClass(/is-open/);
   await expect(page.locator('#nmkr-lightbox')).toHaveAttribute('aria-hidden', 'false');
-  await expect(page.locator('#nmkr-lightbox .nmkr-close')).toBeFocused();
+  const lightboxClose = page.locator('#nmkr-lightbox .nmkr-close');
+  await expect(lightboxClose).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(lightboxClose).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(lightboxClose).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(page.locator('#nmkr-lightbox')).not.toHaveClass(/is-open/);
   await expect(imageTrigger).toBeFocused();
