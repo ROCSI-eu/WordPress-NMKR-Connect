@@ -14,7 +14,7 @@ function nmkr_render_access_denied_page( $title = '' ) {
     $title = $title ? $title : __( 'Access denied', 'rocsi-connector-for-nmkr' );
     $admin_email = sanitize_email( get_option( 'admin_email' ) );
 
-    echo '<div class="wrap">';
+    echo '<div class="wrap nmkr-admin-shell nmkr-access-denied">';
     echo '<h1>' . esc_html( $title ) . '</h1>';
     echo '<p>' . esc_html__( 'You do not have permission to view this page. If you believe this is a mistake, please contact the site administrator.', 'rocsi-connector-for-nmkr' ) . '</p>';
 

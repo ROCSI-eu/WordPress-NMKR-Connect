@@ -58,7 +58,7 @@ function nmkr_connect_dashboard_page() {
     // Create nonce for the dashboard
     $dashboard_nonce = wp_create_nonce('nmkr_dashboard_nonce');
     ?>
-    <div class="wrap nmkr-dashboard">
+    <div class="wrap nmkr-admin-shell nmkr-dashboard">
         <h1 class="center-text">ROCSI Connector for NMKR Dashboard</h1>
 
         <?php 
