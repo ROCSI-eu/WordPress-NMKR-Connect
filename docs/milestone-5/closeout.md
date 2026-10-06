@@ -13,15 +13,15 @@ The dedicated reviewer-facing synthesis lives in [proof-of-achievement.md](proof
 | --- | --- | --- | --- |
 | WordPress.org submission/publication | Approved, SVN-published, and publicly available as `ROCSI Connector for NMKR` 0.25.0 | COMPLETE | #111, #128 |
 | GitHub installable release | Public, exact provenance/checksum recorded | COMPLETE — `0.25.0` published 2026-10-05 with exact tag/source and asset digest verified | `M5-EVD-002`, #188 |
-| Marketing channels | >=2 targeted channels launched | NOT STARTED | TBD |
+| Marketing channels | >=2 targeted channels launched | IN PROGRESS — targeted public actions executed on X and LinkedIn; timestamps/references captured; platform analytics and remaining M5-05 work still pending | `M5-EVD-004`, `M5-EVD-005` |
 | Downloads | >=25 combined under documented methodology | IN PROGRESS — T1 pre-campaign: WordPress.org cumulative `77`, GitHub installable asset `0`; campaign-period/final reconciliation pending | `M5-EVD-001`, `M5-EVD-002`, `M5-EVD-003` |
 | Active installations | >=10 under documented methodology | IN PROGRESS — T1 public WordPress.org bucket remains `Fewer than 10`; threshold not yet demonstrated | `M5-EVD-001`, `M5-EVD-003` |
-| Plugin webpage unique visits | >=250 Cloudflare Web Analytics `Visits` on the fixed canonical URL/window; source definition/limitations preserved | IN PROGRESS — T1 pre-campaign rolling snapshot `9 Visits / 9 Page views`; campaign interval not yet started | `M5-EVD-001`, `M5-EVD-003`, #163 / `adoption-and-metrics.md` |
+| Plugin webpage unique visits | >=250 Cloudflare Web Analytics `Visits` on the fixed canonical URL/window; source definition/limitations preserved | IN PROGRESS — targeted campaign interval began `2026-10-05T17:28:48.194Z`; T1 `9 Visits / 9 Page views` remains pre-campaign context; threshold not yet demonstrated | `M5-EVD-001`, `M5-EVD-003`, `M5-EVD-004`, #163 / `adoption-and-metrics.md` |
 | Community event | >=10 distinct attendees | NOT STARTED | TBD |
 | Detailed feedback | >=5 distinct users collected/analyzed | NOT STARTED | TBD |
 | Initial early-adopter support | Delivered and summarized | NOT STARTED | TBD |
 | Post-launch fix/minor adjustment | Genuine change documented, implemented, verified, and observed; or unresolved contingency truthfully handled | NOT STARTED | TBD |
-| Ongoing adoption monitoring | Checkpoints/final report present | IN PROGRESS — T0, GitHub post-T0 distribution checkpoint, and synchronized T1 pre-campaign checkpoint recorded | `M5-EVD-001`, `M5-EVD-002`, `M5-EVD-003` |
+| Ongoing adoption monitoring | Checkpoints/final report present | IN PROGRESS — T0, GitHub post-T0 distribution checkpoint, synchronized T1 pre-campaign checkpoint, and M5-05 campaign-action boundaries recorded; campaign-period metric checkpoints remain | `M5-EVD-001`, `M5-EVD-002`, `M5-EVD-003`, `M5-EVD-004`, `M5-EVD-005` |
 | Feedback-driven prioritization | Traceable feedback-to-decision record | NOT STARTED | TBD |
 | Final public source/docs | Current, reviewed, public | IN PLANNING | TBD |
 | PCR | Submitted and reviewer-accessible | NOT STARTED | TBD |
