@@ -37,11 +37,11 @@ test.describe('NMKR Connect projects page regression', () => {
     await expectWpAdmin(page);
     await expect(page).toHaveURL(/page=nmkr-connect-projects/);
 
-    const projectsDashboard = page.locator('.wrap.nmkr-dashboard');
+    const projectsDashboard = page.locator('.wrap.nmkr-projects-page');
     await expect(projectsDashboard).toBeAttached();
-    await expect(page.getByRole('heading', { name: 'NMKR Projects and Tokens' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Your Projects' })).toBeVisible();
-    await expect(page.locator('.nmkr-info-box')).toBeAttached();
+    await expect(page.getByRole('heading', { name: 'NFT Projects', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Choose a synchronized project' })).toBeVisible();
+    await expect(page.locator('.nmkr-project-count')).toBeAttached();
 
     const projectSelectorForm = page.locator('form.project-selector-form');
     await expect(projectSelectorForm).toBeAttached();
@@ -59,7 +59,7 @@ test.describe('NMKR Connect projects page regression', () => {
 
     const placeholderOption = projectSelect.locator('option[value=""]');
     await expect(placeholderOption).toHaveCount(1);
-    await expect(placeholderOption).toHaveText('-- Select a Project --');
+    await expect(placeholderOption).toHaveText('Select a project');
     await expect(projectSelect).toHaveValue('');
 
     const availableProjectOptions = projectSelect.locator('option:not([value=""])');
@@ -70,6 +70,9 @@ test.describe('NMKR Connect projects page regression', () => {
       await projectSelect.selectOption(projectUid!);
       await expect(page).toHaveURL(/page=nmkr-connect-projects/);
 
+      await expect(page.locator('.nmkr-project-overview')).toBeAttached();
+      await expect(page.locator('.nmkr-project-stats-grid')).toBeAttached();
+
       const tokenFilterForm = page.locator('form.token-filter-form');
       await expect(tokenFilterForm).toBeAttached();
       await expect(
@@ -78,7 +81,17 @@ test.describe('NMKR Connect projects page regression', () => {
       await expect(tokenFilterForm.locator('input[type="hidden"][name="project_uid"]')).toHaveValue(
         projectUid!,
       );
+      await expect(tokenFilterForm.locator('input#search_token[name="search_token"]')).toBeAttached();
+      await expect(tokenFilterForm.locator('select#filter_minted[name="filter_minted"]')).toBeAttached();
+    } else {
+      await expect(page.locator('.nmkr-projects-empty-state')).toBeVisible();
     }
+
+    await page.setViewportSize({ width: 390, height: 900 });
+    const projectsFitViewport = await projectsDashboard.evaluate(
+      (element) => element.scrollWidth <= element.clientWidth + 1,
+    );
+    expect(projectsFitViewport).toBe(true);
 
     expect(unexpectedProjectsAjaxActions).toEqual([]);
   });
