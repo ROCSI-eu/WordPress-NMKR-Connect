@@ -210,7 +210,9 @@ if (!function_exists('nmkr_get_token_image_markup')) {
         $script = 'js/nmkr-token-image-fallback.js';
         $safe_style = is_scalar( $style ) ? safecss_filter_attr( (string) $style ) : '';
         wp_enqueue_script('nmkr-token-image-fallback', plugins_url($script, NMKR_CONNECT_PLUGIN_FILE), array(), @filemtime(plugin_dir_path(NMKR_CONNECT_PLUGIN_FILE) . $script) ?: '1.0', true);
-        return '<img src="' . esc_url($sources['primary']) . '" alt="' . esc_attr($alt) . '" class="' . esc_attr($class) . '" loading="lazy" decoding="async" onclick="openLightbox(this.src)" data-nmkr-token-image="1"'
+        return '<img src="' . esc_url($sources['primary']) . '" alt="' . esc_attr($alt) . '" class="' . esc_attr($class) . '" loading="lazy" decoding="async"'
+            . ' role="button" tabindex="0" aria-label="' . esc_attr( sprintf( __( 'Open image preview: %s', 'rocsi-connector-for-nmkr' ), $alt ) ) . '"'
+            . ' data-nmkr-lightbox-trigger="1" data-nmkr-token-image="1"'
             . ('' !== $sources['fallback'] ? ' data-nmkr-fallback-src="' . esc_url($sources['fallback']) . '"' : '')
             . ' data-nmkr-placeholder-src="' . esc_url($sources['placeholder']) . '"'
             . ('' !== $safe_style ? ' style="' . esc_attr($safe_style) . '"' : '')

@@ -13,8 +13,8 @@ function nmkr_print_lightbox_once() {
     nmkr_enqueue_lightbox_assets();
     ?>
 
-    <div id="nmkr-lightbox" class="nmkr-lightbox" onclick="if(event.target.id==='nmkr-lightbox'){closeLightbox()}">
-      <a href="#" class="nmkr-close" onclick="closeLightbox();return false;">×</a>
+    <div id="nmkr-lightbox" class="nmkr-lightbox" role="dialog" aria-modal="true" aria-label="<?php esc_attr_e( 'Image preview', 'rocsi-connector-for-nmkr' ); ?>" aria-hidden="true">
+      <button type="button" class="nmkr-close" aria-label="<?php esc_attr_e( 'Close image preview', 'rocsi-connector-for-nmkr' ); ?>">×</button>
       <img src="" alt="">
     </div>
 

@@ -1,4 +1,54 @@
-.nmkr-lightbox{position:fixed;inset:0;background:rgba(0,0,0,.9);display:none;align-items:center;justify-content:center;z-index:9999}
-.nmkr-lightbox img{max-width:90vw;max-height:90vh}
-.nmkr-lightbox.is-open{display:flex}
-.nmkr-lightbox .nmkr-close{position:absolute;top:16px;right:20px;font-size:32px;color:#fff;text-decoration:none}
+html.nmkr-lightbox-open {
+    overflow: hidden;
+}
+
+.nmkr-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 999999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 56px 24px 24px;
+    background: rgba(7, 12, 20, .92);
+}
+
+.nmkr-lightbox.is-open {
+    display: flex;
+}
+
+.nmkr-lightbox img {
+    display: block;
+    max-width: min(92vw, 1400px);
+    max-height: 86vh;
+    border-radius: 8px;
+    object-fit: contain;
+}
+
+.nmkr-lightbox .nmkr-close {
+    position: absolute;
+    top: 16px;
+    right: 18px;
+    display: grid;
+    width: 44px;
+    height: 44px;
+    place-items: center;
+    padding: 0;
+    border: 1px solid rgba(255,255,255,.5);
+    border-radius: 50%;
+    background: rgba(0,0,0,.35);
+    color: #fff;
+    cursor: pointer;
+    font: inherit;
+    font-size: 30px;
+    line-height: 1;
+}
+
+.nmkr-lightbox .nmkr-close:hover {
+    background: rgba(255,255,255,.16);
+}
+
+.nmkr-lightbox .nmkr-close:focus-visible {
+    outline: 3px solid #fff;
+    outline-offset: 3px;
+}

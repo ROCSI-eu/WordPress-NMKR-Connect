@@ -19,6 +19,7 @@ function number_format_i18n( $number, $decimals = 0 ) {
 function esc_html( $value ) {
     return htmlspecialchars( (string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' );
 }
+function __( $text ) { return $text; }
 function esc_attr( $value ) {
     return htmlspecialchars( (string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' );
 }
@@ -85,6 +86,13 @@ nmkr_shortcode_output_assert(
 nmkr_shortcode_output_assert(
     ! empty( $GLOBALS['nmkr_shortcode_output_safe_css_calls'] ),
     'image style must pass through WordPress safe-CSS filtering before output'
+);
+nmkr_shortcode_output_assert(
+    false !== strpos( $image_markup, 'data-nmkr-lightbox-trigger="1"' )
+        && false !== strpos( $image_markup, 'role="button"' )
+        && false !== strpos( $image_markup, 'tabindex="0"' )
+        && false === strpos( $image_markup, 'onclick=' ),
+    'shared token image must expose a keyboard-operable lightbox trigger without inline handlers'
 );
 $unsafe_css_markup = nmkr_get_token_image_markup(
     $image_token,

@@ -8,6 +8,7 @@ function apply_filters($hook, $value) { return 'nmkr_ipfs_gateway_base' === $hoo
 function esc_url_raw($url) { return is_string($url) && preg_match('#^https://#i', $url) && filter_var($url, FILTER_VALIDATE_URL) ? $url : ''; }
 function esc_url($url) { return esc_url_raw($url); }
 function wp_parse_url($url, $component=-1) { return parse_url($url, $component); }
+function __( $text ) { return $text; }
 function esc_attr($value) { return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8'); }
 function safecss_filter_attr($value) {
     $value = (string) $value;
@@ -67,7 +68,8 @@ $dedup = nmkr_get_token_image_candidates((object) array('gateway_link' => $provi
 nmkr_image_same('', $dedup['fallback'], 'duplicate URLs must be removed');
 
 $markup = nmkr_get_token_image_markup($both, 'Synthetic "token"', 'token-image', 'max-width: 100%; height: auto;');
-foreach (array('data-nmkr-token-image="1"', 'data-nmkr-fallback-src=', 'data-nmkr-placeholder-src=', 'loading="lazy"', 'decoding="async"', 'onclick="openLightbox(this.src)"', 'style="max-width: 100%; height: auto;"') as $needle) nmkr_image_assert(false !== strpos($markup, $needle), 'shared markup state: ' . $needle);
+foreach (array('data-nmkr-token-image="1"', 'data-nmkr-lightbox-trigger="1"', 'data-nmkr-fallback-src=', 'data-nmkr-placeholder-src=', 'loading="lazy"', 'decoding="async"', 'role="button"', 'tabindex="0"', 'aria-label="Open image preview:', 'style="max-width: 100%; height: auto;"') as $needle) nmkr_image_assert(false !== strpos($markup, $needle), 'shared markup state: ' . $needle);
+nmkr_image_assert(false === strpos($markup, 'onclick='), 'shared token image must not rely on inline click handlers');
 $escaped_style = nmkr_get_token_image_markup($both, 'Synthetic "token"', 'token-image', 'color:red" onerror="alert(1)');
 nmkr_image_assert(false === strpos($escaped_style, ' onerror="'), 'style input must not create a new HTML attribute');
 nmkr_image_assert(false !== strpos($escaped_style, 'style="color:red&quot; onerror=&quot;alert(1)"'), 'style input must be escaped inside its attribute');
