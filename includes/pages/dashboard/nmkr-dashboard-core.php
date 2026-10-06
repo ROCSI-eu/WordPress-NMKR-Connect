@@ -59,15 +59,29 @@ function nmkr_connect_dashboard_page() {
     $dashboard_nonce = wp_create_nonce('nmkr_dashboard_nonce');
     ?>
     <div class="wrap nmkr-admin-shell nmkr-dashboard">
-        <h1 class="center-text">ROCSI Connector for NMKR Dashboard</h1>
+        <?php nmkr_render_dashboard_styles(); ?>
 
-        <?php 
-        // Render dashboard UI elements
-        nmkr_render_dashboard_styles();
-        nmkr_render_api_status_panel();
-        nmkr_render_sync_data_panel($dashboard_nonce, $can_manage_sync);
+        <header class="nmkr-dashboard-header">
+            <div>
+                <p class="nmkr-dashboard-eyebrow">ROCSI Connector for NMKR</p>
+                <h1>Dashboard</h1>
+                <p class="nmkr-dashboard-intro">Monitor your NMKR connection, synchronization state, and the latest synchronized data from one operational view.</p>
+            </div>
+            <?php if ( current_user_can( 'nmkr_manage_settings' ) ) : ?>
+                <a class="button button-secondary nmkr-dashboard-settings-link" href="<?php echo esc_url( admin_url( 'options-general.php?page=nmkr-connect-settings' ) ); ?>">Plugin Settings</a>
+            <?php endif; ?>
+        </header>
+
+        <div class="nmkr-dashboard-primary-grid" role="group" aria-label="Connection and synchronization overview">
+            <?php
+            nmkr_render_api_status_panel();
+            nmkr_render_sync_data_panel($dashboard_nonce, $can_manage_sync);
+            ?>
+        </div>
+
+        <?php
         nmkr_render_sync_statistics_panel($initial_stats);
-        nmkr_render_debug_logs_panel($can_manage_sync); // Add debug logs panel at the bottom
+        nmkr_render_debug_logs_panel($can_manage_sync);
         nmkr_render_dashboard_scripts($dashboard_nonce, $can_manage_sync);
         ?>
     </div>

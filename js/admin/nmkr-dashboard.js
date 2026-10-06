@@ -1,4 +1,19 @@
 const NMKR_COMPLETED_STATS_RETRY_DELAYS = Object.freeze([750, 1500, 2500]);
+const NMKR_NO_SYNC_HISTORY_VALUE = 'No synchronization done yet';
+const NMKR_SYNC_SUMMARY_EMPTY_MESSAGE = 'No completed synchronization has been recorded yet.';
+const NMKR_SYNC_SUMMARY_READY_MESSAGE = 'Review the latest run outcome and synchronized totals.';
+
+function nmkrCompletedSummaryMessage(lastSyncTime) {
+    return typeof lastSyncTime === 'string' &&
+        lastSyncTime.trim() !== '' &&
+        lastSyncTime !== NMKR_NO_SYNC_HISTORY_VALUE
+        ? NMKR_SYNC_SUMMARY_READY_MESSAGE
+        : NMKR_SYNC_SUMMARY_EMPTY_MESSAGE;
+}
+
+function nmkrShouldOpenDiagnostics(hash) {
+    return hash === '#nmkr-debug-logs';
+}
 
 function nmkrHasCanonicalLatestRun(latestRun) {
     if (!latestRun || typeof latestRun !== 'object') {
@@ -29,7 +44,9 @@ function nmkrCompletedStatsRetryDelay(attempt) {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         nmkrHasCanonicalLatestRun,
-        nmkrCompletedStatsRetryDelay
+        nmkrCompletedStatsRetryDelay,
+        nmkrCompletedSummaryMessage,
+        nmkrShouldOpenDiagnostics
     };
 }
 
@@ -39,6 +56,16 @@ jQuery(document).ready(function($) {
     const syncNonce = $('#nmkr-sync-nonce').val();
     const dashboardNonce = $('#nmkr-dashboard-nonce').val();
     const canManageSync = Boolean(window.nmkrDashboardConfig && window.nmkrDashboardConfig.canManageSync);
+    const diagnosticsDisclosure = $('#nmkr-debug-logs');
+
+    function openDiagnosticsForHash() {
+        if (diagnosticsDisclosure.length && nmkrShouldOpenDiagnostics(window.location.hash)) {
+            diagnosticsDisclosure.prop('open', true);
+        }
+    }
+
+    openDiagnosticsForHash();
+    $(window).on('hashchange.nmkrDashboardDiagnostics', openDiagnosticsForHash);
 
     // Keep observation polling available while suppressing manager-only telemetry writes.
     $.ajaxPrefilter(function(options, originalOptions, jqXHR) {
@@ -213,6 +240,9 @@ jQuery(document).ready(function($) {
                 if (response.success) {
                     // Update displayed statistics
                     $('#last-synced').text(response.data.last_sync_time);
+                    $('#nmkr-sync-summary-message').text(
+                        nmkrCompletedSummaryMessage(response.data.last_sync_time)
+                    );
                     $('#total-projects').text(response.data.total_projects);
                     $('#total-tokens').text(response.data.total_tokens);
                     $('#total-sync-time').text(response.data.total_sync_duration);

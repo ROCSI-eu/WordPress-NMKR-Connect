@@ -70,17 +70,20 @@ test.describe('NMKR Connect dashboard page regression', () => {
 
     const dashboard = page.locator('.wrap.nmkr-dashboard');
     await expect(dashboard).toBeAttached();
-    await expect(page.getByRole('heading', { name: 'ROCSI Connector for NMKR Dashboard' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible();
+    await expect(page.locator('.nmkr-dashboard-eyebrow')).toHaveText('ROCSI Connector for NMKR');
+    await expect(page.locator('.nmkr-dashboard-primary-grid')).toBeAttached();
 
     const apiPanel = page.locator('.api-status-panel');
     await expect(apiPanel).toBeAttached();
-    await expect(apiPanel).toContainText('API Connection Status');
-    await expect(apiPanel.locator('#api-status')).toBeAttached();
+    await expect(apiPanel.getByRole('heading', { name: 'NMKR API' })).toBeVisible();
+    await expect(apiPanel.locator('#api-status')).toHaveAttribute('role', 'status');
+    await expect(apiPanel.locator('#api-status')).toHaveAttribute('aria-live', 'polite');
     await expectButtonElement(apiPanel.locator('#refresh-api-status'));
 
     const syncPanel = page.locator('.sync-data');
     await expect(syncPanel).toBeAttached();
-    await expect(syncPanel).toContainText('Data Synchronization');
+    await expect(syncPanel.getByRole('heading', { name: 'Data Sync' })).toBeVisible();
     await expectButtonElement(syncPanel.locator('#nmkr-sync-button'));
     await expectButtonElement(syncPanel.locator('#nmkr-stop-sync-button'));
 
@@ -91,7 +94,9 @@ test.describe('NMKR Connect dashboard page regression', () => {
     await expect(progressContainer).toBeAttached();
     await expect(progressContainer).toHaveAttribute('role', 'progressbar');
     await expect(page.locator('#nmkr-sync-progress-bar')).toBeAttached();
+    await expect(page.locator('#status-message')).toHaveAttribute('role', 'status');
     await expect(page.locator('#status-message')).toHaveAttribute('aria-live', 'polite');
+    await expect(page.locator('#status-message')).toHaveAttribute('aria-atomic', 'true');
     await expect(page.locator('#nmkr-sync-phase-label')).toBeAttached();
     await expect(page.locator('#active-sync-metrics')).toBeAttached();
 
@@ -109,7 +114,10 @@ test.describe('NMKR Connect dashboard page regression', () => {
 
     const statisticsPanel = page.locator('.sync-statistics');
     await expect(statisticsPanel).toBeAttached();
-    await expect(statisticsPanel).toContainText('Previous Synchronization Statistics');
+    await expect(statisticsPanel.getByRole('heading', { name: 'Synchronization Summary' })).toBeVisible();
+    await expect(statisticsPanel.locator('.nmkr-summary-grid')).toBeAttached();
+    await expect(statisticsPanel.locator('.nmkr-summary-card')).toHaveCount(5);
+    await expect(statisticsPanel.locator('#nmkr-sync-summary-message')).toBeAttached();
 
     for (const selector of [
       '#last-synced',
@@ -134,9 +142,25 @@ test.describe('NMKR Connect dashboard page regression', () => {
       await expect(statisticsPanel.locator(selector)).toBeAttached();
     }
 
+    const performanceDetails = page.locator('#nmkr-performance-details');
+    await expect(performanceDetails).toBeAttached();
+    await expect(performanceDetails).not.toHaveAttribute('open', '');
+    await performanceDetails.locator(':scope > summary').click();
+    await expect(statisticsPanel.locator('#performance-stats')).toBeVisible();
+
+    const diagnostics = page.locator('.nmkr-dashboard-diagnostics');
     const debugLogsPanel = page.locator('.debug-logs-panel');
 
-    if (await debugLogsPanel.isVisible().catch(() => false)) {
+    if (await diagnostics.count()) {
+      await expect(diagnostics).toHaveAttribute('id', 'nmkr-debug-logs');
+      await expect(diagnostics).not.toHaveAttribute('open', '');
+
+      await page.evaluate(() => {
+        window.location.hash = '#nmkr-debug-logs';
+      });
+      await expect(diagnostics).toHaveAttribute('open', '');
+      await expect(debugLogsPanel).toBeVisible();
+
       for (const selector of [
         '#nmkr-debug-logs',
         '.debug-logs-panel',
@@ -151,6 +175,10 @@ test.describe('NMKR Connect dashboard page regression', () => {
         await expect(page.locator(selector).first()).toBeAttached();
       }
     }
+
+    await page.setViewportSize({ width: 390, height: 900 });
+    const dashboardFitsViewport = await dashboard.evaluate((element) => element.scrollWidth <= element.clientWidth + 1);
+    expect(dashboardFitsViewport).toBe(true);
 
     expect(unexpectedDashboardAjaxActions).toEqual([]);
   });

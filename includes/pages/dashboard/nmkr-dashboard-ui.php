@@ -24,22 +24,25 @@ function nmkr_render_dashboard_styles() {
  */
 function nmkr_render_api_status_panel() {
     ?>
-    <!-- API Status Panel -->
-    <div class="panel api-status-panel">
-        <h2 class="center-text">API Connection Status</h2>
-        <div class="nmkr-info-box">
-            <span class="dashicons dashicons-info"></span>
-            <p>Check the current status of your connection to the NMKR API.</p>
+    <section class="panel api-status-panel nmkr-dashboard-status-card" aria-labelledby="nmkr-api-status-title">
+        <div class="nmkr-dashboard-card-heading">
+            <div>
+                <p class="nmkr-dashboard-card-kicker">Connection</p>
+                <h2 id="nmkr-api-status-title">NMKR API</h2>
+            </div>
+            <span class="dashicons dashicons-admin-links" aria-hidden="true"></span>
         </div>
 
-        <div id="api-status" class="api-status center-text">
+        <p class="nmkr-dashboard-card-help">Confirm that the plugin can reach NMKR before starting a synchronization.</p>
+
+        <div id="api-status" class="api-status" role="status" aria-live="polite" aria-atomic="true">
             <span class="status-indicator checking">Checking connection...</span>
         </div>
 
-        <div class="api-actions center-text">
-            <button id="refresh-api-status" class="button button-primary">Refresh Status</button>
+        <div class="api-actions">
+            <button id="refresh-api-status" class="button button-secondary">Refresh Status</button>
         </div>
-    </div>
+    </section>
     <?php
 }
 
@@ -51,16 +54,20 @@ function nmkr_render_api_status_panel() {
  */
 function nmkr_render_sync_data_panel($dashboard_nonce, $can_manage_sync) {
     ?>
-    <!-- Data Synchronization Panel -->
-    <div class="panel sync-data" role="region" aria-label="Data Synchronization Controls">
-        <h2 class="center-text">Data Synchronization</h2>
-        <div id="nmkr-recovered-note" class="notice notice-info is-dismissible" style="display:none"></div>
-        <div class="nmkr-info-box">
-            <span class="dashicons dashicons-database-import"></span>
-            <p>Synchronize and update your NMKR projects, tokens, and token details to maintain current data in the dashboard.</p>
+    <section class="panel sync-data nmkr-dashboard-status-card nmkr-dashboard-sync-card" role="region" aria-labelledby="nmkr-sync-title">
+        <div class="nmkr-dashboard-card-heading">
+            <div>
+                <p class="nmkr-dashboard-card-kicker">Synchronization</p>
+                <h2 id="nmkr-sync-title">Data Sync</h2>
+            </div>
+            <span class="dashicons dashicons-update" aria-hidden="true"></span>
         </div>
 
-        <div class="sync-controls panel-section">
+        <p class="nmkr-dashboard-card-help">Update locally stored projects, tokens, and token details from NMKR.</p>
+
+        <div id="nmkr-recovered-note" class="notice notice-info is-dismissible" style="display:none"></div>
+
+        <div class="sync-controls">
             <div class="sync-buttons">
                 <?php if ( $can_manage_sync ) : ?>
                 <button id="nmkr-sync-button" class="button button-primary" disabled aria-label="Start Data Synchronization">
@@ -69,58 +76,67 @@ function nmkr_render_sync_data_panel($dashboard_nonce, $can_manage_sync) {
                 <button id="nmkr-stop-sync-button" class="button button-danger" style="display:none;" aria-label="Stop Data Synchronization">
                     Stop Synchronization
                 </button>
+                <?php else : ?>
+                <p class="nmkr-dashboard-view-only-note"><span class="dashicons dashicons-lock" aria-hidden="true"></span> Synchronization controls are read-only for your account.</p>
                 <?php endif; ?>
             </div>
 
             <input type="hidden" id="nmkr-sync-nonce" value="<?php echo esc_attr( wp_create_nonce( 'nmkr_sync_nonce' ) ); ?>">
             <input type="hidden" id="nmkr-dashboard-nonce" value="<?php echo esc_attr( $dashboard_nonce ); ?>">
 
-            <div id="nmkr-sync-progress-container" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" style="display: none;">
+            <div id="nmkr-sync-progress-container" role="progressbar" aria-label="Synchronization progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" style="display: none;">
                 <div id="nmkr-sync-progress-bar" style="width: 0%;">0%</div>
             </div>
 
-            <div id="status-message" aria-live="polite" class="sync-status-message">
-                <span id="nmkr-sync-phase-label" class="sync-phase-label"></span>
+            <div id="status-message" role="status" aria-live="polite" aria-atomic="true" class="sync-status-message">
+                <span id="nmkr-sync-phase-label" class="sync-phase-label">Ready to synchronize.</span>
             </div>
 
-            <div id="active-sync-metrics" style="display: none; text-align: center; margin-top: 15px; font-size: 14px;">
-                <h4 class="panel-description">Active Sync Metrics</h4>
-                <div class="active-metrics-container">
-                    <!-- Progress Metrics -->
+            <div id="active-sync-metrics" class="nmkr-active-sync-metrics" style="display: none;">
+                <div class="nmkr-active-sync-heading">
+                    <h3>Active synchronization</h3>
+                    <p>Live progress for the current run.</p>
+                </div>
+
+                <div class="active-metrics-container nmkr-active-metrics-summary">
                     <div class="active-metric">
-                        <span class="label"><strong>🗂️ Projects synced:</strong></span>
+                        <span class="label">Projects synced</span>
                         <span class="value total-projects-active">0</span>
                     </div>
                     <div class="active-metric">
-                        <span class="label"><strong>🪙 Tokens synced:</strong></span>
+                        <span class="label">Tokens synced</span>
                         <span class="value total-tokens-active">0</span>
                     </div>
                     <div class="active-metric">
-                        <span class="label"><strong>⏱️ Sync duration:</strong></span>
+                        <span class="label">Sync duration</span>
                         <span class="value total-sync-duration-active">0s</span>
                     </div>
-
-                    <!-- Performance Metrics -->
-                    <div class="active-metric">
-                        <span class="label"><strong>🔌 Total API time:</strong></span>
-                        <span class="value total-api-time-active">0.00s</span>
-                    </div>
-                    <div class="active-metric">
-                        <span class="label"><strong>⚡ Response time:</strong></span>
-                        <span class="value avg-response-time status-excellent">0.00ms</span>
-                    </div>
-                    <div class="active-metric">
-                        <span class="label"><strong>📊 API requests:</strong></span>
-                        <span class="value api-requests">0</span>
-                    </div>
-                    <div class="active-metric">
-                        <span class="label"><strong>🗄️ Memory:</strong></span>
-                        <span class="value memory-usage status-excellent">0.00MB</span>
-                    </div>
                 </div>
+
+                <details class="nmkr-active-performance">
+                    <summary>Live performance details</summary>
+                    <div class="active-metrics-container">
+                        <div class="active-metric">
+                            <span class="label">Total API time</span>
+                            <span class="value total-api-time-active">0.00s</span>
+                        </div>
+                        <div class="active-metric">
+                            <span class="label">Response time</span>
+                            <span class="value avg-response-time status-excellent">0.00ms</span>
+                        </div>
+                        <div class="active-metric">
+                            <span class="label">API requests</span>
+                            <span class="value api-requests">0</span>
+                        </div>
+                        <div class="active-metric">
+                            <span class="label">Memory</span>
+                            <span class="value memory-usage status-excellent">0.00MB</span>
+                        </div>
+                    </div>
+                </details>
             </div>
         </div>
-    </div>
+    </section>
     <?php
 }
 
@@ -134,58 +150,76 @@ function nmkr_render_sync_statistics_panel($initial_stats) {
     $display_counter = function ($key) use ($latest_run) {
         return array_key_exists($key, $latest_run) && $latest_run[$key] !== null ? (string) $latest_run[$key] : '—';
     };
+    $has_sync_history = 'No synchronization done yet' !== $initial_stats['last_sync_time'];
     ?>
-    <!-- Synchronization Statistics Panel -->
-    <div class="panel sync-statistics" role="region" aria-label="Synchronization Statistics">
-        <h2 class="center-text">Previous Synchronization Statistics</h2>
-        <div class="nmkr-info-box">
-            <span class="dashicons dashicons-chart-bar"></span>
-            <p>View detailed statistics about previous synchronization processes.</p>
+    <section class="panel sync-statistics nmkr-dashboard-summary-panel" role="region" aria-labelledby="nmkr-sync-summary-title">
+        <div class="nmkr-dashboard-section-heading">
+            <div>
+                <p class="nmkr-dashboard-card-kicker">Latest synchronized state</p>
+                <h2 id="nmkr-sync-summary-title">Synchronization Summary</h2>
+            </div>
+            <p id="nmkr-sync-summary-message"><?php echo esc_html( $has_sync_history ? 'Review the latest run outcome and synchronized totals.' : 'No completed synchronization has been recorded yet.' ); ?></p>
         </div>
 
-        <div class="sync-stats panel-section">
-            <!-- Last Sync Time -->
-            <div class="last-sync-time">
-                <p><strong>🕒 Last synced at:</strong> <span id="last-synced"><?php echo esc_html($initial_stats['last_sync_time']); ?></span></p>
+        <div class="nmkr-summary-grid">
+            <div class="nmkr-summary-card nmkr-summary-card-wide">
+                <span class="nmkr-summary-label">Last synchronized</span>
+                <strong id="last-synced"><?php echo esc_html($initial_stats['last_sync_time']); ?></strong>
+            </div>
+            <div class="nmkr-summary-card">
+                <span class="nmkr-summary-label">Latest result</span>
+                <strong id="latest-run-terminal-result"><?php echo esc_html($latest_run['terminal_result'] ?? '—'); ?></strong>
+            </div>
+            <div class="nmkr-summary-card">
+                <span class="nmkr-summary-label">Lifecycle</span>
+                <strong id="latest-run-status"><?php echo esc_html($latest_run['status'] ?? '—'); ?></strong>
+            </div>
+            <div class="nmkr-summary-card">
+                <span class="nmkr-summary-label">Projects</span>
+                <strong id="total-projects"><?php echo esc_html($initial_stats['total_projects']); ?></strong>
+            </div>
+            <div class="nmkr-summary-card">
+                <span class="nmkr-summary-label">Tokens</span>
+                <strong id="total-tokens"><?php echo esc_html($initial_stats['total_tokens']); ?></strong>
+            </div>
+        </div>
+
+        <details id="latest-run-result" class="nmkr-dashboard-details">
+            <summary>Latest run details</summary>
+            <div class="nmkr-detail-grid">
+                <div><span>Processed</span><strong id="latest-run-processed"><?php echo esc_html($display_counter('items_processed')); ?></strong></div>
+                <div><span>Successful</span><strong id="latest-run-successful"><?php echo esc_html($display_counter('items_successful')); ?></strong></div>
+                <div><span>Failed</span><strong id="latest-run-failed"><?php echo esc_html($display_counter('items_failed')); ?></strong></div>
+                <div><span>Skipped</span><strong id="latest-run-skipped"><?php echo esc_html($display_counter('items_skipped')); ?></strong></div>
+                <div><span>Token details synced</span><strong id="latest-run-token-details"><?php echo esc_html($display_counter('token_details_synced')); ?></strong></div>
+            </div>
+        </details>
+
+        <details id="nmkr-performance-details" class="nmkr-dashboard-details nmkr-performance-details">
+            <summary>Performance diagnostics</summary>
+            <div id="performance-stats" class="nmkr-detail-grid nmkr-performance-grid">
+                <div class="total-time"><span>Total sync duration</span><strong id="total-sync-time"><?php echo esc_html($initial_stats['total_sync_duration']); ?></strong></div>
+                <div class="api-time"><span>Total API time</span><strong id="total-api-time"><?php echo esc_html($initial_stats['total_api_time']); ?></strong></div>
+                <div class="avg-time"><span>Average response time</span><strong id="avg-response-time" class="<?php echo esc_attr($initial_stats['response_time_class']); ?>"><?php echo esc_html($initial_stats['average_response_time']); ?></strong></div>
+                <div class="request-count"><span>API requests</span><strong id="request-count"><?php echo esc_html($initial_stats['api_requests']); ?></strong></div>
+                <div class="memory-used"><span>Memory usage</span><strong id="memory-usage" class="<?php echo esc_attr($initial_stats['memory_class']); ?>"><?php echo esc_html($initial_stats['memory_usage']); ?></strong></div>
             </div>
 
-            <div id="latest-run-result" class="performance-metrics">
-                <p><strong>Latest run result:</strong> <span id="latest-run-terminal-result"><?php echo esc_html($latest_run['terminal_result'] ?? '—'); ?></span></p>
-                <p><strong>Lifecycle status:</strong> <span id="latest-run-status"><?php echo esc_html($latest_run['status'] ?? '—'); ?></span></p>
-                <p><strong>Processed:</strong> <span id="latest-run-processed"><?php echo esc_html($display_counter('items_processed')); ?></span></p>
-                <p><strong>Successful:</strong> <span id="latest-run-successful"><?php echo esc_html($display_counter('items_successful')); ?></span></p>
-                <p><strong>Failed:</strong> <span id="latest-run-failed"><?php echo esc_html($display_counter('items_failed')); ?></span></p>
-                <p><strong>Skipped:</strong> <span id="latest-run-skipped"><?php echo esc_html($display_counter('items_skipped')); ?></span></p>
-                <p><strong>Token details synced:</strong> <span id="latest-run-token-details"><?php echo esc_html($display_counter('token_details_synced')); ?></span></p>
-            </div>
-
-            <!-- Sync Metrics -->
-            <div id="performance-stats" class="performance-metrics">
-                <p class="total-projects"><strong>🗂️ Total projects:</strong> <span id="total-projects"><?php echo esc_html($initial_stats['total_projects']); ?></span></p>
-                <p class="total-tokens"><strong>🪙 Total tokens:</strong> <span id="total-tokens"><?php echo esc_html($initial_stats['total_tokens']); ?></span></p>
-                <p class="total-time"><strong>⏱️ Total sync duration:</strong> <span id="total-sync-time"><?php echo esc_html($initial_stats['total_sync_duration']); ?></span></p>
-                <p class="api-time"><strong>🔌 Total API time:</strong> <span id="total-api-time"><?php echo esc_html($initial_stats['total_api_time']); ?></span></p>
-                <p class="avg-time"><strong>⚡ Average response time:</strong> <span id="avg-response-time" class="<?php echo esc_attr($initial_stats['response_time_class']); ?>"><?php echo esc_html($initial_stats['average_response_time']); ?></span></p>
-                <p class="request-count"><strong>📊 API requests:</strong> <span id="request-count"><?php echo esc_html($initial_stats['api_requests']); ?></span></p>
-                <p class="memory-used"><strong>🗄️ Memory usage:</strong> <span id="memory-usage" class="<?php echo esc_attr($initial_stats['memory_class']); ?>"><?php echo esc_html($initial_stats['memory_usage']); ?></span></p>
-            </div>
-
-            <!-- Performance Legend -->
-            <div id="performance-legend" class="performance-legend panel-section">
-                <p class="panel-description legend-title">Performance Indicators:</p>
-                <div class="legend-item">
-                    <span class="legend-dot status-excellent"></span> Excellent
-                    <span class="legend-dot status-good"></span> Good
-                    <span class="legend-dot status-warning"></span> Warning
-                    <span class="legend-dot status-critical"></span> Critical
+            <div id="performance-legend" class="performance-legend">
+                <p class="legend-title">Performance thresholds</p>
+                <div class="legend-item" aria-label="Performance status thresholds">
+                    <span><span class="legend-dot status-excellent" aria-hidden="true"></span> Excellent</span>
+                    <span><span class="legend-dot status-good" aria-hidden="true"></span> Good</span>
+                    <span><span class="legend-dot status-warning" aria-hidden="true"></span> Warning</span>
+                    <span><span class="legend-dot status-critical" aria-hidden="true"></span> Critical</span>
                 </div>
                 <p class="legend-desc">
-                    <small>Response Time: &lt;0.5s (Excellent), &lt;1s (Good), &lt;2s (Warning), &gt;2s (Critical)</small><br>
-                    <small>Memory Usage: &lt;50MB (Excellent), &lt;100MB (Good), &lt;200MB (Warning), &gt;200MB (Critical)</small>
+                    <small>Response time: &lt;0.5s Excellent, &lt;1s Good, &lt;2s Warning, ≥2s Critical.</small><br>
+                    <small>Memory usage: &lt;50MB Excellent, &lt;100MB Good, &lt;200MB Warning, ≥200MB Critical.</small>
                 </p>
             </div>
-        </div>
-    </div>
+        </details>
+    </section>
     <?php
 }
 
@@ -212,13 +246,22 @@ function nmkr_render_debug_logs_panel($can_manage_sync) {
 
     ?>
     <!-- Debug Logs Panel -->
-    <a id="nmkr-debug-logs"></a>
-    <div class="panel debug-logs-panel" role="region" aria-label="Debug Logs">
-        <h2 class="center-text">Debug Logs (Last <?php echo esc_html($retention_limit); ?> Entries)</h2>
-                 <div class="nmkr-info-box">
-             <span class="dashicons dashicons-text-page"></span>
-             <p>View recent debug logs from synchronization, API, UI, and performance monitoring. This is a static view that shows logs captured at page load time.</p>
-         </div>
+    <details id="nmkr-debug-logs" class="nmkr-dashboard-diagnostics">
+        <summary>
+            <span>
+                <strong>Diagnostics</strong>
+                <small>Debug logs and troubleshooting details</small>
+            </span>
+            <span class="dashicons dashicons-arrow-down-alt2" aria-hidden="true"></span>
+        </summary>
+        <div class="panel debug-logs-panel" role="region" aria-label="Debug Logs">
+            <div class="nmkr-dashboard-section-heading">
+                <div>
+                    <p class="nmkr-dashboard-card-kicker">Troubleshooting</p>
+                    <h2>Debug Logs</h2>
+                </div>
+                <p>Showing up to <?php echo esc_html($retention_limit); ?> retained entries per log stream.</p>
+            </div>
 
          <div class="filter-note">
              💡 <strong>Tip:</strong> Search across all log entries or use the dropdowns to filter by specific criteria. Filters work together to narrow down results.
@@ -485,7 +528,8 @@ function nmkr_render_debug_logs_panel($can_manage_sync) {
                 </details>
             </div>
         </div>
-    </div>
+        </div>
+    </details>
     <?php
 }
 
