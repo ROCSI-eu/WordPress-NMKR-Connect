@@ -56,7 +56,7 @@ function nmkr_display_shortcodes_page() {
             'best_for'   => __( 'A single featured or linked token', 'rocsi-connector-for-nmkr' ),
             'example'    => '[nmkr-token token_uid="456xyz"]',
             'attributes' => array(
-                array( 'token_uid', '', __( 'Exact token UID to render. If omitted, the shortcode resolves the active/latest project and chooses its first buyable token, or its first token when none is buyable.', 'rocsi-connector-for-nmkr' ) ),
+                array( 'token_uid', '', __( 'Exact token UID to render. If omitted, the shortcode resolves the active/latest project, inspects up to its 50 newest synchronized tokens, and prefers the first buyable token in that bounded set; if none is buyable there, it uses the newest token in that set.', 'rocsi-connector-for-nmkr' ) ),
             ),
             'behavior'   => __( 'When token_uid is supplied, that token is rendered directly. Parameterless mode can use ?nmkr_project= to choose the source project before falling back to the latest synchronized project.', 'rocsi-connector-for-nmkr' ),
         ),
@@ -70,7 +70,7 @@ function nmkr_display_shortcodes_page() {
                 array( 'project_uid', '', __( 'Initial project UID. If omitted, the resolver falls back to the latest synchronized project.', 'rocsi-connector-for-nmkr' ) ),
                 array( 'allow_user_select', '1', __( '1 shows the built-in project selector. 0 hides that selector.', 'rocsi-connector-for-nmkr' ) ),
             ),
-            'behavior'   => __( 'Project resolution is: ?nmkr_project= URL value, then project_uid, then latest synchronized project. The featured token prefers a buyable token when one exists.', 'rocsi-connector-for-nmkr' ),
+            'behavior'   => __( 'Project resolution is: ?nmkr_project= URL value, then project_uid, then latest synchronized project. The featured-token lookup inspects up to the 50 newest synchronized tokens, preferring the first buyable token in that bounded set and otherwise using the newest token in that set.', 'rocsi-connector-for-nmkr' ),
         ),
     );
     ?>

@@ -93,8 +93,17 @@ nmkr_projects_shortcodes_ui_assert(
     'admin guide does not repeat the old inaccurate token fallback claim'
 );
 nmkr_projects_shortcodes_ui_assert(
-    false !== strpos( $shortcodes_page, 'first buyable token' ),
-    'admin guide documents the actual parameterless token fallback'
+    false !== strpos( $selection_helper, 'nmkr_get_project_tokens_joined( $project_uid, 50, false )' ),
+    'featured-token helper remains bounded to 50 synchronized tokens'
+);
+nmkr_projects_shortcodes_ui_assert(
+    false !== strpos( $shortcodes_page, '50 newest synchronized tokens' )
+        && false !== strpos( $shortcodes_page, 'bounded set' ),
+    'admin guide documents the bounded featured-token lookup'
+);
+nmkr_projects_shortcodes_ui_assert(
+    false === strpos( $shortcodes_page, 'prefers a buyable token when one exists' ),
+    'admin guide does not overstate buyable-token coverage beyond the bounded lookup'
 );
 
 $presentation_contracts = array(
