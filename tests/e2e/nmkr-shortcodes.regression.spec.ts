@@ -37,15 +37,29 @@ test.describe('NMKR Connect shortcodes page regression', () => {
     await expectWpAdmin(page);
     await expect(page).toHaveURL(/page=nmkr-connect-shortcodes/);
 
-    const shortcodesDashboard = page.locator('.wrap.nmkr-dashboard');
+    const shortcodesDashboard = page.locator('.wrap.nmkr-shortcodes-page');
     await expect(shortcodesDashboard).toBeAttached();
-    await expect(page.getByRole('heading', { name: 'ROCSI Connector for NMKR - Shortcodes' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Available Shortcodes' })).toBeVisible();
-    await expect(page.locator('.nmkr-info-box').first()).toBeAttached();
+    await expect(page.getByRole('heading', { name: 'Shortcodes', exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Selection rules shared by project-based shortcodes' }),
+    ).toBeVisible();
+
+    const shortcodeCards = page.locator('.nmkr-shortcode-card');
+    await expect(shortcodeCards).toHaveCount(5);
 
     for (const shortcodeHeading of ['[nmkr-grid]', '[nmkr-token-list]', '[nmkr-carousel]', '[nmkr-token]', '[nmkr-project]']) {
       await expect(page.getByRole('heading', { name: shortcodeHeading })).toBeVisible();
     }
+
+    await expect(page.locator('.nmkr-shortcode-example pre')).toHaveCount(5);
+    await expect(page.locator('.nmkr-shortcode-attributes')).toHaveCount(5);
+    await expect(page.getByText('?nmkr_project=<uid>', { exact: false })).toBeVisible();
+
+    await page.setViewportSize({ width: 390, height: 900 });
+    const shortcodesFitViewport = await shortcodesDashboard.evaluate(
+      (element) => element.scrollWidth <= element.clientWidth + 1,
+    );
+    expect(shortcodesFitViewport).toBe(true);
 
     expect(unexpectedShortcodesAjaxActions).toEqual([]);
   });
