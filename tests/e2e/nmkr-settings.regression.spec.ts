@@ -55,8 +55,8 @@ test.describe('NMKR Connect settings page regression', () => {
     await expectType(page.locator('#nmkr_performance_debug_enabled'), 'checkbox');
     await expectType(page.locator('#nmkr_log_throttle_enabled'), 'checkbox');
     await expectType(page.locator('#nmkr_log_retention_limit'), 'number');
-    await expect(page.locator('#nmkr-dashboard-sync-logging-status')).toBeVisible();
-    await expect(page.locator('#nmkr-dashboard-sync-logging-status-text')).toBeVisible();
+    await expect(page.locator('#nmkr-dashboard-sync-logging-status')).toBeAttached();
+    await expect(page.locator('#nmkr-dashboard-sync-logging-status-text')).toBeAttached();
 
     await expectSelectOptions(page.locator('#nmkr_analytics_mode'), ['off', 'custom', 'ga4', 'both']);
     await expectType(page.locator('#nmkr_ga4_measurement_id'), 'text');
@@ -76,6 +76,8 @@ test.describe('NMKR Connect settings page regression', () => {
 
     await page.locator('#nmkr-settings-diagnostics > summary').click();
     await expect(page.locator('#nmkr_debug_enabled')).toBeVisible();
+    await expect(page.locator('#nmkr-dashboard-sync-logging-status')).toBeVisible();
+    await expect(page.locator('#nmkr-dashboard-sync-logging-status-text')).toBeVisible();
 
     await page.setViewportSize({ width: 390, height: 900 });
     const settingsWrap = page.locator('.nmkr-settings-wrap');
