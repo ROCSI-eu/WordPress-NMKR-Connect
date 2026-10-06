@@ -44,26 +44,29 @@ test.describe('NMKR Connect projects page regression', () => {
     await expect(page.locator('.nmkr-project-count')).toBeAttached();
 
     const projectSelectorForm = page.locator('form.project-selector-form');
-    await expect(projectSelectorForm).toBeAttached();
-    await expect(projectSelectorForm).toHaveAttribute('method', 'post');
+    const projectsEmptyState = page.locator('.nmkr-projects-empty-state');
 
-    const filterNonce = projectSelectorForm.locator(
-      'input[type="hidden"][name="nmkr_projects_filter_nonce"]',
-    );
-    await expect(filterNonce).toHaveCount(1);
-    await expect(filterNonce).not.toHaveValue('');
+    if ((await projectSelectorForm.count()) > 0) {
+      await expect(projectSelectorForm).toHaveAttribute('method', 'post');
 
-    const projectSelect = projectSelectorForm.locator('select#project_uid[name="project_uid"]');
-    await expect(projectSelect).toBeAttached();
-    await expect(projectSelect).toHaveAttribute('onchange', 'this.form.submit()');
+      const filterNonce = projectSelectorForm.locator(
+        'input[type="hidden"][name="nmkr_projects_filter_nonce"]',
+      );
+      await expect(filterNonce).toHaveCount(1);
+      await expect(filterNonce).not.toHaveValue('');
 
-    const placeholderOption = projectSelect.locator('option[value=""]');
-    await expect(placeholderOption).toHaveCount(1);
-    await expect(placeholderOption).toHaveText('Select a project');
-    await expect(projectSelect).toHaveValue('');
+      const projectSelect = projectSelectorForm.locator('select#project_uid[name="project_uid"]');
+      await expect(projectSelect).toBeAttached();
+      await expect(projectSelect).toHaveAttribute('onchange', 'this.form.submit()');
 
-    const availableProjectOptions = projectSelect.locator('option:not([value=""])');
-    if ((await availableProjectOptions.count()) > 0) {
+      const placeholderOption = projectSelect.locator('option[value=""]');
+      await expect(placeholderOption).toHaveCount(1);
+      await expect(placeholderOption).toHaveText('Select a project');
+      await expect(projectSelect).toHaveValue('');
+
+      const availableProjectOptions = projectSelect.locator('option:not([value=""])');
+      expect(await availableProjectOptions.count()).toBeGreaterThan(0);
+
       const projectUid = await availableProjectOptions.first().getAttribute('value');
       expect(projectUid).toBeTruthy();
 
@@ -84,7 +87,8 @@ test.describe('NMKR Connect projects page regression', () => {
       await expect(tokenFilterForm.locator('input#search_token[name="search_token"]')).toBeAttached();
       await expect(tokenFilterForm.locator('select#filter_minted[name="filter_minted"]')).toBeAttached();
     } else {
-      await expect(page.locator('.nmkr-projects-empty-state')).toBeVisible();
+      await expect(projectsEmptyState).toBeVisible();
+      await expect(projectsEmptyState).toContainText('No synchronized projects yet');
     }
 
     await page.setViewportSize({ width: 390, height: 900 });
