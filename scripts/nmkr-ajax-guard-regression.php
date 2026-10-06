@@ -384,7 +384,7 @@ try {
     if (strpos($ui_source, '<?php if ( $can_manage_sync ) : ?>') === false) throw new Exception('dashboard_view_only_gating_missing');
 
     ob_start(); nmkr_render_sync_data_panel('synthetic-dashboard-nonce', false); $view_sync=ob_get_clean();
-    if (strpos($view_sync, 'class="panel sync-data"') === false || strpos($view_sync, 'id="nmkr-sync-progress-container"') === false || strpos($view_sync, 'id="active-sync-metrics"') === false) throw new Exception('dashboard_view_only_observation_missing');
+    if (strpos($view_sync, 'class="panel sync-data') === false || strpos($view_sync, 'id="nmkr-sync-progress-container"') === false || strpos($view_sync, 'id="active-sync-metrics"') === false) throw new Exception('dashboard_view_only_observation_missing');
     if (strpos($view_sync, 'id="nmkr-sync-button"') !== false || strpos($view_sync, 'id="nmkr-stop-sync-button"') !== false) throw new Exception('dashboard_view_only_sync_controls_present');
     ob_start(); nmkr_render_sync_data_panel('synthetic-dashboard-nonce', true); $manager_sync=ob_get_clean();
     if (strpos($manager_sync, 'id="nmkr-sync-button"') === false || strpos($manager_sync, 'id="nmkr-stop-sync-button"') === false) throw new Exception('dashboard_manager_sync_controls_missing');
