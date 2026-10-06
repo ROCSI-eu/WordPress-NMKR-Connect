@@ -93,6 +93,9 @@ php scripts/nmkr-admin-menu-regression.php
 printf '\n== Admin UI foundation regression ==\n'
 php scripts/nmkr-admin-ui-foundation-regression.php
 
+printf '\n== Dashboard UI regression ==\n'
+php scripts/nmkr-dashboard-ui-regression.php
+
 printf '\n== Release-readiness regressions ==\n'
 php scripts/nmkr-release-regression.php
 bash scripts/nmkr-package-reproducibility-regression.sh
