@@ -66,6 +66,7 @@ test.describe("NMKR Connect sync-state regression", () => {
       "/wp-admin/admin.php?page=nmkr-connect-dashboard",
     );
     let postCompletionStatisticsReads = 0;
+    let completionStatisticsApplicationFailures = 0;
     const statisticsData = {
       last_sync_time: "2026-07-09 11:20 UTC",
       total_projects: 3,
@@ -89,9 +90,23 @@ test.describe("NMKR Connect sync-state regression", () => {
         return { body: payload };
       },
       handlers: {
-        nmkr_get_sync_statistics: ({ state }) => {
+        nmkr_get_sync_statistics: ({ params, state }) => {
           if (state.completionSeen) {
             postCompletionStatisticsReads += 1;
+          }
+
+          if (
+            state.completionSeen &&
+            params.get("type") === "sync_completed" &&
+            completionStatisticsApplicationFailures === 0
+          ) {
+            completionStatisticsApplicationFailures += 1;
+            return {
+              body: {
+                success: false,
+                data: { message: "Synthetic application-level statistics rejection" },
+              },
+            };
           }
 
           const latestRunReady =
@@ -195,6 +210,7 @@ test.describe("NMKR Connect sync-state regression", () => {
 
     expect(harness.blockedActions).toEqual([]);
     expect(harness.progressCallCount()).toBeGreaterThanOrEqual(2);
+    expect(completionStatisticsApplicationFailures).toBe(1);
     // The canonical-history refresh is intentionally bounded and asynchronous.
     // Wait for its retry schedule rather than racing the 500/750 ms timers.
     await expect.poll(() => harness.statisticsCallCount(), { timeout: 5000 }).toBeGreaterThanOrEqual(3);

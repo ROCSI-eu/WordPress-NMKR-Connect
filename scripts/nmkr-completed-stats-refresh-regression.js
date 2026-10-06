@@ -95,8 +95,20 @@ assert.ok(
     'Stop request must stay bound to the authoritative run ID'
 );
 assert.ok(
+    progressSource.includes("response.data.completed === true && response.data.terminal_outcome === 'stopped'"),
+    'synchronously finalized Stop responses must be handled as terminal stopped state'
+);
+assert.ok(
     progressSource.includes("$(document).trigger('nmkr:sync:stopped');"),
     'canonical stopped terminal path must publish the dashboard refresh event'
+);
+const lastSyncStart = progressSource.indexOf("const updateLastSyncTime =");
+const performanceStatsStart = progressSource.indexOf("const updatePerformanceStats =", lastSyncStart);
+const lastSyncSource = progressSource.slice(lastSyncStart, performanceStatsStart);
+assert.ok(
+    lastSyncStart !== -1 && performanceStatsStart > lastSyncStart &&
+    lastSyncSource.includes('finish(null);'),
+    'completed-statistics application and transport failures must still release the completion callback'
 );
 
 const legacyEvent = "$(document).trigger('nmkr_sync_completed');";

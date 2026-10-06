@@ -250,8 +250,15 @@ jQuery(document).ready(function($) {
                 $('#status-message').text('⏹️ Queued synchronization cancelled');
                 return;
             }
+            if (response.success && response.data && response.data.completed === true && response.data.terminal_outcome === 'stopped') {
+                // Stop recovery can finish inside this request. Treat that
+                // response as canonical terminal proof instead of waiting for
+                // a poll that this click path may already have cancelled.
+                handleStoppedSync(response.data.message || 'Synchronization stopped by server');
+                return;
+            }
             if (response.success && response.data && response.data.stop_pending) {
-            stopPending = true;
+                stopPending = true;
                 $('#status-message').text('⏹️ Stopping Synchronization…');
                 fetchProgress();
             }
@@ -995,6 +1002,12 @@ jQuery(document).ready(function($) {
 
     // Function to update last sync time from server
     const updateLastSyncTime = (type = 'automatic', callback = null) => {
+        const finish = (stats) => {
+            if (callback && typeof callback === 'function') {
+                callback(stats);
+            }
+        };
+
         $.ajax({
             url: nmkrSyncProgress.ajax_url,
             type: 'POST',
@@ -1037,11 +1050,15 @@ jQuery(document).ready(function($) {
                         activeSyncMetrics.hide();
                     }
                     
-                    // Execute callback if provided
-                    if (callback && typeof callback === 'function') {
-                        callback(stats);
-                    }
+                    finish(stats);
+                    return;
                 }
+
+                // The synchronization terminal state is authoritative. An
+                // application-level statistics rejection (for example an
+                // expired dashboard nonce returned with HTTP 200) must not
+                // suppress completion/stopped event publication.
+                finish(null);
             },
             error: function(xhr, status, error) {
                 const msg = nmkrHttpErrorString(xhr);
@@ -1049,9 +1066,7 @@ jQuery(document).ready(function($) {
                 if (!syncInProgress) {
                     lastSynced.text('Error retrieving synchronization data');
                 }
-                if (callback && typeof callback === 'function') {
-                    callback(null);
-                }
+                finish(null);
             }
         });
     };
