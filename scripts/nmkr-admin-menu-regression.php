@@ -95,6 +95,7 @@ $icon_svg = file_get_contents( __DIR__ . '/../images/nmkr-admin-menu-icon.svg' )
 nmkr_admin_menu_assert( false !== strpos( $icon_css, '#toplevel_page_nmkr-connect-dashboard' ), 'menu icon CSS must remain scoped to the plugin top-level menu' );
 nmkr_admin_menu_assert( false !== strpos( $icon_css, 'nmkr-admin-menu-icon.svg' ), 'menu icon CSS must reference the local custom SVG' );
 nmkr_admin_menu_assert( false !== strpos( $icon_css, 'currentColor' ), 'menu icon must inherit WordPress admin color states' );
+nmkr_admin_menu_assert( false !== strpos( $icon_css, 'padding: 0;' ), 'menu icon must reset WordPress core pseudo-element padding before custom positioning' );
 nmkr_admin_menu_assert( false !== strpos( $icon_css, '-webkit-mask:' ) && false !== strpos( $icon_css, 'mask:' ), 'menu icon must use the local SVG as a monochrome mask' );
 nmkr_admin_menu_assert( false !== strpos( $icon_svg, 'viewBox="0 0 20 20"' ), 'custom menu icon must be authored at the WordPress admin glyph viewBox' );
 nmkr_admin_menu_assert( false === strpos( $icon_css, 'http://' ) && false === strpos( $icon_css, 'https://' ), 'menu icon CSS must not introduce external requests' );
