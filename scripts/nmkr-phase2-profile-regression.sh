@@ -256,6 +256,7 @@ target_fixture="$tmp_dir/target-fixture"
 cp -a "$ROOT/." "$target_fixture/"
 git -C "$target_fixture" config user.email public@example.invalid
 git -C "$target_fixture" config user.name PublicTest
+git -C "$target_fixture" config core.fileMode true
 cat >"$target_fixture/scripts/nmkr-ajax-runtime-integrity.sh" <<'EOF_RUNTIME_INTEGRITY'
 #!/usr/bin/env bash
 printf 'runtime-integrity\n' >>"$RUNTIME_INTEGRITY_CALL_LOG"

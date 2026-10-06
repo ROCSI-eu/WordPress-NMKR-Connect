@@ -23,14 +23,17 @@ function failedTerminalWithOwner(runId: string): AdminAjaxFulfillment {
   return { body: { success: true, data: { progress: 0, current_item: "Previous run failed", in_progress: false, finished: false, terminal_outcome: "failed", error: "Previous run failure", activeRunId: runId } } };
 }
 
-async function open(page: Page) {
+async function open(
+  page: Page,
+  stopResponse: AdminAjaxFulfillment = { body: { success: true, data: { stop_pending: true } } },
+) {
   const progressQueue: Deferred<AdminAjaxFulfillment>[] = [];
   const stopRunIds: string[] = [];
   let starts = 0;
   const harness: AdminAjaxHarness = await installNmkrSyncAjaxHarness(page, {
     handlers: {
       nmkr_start_sync: () => ({ body: { success: true, data: { run_id: ++starts === 1 ? runA : runB } } }),
-      nmkr_stop_sync: ({ params }) => { stopRunIds.push(params.get("run_id") || ""); return { body: { success: true, data: { stop_pending: true } } }; },
+      nmkr_stop_sync: ({ params }) => { stopRunIds.push(params.get("run_id") || ""); return stopResponse; },
     },
     onSyncProgress: () => {
       const next = deferred<AdminAjaxFulfillment>();
@@ -63,6 +66,35 @@ test.describe("NMKR Connect run-authority regression", () => {
     first.resolve(active(runA));
     await expect(stop).toBeEnabled();
     await stop.click();
+    await expect.poll(() => harness.actionCount("nmkr_stop_sync")).toBe(1);
+    expect(stopRunIds).toEqual([runA]);
+    expect(harness.blockedActions).toEqual([]);
+  });
+
+  test("synchronously finalized stopped Stop response publishes terminal UI immediately", async ({ page }) => {
+    const { harness, stopRunIds, nextProgress } = await open(page, {
+      body: {
+        success: true,
+        data: {
+          run_id: runA,
+          owner_state: "released",
+          completed: true,
+          terminal_outcome: "stopped",
+        },
+      },
+    });
+    const stop = page.locator("#nmkr-stop-sync-button");
+    const startButton = page.locator("#nmkr-sync-button");
+
+    await start(page);
+    (await nextProgress()).resolve(active(runA));
+    await expect(stop).toBeEnabled();
+    await stop.click();
+
+    await expect(page.locator("#status-message")).toContainText(/stopped/i);
+    await expect(stop).toBeHidden();
+    await expect(startButton).toBeVisible();
+    await expect(startButton).toBeEnabled();
     await expect.poll(() => harness.actionCount("nmkr_stop_sync")).toBe(1);
     expect(stopRunIds).toEqual([runA]);
     expect(harness.blockedActions).toEqual([]);

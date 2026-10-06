@@ -70,11 +70,51 @@ assert.ok(
     dashboardSource.includes("$(window).on('hashchange.nmkrDashboardDiagnostics', openDiagnosticsForHash);"),
     'diagnostics disclosure must respond to debug-log fragment navigation'
 );
+assert.ok(
+    !dashboardSource.includes("action: 'nmkr_stop_sync'"),
+    'dashboard shell must not dispatch a second Stop request outside the run-authority controller'
+);
+const completedRefreshStart = dashboardSource.indexOf('function refreshCompletedMetrics(options)');
+const activeRefreshStart = dashboardSource.indexOf('function refreshActiveMetrics()', completedRefreshStart);
+assert.ok(completedRefreshStart !== -1 && activeRefreshStart > completedRefreshStart);
+assert.ok(
+    !dashboardSource.slice(completedRefreshStart, activeRefreshStart).includes("action: 'nmkr_store_active_metrics'"),
+    'completed-statistics refresh must remain read-only'
+);
 
 const progressSource = fs.readFileSync(
     path.join(__dirname, '..', 'js', 'nmkr-sync-progress.js'),
     'utf8'
 );
+assert.ok(
+    progressSource.includes('function publishCompletedSyncEvents()'),
+    'canonical completion path must expose a terminal event publisher independent of statistics reads'
+);
+assert.ok(
+    progressSource.includes("publishCompletedSyncEvents();\n      setTimeout(() => {\n        updateLastSyncTime('sync_completed');"),
+    'canonical completion must publish terminal events before starting the ancillary completed-statistics read'
+);
+assert.ok(
+    progressSource.includes("run_id: activeRunId"),
+    'Stop request must stay bound to the authoritative run ID'
+);
+assert.ok(
+    progressSource.includes("response.data.completed === true && response.data.terminal_outcome === 'stopped'"),
+    'synchronously finalized Stop responses must be handled as terminal stopped state'
+);
+assert.ok(
+    progressSource.includes("$(document).trigger('nmkr:sync:stopped');"),
+    'canonical stopped terminal path must publish the dashboard refresh event'
+);
+const lastSyncStart = progressSource.indexOf("const updateLastSyncTime =");
+const performanceStatsStart = progressSource.indexOf("const updatePerformanceStats =", lastSyncStart);
+const lastSyncSource = progressSource.slice(lastSyncStart, performanceStatsStart);
+assert.ok(
+    lastSyncStart !== -1 && performanceStatsStart > lastSyncStart &&
+    lastSyncSource.includes('finish(null);'),
+    'completed-statistics application and transport failures must still release the completion callback'
+);
+
 const legacyEvent = "$(document).trigger('nmkr_sync_completed');";
 const dashboardEvent = "$(document).trigger('nmkr:sync:completed');";
 const legacyIndex = progressSource.indexOf(legacyEvent);

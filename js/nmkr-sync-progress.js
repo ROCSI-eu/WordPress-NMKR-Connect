@@ -250,8 +250,15 @@ jQuery(document).ready(function($) {
                 $('#status-message').text('⏹️ Queued synchronization cancelled');
                 return;
             }
+            if (response.success && response.data && response.data.completed === true && response.data.terminal_outcome === 'stopped') {
+                // Stop recovery can finish inside this request. Treat that
+                // response as canonical terminal proof instead of waiting for
+                // a poll that this click path may already have cancelled.
+                handleStoppedSync(response.data.message || 'Synchronization stopped by server');
+                return;
+            }
             if (response.success && response.data && response.data.stop_pending) {
-            stopPending = true;
+                stopPending = true;
                 $('#status-message').text('⏹️ Stopping Synchronization…');
                 fetchProgress();
             }
@@ -507,6 +514,13 @@ jQuery(document).ready(function($) {
     window.NMKRProgress.startPolling = startSyncPolling;
 
 
+    function publishCompletedSyncEvents() {
+      // Canonical terminal state must drive UI cleanup independently of any
+      // ancillary completed-statistics request. That read may fail or hang.
+      $(document).trigger('nmkr_sync_completed');
+      $(document).trigger('nmkr:sync:completed');
+    }
+
     function handleComplete(completionMessage) {
       syncInProgress = false;
       resetRunAuthority();
@@ -526,6 +540,9 @@ jQuery(document).ready(function($) {
         }
       }
       stopPolling();
+      // Publish terminal events immediately. The dashboard owns its bounded
+      // history refresh and must not wait on this ancillary read.
+      publishCompletedSyncEvents();
       setTimeout(() => {
         updateLastSyncTime('sync_completed');
       }, 400);
@@ -543,6 +560,11 @@ jQuery(document).ready(function($) {
       $('#status-message').text('⚠️ ' + stoppedMessage);
       $('#nmkr-sync-complete').hide();
       stopPolling();
+      // The server-declared stopped state is terminal authority. Publish the
+      // dashboard event only here so completed-history refreshes do not race
+      // a provisional Stop acknowledgement.
+      $(document).trigger('sync_stopped');
+      $(document).trigger('nmkr:sync:stopped');
       setTimeout(() => {
         hideActiveSyncMetrics();
       }, 450);
@@ -984,6 +1006,12 @@ jQuery(document).ready(function($) {
 
     // Function to update last sync time from server
     const updateLastSyncTime = (type = 'automatic', callback = null) => {
+        const finish = (stats) => {
+            if (callback && typeof callback === 'function') {
+                callback(stats);
+            }
+        };
+
         $.ajax({
             url: nmkrSyncProgress.ajax_url,
             type: 'POST',
@@ -1026,11 +1054,15 @@ jQuery(document).ready(function($) {
                         activeSyncMetrics.hide();
                     }
                     
-                    // Execute callback if provided
-                    if (callback && typeof callback === 'function') {
-                        callback(stats);
-                    }
+                    finish(stats);
+                    return;
                 }
+
+                // The synchronization terminal state is authoritative. An
+                // application-level statistics rejection (for example an
+                // expired dashboard nonce returned with HTTP 200) must not
+                // suppress completion/stopped event publication.
+                finish(null);
             },
             error: function(xhr, status, error) {
                 const msg = nmkrHttpErrorString(xhr);
@@ -1038,9 +1070,7 @@ jQuery(document).ready(function($) {
                 if (!syncInProgress) {
                     lastSynced.text('Error retrieving synchronization data');
                 }
-                if (callback && typeof callback === 'function') {
-                    callback(null);
-                }
+                finish(null);
             }
         });
     };
@@ -1391,14 +1421,10 @@ jQuery(document).ready(function($) {
         // Add compact class back to sync data panel when sync is complete
         syncDataPanel.addClass('compact');
         
-        // Update last sync time first, then trigger the event
-        // This ensures the stats panel has the latest data before any event handlers run
-        updateLastSyncTime('sync_completed', function() {
-            // Preserve the historical underscore event for compatibility and
-            // emit the namespaced dashboard event used by the completed-statistics refresh.
-            $(document).trigger('nmkr_sync_completed');
-            $(document).trigger('nmkr:sync:completed');
-        });
+        // The read is ancillary; publish terminal events independently so a
+        // stalled statistics request cannot block dashboard cleanup.
+        updateLastSyncTime('sync_completed');
+        publishCompletedSyncEvents();
     };
 
     // Function to display info message 

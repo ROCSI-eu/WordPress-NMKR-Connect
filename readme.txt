@@ -4,7 +4,7 @@ Tags: nft, cardano, solana, nmkr, shortcode
 Requires at least: 5.8
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.25.0
+Stable tag: 0.26.0
 License: MIT
 License URI: https://opensource.org/license/mit/
 
@@ -47,6 +47,11 @@ No. Analytics defaults to Off and consent enforcement defaults to enabled. Local
 Deactivation clears the recurring analytics cleanup event. Uninstall removes plugin-owned roles and capabilities and core plugin data. Analytics data and admission state are removed by default; if an administrator deliberately disables “Remove Data on Uninstall,” the analytics table is retained.
 
 == Changelog ==
+
+= 0.26.0 =
+* Introduces a cohesive WordPress admin experience across Dashboard, Projects, Shortcodes, Analytics, and Settings, including a custom connector menu icon and clearer primary workflows.
+* Unifies all five public shortcodes with responsive, theme-contained presentation, improved keyboard/focus behavior, and reduced-motion-aware interactions.
+* Preserves existing shortcode, persistence, synchronization, analytics, privacy, capability, and security contracts while expanding regression coverage for the refreshed UI.
 
 = 0.25.0 =
 * Uses the public release identity ROCSI Connector for NMKR with `rocsi-connector-for-nmkr` as the text domain and package identity.

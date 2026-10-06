@@ -53,7 +53,6 @@ if (typeof module !== 'undefined' && module.exports) {
 if (typeof jQuery !== 'undefined') {
 jQuery(document).ready(function($) {
     // Cache nonce values ONCE to avoid repeated DOM queries
-    const syncNonce = $('#nmkr-sync-nonce').val();
     const dashboardNonce = $('#nmkr-dashboard-nonce').val();
     const canManageSync = Boolean(window.nmkrDashboardConfig && window.nmkrDashboardConfig.canManageSync);
     const diagnosticsDisclosure = $('#nmkr-debug-logs');
@@ -213,19 +212,6 @@ jQuery(document).ready(function($) {
         options = options || {};
         const retryPendingLatestRun = options.retryPendingLatestRun === true;
         const retryAttempt = Number.isInteger(options.retryAttempt) ? options.retryAttempt : 0;
-        // Log metrics refresh
-        $.ajax({
-            url: ajaxurl,
-            method: 'POST',
-            data: {
-                action: 'nmkr_store_active_metrics',
-                nonce: dashboardNonce,
-                metrics: { ui_log: "UI: Refreshing completed sync statistics display" },
-                log_type: 'debug',
-                _: Date.now()
-            }
-        });
-
         $.ajax({
             url: ajaxurl,
             method: 'POST',
@@ -282,46 +268,11 @@ jQuery(document).ready(function($) {
                         .removeClass()
                         .addClass(response.data.memory_class);
 
-                    // Log successful statistics update
-                    $.ajax({
-                        url: ajaxurl,
-                        method: 'POST',
-                        data: {
-                            action: 'nmkr_store_active_metrics',
-                            nonce: dashboardNonce,
-                            metrics: { ui_log: "UI: Successfully updated completed sync statistics display" },
-                            log_type: 'debug',
-                            _: Date.now()
-                        }
-                    });
-                } else {
-                    // Log failed statistics update
-                    $.ajax({
-                        url: ajaxurl,
-                        method: 'POST',
-                        data: {
-                            action: 'nmkr_store_active_metrics',
-                            nonce: dashboardNonce,
-                            metrics: { ui_log: "UI: Failed to update completed sync statistics display" },
-                            log_type: 'warning',
-                            _: Date.now()
-                        }
-                    });
                 }
             },
             error: function() {
-                // Log AJAX error for statistics refresh
-                $.ajax({
-                    url: ajaxurl,
-                    method: 'POST',
-                    data: {
-                        action: 'nmkr_store_active_metrics',
-                        nonce: dashboardNonce,
-                        metrics: { ui_log: "UI: AJAX error when refreshing completed sync statistics" },
-                        log_type: 'error',
-                        _: Date.now()
-                    }
-                });
+                // Keep completed-statistics refresh read-only; the existing
+                // values remain visible when the read request fails.
             }
         });
     }
@@ -490,100 +441,8 @@ jQuery(document).ready(function($) {
         }
     });
 
-    // Handle stop sync button click
-    $('#nmkr-stop-sync-button').on('click', function() {
-        $(this).prop('disabled', true);
-
-        // Log stop attempt (essential - use direct logging for critical events)
-        $.ajax({
-            url: ajaxurl,
-            method: 'POST',
-            data: {
-                action: 'nmkr_store_active_metrics',
-                nonce: dashboardNonce,
-                metrics: { ui_log: "UI: User stopped synchronization" },
-                log_type: 'info',
-                _: Date.now()
-            }
-        });
-
-        $('#status-message').text('⏹️ Stopping Synchronization...');
-
-        // Hide active metrics container
-        $('#active-sync-metrics').hide();
-
-        $.ajax({
-            url: ajaxurl,
-            method: 'POST',
-            dataType: 'json',
-            data: {
-                action: 'nmkr_stop_sync',
-                nonce: syncNonce,
-                _: Date.now()
-            },
-            timeout: 15000,
-            success: function(response) {
-                if (response.success) {
-                    $('#status-message').text('✅ Synchronization stopped successfully');
-
-                    // Clean up UI state
-                    $('#nmkr-sync-progress-container, #active-sync-metrics').hide();
-                    $('#nmkr-stop-sync-button').hide();
-                    $('#nmkr-sync-button').show().prop('disabled', false);
-
-                    // Sync stopped successfully - removed excessive logging
-
-                    // After the sync is stopped, refresh the completed metrics once to show latest data
-                    setTimeout(refreshCompletedMetrics, 1500);
-                } else {
-                    // Handle error
-                    $('#status-message').text('❌ Failed to stop synchronization: ' + (response.data ? response.data.message : 'Unknown error'));
-                    // Don't call teardownSyncUI() here - keep sync button hidden since stop failed
-                    $('#nmkr-stop-sync-button').prop('disabled', false);
-
-                    // Keep polling active since sync is likely still running on server
-                    // Show active metrics again since sync is still running
-                    $('#active-sync-metrics').show();
-
-                    // Log critical stop failure (essential)
-                    $.ajax({
-                        url: ajaxurl,
-                        method: 'POST',
-                        data: {
-                            action: 'nmkr_store_active_metrics',
-                            nonce: dashboardNonce,
-                            metrics: { ui_log: "CRITICAL: Failed to stop sync - " + (response.data ? response.data.message : 'Unknown error') },
-                            log_type: 'error',
-                            _: Date.now()
-                        }
-                    });
-                }
-            },
-            error: function(xhr, status, error) {
-                // Handle AJAX error
-                $('#status-message').text('❌ Network error stopping synchronization: ' + error);
-                // Don't call teardownSyncUI() here - keep sync button hidden since stop failed
-                $('#nmkr-stop-sync-button').prop('disabled', false);
-
-                // Keep polling active since sync is likely still running on server
-                // Show active metrics again since sync is still running
-                $('#active-sync-metrics').show();
-
-                // Log critical network error (essential)
-                $.ajax({
-                    url: ajaxurl,
-                    method: 'POST',
-                    data: {
-                        action: 'nmkr_store_active_metrics',
-                        nonce: dashboardNonce,
-                        metrics: { ui_log: "CRITICAL: Network error stopping sync - " + error },
-                        log_type: 'error',
-                        _: Date.now()
-                    }
-                });
-            }
-        });
-    });
+    // Stop is owned exclusively by nmkr-sync-progress.js, which binds it to
+    // the canonical run ID before dispatching any mutating request.
 
     // When the sync completes (handled by nmkr-sync-progress.js), it should call a refresh of completed metrics
     // This can be done by adding a refresh call in the corresponding event handling code
