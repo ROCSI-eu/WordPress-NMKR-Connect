@@ -12,7 +12,7 @@ function nmkr_connect_admin_menu() {
         'nmkr_access_plugin',                // Capability
         'nmkr-connect-dashboard',            // Menu slug
         'nmkr_connect_dashboard_page',       // Function to display the page content
-        'dashicons-admin-generic',           // Icon for the menu
+        'dashicons-admin-links',             // Semantic fallback; custom connector glyph is applied by scoped admin CSS
         81                                   // Below core Settings (80), while retaining the established top-level hierarchy
     );
 
@@ -141,3 +141,22 @@ add_action( 'admin_menu', function () {
 		}
 	}
 }, 100 );
+
+/**
+ * Load the tiny custom menu-icon stylesheet anywhere the plugin menu is visible.
+ *
+ * The top-level menu is present across wp-admin, so this deliberately is not
+ * limited to the plugin's own page hooks. The stylesheet itself is scoped to
+ * #toplevel_page_nmkr-connect-dashboard and cannot affect unrelated menus.
+ */
+function nmkr_connect_enqueue_admin_menu_icon_styles() {
+    if ( ! current_user_can( 'nmkr_access_plugin' ) ) {
+        return;
+    }
+
+    nmkr_connect_enqueue_style_asset(
+        'nmkr-admin-menu-icon',
+        'css/admin/nmkr-admin-menu-icon.css'
+    );
+}
+add_action( 'admin_enqueue_scripts', 'nmkr_connect_enqueue_admin_menu_icon_styles' );
