@@ -87,8 +87,12 @@ const progressSource = fs.readFileSync(
     'utf8'
 );
 assert.ok(
-    progressSource.includes("updateLastSyncTime('sync_completed', function() {"),
-    'canonical completion path must publish refresh events after the completed-statistics read'
+    progressSource.includes('function publishCompletedSyncEvents()'),
+    'canonical completion path must expose a terminal event publisher independent of statistics reads'
+);
+assert.ok(
+    progressSource.includes("publishCompletedSyncEvents();\n      setTimeout(() => {\n        updateLastSyncTime('sync_completed');"),
+    'canonical completion must publish terminal events before starting the ancillary completed-statistics read'
 );
 assert.ok(
     progressSource.includes("run_id: activeRunId"),

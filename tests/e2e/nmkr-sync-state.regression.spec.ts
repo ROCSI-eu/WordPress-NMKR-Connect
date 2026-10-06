@@ -66,7 +66,7 @@ test.describe("NMKR Connect sync-state regression", () => {
       "/wp-admin/admin.php?page=nmkr-connect-dashboard",
     );
     let postCompletionStatisticsReads = 0;
-    let completionStatisticsApplicationFailures = 0;
+    let delayedCompletionStatisticsReads = 0;
     const statisticsData = {
       last_sync_time: "2026-07-09 11:20 UTC",
       total_projects: 3,
@@ -90,7 +90,7 @@ test.describe("NMKR Connect sync-state regression", () => {
         return { body: payload };
       },
       handlers: {
-        nmkr_get_sync_statistics: ({ params, state }) => {
+        nmkr_get_sync_statistics: async ({ params, state }) => {
           if (state.completionSeen) {
             postCompletionStatisticsReads += 1;
           }
@@ -98,13 +98,16 @@ test.describe("NMKR Connect sync-state regression", () => {
           if (
             state.completionSeen &&
             params.get("type") === "sync_completed" &&
-            completionStatisticsApplicationFailures === 0
+            delayedCompletionStatisticsReads === 0
           ) {
-            completionStatisticsApplicationFailures += 1;
+            delayedCompletionStatisticsReads += 1;
+            // Keep the ancillary read pending long enough to prove that
+            // terminal event publication and dashboard refresh do not wait for it.
+            await new Promise((resolve) => setTimeout(resolve, 2500));
             return {
               body: {
                 success: false,
-                data: { message: "Synthetic application-level statistics rejection" },
+                data: { message: "Synthetic delayed statistics rejection" },
               },
             };
           }
@@ -210,7 +213,10 @@ test.describe("NMKR Connect sync-state regression", () => {
 
     expect(harness.blockedActions).toEqual([]);
     expect(harness.progressCallCount()).toBeGreaterThanOrEqual(2);
-    expect(completionStatisticsApplicationFailures).toBe(1);
+    expect(delayedCompletionStatisticsReads).toBe(1);
+    // The dashboard refresh must start while the ancillary sync_completed read
+    // is still pending; otherwise terminal events are incorrectly coupled to it.
+    await expect.poll(() => postCompletionStatisticsReads, { timeout: 1800 }).toBeGreaterThanOrEqual(2);
     // The canonical-history refresh is intentionally bounded and asynchronous.
     // Wait for its retry schedule rather than racing the 500/750 ms timers.
     await expect.poll(() => harness.statisticsCallCount(), { timeout: 5000 }).toBeGreaterThanOrEqual(3);

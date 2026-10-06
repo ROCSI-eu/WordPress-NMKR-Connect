@@ -514,6 +514,13 @@ jQuery(document).ready(function($) {
     window.NMKRProgress.startPolling = startSyncPolling;
 
 
+    function publishCompletedSyncEvents() {
+      // Canonical terminal state must drive UI cleanup independently of any
+      // ancillary completed-statistics request. That read may fail or hang.
+      $(document).trigger('nmkr_sync_completed');
+      $(document).trigger('nmkr:sync:completed');
+    }
+
     function handleComplete(completionMessage) {
       syncInProgress = false;
       resetRunAuthority();
@@ -533,14 +540,11 @@ jQuery(document).ready(function($) {
         }
       }
       stopPolling();
+      // Publish terminal events immediately. The dashboard owns its bounded
+      // history refresh and must not wait on this ancillary read.
+      publishCompletedSyncEvents();
       setTimeout(() => {
-        updateLastSyncTime('sync_completed', function() {
-          // Preserve the historical underscore event for compatibility and
-          // emit the namespaced dashboard event used by the bounded
-          // completed-statistics refresh.
-          $(document).trigger('nmkr_sync_completed');
-          $(document).trigger('nmkr:sync:completed');
-        });
+        updateLastSyncTime('sync_completed');
       }, 400);
       setTimeout(() => {
         hideActiveSyncMetrics();
@@ -1417,14 +1421,10 @@ jQuery(document).ready(function($) {
         // Add compact class back to sync data panel when sync is complete
         syncDataPanel.addClass('compact');
         
-        // Update last sync time first, then trigger the event
-        // This ensures the stats panel has the latest data before any event handlers run
-        updateLastSyncTime('sync_completed', function() {
-            // Preserve the historical underscore event for compatibility and
-            // emit the namespaced dashboard event used by the completed-statistics refresh.
-            $(document).trigger('nmkr_sync_completed');
-            $(document).trigger('nmkr:sync:completed');
-        });
+        // The read is ancillary; publish terminal events independently so a
+        // stalled statistics request cannot block dashboard cleanup.
+        updateLastSyncTime('sync_completed');
+        publishCompletedSyncEvents();
     };
 
     // Function to display info message 
