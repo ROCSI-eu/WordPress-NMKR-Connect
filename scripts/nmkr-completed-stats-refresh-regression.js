@@ -70,11 +70,35 @@ assert.ok(
     dashboardSource.includes("$(window).on('hashchange.nmkrDashboardDiagnostics', openDiagnosticsForHash);"),
     'diagnostics disclosure must respond to debug-log fragment navigation'
 );
+assert.ok(
+    !dashboardSource.includes("action: 'nmkr_stop_sync'"),
+    'dashboard shell must not dispatch a second Stop request outside the run-authority controller'
+);
+const completedRefreshStart = dashboardSource.indexOf('function refreshCompletedMetrics(options)');
+const activeRefreshStart = dashboardSource.indexOf('function refreshActiveMetrics()', completedRefreshStart);
+assert.ok(completedRefreshStart !== -1 && activeRefreshStart > completedRefreshStart);
+assert.ok(
+    !dashboardSource.slice(completedRefreshStart, activeRefreshStart).includes("action: 'nmkr_store_active_metrics'"),
+    'completed-statistics refresh must remain read-only'
+);
 
 const progressSource = fs.readFileSync(
     path.join(__dirname, '..', 'js', 'nmkr-sync-progress.js'),
     'utf8'
 );
+assert.ok(
+    progressSource.includes("updateLastSyncTime('sync_completed', function() {"),
+    'canonical completion path must publish refresh events after the completed-statistics read'
+);
+assert.ok(
+    progressSource.includes("run_id: activeRunId"),
+    'Stop request must stay bound to the authoritative run ID'
+);
+assert.ok(
+    progressSource.includes("$(document).trigger('nmkr:sync:stopped');"),
+    'canonical stopped terminal path must publish the dashboard refresh event'
+);
+
 const legacyEvent = "$(document).trigger('nmkr_sync_completed');";
 const dashboardEvent = "$(document).trigger('nmkr:sync:completed');";
 const legacyIndex = progressSource.indexOf(legacyEvent);

@@ -2,7 +2,7 @@
 /*
 Plugin Name: ROCSI Connector for NMKR
 Description: WordPress plugin to synchronize and display NMKR Studio projects and tokens.
-Version: 0.25.0
+Version: 0.26.0
 Requires at least: 5.8
 Requires PHP: 7.4
 License: MIT

@@ -195,8 +195,10 @@ test.describe("NMKR Connect sync-state regression", () => {
 
     expect(harness.blockedActions).toEqual([]);
     expect(harness.progressCallCount()).toBeGreaterThanOrEqual(2);
-    expect(harness.statisticsCallCount()).toBeGreaterThanOrEqual(3);
-    expect(harness.statisticsCallsAfterCompletion()).toBeGreaterThanOrEqual(3);
-    expect(postCompletionStatisticsReads).toBeGreaterThanOrEqual(3);
+    // The canonical-history refresh is intentionally bounded and asynchronous.
+    // Wait for its retry schedule rather than racing the 500/750 ms timers.
+    await expect.poll(() => harness.statisticsCallCount(), { timeout: 5000 }).toBeGreaterThanOrEqual(3);
+    await expect.poll(() => harness.statisticsCallsAfterCompletion(), { timeout: 5000 }).toBeGreaterThanOrEqual(3);
+    await expect.poll(() => postCompletionStatisticsReads, { timeout: 5000 }).toBeGreaterThanOrEqual(3);
   });
 });

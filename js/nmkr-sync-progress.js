@@ -527,7 +527,13 @@ jQuery(document).ready(function($) {
       }
       stopPolling();
       setTimeout(() => {
-        updateLastSyncTime('sync_completed');
+        updateLastSyncTime('sync_completed', function() {
+          // Preserve the historical underscore event for compatibility and
+          // emit the namespaced dashboard event used by the bounded
+          // completed-statistics refresh.
+          $(document).trigger('nmkr_sync_completed');
+          $(document).trigger('nmkr:sync:completed');
+        });
       }, 400);
       setTimeout(() => {
         hideActiveSyncMetrics();
@@ -543,6 +549,11 @@ jQuery(document).ready(function($) {
       $('#status-message').text('⚠️ ' + stoppedMessage);
       $('#nmkr-sync-complete').hide();
       stopPolling();
+      // The server-declared stopped state is terminal authority. Publish the
+      // dashboard event only here so completed-history refreshes do not race
+      // a provisional Stop acknowledgement.
+      $(document).trigger('sync_stopped');
+      $(document).trigger('nmkr:sync:stopped');
       setTimeout(() => {
         hideActiveSyncMetrics();
       }, 450);
