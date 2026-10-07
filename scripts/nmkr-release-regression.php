@@ -18,6 +18,7 @@ $stable_tag_match = array();
 $public_stable_match = array();
 check(preg_match('/^Version:\s*([0-9]+\.[0-9]+\.[0-9]+)\s*$/mi', $plugin, $plugin_version_match) === 1, 'plugin header declares a numeric three-component version');
 check(preg_match('/^Stable tag:\s*([0-9]+\.[0-9]+\.[0-9]+)\s*$/mi', $readme, $stable_tag_match) === 1, 'directory readme declares a numeric three-component stable tag');
+check(preg_match('/^Current public stable release:\s*\*\*([0-9]+\.[0-9]+\.[0-9]+)\*\*\.\s*$/mi', $repository_readme, $public_stable_match) === 1, 'repository README declares a numeric Current public stable release marker');
 $plugin_version = $plugin_version_match[1];
 $stable_tag = $stable_tag_match[1];
 $public_stable = $public_stable_match[1];
