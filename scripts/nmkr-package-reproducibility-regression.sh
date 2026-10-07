@@ -44,6 +44,10 @@ unzip -q "$second_zip" -d "$verify"
   cd "$verify/rocsi-connector-for-nmkr"
   sha256sum -c PACKAGE-MANIFEST.sha256 >/dev/null
 )
+test ! -e "$verify/rocsi-connector-for-nmkr/.wordpress-org" || {
+  echo "FAIL: repository-only .wordpress-org assets leaked into the installable package." >&2
+  exit 1
+}
 
 test -z "$(git status --porcelain=v1)" || {
   echo "FAIL: package generation modified the source tree." >&2

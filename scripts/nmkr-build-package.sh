@@ -25,7 +25,7 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 mkdir -p "$work/$slug"
 git archive --format=tar HEAD | tar -xf - -C "$work/$slug"
-rm -rf "$work/$slug"/{.git,.github,docs,tests,scripts,node_modules,playwright-report,test-results,screenshots,videos,traces,vendor,dist}
+rm -rf "$work/$slug"/{.git,.github,.wordpress-org,docs,tests,scripts,node_modules,playwright-report,test-results,screenshots,videos,traces,vendor,dist}
 rm -f "$work/$slug"/{AGENTS.md,.gitattributes,.gitignore,.env.tests.example,composer.phar,composer-setup.php,playwright.config.ts,playwright.security.config.ts,package.json,package-lock.json,composer.json,composer.lock,README.md}
 find "$work/$slug" -type f \( -name '.env*' -o -name '*.zip' -o -name '*.log' -o -name '*.trace' -o -name '*.webm' -o -name 'nmkr-connect-auth-*.json' \) -delete
 ( cd "$work/$slug" && find . -type f ! -name 'PACKAGE-MANIFEST.sha256' -print | LC_ALL=C sort | sed 's#^./##' | while IFS= read -r f; do sha256sum "$f"; done > PACKAGE-MANIFEST.sha256 )
@@ -48,6 +48,7 @@ test -d "$verify/$slug"
 test -f "$verify/$slug/$main_file" && test -f "$verify/$slug/readme.txt" && test -f "$verify/$slug/PACKAGE-MANIFEST.sha256"
 test ! -e "$verify/$slug/nmkr-connect.php"
 test ! -e "$verify/$slug/connector-for-nmkr.php"
+test ! -e "$verify/$slug/.wordpress-org"
 test "$(grep -Il '^Plugin Name:' "$verify/$slug"/*.php 2>/dev/null | wc -l)" -eq 1
 grep -Eq '^Plugin Name:[[:space:]]*ROCSI Connector for NMKR[[:space:]]*$' "$verify/$slug/$main_file"
 grep -Eq '^Text Domain:[[:space:]]*rocsi-connector-for-nmkr[[:space:]]*$' "$verify/$slug/$main_file"
