@@ -9,7 +9,7 @@ The release version below means one exact numeric `X.Y.Z` value. Do not continue
 ## 1. Prepare the Git release candidate
 
 - Select the intended release version under the [versioning policy](versioning.md).
-- Update the main plugin `Version` and `readme.txt` `Stable tag` to that same version.
+- Update the main plugin `Version`, `readme.txt` `Stable tag`, and repository README `Current public stable release` marker to that same version.
 - Add a concise, user-facing `readme.txt` changelog entry headed `= X.Y.Z =`. Summarize meaningful user-visible fixes, behavior, security/reliability changes, or features; do not paste or mechanically transform the Git commit log.
 - Keep the current release changelog in `readme.txt`. When older history makes the readme unnecessarily long, move older entries to `changelog.txt` while retaining the current release entry in `readme.txt`.
 - Review any `Tested up to`, compatibility, installation, FAQ, or external-service text that the release actually changes.
@@ -22,7 +22,7 @@ npm run test:release
 npm run build:package
 ```
 
-Stop if the worktree is dirty, release checks fail, package generation changes the source tree, or the package checksum/provenance is not reproducible.
+Stop if the worktree is dirty, the plugin version / Stable tag / README public-stable marker disagree, release checks fail, package generation changes the source tree, or the package checksum/provenance is not reproducible.
 
 ## 2. Validate the release package
 
@@ -68,7 +68,7 @@ The helper verifies the official SVN repository, requires a clean `assets/` dire
 
 Keep SVN credentials out of the helper, repository, shell history, chat, and logs. Authenticate only at the separate `svn commit` step.
 
-The release is **not ready** if the plugin version, trunk Stable tag, numeric SVN tag, tagged Stable tag, or current changelog entry disagree.
+The release is **not ready** if the repository README public-stable marker, plugin version, trunk Stable tag, numeric SVN tag, tagged Stable tag, or current changelog entry disagree.
 
 ## 4. Publish deliberately
 

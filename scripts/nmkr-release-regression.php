@@ -4,6 +4,7 @@ function check($condition, $message) { if (!$condition) { fwrite(STDERR, "FAIL: 
 $plugin = file_get_contents($root . '/rocsi-connector-for-nmkr.php');
 $composer = json_decode(file_get_contents($root . '/composer.json'), true);
 $readme = file_get_contents($root . '/readme.txt');
+$repository_readme = file_get_contents($root . '/README.md');
 $runtime = $plugin;
 foreach (glob($root . '/includes/{shortcodes,pages/shortcodes}/*.php', GLOB_BRACE) as $file) { $runtime .= file_get_contents($file); }
 check(!preg_match('/freemius|wnc_fs|can_use_premium_code|is_plan\s*\(/i', $runtime), 'runtime and shortcode paths contain no entitlement SDK references');
@@ -14,11 +15,15 @@ check(preg_match('/Text Domain:\s*rocsi-connector-for-nmkr\s*$/mi', $plugin) ===
 check(preg_match('/^=== ROCSI Connector for NMKR ===$/m', $readme) === 1, 'directory readme title matches the owner-approved public display name');
 $plugin_version_match = array();
 $stable_tag_match = array();
+$public_stable_match = array();
 check(preg_match('/^Version:\s*([0-9]+\.[0-9]+\.[0-9]+)\s*$/mi', $plugin, $plugin_version_match) === 1, 'plugin header declares a numeric three-component version');
 check(preg_match('/^Stable tag:\s*([0-9]+\.[0-9]+\.[0-9]+)\s*$/mi', $readme, $stable_tag_match) === 1, 'directory readme declares a numeric three-component stable tag');
+check(preg_match('/^Current public stable release:\s*\*\*([0-9]+\.[0-9]+\.[0-9]+)\*\*\.\s*$/mi', $repository_readme, $public_stable_match) === 1, 'repository README declares a numeric Current public stable release marker');
 $plugin_version = $plugin_version_match[1];
 $stable_tag = $stable_tag_match[1];
+$public_stable = $public_stable_match[1];
 check($stable_tag === $plugin_version, 'plugin version and stable tag agree');
+check($public_stable === $plugin_version, 'repository README public stable release marker matches plugin version and stable tag');
 $changelog_parts = preg_split('/^== Changelog ==\\s*$/mi', $readme, 2);
 check(count($changelog_parts) === 2, 'directory readme contains a Changelog section');
 $changelog_body = ltrim($changelog_parts[1]);
@@ -80,6 +85,7 @@ $builder = file_get_contents($root . '/scripts/nmkr-build-package.sh');
 check(strpos($builder, 'zip_path="$out/$slug-$version.zip"') !== false, 'package filename derives from the canonical plugin version');
 check(strpos($builder, '[[ "$version" =~ ^[0-9]+\\.[0-9]+\\.[0-9]+$ ]]') !== false, 'package builder validates a numeric three-component plugin version');
 check(strpos($builder, '[[ "$stable_tag" == "$version" ]]') !== false, 'package builder requires the stable tag to match the plugin version');
+check(strpos($builder, '[[ "$public_stable" == "$version" ]]') !== false, 'package builder requires the repository README public stable marker to match the plugin version');
 $gitignore = file_get_contents($root . '/.gitignore');
 check(stripos($integrity, 'freemius') === false && strpos($integrity, 'composer.lock') !== false, 'runtime integrity is lock-aware and has no Freemius dependency contract');
 check(strpos($preflight, 'nmkr-ajax-runtime-integrity.sh') !== false, 'real-sync preflight delegates current deployment runtime integrity to the lock-aware helper');

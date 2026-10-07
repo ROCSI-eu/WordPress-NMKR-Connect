@@ -4,7 +4,7 @@
 
 The repository and Cardano Project Catalyst project retain the historical **NMKR Connect** / `WordPress-NMKR-Connect` identity. The public WordPress distribution identity is **ROCSI Connector for NMKR**, published in the WordPress Plugin Directory at [wordpress.org/plugins/rocsi-connector-for-nmkr](https://wordpress.org/plugins/rocsi-connector-for-nmkr/) with the fixed slug/text domain `rocsi-connector-for-nmkr`.
 
-Current public stable release: **0.25.0**.
+Current public stable release: **0.26.0**.
 
 Milestones 1–4 have been delivered and approved through Catalyst reviewer sign-off. Milestone 5 is in progress.
 
