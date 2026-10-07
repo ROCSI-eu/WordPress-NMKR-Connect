@@ -11,11 +11,12 @@ The plugin header `Version` in `rocsi-connector-for-nmkr.php` is the canonical s
 For a stable release:
 
 - `readme.txt` `Stable tag` must exactly match the plugin header version;
+- the repository README `Current public stable release` marker must exactly match that same stable version;
 - the release package filename must use the same version, for example `rocsi-connector-for-nmkr-0.25.0.zip`;
 - stable release versions use a numeric three-component form: `X.Y.Z`;
 - release tooling and regression checks must fail on version drift rather than silently producing mismatched artifacts.
 
-The package builder derives the ZIP version from the plugin header and verifies the WordPress.org stable tag before packaging.
+The package builder derives the ZIP version from the plugin header and verifies both the WordPress.org stable tag and repository README public-stable marker before packaging. The release regression checks the same three-way version contract.
 
 ## Pre-1.0 policy
 
@@ -56,7 +57,7 @@ The gate does not require a specific user count or elapsed time.
 
 Version changes belong to an explicit release-preparation change, not unrelated feature/fix PRs unless that PR is intentionally becoming the release candidate.
 
-The canonical WordPress.org publication procedure is the [WordPress.org release/update checklist](wordpress-org-release.md). It requires one exact version to agree across the plugin header, `readme.txt` `Stable tag`, current changelog entry, purpose-built package, and numeric WordPress.org SVN tag before publication.
+The canonical WordPress.org publication procedure is the [WordPress.org release/update checklist](wordpress-org-release.md). It requires one exact version to agree across the plugin header, `readme.txt` `Stable tag`, repository README public-stable marker, current changelog entry, purpose-built package, and numeric WordPress.org SVN tag before publication.
 
 User-facing changelog text is maintained deliberately; it is not auto-generated from commit history. Keep the current release entry in `readme.txt` and move older history to `changelog.txt` when needed to keep the directory readme compact.
 
