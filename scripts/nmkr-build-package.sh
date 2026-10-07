@@ -18,6 +18,9 @@ version=$(sed -n 's/^[[:space:]]*Version:[[:space:]]*\([0-9][0-9]*\.[0-9][0-9]*\
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'Plugin Version header must be numeric x.y.z.' >&2; exit 1; }
 stable_tag=$(sed -n 's/^Stable tag:[[:space:]]*\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[[:space:]]*$/\1/p' readme.txt | head -n 1)
 [[ "$stable_tag" == "$version" ]] || { echo "readme.txt Stable tag must match plugin Version ($version)." >&2; exit 1; }
+public_stable=$(sed -n 's/^Current public stable release:[[:space:]]*\\*\\*\\([0-9][0-9]*\\.[0-9][0-9]*\\.[0-9][0-9]*\\)\\*\\*\\.[[:space:]]*$/\\1/p' README.md | head -n 1)
+[[ "$public_stable" =~ ^[0-9]+\\.[0-9]+\\.[0-9]+$ ]] || { echo 'README Current public stable release marker must be numeric x.y.z.' >&2; exit 1; }
+[[ "$public_stable" == "$version" ]] || { echo "README Current public stable release marker must match plugin Version ($version)." >&2; exit 1; }
 out=${1:-"$root/dist"}
 mkdir -p "$out"
 out=$(cd "$out" && pwd -P)
