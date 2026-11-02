@@ -12,8 +12,14 @@ Measurement definitions and baselines must be established **before** campaign la
 | Plugin downloads | >=25 combined | WordPress.org download data + GitHub installable release-asset counter | CAMPAIGN ACTIVE — T1 remains the pre-campaign checkpoint at WordPress.org `77` cumulative and GitHub installable asset `0`; first campaign-period checkpoint pending |
 | Active installations | >=10 | WordPress.org active-install signal; privacy-safe corroboration if required | T1 PRE-CAMPAIGN CHECKPOINT — public WordPress.org bucket remains `Fewer than 10` |
 | Unique plugin-page visits | >=250 | Cloudflare Web Analytics `Visits` for the canonical landing page and fixed campaign window | CAMPAIGN ACTIVE — launch boundary `2026-10-05T17:28:48.194Z`; T1 `9 Visits / 9 Page views` remains pre-campaign context; first campaign-period checkpoint pending |
-| Community attendance | >=10 distinct attendees | Event attendance record | NOT STARTED |
-| Detailed user feedback | >=5 distinct users | Feedback/support records using public-safe opaque IDs | NOT STARTED |
+| Community attendance | >=10 distinct attendees | Event attendance record | IN PROGRESS — two Nov 10/12 sessions scheduled (`M5-EVD-008`); no actual attendees evidenced |
+| Detailed user feedback | >=5 distinct users | Feedback/support records using public-safe opaque IDs | NOT STARTED — feedback intake assets ready (`M5-EVD-008`); zero qualifying detailed-user feedback evidenced |
+
+## 2 November 2026 event/outreach readiness checkpoint (not a measurement result)
+
+The public campaign activity register now includes five additional 2 November post references as `M5-EVD-006` (`CAPTURED`), three reported private X outreach messages as an aggregate under `M5-EVD-007` (`CAPTURED`), and two scheduled Google Meet demos for 10 and 12 November plus their registration/feedback and presenter assets as `M5-EVD-008` (`CAPTURED`). See [marketing-and-community.md](marketing-and-community.md), [evidence-register.md](evidence-register.md), and [PR #211](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/pull/211). The 2 November response-sheet snapshot showed zero nonempty registrations and zero feedback responses at that time, without excluding responses through other channels. No attendee or qualifying detailed-feedback count is inferred.
+
+These are campaign and event **execution/readiness** records, not a synchronized metric checkpoint. Current campaign-period WordPress.org download counters, active-install signal, GitHub installable-asset counters (including the released `0.26.0` asset), and fixed-window Cloudflare Visits still require a fresh, explicitly dated measurement and source-window disclosure. Preserve historical T0/T1 and the fixed 5 October campaign launch boundary unchanged; do not attribute prior downloads to later promotion.
 
 ## Canonical landing page and website measurement contract
 

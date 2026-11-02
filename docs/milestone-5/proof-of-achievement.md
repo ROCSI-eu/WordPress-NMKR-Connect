@@ -7,7 +7,7 @@ This document is the dedicated Milestone 5 Proof of Achievement workspace. It co
 
 Its presence is **not** evidence that Milestone 5 is complete. Do not change this document to a completed achievement statement until the cited evidence has been captured, independently verified, reconciled against [traceability.md](traceability.md), and the final [close-out gate](closeout.md#close-out-gate) has been satisfied.
 
-The current public source baseline for this scaffold is `4c968ce4fe93b3d7f2ff038ac6c9d67aa012076e`, tree `3045ab00430f04fd239adc1cfe584200899bcc44`.
+The original scaffold source baseline was `4c968ce4fe93b3d7f2ff038ac6c9d67aa012076e`, tree `3045ab00430f04fd239adc1cfe584200899bcc44`. The **interim evidence checkpoint** assessed on 2 November 2026 is merged `main` `94f7c2a82c8320a88f17bbb7a75f88ec73c82e1c`, tree `e44630954836c9662f7db9c689878157ae27c495`, including documentation [PR #211](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/pull/211). This is not a final close-out source seal or evidence of completed Milestone 5 outcomes.
 
 ## Evidence model and boundaries
 
@@ -39,7 +39,7 @@ Current verified foundations:
 - [`M5-FND-002`](evidence-register.md#m5-fnd-002--m5-01-release-readiness-analysis-and-owner-decisions) records M5-01 release-readiness analysis and owner decisions.
 - [`M5-FND-003`](evidence-register.md#m5-fnd-003--m5-02-validated-release-architecture) records the validated M5-02 release architecture.
 
-These foundation entries do not by themselves prove contractual outcomes. Executed release/distribution evidence now also includes [`M5-EVD-002`](evidence-register.md#m5-evd-002--formal-github-0250-release-publication), which verifies the public GitHub `0.25.0` tag/release, exact source provenance, installable asset digest, and initial GitHub asset counter. WordPress.org approval/publication remains independently evidenced under #111/#128. Neither release record by itself proves the final campaign download or active-install thresholds.
+These foundation entries do not by themselves prove contractual outcomes. Executed release/distribution evidence includes [`M5-EVD-002`](evidence-register.md#m5-evd-002--formal-github-0250-release-publication), verifying the initial GitHub `0.25.0` tag/release, exact source provenance, installable asset digest, and initial asset counter; WordPress.org approval/publication remains evidenced under #111/#128. The current supported public release is [`0.26.0`](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/releases/tag/0.26.0), published 7 October 2026 after the bounded UI/UX handoff in #200. The M5-08 final source/release/package audit is still pending. Neither release establishes final distinct downloaders or the active-install threshold.
 
 ## 2. Adoption, marketing, and community evidence
 
@@ -54,7 +54,7 @@ Final synthesis should evaluate the contractual campaign/adoption outcomes using
 
 Evidence should distinguish measured platform values from inferred or estimated concepts and should preserve any measurement limitations explicitly.
 
-Campaign execution is now underway on two distinct targeted public channels: X at `2026-10-05T17:28:48.194Z` (`M5-EVD-004`) and LinkedIn at `2026-10-05T17:56:12.806Z` (`M5-EVD-005`). These records establish executed channel actions and public references only; platform analytics, campaign outcomes, community attendance, and feedback results remain separate evidence.
+Campaign execution began on two distinct public channels: X at `2026-10-05T17:28:48.194Z` (`M5-EVD-004`) and LinkedIn at `2026-10-05T17:56:12.806Z` (`M5-EVD-005`). The 2 November 2026 evidence reconciliation added [five newer public-post references (`M5-EVD-006`)](evidence-register.md#m5-evd-006--five-additional-public-campaign-posts-2-november-2026), [three reported direct messages only as an aggregate (`M5-EVD-007`)](evidence-register.md#m5-evd-007--targeted-private-outreach-aggregate-only-2-november-2026), and [two scheduled Google Meet demos plus intake/presenter materials (`M5-EVD-008`)](evidence-register.md#m5-evd-008--two-community-demo-sessions-scheduled-and-intake-assets-prepared). All three new entries remain `CAPTURED`; post-content verification, platform analytics, actual attendance, qualifying feedback, support, and campaign-period adoption results are still outstanding.
 
 ## 3. Support, user feedback, and post-launch enhancement evidence
 
@@ -103,22 +103,22 @@ This table is a scaffolded snapshot. [traceability.md](traceability.md) remains 
 
 | ID | Current disposition | Evidence / next proof requirement |
 | --- | --- | --- |
-| `M5-REQ-001` | IN PROGRESS | `M5-EVD-004` and `M5-EVD-005` record targeted public actions on X and LinkedIn; capture available platform analytics/reports before final reconciliation. |
+| `M5-REQ-001` | IN PROGRESS | X and LinkedIn Oct launch actions (`M5-EVD-004/005`), plus five Nov post URLs (`M5-EVD-006`) and three reported private messages in aggregate (`M5-EVD-007`); new records are CAPTURED; campaign analytics/results still pending. |
 | `M5-REQ-002` | IN PROGRESS | `M5-EVD-003` records T1 at WordPress.org `77` cumulative and GitHub installable asset `0`; the increase before launch is not attributed to the campaign and final campaign reconciliation remains. |
 | `M5-REQ-003` | IN PROGRESS | T1 still reports the public WordPress.org bucket `Fewer than 10`; the >=10 threshold is not yet demonstrated. |
 | `M5-REQ-004` | IN PROGRESS | T1 captured `9 Visits / 9 Page views` as pre-campaign context; `M5-EVD-004` fixes campaign start at `2026-10-05T17:28:48.194Z`; campaign-period Visits and the >=250 threshold remain outstanding. |
-| `M5-REQ-005` | NOT STARTED | Record at least 10 distinct attendees at the community event. |
-| `M5-REQ-006` | NOT STARTED | Collect and analyze detailed feedback from at least 5 distinct users. |
+| `M5-REQ-005` | IN PROGRESS | Two sessions scheduled for 10/12 November; registration/presenter assets prepared (`M5-EVD-008`, readiness only). Record at least 10 distinct actual attendees once events occur, counting repeat attendees once. |
+| `M5-REQ-006` | NOT STARTED | Registration/feedback intake is prepared (`M5-EVD-008`, readiness only); at least five distinct detailed-user feedback records remain outstanding. |
 | `M5-REQ-007` | NOT STARTED | Consolidate adoption, feedback, and engagement outcomes. |
-| `M5-REQ-008` | NOT STARTED | Produce and submit the PCR; record public/reviewer-accessible evidence. |
-| `M5-REQ-009` | NOT STARTED | Produce and submit the public PCV; record public URL and submission evidence. |
+| `M5-REQ-008` | IN PROGRESS | ROCSI Google Drive working PCR draft exists, not final or submitted; reconcile actual outcomes and reviewer-accessible final submission. |
+| `M5-REQ-009` | NOT STARTED | PCV storyboard/production plan exists; no produced, public YouTube/Vimeo video or Catalyst submission evidenced. |
 | `M5-REQ-010` | IN PROGRESS | Existing public documentation foundations exist; complete final release-accurate handover review. |
-| `M5-REQ-011` | IN PROGRESS | Public `0.25.0` tag/release SHA/tree/package provenance is verified in `M5-EVD-002`; the final close-out repository/evidence snapshot remains outstanding. |
+| `M5-REQ-011` | IN PROGRESS | Initial 0.25.0 provenance is registered in `M5-EVD-002`; current 0.26.0 release is public (#200). Final close-out SHA/tree/release/package/evidence-register snapshot remains outstanding. |
 | `M5-REQ-012` | NOT STARTED | Deliver and summarize initial post-launch support. |
 | `M5-REQ-013` | COMPLETE | WordPress.org approved and published `ROCSI Connector for NMKR` 0.25.0 under slug `rocsi-connector-for-nmkr`; see #111/#128. |
 | `M5-REQ-014` | NOT STARTED | Allocate/select post-launch work from genuine usage/feedback evidence. |
 | `M5-REQ-015` | NOT STARTED | Document, implement, verify, and release a qualifying genuine adjustment where required by the evidence contract. |
-| `M5-REQ-016` | IN PROGRESS | T0, post-T0 GitHub distribution, synchronized T1, and both recorded campaign-action boundaries are preserved; campaign-period metric checkpoints and final report remain. |
+| `M5-REQ-016` | IN PROGRESS | Historical T0/T1 and Oct launch boundaries remain; Nov 2 public action references are CAPTURED in `M5-EVD-006`. Neither action log nor scheduled events replace a campaign-period adoption metric checkpoint or final report. |
 | `M5-REQ-017` | NOT STARTED | Record traceable feedback-to-prioritization decisions. |
 | `M5-REQ-018` | NOT STARTED | Report observed impact of implemented adjustments where evidence supports it. |
 
