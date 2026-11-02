@@ -7,8 +7,8 @@ M5-03 provides usable WordPress.org and formal GitHub `0.25.0` release paths, M5
 
 ## Current launch-readiness state
 
-- WordPress.org stable release: `0.25.0`, public and verified.
-- Formal GitHub Release: `0.25.0`, published 5 October 2026 and recorded as `M5-EVD-002`.
+- Initial WordPress.org stable release: `0.25.0` (23 September 2026); the current verified M5-05 outreach baseline is `0.26.0` (7 October 2026, issue #164 / handoff #200). Preserve the historical `0.25.0` T0/T1 and launch records unchanged.
+- Formal historical GitHub Release: `0.25.0`, published 5 October 2026 (`M5-EVD-002`); active outreach release: https://github.com/ROCSI-eu/WordPress-NMKR-Connect/releases/tag/0.26.0 (7 October 2026).
 - Canonical campaign page: `https://connector-for-nmkr.rocsi.eu/`.
 - Sealed T0 baseline: `M5-EVD-001`, captured 27 September 2026.
 - Synchronized pre-campaign checkpoint: `M5-EVD-003`, captured 5 October 2026 with Cloudflare `9 Visits / 9 Page views`, WordPress.org `77` cumulative downloads / `Fewer than 10` active-install bucket, and GitHub installable-asset counter `0`.
@@ -81,6 +81,19 @@ Campaign launched. Add one dated row per real campaign action.
 | --- | --- | --- | --- | --- |
 | `2026-10-05T17:28:48.194Z` | X / `@NMKRConnect` | First targeted M5-05 post: https://x.com/NMKRConnect/status/2107161092187365609 | `M5-EVD-004` | Campaign launch boundary. Post targets NMKR Studio + WordPress users, links the official WordPress.org install route and canonical documentation site, and invites feedback. No visit/download/install/feedback result is inferred from publication itself. |
 | `2026-10-05T17:56:12.806Z` | LinkedIn / ROCSI company page | Second targeted M5-05 post: https://www.linkedin.com/feed/update/urn:li:activity:7512933679732527104 | `M5-EVD-005` | Second distinct public channel. Post targets WordPress/NMKR users, links the open-source repository, official WordPress.org install route, and canonical documentation site, and requests concrete install/setup/synchronization/documentation/use-case feedback. Platform analytics and actual feedback remain pending. |
+
+| `2026-11-02T15:19:54.950Z` | LinkedIn / ROCSI company page | Community demo/outreach announcement: https://www.linkedin.com/feed/update/urn:li:share:7523041206390554627/ | `M5-EVD-006` | CAPTURED. UTC decoded from LinkedIn identifier; post contents, actual reach and audience engagement still require independent verification. |
+| `2026-11-02T15:21:58.675Z` | LinkedIn / personal | Community demo/outreach post: https://www.linkedin.com/feed/update/urn:li:activity:7523041725330780160/ | `M5-EVD-006` | CAPTURED. Distinct publishing account on the existing LinkedIn channel; not counted as a third platform. UTC decoded from activity identifier; content/analytics unverified. |
+| `2026-11-02T15:26:39.303Z` | X / `@NMKRConnect` | New community demo/outreach post: https://x.com/NMKRConnect/status/2117277212827402303 | `M5-EVD-006` | CAPTURED. UTC decoded from public status ID; content/analytics unverified. |
+| `2026-11-02T15:29:34.090Z` | X / `@ROCSI_eu` | New community demo/outreach post: https://x.com/ROCSI_eu/status/2117277945936888304 | `M5-EVD-006` | CAPTURED. UTC decoded from public status ID; content/analytics unverified. |
+| `2026-11-02T15:39:36.493Z` | X / `@MihaiROCSI` | New community demo/outreach post: https://x.com/MihaiROCSI/status/2117280472598302723 | `M5-EVD-006` | CAPTURED. UTC decoded from public status ID; content/analytics unverified. |
+| 2026-11-02 (individual sending times unrecorded) | X / private targeted outreach | Three individually directed messages reported as sent; no private names, messages or recipient links published | `M5-EVD-007` | CAPTURED as an aggregate outreach report only; independent send proof and replies not yet registered. Sending messages is not feedback, attendance or a support case. |
+| 2026-11-02 (scheduling confirmed; event still future) | Online Google Meet / Calendar | Two community demo/Q&A sessions scheduled for `2026-11-10T16:00–16:45Z` (Europe/Americas) and `2026-11-12T08:00–08:45Z` (Europe/Asia-Pacific) | `M5-EVD-008` | CAPTURED scheduling/readiness only, supported by private Calendar/Drive metadata. No completed event, actual attendee count or Q&A is claimed; registration and feedback forms, response sheets, presenter slide deck and cue sheet were created. |
+
+
+### 2 November 2026 evidence boundary
+
+The five new public post URLs and their identifier-derived timestamps above were recovered from the campaign execution record, but direct independent X/LinkedIn post-content verification was not available during reconciliation. They remain `CAPTURED`, not `VERIFIED`. The two Google Calendar sessions and associated private event assets were read back through ROCSI-connected sources; public reporting excludes event access links, registrant identities and raw responses. A bounded 2 November read of the linked response sheets found **0 registration form-response rows and 0 feedback form-response rows** at that time. These are source-specific interim observations, not final attendance, feedback, adoption, or engagement results. Actual attendance is counted only after the events, and the same person joining both sessions counts once. No campaign-period download/install/Cloudflare checkpoint has been added by this documentation update.
 
 ## Completion boundary
 
