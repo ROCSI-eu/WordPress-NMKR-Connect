@@ -7,25 +7,27 @@ This file is intentionally scaffolded before execution so the project can see th
 
 The dedicated reviewer-facing synthesis lives in [proof-of-achievement.md](proof-of-achievement.md). The two documents must remain aligned: this file controls completion gates and final dispositions, while the Proof of Achievement summarizes the verified evidence for reviewers.
 
+**Interim reporting checkpoint (2 November 2026, not final close-out):** merged `main` `94f7c2a82c8320a88f17bbb7a75f88ec73c82e1c` (tree `e44630954836c9662f7db9c689878157ae27c495`) includes the documentation-only [PR #211](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/pull/211) and `M5-EVD-006`–`M5-EVD-008` (all `CAPTURED`). These cover five newer public-post references, three reported private outreach messages in aggregate, and two future community demo sessions with intake/presenter assets. This interim checkpoint must not be mistaken for final source provenance, verified campaign impact, completed events, attendance, or received feedback.
+
 ## Contract completion checklist
 
 | Item | Target/disposition | Current state | Evidence |
 | --- | --- | --- | --- |
 | WordPress.org submission/publication | Approved, SVN-published, and publicly available as `ROCSI Connector for NMKR` 0.25.0 | COMPLETE | #111, #128 |
-| GitHub installable release | Public, exact provenance/checksum recorded | COMPLETE — `0.25.0` published 2026-10-05 with exact tag/source and asset digest verified | `M5-EVD-002`, #188 |
-| Marketing channels | >=2 targeted channels launched | IN PROGRESS — targeted public actions executed on X and LinkedIn; timestamps/references captured; platform analytics and remaining M5-05 work still pending | `M5-EVD-004`, `M5-EVD-005` |
+| GitHub installable release | Public, exact provenance/checksum recorded | COMPLETE for first `0.25.0` formal release/provenance; current stable `0.26.0` GitHub Release published 2026-10-07, with release gate #200. Final close-out source/package provenance remains a separate M5-08 check | `M5-EVD-002`, #188, #200; [0.26.0](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/releases/tag/0.26.0) |
+| Marketing channels | >=2 targeted channels launched | IN PROGRESS — two public platforms (X and LinkedIn), Oct 5 launch posts plus five Nov 2 public post references; three privately directed messages reported in aggregate. Nov 2 records are `CAPTURED` pending independent content/engagement checks; outcome measurements remain outstanding | `M5-EVD-004`, `M5-EVD-005`, `M5-EVD-006`, `M5-EVD-007` |
 | Downloads | >=25 combined under documented methodology | IN PROGRESS — T1 pre-campaign: WordPress.org cumulative `77`, GitHub installable asset `0`; campaign-period/final reconciliation pending | `M5-EVD-001`, `M5-EVD-002`, `M5-EVD-003` |
 | Active installations | >=10 under documented methodology | IN PROGRESS — T1 public WordPress.org bucket remains `Fewer than 10`; threshold not yet demonstrated | `M5-EVD-001`, `M5-EVD-003` |
 | Plugin webpage unique visits | >=250 Cloudflare Web Analytics `Visits` on the fixed canonical URL/window; source definition/limitations preserved | IN PROGRESS — targeted campaign interval began `2026-10-05T17:28:48.194Z`; T1 `9 Visits / 9 Page views` remains pre-campaign context; threshold not yet demonstrated | `M5-EVD-001`, `M5-EVD-003`, `M5-EVD-004`, #163 / `adoption-and-metrics.md` |
-| Community event | >=10 distinct attendees | NOT STARTED | TBD |
-| Detailed feedback | >=5 distinct users collected/analyzed | NOT STARTED | TBD |
+| Community event | >=10 distinct attendees | IN PROGRESS — two Google Meet sessions scheduled for 10 and 12 November 2026; registration/feedback intake and presenter materials prepared, but no session conducted or actual attendee total evidenced at this checkpoint | `M5-EVD-008` (readiness only) |
+| Detailed feedback | >=5 distinct users collected/analyzed | NOT STARTED — feedback form and response sheet prepared; no qualifying detailed-user feedback evidenced yet | `M5-EVD-008` (intake readiness only) |
 | Initial early-adopter support | Delivered and summarized | NOT STARTED | TBD |
 | Post-launch fix/minor adjustment | Genuine change documented, implemented, verified, and observed; or unresolved contingency truthfully handled | NOT STARTED | TBD |
-| Ongoing adoption monitoring | Checkpoints/final report present | IN PROGRESS — T0, GitHub post-T0 distribution checkpoint, synchronized T1 pre-campaign checkpoint, and M5-05 campaign-action boundaries recorded; campaign-period metric checkpoints remain | `M5-EVD-001`, `M5-EVD-002`, `M5-EVD-003`, `M5-EVD-004`, `M5-EVD-005` |
+| Ongoing adoption monitoring | Checkpoints/final report present | IN PROGRESS — T0, post-T0 distribution, synchronized pre-campaign T1, Oct campaign launch and Nov 2 activity references recorded; no verified campaign-period Cloudflare/WordPress.org/download/active-install checkpoint or final report yet | `M5-EVD-001`–`M5-EVD-006` (actions are not metric readings) |
 | Feedback-driven prioritization | Traceable feedback-to-decision record | NOT STARTED | TBD |
-| Final public source/docs | Current, reviewed, public | IN PLANNING | TBD |
-| PCR | Submitted and reviewer-accessible | NOT STARTED | TBD |
-| PCV | Public and submitted/referenced | NOT STARTED | TBD |
+| Final public source/docs | Current, reviewed, public | IN PROGRESS — public 0.26.0 plugin release and documentation exist; final release-accurate M5-08 handover audit and final provenance seal remain | #200, [0.26.0](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/releases/tag/0.26.0); final audit TBD |
+| PCR | Submitted and reviewer-accessible | IN PROGRESS — ROCSI Google Drive working draft prepared; final outcomes, reviewer access, and actual Catalyst submission are still pending | ROCSI reporting workspace (draft only); final evidence TBD |
+| PCV | Public and submitted/referenced | NOT STARTED — storyboard/production plan exists in ROCSI Drive; no final PCV production, public video link, or submission evidenced | ROCSI reporting workspace (planning only); final evidence TBD |
 
 ## Final provenance
 
