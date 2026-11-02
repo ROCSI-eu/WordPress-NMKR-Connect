@@ -152,6 +152,48 @@ Each evidence record should include:
 - **Status:** CAPTURED
 - **Limitations/non-claims:** X and LinkedIn now provide two distinct targeted public channels, but this record does not by itself complete all M5-05 acceptance criteria because platform analytics, the community event, attendance, feedback, and campaign-period adoption measurements remain outstanding. Publication proves no visit, download, installation, attendee, or feedback count. The feedback request does not count as feedback received. The UTC is derived from LinkedIn activity ID `7512933679732527104`; independent platform/content verification can promote this record from `CAPTURED` to `VERIFIED` without changing the recorded publication boundary.
 
+### M5-EVD-006 — five additional public campaign posts, 2 November 2026
+
+- **Requirements:** `M5-REQ-001`
+- **Work package:** M5-05 / issue #164
+- **Description:** five additional public campaign/community-demo posts were reported from two LinkedIn accounts and three X accounts, following the existing October two-channel launch. This is a grouped record of five distinct public post references, not five new platforms or five engaged users.
+- **Source/platform:** public X status URLs and LinkedIn company/personal activity URLs; cross-conversation execution handoff
+- **Captured UTC:** reported/captured 2026-11-02. Identifier-derived publication times: LinkedIn ROCSI company `15:19:54.950Z`, LinkedIn personal `15:21:58.675Z`, X `@NMKRConnect` `15:26:39.303Z`, X `@ROCSI_eu` `15:29:34.090Z`, X `@MihaiROCSI` `15:39:36.493Z`. Timestamp derivation from platform IDs is not independent post-content verification.
+- **Relevant SHA/version:** current supported plugin `0.26.0` as recorded by issue #164 and release gate #200; historical campaign launch and baseline are unchanged.
+- **Public/private class:** public posts and URL references
+- **Public reference:** https://www.linkedin.com/feed/update/urn:li:share:7523041206390554627/ ; https://www.linkedin.com/feed/update/urn:li:activity:7523041725330780160/ ; https://x.com/NMKRConnect/status/2117277212827402303 ; https://x.com/ROCSI_eu/status/2117277945936888304 ; https://x.com/MihaiROCSI/status/2117280472598302723
+- **Private corroboration:** NOT NEEDED for URLs; independently captured public post contents/platform analytics remain pending
+- **Status:** CAPTURED
+- **Limitations/non-claims:** public URL/id and execution-report evidence only. Independent external reads of post contents were unavailable at this reconciliation checkpoint. Reach, click-throughs, signups, installs, actual attendance, feedback and causal effects are not established; target metrics must be measured separately. These are not additional distinct platform channels beyond X and LinkedIn.
+
+### M5-EVD-007 — targeted private outreach (aggregate only), 2 November 2026
+
+- **Requirements:** `M5-REQ-001`
+- **Work package:** M5-05 / issue #164
+- **Description:** three individual targeted X direct messages were reported as sent in the separate M5-05 execution discussion. This is a private outreach-action report, not a response/feedback result.
+- **Source/platform:** X private messaging; project operator's execution report
+- **Captured UTC:** 2026-11-02 (exact individual send times not preserved in this public evidence)
+- **Relevant SHA/version:** plugin `0.26.0` campaign baseline; no runtime/source change
+- **Public/private class:** public-safe aggregate count only; recipients, message bodies and any authenticated send proof remain private
+- **Public reference:** issue #164 / this evidence entry; no public direct-message URL
+- **Private corroboration:** YES — any message-level records must remain privately controlled; independent send-proof audit pending
+- **Status:** CAPTURED
+- **Limitations/non-claims:** reported sent count is not independently verified delivery, reading, reply or engagement. No names, handles, private text, contact details or recipient mappings are published. Three messages are not three detailed feedback users, support cases, event registrations or attendees.
+
+### M5-EVD-008 — two community demo sessions scheduled and intake assets prepared
+
+- **Requirements:** `M5-REQ-005` as scheduling foundation only; `M5-REQ-006` as an intake-readiness foundation only
+- **Work package:** M5-05 / issue #164; later intake under #165
+- **Description:** two real Google Calendar/Meet sessions were created: Europe/Americas on 10 November 2026, `16:00–16:45Z` (18:00 Romania); Europe/Asia-Pacific on 12 November 2026, `08:00–08:45Z` (10:00 Romania). A registration form and responses spreadsheet, a community/product-feedback form and responses spreadsheet, a presenter slide deck and a presenter cue sheet were created in a separate restricted ROCSI Drive folder. Calendar event metadata and Drive files were directly checked during the 2 November reconciliation.
+- **Source/platform:** ROCSI-connected Google Calendar and Google Drive (private event operations workspace)
+- **Captured UTC:** 2026-11-02 (read-back checkpoint; event dates/times as above)
+- **Relevant SHA/version:** public plugin `0.26.0` as campaign handoff baseline; event-demo deployment not validated by this record
+- **Public/private class:** public-safe dates, session descriptions, aggregate form observation; registration records, event links, participant identities, private responses and workspace access stay private
+- **Public reference:** issue #164 and this sanitized readiness record; no private Calendar or Drive URL included
+- **Private corroboration:** YES — ROCSI Calendar/Drive metadata and response sheets
+- **Status:** CAPTURED
+- **Limitations/non-claims:** evidence of scheduling/assets only, not proof of events conducted, any actual attendance, detailed feedback, user adoption, or successful demo operation. Read-only response-sheet check on 2026-11-02 found zero nonempty registration response rows and zero feedback response rows at that moment (not a blanket statement about all channels). The two sessions must be measured for distinct actual human attendance, deduplicated across sessions. The feedback target requires five distinct actionable users, not forms created or invitations sent.
+
 ## Public/private evidence boundary
 
 ### Suitable for the public repository
