@@ -1,5 +1,9 @@
 # WordPress NMKR Connect
 
+![ROCSI Connector for NMKR — co-branded project banner](docs/assets/rocsi-connector-nmkr-brand-banner.png)
+
+*Independent open-source WordPress integration developed by ROCSI. The official NMKR logo appears with permission and does not imply NMKR product ownership or endorsement.*
+
 **ROCSI Connector for NMKR** is an open-source WordPress plugin for synchronizing Cardano and Solana NFT project and token data through the NMKR API and presenting that data with shortcodes.
 
 The repository and Cardano Project Catalyst project retain the historical **NMKR Connect** / `WordPress-NMKR-Connect` identity. The public WordPress distribution identity is **ROCSI Connector for NMKR**, published in the WordPress Plugin Directory at [wordpress.org/plugins/rocsi-connector-for-nmkr](https://wordpress.org/plugins/rocsi-connector-for-nmkr/) with the fixed slug/text domain `rocsi-connector-for-nmkr`.
