@@ -140,7 +140,6 @@ function nmkr_display_shortcodes_page() {
         $generated = nmkr_quick_shortcode_build( $quick_type, $quick_project, $quick_token, $quick_selector );
     }
 
-    nmkr_connect_enqueue_script_asset( 'nmkr-shortcode-generator', 'js/admin/nmkr-shortcode-generator.js', array(), true );
     ?>
     <div class="wrap nmkr-admin-shell nmkr-shortcodes-page">
         <header class="nmkr-shortcodes-header">
