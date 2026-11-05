@@ -1,7 +1,7 @@
 # Milestone 5 — UI/UX Gate B decision proposal
 
 **Date:** 2026-11-05  
-**Status:** OWNER DECISION REQUIRED — NO CODE CHANGE APPROVED  
+**Status:** OWNER APPROVED B1+B2+B3 FOR IMPLEMENTATION ON 2026-11-06 — NO MERGE/DEPLOYMENT APPROVAL  
 **Source:** [community feedback intake M5-INTAKE-001 / issue #216](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/issues/216)  
 **Evidence:** [Gate A report](ui-ux-gate-a-visual-audit-2026-11-05.md), [initial assessment](ui-ux-community-feedback-2026-11-05.md), pre-existing 0.26.0 facelift #194–#200  
 **Parent delivery:** [M5-06/M5-07 feedback and post-launch adjustment #165](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/issues/165)
@@ -47,7 +47,7 @@ The 0.26.0 facelift already established coherent CSS primitives and improved **a
 3. **B3** focused WordPress Admin improvement with existing local project/token data. Validate empty state, long UIDs, accessibility, copy behavior, and no Javascript fallback. No persistence/model/API changes.
 4. Decide on **B4** only after B2 observation; **defer B5** absent a demonstrated issue.
 
-**Recommended initial approval subset:** **B1 + B2 + B3** as separate, reviewable issues/PRs; B4 conditional; B5 deferred. These are **proposals, not approved changes**.
+**Owner decision (2026-11-06):** B1 + B2 + B3 **approved for implementation** as separate Draft PRs #221/#222/#223; B4 remains conditional and B5 deferred. This approval **does not** authorize merge, deployment, release or WordPress.org publication. See [Gate C status](ui-ux-gate-c-implementation-2026-11-06.md).
 
 ## Acceptance and safety conditions for each selected PR
 
@@ -73,4 +73,4 @@ These artifacts support **feedback triage and prioritization**, not automaticall
 - **B4:** conditional / approve / defer / reject
 - **B5:** recommend defer
 
-**No code implementation is initiated by this proposal.** Authorize only the selected packages when ready, then open focused implementation issues and keep each PR Draft until reviewed.
+**Implementation has begun on the separately approved B1/B2/B3 packages, Draft PRs #221/#222/#223.** Keep them Draft until reviewed and request distinct merge/deployment authorization.
