@@ -404,6 +404,7 @@ function nmkr_enqueue_admin_assets($hook) {
 
     if ( strpos( $hook, 'nmkr-connect-shortcodes' ) !== false ) {
         nmkr_connect_enqueue_style_asset( 'nmkr-shortcodes-admin', 'css/admin/nmkr-shortcodes.css', array( 'nmkr-admin-foundation' ) );
+        nmkr_connect_enqueue_script_asset( 'nmkr-shortcode-generator', 'js/admin/nmkr-shortcode-generator.js', array(), true );
     }
 
     if ( strpos( $hook, 'nmkr-connect-settings' ) !== false ) {
