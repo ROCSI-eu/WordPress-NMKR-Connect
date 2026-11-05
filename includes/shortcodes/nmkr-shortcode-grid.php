@@ -72,6 +72,8 @@ function nmkr_shortcode_grid( $atts ) {
         array( 'nmkr-shortcode-foundation' )
     );
 
+    nmkr_connect_enqueue_script_asset( 'nmkr-mobile-collection', 'js/nmkr-mobile-collection.js', array(), true );
+
     $filters_active = '' !== $search_query || '' !== $filter_minted;
     if ( $filters_active ) {
         $filtered_tokens = array();
@@ -100,6 +102,7 @@ function nmkr_shortcode_grid( $atts ) {
         $output .= nmkr_render_project_selector_simple( $projects, $active_project_uid );
     }
 
+    $output .= '<details class="nmkr-mobile-disclosure nmkr-mobile-filters" open data-nmkr-collapse-mobile="1"' . ( $filters_active ? ' data-nmkr-keep-open="1"' : '' ) . '><summary>' . esc_html__( 'Search and filter tokens', 'rocsi-connector-for-nmkr' ) . '</summary>';
     $output .= '<div class="nmkr-search-filter">';
     $output .= '<form method="get">';
     $output .= '<input type="hidden" name="nmkr_project" value="' . esc_attr( $active_project_uid ) . '">';
@@ -113,8 +116,11 @@ function nmkr_shortcode_grid( $atts ) {
     $output .= '</select></label>';
     $output .= '<button type="submit" class="nmkr-filter-submit">' . esc_html__( 'Apply filters', 'rocsi-connector-for-nmkr' ) . '</button>';
     $output .= '</form>';
-    $output .= '</div>';
+    $output .= '</div></details>';
 
+    $output .= '<details class="nmkr-mobile-disclosure nmkr-mobile-project-details" open data-nmkr-collapse-mobile="1"><summary>'
+        . sprintf( esc_html__( 'Project details and statistics: %s', 'rocsi-connector-for-nmkr' ), esc_html( $selected_project->project_name ) )
+        . '</summary>';
     $output .= '<section class="nmkr-project-details" aria-label="' . esc_attr__( 'Selected project', 'rocsi-connector-for-nmkr' ) . '">';
     $output .= '<div class="nmkr-project-header"><div class="nmkr-project-heading">';
     $output .= '<h2>' . esc_html( $selected_project->project_name ) . '</h2>';
@@ -140,7 +146,7 @@ function nmkr_shortcode_grid( $atts ) {
             . esc_html__( 'Project website', 'rocsi-connector-for-nmkr' )
             . '<span class="screen-reader-text"> ' . esc_html__( '(opens in a new tab)', 'rocsi-connector-for-nmkr' ) . '</span></a></div>';
     }
-    $output .= '</section>';
+    $output .= '</section></details>';
 
     if ( empty( $tokens ) ) {
         $output .= '<div class="nmkr-shortcode-state nmkr-shortcode-state-empty" role="status"><p>'

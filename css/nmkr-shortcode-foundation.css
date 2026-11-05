@@ -392,3 +392,55 @@
         animation-iteration-count: 1 !important;
     }
 }
+
+/*
+ * M5 B2 progressive mobile disclosures.
+ * Desktop and no-JS browsers retain the complete open project/filter views.
+ * The tiny viewport helper closes only these explicit details on small screens.
+ */
+.nmkr-shortcode-grid .nmkr-mobile-disclosure > summary,
+.nmkr-shortcode-carousel .nmkr-mobile-disclosure > summary {
+    display: none;
+}
+
+@media (max-width: 640px) {
+    .nmkr-shortcode-grid .nmkr-mobile-disclosure,
+    .nmkr-shortcode-carousel .nmkr-mobile-disclosure {
+        min-width: 0;
+        margin: 0 0 12px;
+    }
+
+    .nmkr-shortcode-grid .nmkr-mobile-disclosure > summary,
+    .nmkr-shortcode-carousel .nmkr-mobile-disclosure > summary {
+        display: list-item;
+        min-height: 44px;
+        padding: 11px 14px;
+        border: 1px solid var(--nmkr-ui-border);
+        border-radius: var(--nmkr-ui-radius);
+        background: var(--nmkr-ui-surface);
+        color: var(--nmkr-ui-text);
+        font-size: 0.92rem;
+        font-weight: 700;
+        line-height: 1.5;
+        cursor: pointer;
+        overflow-wrap: anywhere;
+    }
+
+    .nmkr-shortcode-grid .nmkr-mobile-disclosure > summary:focus-visible,
+    .nmkr-shortcode-carousel .nmkr-mobile-disclosure > summary:focus-visible {
+        outline: 3px solid var(--nmkr-ui-accent);
+        outline-offset: 2px;
+    }
+
+    .nmkr-shortcode-grid .nmkr-mobile-disclosure[open] > summary,
+    .nmkr-shortcode-carousel .nmkr-mobile-disclosure[open] > summary {
+        margin-bottom: 10px;
+    }
+
+    .nmkr-shortcode-grid .nmkr-mobile-disclosure .nmkr-search-filter form,
+    .nmkr-shortcode-grid .nmkr-mobile-disclosure .nmkr-project-details,
+    .nmkr-shortcode-carousel .nmkr-mobile-disclosure .nmkr-token-filter,
+    .nmkr-shortcode-carousel .nmkr-mobile-disclosure .nmkr-project-details {
+        margin-bottom: 0;
+    }
+}
