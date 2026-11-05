@@ -185,6 +185,7 @@ function nmkr_display_shortcodes_page() {
                                 <?php endforeach; ?>
                             </select>
                         </label>
+                        <?php if ( 'nmkr-token' !== $quick_type ) : ?>
                         <label for="nmkr-gen-selector">
                             <?php esc_html_e( 'Visitor project selector', 'rocsi-connector-for-nmkr' ); ?>
                             <select name="nmkr_gen_selector" id="nmkr-gen-selector">
@@ -192,6 +193,7 @@ function nmkr_display_shortcodes_page() {
                                 <option value="0" <?php selected( $quick_selector, '0' ); ?>><?php esc_html_e( 'Show only chosen project', 'rocsi-connector-for-nmkr' ); ?></option>
                             </select>
                         </label>
+                        <?php endif; ?>
                     </div>
                     <?php if ( 'nmkr-token' === $quick_type && '' !== $quick_project ) : ?>
                         <div class="nmkr-generator-token-fields">
@@ -284,8 +286,8 @@ function nmkr_display_shortcodes_page() {
 
                     <div class="nmkr-shortcode-example">
                         <div class="nmkr-shortcode-example-heading">
-                            <strong><?php esc_html_e( 'Copy-friendly example', 'rocsi-connector-for-nmkr' ); ?></strong>
-                            <span><?php esc_html_e( 'Select the code and copy it into a WordPress Shortcode block.', 'rocsi-connector-for-nmkr' ); ?></span>
+                            <strong><?php esc_html_e( 'Syntax example (sample UID)', 'rocsi-connector-for-nmkr' ); ?></strong>
+                            <span><?php esc_html_e( 'These examples contain sample identifiers; use Quick publish above for a real synchronized project or token.', 'rocsi-connector-for-nmkr' ); ?></span>
                         </div>
                         <pre tabindex="0"><code><?php echo esc_html( $shortcode['example'] ); ?></code></pre>
                     </div>
