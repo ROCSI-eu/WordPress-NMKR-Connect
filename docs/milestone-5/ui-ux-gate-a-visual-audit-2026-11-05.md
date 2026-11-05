@@ -1,6 +1,6 @@
 # M5 Gate A — post-0.26.0 UI/UX visual audit (2026-11-05)
 
-**Status:** CORE FRONTEND AND AUTHENTICATED ADMIN VISUAL QA COMPLETED — accessible interaction, AJAX-dependent status, and second-theme validation remain OPEN.  
+**Status:** BOUNDED GATE A AUDIT COMPLETE FOR GATE B DECISION — real backend/AJAX, formal accessibility and broader user acceptance remain unverified.  
 **Origin:** [M5-INTAKE-001 / issue #216](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/issues/216); feedback workflow [#165](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/issues/165).  
 **Implementation/release:** NONE. This report documents audit evidence and candidates, not a decision to redesign or release an update.
 
@@ -150,7 +150,62 @@ All screenshot captures were saved **privately** on the authorized VM. Potential
 - [x] Actual project selection and token result display via a read-only nonce-protected browser form.
 - [ ] Allowlisted, independently reviewed read-only AJAX states and negative/error handling without recording synthetic user analytics or invoking NMKR synchronization.
 - [ ] Formal keyboard path/focus order, mobile touch, zoom, reduced motion, contrast measurements and screen-reader checks. No WCAG conformance claim.
-- [ ] Second WordPress theme under isolated disposable clone or independently authorized reversible testing. **No active theme switch was performed.**
+- [x] Second WordPress theme tested in an isolated, temporary, loopback-only installation: Twenty Twenty-Five, plugin 0.26.0, synthetic projects/tokens. No changes to canonical active theme.
 - [ ] Role-denial acceptance using independently authorized restricted-account workflow, if required; simply observing the scoped role is not equivalent to proving every denial path.
 
 **Outcome:** The account-access blocker is resolved, and core admin visual/access acceptance can inform Gate B prioritization. Gate A remains **partially complete** for the listed dynamic, accessibility and theme-compatibility checks. This does not authorize code implementation, merge, deployment or WordPress.org release.
+
+
+## Gate A final bounded checks — 2026-11-05
+
+### Ten-view automated accessible-interaction screening (not WCAG certification)
+
+Using a **real authenticated canonical DEV QA browser session** and mobile 390px viewport with touch emulation and `prefers-reduced-motion: reduce`, the audit inspected all **five admin screens and five shortcode outputs**.
+
+- **10/10 HTTP 200**, document-level horizontal overflow **0** for the observed fixtures.
+- Among **visible controls sampled inside the plugin root**, no missing accessible name was identified by the automated label/accessible-text heuristic; no sampled visible image lacked an `alt` attribute.
+- A limited computed color/background contrast heuristic produced no sample below **4.5:1**, but ignores alpha blending, gradients, overlapping backgrounds, icons and many other cases. **It does not prove WCAG contrast conformance**.
+- The first eight keyboard Tab targets on each page displayed an apparent `:focus-visible` indicator, though initial targets were often WordPress/global-theme chrome rather than deeply nested plugin controls; this is **not** a full plugin focus-order audit.
+- A single `NMKR Studio` inline link in Settings measured approximately 77×15px. This measurement alone **cannot establish a WCAG 2.2 target-size failure**, which depends on spacing/equivalent-target exceptions and other details.
+
+**Still untested:** actual Android touch gestures and screen-reader interpretation, 200%/400% browser zoom as a complete manual reflow audit, every icon/label/contrast/keyboard path. No full WCAG 2.2 AA certificate is claimed. These checks should be targeted to approved changes in Gate C, not inferred as PASS here.
+
+### Dynamic Dashboard / Analytics JavaScript without live NMKR calls
+
+A dedicated authenticated Chrome run stubbed only **five known actions**, returning public-safe, locally fabricated responses:
+
+- `nmkr_check_api_status`;
+- `nmkr_analytics_kpis`;
+- `nmkr_analytics_timeseries`;
+- `nmkr_analytics_top_projects`;
+- `nmkr_analytics_top_tokens`.
+
+Dashboard visibly reflected the benign API-status stub. Analytics rendered its filters, KPI containers, chart containers, ranking tables, exports area and **`is-empty`** report state. **No unapproved AJAX action was attempted** in that run. Every other AJAX action was blocked, and no real API connectivity, synchronization, report export, analytics ingestion, or persistent WordPress update was triggered.
+
+**Evidence limit:** this confirms **client-side UI behavior against known response contracts**, not genuine backend availability, actual data retrieval, external API health, or server-side error resolution. A later real read-only backend-specific QA may be justified by a selected change, but should not be misrepresented as tested here.
+
+### Actual second-theme rendering in isolated WordPress
+
+A disposable **WordPress 7.1.3 / plugin 0.26.0** installation was created **solely on VM loopback** at `127.0.0.1:8765`, separate from the canonical DEV environment and with **Twenty Twenty-Five** active. The fresh test database held only **two selected synthetic projects and ten selected synthetic tokens**; payment links were neutralized to `example.test`. Real Twenty Twenty-Five-generated CSS and WordPress frontend templating were exercised.
+
+All five shortcode types were rendered in headless Chrome at **1365px and 390px**:
+
+| Shortcode | 1365px | 390px | Visual observation |
+| --- | --- | --- | --- |
+| Grid | HTTP 200, no page/root overflow | HTTP 200, no page/root overflow | Art and CTA preserved; first NFT content on mobile around Y=1027px |
+| Token list | PASS | PASS | Locally scrollable information table retains expected layout |
+| Carousel | PASS | PASS | Mobile artwork/content begins around Y=1188px; this reinforces the NFT-first vertical-density recommendation |
+| Single token | PASS | PASS | Artwork/price/status/CTA coherent with Twenty Twenty-Five typography |
+| Project | PASS | PASS | Project summary and featured NFT render coherently |
+
+Some offscreen/lazy-loaded images can appear blank in early full-page screenshots despite visible media loading measurements; do **not** infer a broken-image regression from a screenshot captured before scroll/image settlement.
+
+**Isolation/cleanup:** The temporary PHP server was stopped; the disposable WordPress files, test DB, DB account and temporary credentials were deleted after capturing private screenshots and test metrics. The approved canonical DEV QA account was **preserved**. The canonical active Hello Elementor theme, WordPress database, user accounts, settings and production deployments were **not modified** by this second-theme exercise.
+
+### Result and remaining evidence boundary
+
+The evidence now supports an actionable **Gate B decision proposal**: [UI/UX Gate B packages](ui-ux-gate-b-proposal-2026-11-05.md). It identifies three recommended initial implementation candidates and optional/deferred work based on observed frontend correctness, usability and visual behavior.
+
+**Gate A is decision-ready within the bounded audit scope**; the remaining formal manual screen-reader/zoom/touch review, deep accessibility conformance, real backend AJAX integration and wider user interviews are **not claimed** and must remain open/conditional for acceptance of any approved implementation. One additional browser role-denial attempt could not establish a new authenticated state and is not used as pass/fail evidence; the verified `nmkr-admin` WordPress role/capability inspection remains the limited authorization evidence.
+
+This Gate A result **does not approve** B1–B5 code work, merging, release tagging, deployment or WordPress.org SVN submission. The community intake still **does not count** toward five detailed Catalyst feedback users.
