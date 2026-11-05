@@ -405,6 +405,14 @@ function nmkr_enqueue_admin_assets($hook) {
     if ( strpos( $hook, 'nmkr-connect-shortcodes' ) !== false ) {
         nmkr_connect_enqueue_style_asset( 'nmkr-shortcodes-admin', 'css/admin/nmkr-shortcodes.css', array( 'nmkr-admin-foundation' ) );
         nmkr_connect_enqueue_script_asset( 'nmkr-shortcode-generator', 'js/admin/nmkr-shortcode-generator.js', array(), true );
+        wp_localize_script(
+            'nmkr-shortcode-generator',
+            'nmkrQuickPublishMessages',
+            array(
+                'copied' => __( 'Shortcode copied.', 'rocsi-connector-for-nmkr' ),
+                'selected' => __( 'The shortcode is selected. Copy it with your keyboard.', 'rocsi-connector-for-nmkr' ),
+            )
+        );
     }
 
     if ( strpos( $hook, 'nmkr-connect-settings' ) !== false ) {
