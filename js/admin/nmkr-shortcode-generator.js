@@ -34,9 +34,10 @@
           worked = document.execCommand('copy');
         } catch (error) { /* The selected text remains ready for manual copying. */ }
       }
+      var messages = window.nmkrQuickPublishMessages || {};
       status.textContent = worked
-        ? 'Shortcode copied.'
-        : 'The shortcode is selected. Copy it with your keyboard.';
+        ? (messages.copied || 'Shortcode copied.')
+        : (messages.selected || 'The shortcode is selected. Copy it with your keyboard.');
     });
   }
 
