@@ -1,6 +1,6 @@
 # M5 Gate A — post-0.26.0 UI/UX visual audit (2026-11-05)
 
-**Status:** PARTIALLY EXECUTED — frontend visual/layout inspection completed; authenticated WordPress-admin runtime and interaction acceptance remains OPEN.  
+**Status:** CORE FRONTEND AND AUTHENTICATED ADMIN VISUAL QA COMPLETED — accessible interaction, AJAX-dependent status, and second-theme validation remain OPEN.  
 **Origin:** [M5-INTAKE-001 / issue #216](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/issues/216); feedback workflow [#165](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/issues/165).  
 **Implementation/release:** NONE. This report documents audit evidence and candidates, not a decision to redesign or release an update.
 
@@ -110,8 +110,47 @@ The live 0.26.0 shortcode pages on the canonical `/wp-dev` URL were further chec
 
 ### Remaining Gate A blockers
 
-- [ ] A valid, user-authorized QA login for the **canonical** DEV WordPress instance, followed by actual authenticated Dashboard/Projects/Shortcodes/Analytics/Settings browser interactions and permission checks.
+- [x] Dedicated scoped QA login on the canonical DEV WordPress site; authenticated Chrome loaded Dashboard, Projects, Shortcodes, Analytics and Settings at both desktop and mobile widths. Interactive Projects selection was exercised and rendered the summary and ten token results. Role capabilities checked; no global `manage_options`.
 - [ ] Actual second-theme execution (Twenty Twenty-Five is installed but not activated), either in a safe disposable clone or through an independently authorized reversible theme test. Do not change the site's active theme merely to satisfy visual QA.
 - [ ] Representative narrow mobile touch, contrast, zoom and screen-reader acceptance before asserting accessibility conformance.
 
-**Disposition:** Gate A **PARTIALLY COMPLETE**, with sufficient evidence to rank frontend improvements but **not** to certify the full authenticated admin journey. The owner has not yet approved any code modification, merge or WordPress.org publication.
+**Disposition:** Gate A **PARTIALLY COMPLETE**, with core authenticated admin rendering/navigation now verified, but not full interactive/AJAX, cross-theme, or accessibility acceptance. The owner has not yet approved any code modification, merge or WordPress.org publication.
+
+
+## Gate A continuation — dedicated QA account and authenticated WordPress Admin verification (2026-11-05)
+
+### Dedicated QA identity and authorization boundary
+
+After the maintainer explicitly approved dedicated QA access, a **new WordPress DEV-only QA account** was provisioned on the canonical `/wp-dev` installation. The account has the plugin's existing **`nmkr-admin` role**, not WordPress's global `administrator` role. It grants `nmkr_view_dashboard`, `nmkr_view_projects`, `nmkr_view_shortcodes`, `nmkr_view_analytics` and `nmkr_manage_settings`, but **not** `manage_options`. The account has additional existing plugin-defined capabilities, including synchronization management; these were **not exercised** during the audit.
+
+The randomly generated password resides in a **private 0600-mode file** inside a **0700-mode** restricted QA directory on the authorized VM. The username, credentials, authentication cookies, session state and detailed user records are **not** published in the repository. No existing administrator user, password, role assignment, plugin setting, site theme, NFT data or synchronization state was changed. The earlier failed login from the unrelated legacy-host credential file remains a historical attempt; it is now **superseded by a successful login using the approved dedicated canonical DEV identity**.
+
+### Authenticated browser observations
+
+An isolated Chrome 156 instance authenticated through the genuine WordPress login form on `https://connector-for-nmkr.rocsi.eu/wp-dev/` and opened all five plugin administration screens via actual `wp-admin` routing. The PHP/WordPress shell, plugin menu, login status and page headings were observed **in a real logged-in WordPress browser session**, rather than only via the earlier isolated PHP fixtures.
+
+| Screen | 1365px / 390px HTTP | Authenticated UI shell | Document/root overflow | Other bounded observation |
+| --- | --- | --- | --- | --- |
+| Dashboard | 200 / 200 | PASS | 0 / 0 | Connection/synchronization summary and diagnostics disclosure present |
+| NFT Projects | 200 / 200 | PASS | 0 / 0 | 10 project choices in selector; selected-project interaction separately confirmed |
+| Shortcodes | 200 / 200 | PASS | 0 / 0 | Five documented shortcode guides with current sample-UID examples |
+| Analytics | 200 / 200 | PASS | 0 / 0 | Analytics section/card structure present; live report AJAX intentionally blocked |
+| Settings | 200 / 200 | PASS | 0 / 0 | Form and advanced disclosures rendered; **no settings saved** |
+
+**Read-only interaction:** With the scoped QA login, the WordPress Admin NFT Projects selector offered **10 synchronized sample projects**. Choosing the first project through its actual browser selector submitted only that page's **nonce-protected local filter form**. The authenticated response displayed the project summary, filtering controls and **10 token results**, with no horizontal page overflow at 390px. The interaction did not start an NMKR API sync or persist plugin changes.
+
+All screenshot captures were saved **privately** on the authorized VM. Potentially sensitive form inputs and visible diagnostic logs were redacted/removed before capture; browser cookies, authentication state, password and raw admin HTML were **not** exported to the public repository.
+
+**Network guard:** Automation blocked AJAX/WordPress REST requests and non-approved POST submissions, apart from the login and the read-only Projects selection form. Consequently **the Dashboard's API status failure/loading appearance and any Analytics loading placeholders in these screenshots are not evidence of a product defect**; genuine status/AJAX success/error behavior was **not tested**. No live NMKR synchronization, purchases, analytics ingestion, settings saves or debug log exports were performed.
+
+### Open acceptance items — still not certified
+
+- [x] Canonical DEV plugin-specific QA identity and real authenticated browser login.
+- [x] Dashboard / Projects / Shortcodes / Analytics / Settings render at desktop/mobile widths, including no observed page-level overflow.
+- [x] Actual project selection and token result display via a read-only nonce-protected browser form.
+- [ ] Allowlisted, independently reviewed read-only AJAX states and negative/error handling without recording synthetic user analytics or invoking NMKR synchronization.
+- [ ] Formal keyboard path/focus order, mobile touch, zoom, reduced motion, contrast measurements and screen-reader checks. No WCAG conformance claim.
+- [ ] Second WordPress theme under isolated disposable clone or independently authorized reversible testing. **No active theme switch was performed.**
+- [ ] Role-denial acceptance using independently authorized restricted-account workflow, if required; simply observing the scoped role is not equivalent to proving every denial path.
+
+**Outcome:** The account-access blocker is resolved, and core admin visual/access acceptance can inform Gate B prioritization. Gate A remains **partially complete** for the listed dynamic, accessibility and theme-compatibility checks. This does not authorize code implementation, merge, deployment or WordPress.org release.
