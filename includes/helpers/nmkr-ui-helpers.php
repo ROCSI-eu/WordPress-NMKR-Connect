@@ -49,3 +49,31 @@ if ( ! function_exists( 'nmkr_render_shortcode_state' ) ) {
             . '</div>';
     }
 }
+
+/**
+ * Return a CardanoScan policy URL only for an explicitly identified Cardano project.
+ *
+ * A Solana project may also carry a legacy policy_id value. That value must
+ * never turn into a misleading CardanoScan link. Unknown/missing chains fail
+ * closed; only the confirmed Cardano policy URL is supported here.
+ *
+ * @param object $project Project record from the local NMKR projects table.
+ * @return string Absolute URL or empty string.
+ */
+if ( ! function_exists( 'nmkr_get_project_cardanoscan_url' ) ) {
+    function nmkr_get_project_cardanoscan_url( $project ) {
+        if ( ! is_object( $project )
+            || ! isset( $project->blockchain, $project->policy_id )
+            || ! is_scalar( $project->blockchain )
+            || ! is_scalar( $project->policy_id ) ) {
+            return '';
+        }
+
+        if ( 'cardano' !== strtolower( trim( (string) $project->blockchain ) ) ) {
+            return '';
+        }
+
+        $policy_id = trim( (string) $project->policy_id );
+        return '' === $policy_id ? '' : 'https://cardanoscan.io/tokenPolicy/' . rawurlencode( $policy_id );
+    }
+}

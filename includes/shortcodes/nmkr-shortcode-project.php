@@ -164,8 +164,9 @@ function nmkr_shortcode_project( $atts ) {
     }
 
     $output .= '<nav class="nmkr-project-links" aria-label="' . esc_attr__( 'Project links', 'rocsi-connector-for-nmkr' ) . '">';
-    if ( ! empty( $project->policy_id ) ) {
-        $output .= '<a href="' . esc_url( 'https://cardanoscan.io/tokenPolicy/' . rawurlencode( (string) $project->policy_id ) ) . '" class="nmkr-project-link" target="_blank" rel="noopener noreferrer">'
+    $cardanoscan_url = nmkr_get_project_cardanoscan_url( $project );
+    if ( '' !== $cardanoscan_url ) {
+        $output .= '<a href="' . esc_url( $cardanoscan_url ) . '" class="nmkr-project-link" target="_blank" rel="noopener noreferrer">'
             . esc_html__( 'View on CardanoScan', 'rocsi-connector-for-nmkr' )
             . '<span class="screen-reader-text"> ' . esc_html__( '(opens in a new tab)', 'rocsi-connector-for-nmkr' ) . '</span></a>';
     }
