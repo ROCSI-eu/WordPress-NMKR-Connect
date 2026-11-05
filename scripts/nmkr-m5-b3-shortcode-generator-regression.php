@@ -23,7 +23,7 @@ foreach ( array( '', 'UID" injected', 'UID]bad', 'UID bad' ) as $invalid ) {
 }
 nmkr_b3_test( nmkr_quick_shortcode_build( 'nmkr-unknown', $project, $token, '1' ), '', 'unknown type rejected' );
 $source = file_get_contents( dirname( __DIR__ ) . '/includes/pages/shortcodes/nmkr-shortcodes.php' );
-foreach ( array( 'nmkr_view_shortcodes', 'method="get"', 'nmkr_gen_project', 'nmkr_gen_token', 'nmkr_gen_token_custom', 'nmkr-shortcodes-reference', 'esc_textarea( $generated )', 'SELECT token_uid FROM', 'get_var( $wpdb->prepare(' ) as $item ) {
+foreach ( array( 'nmkr_view_shortcodes', 'method="get"', 'nmkr_gen_project', 'nmkr_gen_token', 'nmkr_gen_token_custom', 'nmkr-shortcodes-reference', 'esc_textarea( $generated )', 'SELECT token_uid FROM', 'get_var( $wpdb->prepare(', '$both_token_inputs', 'Choose an NFT or paste its UID, not both' ) as $item ) {
     if ( false === strpos( $source, $item ) ) { fwrite( STDERR, "FAIL: missing source contract {$item}\n" ); exit( 1 ); }
 }
 $bootstrap = file_get_contents( dirname( __DIR__ ) . '/rocsi-connector-for-nmkr.php' );
