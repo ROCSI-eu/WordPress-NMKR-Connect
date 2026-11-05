@@ -24,7 +24,7 @@ Populate from M5-06/support/adoption evidence.
 
 | Candidate | Origin evidence | Impact | Scope/risk | Decision | Rationale |
 | --- | --- | --- | --- | --- | --- |
-| TBD | TBD | TBD | TBD | TBD | TBD |
+| `M5-INTAKE-001` — post-release admin/frontend UI/UX review | Maintainer-relayed qualitative Cardano/WordPress community observation on 2026-11-05; [issue #216](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/issues/216) | Actual friction/severity not yet measured; source-based candidates documented in the [initial assessment](ui-ux-community-feedback-2026-11-05.md) | **Audit: low runtime risk; implementation: unknown pending chosen changes** | **IN ANALYSIS — no adjustment selected** | Existing 0.26.0 facelift (#194–#200) must first be reconciled; collect visual/task evidence before proposing small targeted changes. This intake alone does not satisfy detailed-user feedback or the implemented-change criterion. |
 
 ## Selected adjustment
 
