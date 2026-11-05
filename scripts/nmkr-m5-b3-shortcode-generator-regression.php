@@ -34,4 +34,15 @@ $js = file_get_contents( dirname( __DIR__ ) . '/js/admin/nmkr-shortcode-generato
 if ( false !== strpos( $js, 'fetch(' ) || false === strpos( $js, 'navigator.clipboard' ) ) {
     fwrite( STDERR, "FAIL: generator JS must remain network-free and copy-capable\n" ); exit( 1 );
 }
+// Project-switch regression: clearing both token inputs must precede GET submit.
+// Existing dropdown/manual mutual exclusion is tested by the private browser suite.
+$project_switch = strpos( $js, "if (id === 'nmkr-gen-project')" );
+$project_clear_dropdown = false !== $project_switch ? strpos( $js, "if (tokenSelect) tokenSelect.value = '';", $project_switch ) : false;
+$project_clear_manual = false !== $project_switch ? strpos( $js, "if (manualToken) manualToken.value = '';", $project_switch ) : false;
+$project_submit = false !== $project_switch ? strpos( $js, 'form.requestSubmit();', $project_switch ) : false;
+if ( false === $project_switch || false === $project_clear_dropdown || false === $project_clear_manual
+    || false === $project_submit || ! ( $project_switch < $project_clear_dropdown
+    && $project_clear_dropdown < $project_clear_manual && $project_clear_manual < $project_submit ) ) {
+    fwrite( STDERR, "FAIL: project change must reset both token inputs before GET submission\n" ); exit( 1 );
+}
 echo "PASS: M5 B3 quick publish generator contract\n";
