@@ -71,6 +71,7 @@ function nmkr_shortcode_carousel( $atts ) {
         array( 'nmkr-shortcode-foundation' )
     );
     nmkr_connect_enqueue_script_asset( 'nmkr-carousel', 'js/nmkr-carousel.js', array(), true );
+    nmkr_connect_enqueue_script_asset( 'nmkr-mobile-collection', 'js/nmkr-mobile-collection.js', array(), true );
 
     $filters_active = '' !== $search_query || '' !== $filter_minted;
     if ( $filters_active ) {
@@ -104,6 +105,7 @@ function nmkr_shortcode_carousel( $atts ) {
         $output .= nmkr_render_project_selector_simple( $projects, $active_project_uid );
     }
 
+    $output .= '<details class="nmkr-mobile-disclosure nmkr-mobile-filters" open data-nmkr-collapse-mobile="1"' . ( $filters_active ? ' data-nmkr-keep-open="1"' : '' ) . '><summary>' . esc_html__( 'Search and filter tokens', 'rocsi-connector-for-nmkr' ) . '</summary>';
     $output .= '<form method="get" class="nmkr-token-filter">';
     $output .= '<input type="hidden" name="nmkr_project" value="' . esc_attr( $active_project_uid ) . '">';
     $output .= '<label class="nmkr-search-field"><span>' . esc_html__( 'Search tokens', 'rocsi-connector-for-nmkr' ) . '</span>';
@@ -115,8 +117,11 @@ function nmkr_shortcode_carousel( $atts ) {
     $output .= '<option value="0" ' . selected( $filter_minted, '0', false ) . '>' . esc_html__( 'Not minted', 'rocsi-connector-for-nmkr' ) . '</option>';
     $output .= '</select></label>';
     $output .= '<button type="submit" class="filter-button">' . esc_html__( 'Apply filters', 'rocsi-connector-for-nmkr' ) . '</button>';
-    $output .= '</form>';
+    $output .= '</form></details>';
 
+    $output .= '<details class="nmkr-mobile-disclosure nmkr-mobile-project-details" open data-nmkr-collapse-mobile="1"><summary>'
+        . sprintf( esc_html__( 'Project details and statistics: %s', 'rocsi-connector-for-nmkr' ), esc_html( $selected_project->project_name ) )
+        . '</summary>';
     $output .= '<section class="nmkr-project-details" aria-label="' . esc_attr__( 'Selected project', 'rocsi-connector-for-nmkr' ) . '">';
     $output .= '<div class="nmkr-project-heading"><h2>' . esc_html( $selected_project->project_name ) . '</h2>';
     if ( ! empty( $selected_project->description ) ) {
@@ -148,7 +153,7 @@ function nmkr_shortcode_carousel( $atts ) {
             . esc_html__( 'Twitter', 'rocsi-connector-for-nmkr' )
             . '<span class="screen-reader-text"> ' . esc_html__( '(opens in a new tab)', 'rocsi-connector-for-nmkr' ) . '</span></a>';
     }
-    $output .= '</div></section>';
+    $output .= '</div></section></details>';
 
     if ( empty( $tokens ) ) {
         $output .= '<div class="nmkr-shortcode-state nmkr-shortcode-state-empty" role="status"><p>'
@@ -158,7 +163,7 @@ function nmkr_shortcode_carousel( $atts ) {
         $output .= '<div class="nmkr-carousel-heading"><h3>'
             . esc_html__( 'Project tokens', 'rocsi-connector-for-nmkr' )
             . '</h3><p>'
-            . esc_html__( 'Use the arrow buttons, keyboard focus, trackpad, or touch to browse.', 'rocsi-connector-for-nmkr' )
+            . esc_html__( 'Browse with the previous/next buttons, keyboard arrows, trackpad, or touch.', 'rocsi-connector-for-nmkr' )
             . '</p></div>';
 
         $output .= '<div class="nmkr-carousel-wrapper">';
