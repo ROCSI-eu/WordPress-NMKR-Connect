@@ -107,6 +107,7 @@ function nmkr_display_shortcodes_page() {
     $quick_tokens = array();
     $quick_token_count = 0;
     $quick_token = '';
+    $both_token_inputs = '' !== $manual_token && '' !== $requested_token;
     if ( 'nmkr-token' === $quick_type && '' !== $quick_project ) {
         $tokens_table = $wpdb->prefix . 'nmkr_tokens';
         // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned fixed identifier and bound project value.
@@ -117,7 +118,7 @@ function nmkr_display_shortcodes_page() {
         $quick_tokens = is_array( $quick_tokens ) ? $quick_tokens : array();
         // A manually copied UID can reference a token beyond the bounded selector list.
         // Always verify its ownership by the selected project before making a shortcode.
-        $candidate = '' !== $manual_token ? $manual_token : $requested_token;
+        $candidate = $both_token_inputs ? '' : ( '' !== $manual_token ? $manual_token : $requested_token );
         if ( nmkr_quick_shortcode_valid_uid( $candidate ) ) {
             // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned fixed identifier and bound IDs.
             $verified_token = $wpdb->get_var( $wpdb->prepare(
@@ -230,7 +231,13 @@ function nmkr_display_shortcodes_page() {
                         <p id="nmkr-generator-copy-help" class="description"><?php esc_html_e( 'Paste this code into a WordPress Shortcode block. Without JavaScript, select and copy the text manually.', 'rocsi-connector-for-nmkr' ); ?></p>
                     </div>
                 <?php elseif ( 'nmkr-token' === $quick_type && '' !== $quick_project ) : ?>
-                    <p class="nmkr-admin-state" role="status"><?php esc_html_e( 'Select an NFT from this project (or paste its exact UID) to create a single-token shortcode.', 'rocsi-connector-for-nmkr' ); ?></p>
+                    <p class="nmkr-admin-state" role="status">
+                        <?php if ( $both_token_inputs ) : ?>
+                            <?php esc_html_e( 'Choose an NFT or paste its UID, not both. Clear one selection to generate an unambiguous shortcode.', 'rocsi-connector-for-nmkr' ); ?>
+                        <?php else : ?>
+                            <?php esc_html_e( 'Select an NFT from this project (or paste its exact UID) to create a single-token shortcode.', 'rocsi-connector-for-nmkr' ); ?>
+                        <?php endif; ?>
+                    </p>
                 <?php elseif ( '' !== $requested_project ) : ?>
                     <p class="nmkr-admin-state" role="status"><?php esc_html_e( 'The selected project is not available. Choose a synchronized project.', 'rocsi-connector-for-nmkr' ); ?></p>
                 <?php endif; ?>
