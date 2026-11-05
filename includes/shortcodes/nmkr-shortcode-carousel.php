@@ -133,8 +133,9 @@ function nmkr_shortcode_carousel( $atts ) {
     $output .= '</div>';
 
     $output .= '<div class="nmkr-project-external">';
-    if ( ! empty( $selected_project->policy_id ) ) {
-        $output .= '<a href="' . esc_url( 'https://cardanoscan.io/tokenPolicy/' . rawurlencode( (string) $selected_project->policy_id ) ) . '" target="_blank" rel="noopener noreferrer">'
+    $cardanoscan_url = nmkr_get_project_cardanoscan_url( $selected_project );
+    if ( '' !== $cardanoscan_url ) {
+        $output .= '<a href="' . esc_url( $cardanoscan_url ) . '" target="_blank" rel="noopener noreferrer">'
             . esc_html__( 'View on CardanoScan', 'rocsi-connector-for-nmkr' )
             . '<span class="screen-reader-text"> ' . esc_html__( '(opens in a new tab)', 'rocsi-connector-for-nmkr' ) . '</span></a>';
     }
