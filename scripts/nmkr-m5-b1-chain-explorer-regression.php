@@ -38,8 +38,8 @@ foreach ( $cases as $label => $project ) {
 foreach ( array( 'project', 'carousel' ) as $renderer ) {
     $source = file_get_contents( dirname( __DIR__ ) . '/includes/shortcodes/nmkr-shortcode-' . $renderer . '.php' );
     nmkr_b1_expect( false !== strpos( $source, 'nmkr_get_project_cardanoscan_url(' ), $renderer . ' uses the shared chain gate' );
-    nmkr_b1_expect( false === strpos( $source, "if ( ! empty( \\$project->policy_id ) )" )
-        && false === strpos( $source, "if ( ! empty( \\$selected_project->policy_id ) )" ),
+    nmkr_b1_expect( false === strpos( $source, 'if ( ! empty( $project->policy_id ) )' )
+        && false === strpos( $source, 'if ( ! empty( $selected_project->policy_id ) )' ),
         $renderer . ' does not gate CardanoScan by presence of policy_id alone'
     );
     nmkr_b1_expect( false !== strpos( $source, 'esc_url( $cardanoscan_url )' ), $renderer . ' escapes the generated URL' );
