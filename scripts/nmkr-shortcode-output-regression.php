@@ -134,8 +134,16 @@ foreach ( array( $project_source, $carousel_source ) as $source ) {
         false === strpos( $source, "https://twitter.com/' . esc_attr" ),
         'Twitter URL paths must not use attribute escaping as URL escaping'
     );
+    // M5 B1 routes through a verified Cardano-only helper. In that case the
+    // policy path is encoded by the helper and the full URL is escaped at the
+    // renderer boundary; the old inline URL form remains allowed elsewhere.
+    $helper = file_get_contents( $root . '/includes/helpers/nmkr-ui-helpers.php' );
+    $shared_chain_link = false !== strpos( $source, 'nmkr_get_project_cardanoscan_url(' );
     nmkr_shortcode_output_assert(
-        false !== strpos( $source, "esc_url( 'https://cardanoscan.io/tokenPolicy/' . rawurlencode" ),
+        $shared_chain_link
+            ? ( false !== strpos( $source, 'esc_url( $cardanoscan_url )' )
+                && false !== strpos( $helper, "'https://cardanoscan.io/tokenPolicy/' . rawurlencode( " ) )
+            : false !== strpos( $source, "esc_url( 'https://cardanoscan.io/tokenPolicy/' . rawurlencode" ),
         'CardanoScan URL must escape the final URL after encoding its path segment'
     );
     nmkr_shortcode_output_assert(
