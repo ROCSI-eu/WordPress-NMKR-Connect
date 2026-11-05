@@ -40,6 +40,14 @@ test.describe('NMKR Connect shortcodes page regression', () => {
     const shortcodesDashboard = page.locator('.wrap.nmkr-shortcodes-page');
     await expect(shortcodesDashboard).toBeAttached();
     await expect(page.getByRole('heading', { name: 'Shortcodes', exact: true })).toBeVisible();
+    const quickPublish = page.locator('.nmkr-quick-publish');
+    await expect(quickPublish).toBeVisible();
+    await expect(quickPublish.getByRole('heading', { name: 'Generate a shortcode for your NFTs' })).toBeVisible();
+
+    const reference = page.locator('.nmkr-shortcodes-reference');
+    await expect(reference).toHaveJSProperty('open', false);
+    await reference.locator('summary').click();
+    await expect(reference).toHaveJSProperty('open', true);
     await expect(
       page.getByRole('heading', { name: 'Selection rules shared by project-based shortcodes' }),
     ).toBeVisible();

@@ -36,7 +36,8 @@ if grep -EnH \
   -e '\bmatch[[:space:]]*\(' \
   -e '\?->' \
   -e '^[[:space:]]*#\[' \
-  -e '\breadonly\b' \
+  -e '\breadonly[[:space:]]+class\b' \
+  -e '\b(public|protected|private)[[:space:]]+readonly[[:space:]]+' \
   -e '\benum[[:space:]]+[A-Za-z_][A-Za-z0-9_]*' \
   -e '\bstr_contains[[:space:]]*\(' \
   -e '\bstr_starts_with[[:space:]]*\(' \
