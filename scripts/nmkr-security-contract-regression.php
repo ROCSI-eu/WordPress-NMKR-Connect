@@ -112,6 +112,7 @@ $expected_request_consumers=array(
     'includes/pages/dashboard/nmkr-dashboard-ajax.php::nmkr_get_sync_statistics_ajax',
     'includes/pages/dashboard/nmkr-dashboard-ajax.php::nmkr_store_active_metrics_ajax',
     'includes/pages/projects/nmkr-projects.php::nmkr_connect_projects_page',
+    'includes/pages/shortcodes/nmkr-shortcodes.php::nmkr_display_shortcodes_page',
     'includes/shortcodes/nmkr-shortcode-carousel.php::nmkr_shortcode_carousel',
     'includes/shortcodes/nmkr-shortcode-grid.php::nmkr_shortcode_grid',
     'includes/shortcodes/nmkr-shortcode-list.php::nmkr_shortcode_list',
@@ -122,6 +123,18 @@ $expected_request_consumers=array(
 );
 sort($expected_request_consumers);
 nmkr_assert($request_consumers===$expected_request_consumers,'request_input_surface_unclassified');
+$shortcodes_source=file_get_contents(dirname(__DIR__).'/includes/pages/shortcodes/nmkr-shortcodes.php');
+$shortcodes_start=strpos($shortcodes_source,'function nmkr_display_shortcodes_page()');
+nmkr_assert(
+    $shortcodes_start!==false
+        && strpos($shortcodes_source,"current_user_can( 'nmkr_view_shortcodes' )",$shortcodes_start)!==false
+        && strpos($shortcodes_source,"current_user_can( 'nmkr_view_shortcodes' )",$shortcodes_start)
+            < strpos($shortcodes_source,'$_GET',$shortcodes_start)
+        && strpos($shortcodes_source,'sanitize_text_field( wp_unslash(',$shortcodes_start)!==false
+        && strpos($shortcodes_source,'$wpdb->prepare(',$shortcodes_start)!==false,
+    'shortcodes_generator_request_guard_contract'
+);
+
 
 $settings_source=file_get_contents(dirname(__DIR__).'/includes/pages/settings/nmkr-settings-core.php');
 nmkr_assert(strpos($settings_source, "settings_fields('nmkr_connect_settings_group')")!==false,'settings_nonce_source_missing');
