@@ -41,6 +41,7 @@ The [traceability matrix](traceability.md) is the canonical requirement-to-work-
 - [Adoption and metrics](adoption-and-metrics.md) — metric definitions, baselines, measurement sources, privacy, and limitations.
 - [Marketing and community](marketing-and-community.md) — launch channels, messaging, outreach, community event, and campaign evidence.
 - [Support and feedback](support-and-feedback.md) — early-adopter support, feedback definitions, privacy, and feedback-to-issue flow.
+- [Community UI/UX feedback assessment](ui-ux-community-feedback-2026-11-05.md) — 5 November intake, reconciliation with 0.26.0 facelift, initial source-based audit and visual-validation gates.
 - [Post-launch enhancements](post-launch-enhancements.md) — genuine feedback/usage-driven fixes or minor adjustments and their validation.
 - [Handover](handover.md) — final user/developer/release/support documentation checklist.
 - [PCR / PCV](pcr-pcv.md) — current close-out requirements and preparation gates.
