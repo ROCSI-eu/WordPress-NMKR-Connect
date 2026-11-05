@@ -1,13 +1,13 @@
 # M5 community UI/UX intake and post-0.26.0 assessment
 
-**Status:** FRONTEND AND AUTHENTICATED ADMIN BROWSER AUDIT COMPLETED / ACCESSIBILITY, CROSS-THEME AND DYNAMIC AJAX QA PENDING  
+**Status:** BOUNDED POST-0.26.0 GATE A AUDIT DECISION-READY / GATE B APPROVAL AND IMPLEMENTATION PENDING  
 **Intake:** `M5-INTAKE-001` (2026-11-05), tracked in [issue #216](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/issues/216) and parent M5-06/M5-07 [issue #165](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/issues/165)  
 **Repository baseline reviewed:** `main@939c7f775d47bfa593f1089823f51cc9788d0e09`; public plugin release `0.26.0`  
 **Status of changes:** no UI implementation or WordPress.org release is authorized by this assessment.
 
 > **Update (2026-11-05):** A bounded Gate A audit was performed after this preliminary intake. See [Gate A visual audit](ui-ux-gate-a-visual-audit-2026-11-05.md) for actual screenshot/layout results on all five shortcodes at 320/390/768/1365px, findings about mobile carousel guidance and Solana-sample explorer links, and explicitly limited WordPress Admin HTML-fixture checks. The core logged-in admin navigation and a read-only project-selection interaction have **since been verified with a new scoped DEV QA account**. AJAX-dependent states, formal cross-theme/accessibility checks and owner Gate B selection remain pending. No changes to runtime code or release are authorized.
 
-## Source and faithful interpretation of the feedback
+> **Gate A final update (2026-11-05):** Authentic QA login and five admin views verified; mobile focus/label/contrast heuristics performed (not WCAG certification); safe Analytics/Dashboard AJAX response stubs executed; all five frontend shortcodes rendered successfully with an actual isolated Twenty Twenty-Five installation (loopback-only clone cleaned afterward). See [updated Gate A report](ui-ux-gate-a-visual-audit-2026-11-05.md) and the [Gate B decision proposal](ui-ux-gate-b-proposal-2026-11-05.md). No code changes or release were made. Owner approval remains mandatory.\n\n## Source and faithful interpretation of the feedback
 
 The maintainer relayed a general observation from **one person involved in the Cardano and WordPress community** that the plugin's UI/UX would benefit from a more modern presentation. The reported scope covers WordPress admin screens generally and NFT presentation on the public frontend via shortcodes.
 
