@@ -36,7 +36,8 @@ if grep -EnH \
   -e '\bmatch[[:space:]]*\(' \
   -e '\?->' \
   -e '^[[:space:]]*#\[' \
-  # PHP readonly property/class declarations: exclude HTML 'readonly' attributes.\n  -e '\breadonly[[:space:]]+class\b' \\n  -e '\b(public|protected|private)[[:space:]]+readonly[[:space:]]+' \\
+  -e '\breadonly[[:space:]]+class\b' \
+  -e '\b(public|protected|private)[[:space:]]+readonly[[:space:]]+' \
   -e '\benum[[:space:]]+[A-Za-z_][A-Za-z0-9_]*' \
   -e '\bstr_contains[[:space:]]*\(' \
   -e '\bstr_starts_with[[:space:]]*\(' \
