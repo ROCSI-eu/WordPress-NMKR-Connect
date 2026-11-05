@@ -7,16 +7,24 @@
 
     // Progressive enhancement: changes refresh read-only GET data; no AJAX/API,
     // no settings persistence and no WordPress operation is triggered.
+    var tokenSelect = document.getElementById('nmkr-gen-token');
+    var manualToken = document.getElementById('nmkr-gen-token-custom');
     ['nmkr-gen-type', 'nmkr-gen-project'].forEach(function (id) {
       var el = document.getElementById(id);
-      if (el) el.addEventListener('change', function () { form.requestSubmit(); });
+      if (el) el.addEventListener('change', function () {
+        // A selected token belongs to its old project; clear both inputs before
+        // submitting a new project so stale IDs cannot override fresh choices.
+        if (id === 'nmkr-gen-project') {
+          if (tokenSelect) tokenSelect.value = '';
+          if (manualToken) manualToken.value = '';
+        }
+        form.requestSubmit();
+      });
     });
 
     // Two alternative token inputs must not silently disagree: changing the
     // dropdown clears a previously pasted UID, and typing a UID clears the
     // dropdown. Server validation also refuses conflicting GET values without JS.
-    var tokenSelect = document.getElementById('nmkr-gen-token');
-    var manualToken = document.getElementById('nmkr-gen-token-custom');
     if (tokenSelect && manualToken) {
       tokenSelect.addEventListener('change', function () {
         manualToken.value = '';
