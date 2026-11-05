@@ -118,7 +118,19 @@
     }
 
     .nmkr-shortcode-carousel .nmkr-carousel-control {
-        display: none;
+        display: inline-grid;
+        width: 38px;
+        height: 42px;
+        flex: 0 0 auto;
+    }
+
+    .nmkr-shortcode-carousel .nmkr-carousel-wrapper {
+        grid-template-columns: 38px minmax(0, 1fr) 38px;
+        gap: 5px;
+    }
+
+    .nmkr-shortcode-carousel .nmkr-token {
+        min-width: min(235px, 73vw);
     }
 
     .nmkr-shortcode-carousel .nmkr-carousel-heading {
