@@ -26,6 +26,10 @@ $source = file_get_contents( dirname( __DIR__ ) . '/includes/pages/shortcodes/nm
 foreach ( array( 'nmkr_view_shortcodes', 'method="get"', 'nmkr_gen_project', 'nmkr_gen_token', 'nmkr_gen_token_custom', 'nmkr-shortcodes-reference', 'esc_textarea( $generated )', 'SELECT token_uid FROM', 'get_var( $wpdb->prepare(' ) as $item ) {
     if ( false === strpos( $source, $item ) ) { fwrite( STDERR, "FAIL: missing source contract {$item}\n" ); exit( 1 ); }
 }
+$bootstrap = file_get_contents( dirname( __DIR__ ) . '/rocsi-connector-for-nmkr.php' );
+if ( false === strpos( $bootstrap, "'nmkr-shortcode-generator', 'js/admin/nmkr-shortcode-generator.js'" ) ) {
+    fwrite( STDERR, "FAIL: shortcode generator JS must be enqueued on admin_enqueue_scripts before rendering\\n" ); exit( 1 );
+}
 $js = file_get_contents( dirname( __DIR__ ) . '/js/admin/nmkr-shortcode-generator.js' );
 if ( false !== strpos( $js, 'fetch(' ) || false === strpos( $js, 'navigator.clipboard' ) ) {
     fwrite( STDERR, "FAIL: generator JS must remain network-free and copy-capable\n" ); exit( 1 );
