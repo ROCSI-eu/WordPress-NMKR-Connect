@@ -42,7 +42,7 @@ The [traceability matrix](traceability.md) is the canonical requirement-to-work-
 - [Marketing and community](marketing-and-community.md) — launch channels, messaging, outreach, community event, and campaign evidence.
 - [Support and feedback](support-and-feedback.md) — early-adopter support, feedback definitions, privacy, and feedback-to-issue flow.
 - [Community UI/UX feedback assessment](ui-ux-community-feedback-2026-11-05.md) — 5 November intake, reconciliation with 0.26.0 facelift, initial source-based audit and visual-validation gates.
-- [Gate A visual audit (partial)](ui-ux-gate-a-visual-audit-2026-11-05.md) — actual 0.26.0 shortcode browser screenshots/layout measurements, private admin PHP fixtures, issues and open authenticated-acceptance gates.
+- [Gate A UI/UX audit](ui-ux-gate-a-visual-audit-2026-11-05.md) — authenticated WordPress Admin, frontend screenshots, accessibility heuristics, isolated Twenty Twenty-Five QA and limitations.\n- [Gate B UI/UX decision proposal](ui-ux-gate-b-proposal-2026-11-05.md) — recommended P1/P2 packages, scope limits, regression gates and required owner approval.
 - [Post-launch enhancements](post-launch-enhancements.md) — genuine feedback/usage-driven fixes or minor adjustments and their validation.
 - [Handover](handover.md) — final user/developer/release/support documentation checklist.
 - [PCR / PCV](pcr-pcv.md) — current close-out requirements and preparation gates.
