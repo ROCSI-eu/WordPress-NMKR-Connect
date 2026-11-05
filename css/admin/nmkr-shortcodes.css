@@ -324,3 +324,85 @@
         white-space: pre-wrap;
     }
 }
+
+/* M5 B3: the project-aware quick publishing form is the primary admin journey. */
+.nmkr-quick-publish {
+    margin-bottom: 18px;
+}
+.nmkr-quick-publish > p {
+    color: var(--nmkr-admin-text-muted);
+    line-height: 1.55;
+}
+.nmkr-generator-form {
+    display: grid;
+    gap: 14px;
+}
+.nmkr-generator-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+.nmkr-generator-fields label,
+.nmkr-generator-token-fields label {
+    display: grid;
+    min-width: 0;
+    gap: 6px;
+    font-weight: 600;
+}
+.nmkr-generator-fields select,
+.nmkr-generator-token-fields select,
+.nmkr-generator-token-fields input {
+    width: 100%;
+    max-width: 100%;
+    min-height: 42px;
+}
+.nmkr-generator-token-fields {
+    display: grid;
+    gap: 12px;
+}
+.nmkr-generator-result {
+    display: grid;
+    gap: 10px;
+    margin-top: 18px;
+    padding: 15px;
+    border: 1px solid var(--nmkr-admin-border);
+    border-radius: var(--nmkr-admin-radius);
+    background: var(--nmkr-admin-surface-subtle);
+}
+.nmkr-generator-result textarea {
+    width: 100%;
+    min-height: 62px;
+    border: 1px solid var(--nmkr-admin-border);
+    border-radius: 6px;
+    background: #fff;
+    font-family: monospace;
+    overflow-wrap: anywhere;
+}
+.nmkr-generator-copy-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.nmkr-shortcodes-reference {
+    border: 1px solid var(--nmkr-admin-border);
+    border-radius: var(--nmkr-admin-radius);
+    background: #fff;
+}
+.nmkr-shortcodes-reference > summary {
+    min-height: 44px;
+    padding: 14px 16px;
+    cursor: pointer;
+    color: var(--nmkr-admin-accent);
+    font-weight: 700;
+}
+.nmkr-shortcodes-reference > summary:focus-visible {
+    outline: 3px solid var(--nmkr-admin-accent);
+    outline-offset: 2px;
+}
+.nmkr-shortcodes-reference-content {
+    padding: 0 14px 14px;
+}
+@media (max-width: 782px) {
+    .nmkr-generator-fields { grid-template-columns: 1fr; }
+}
