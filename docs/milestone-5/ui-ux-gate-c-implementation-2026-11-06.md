@@ -16,6 +16,10 @@
 
 **Validation boundaries:** Isolated local WordPress with synthetic tokens, loopback-only PHP server and private file permissions; not a real production deployment, release, live NMKR synchronization, customer installation, full WCAG 2.2 AA conformance, or WordPress.org publication. Screenshots/logs remain private until inspected/sanitized for public Catalyst evidence.
 
+## Integration order and overlapping files
+
+B1 (PR #221) and B2 (PR #222) both modify `includes/shortcodes/nmkr-shortcode-carousel.php`. **Even though the changes serve different behaviors, these PRs are not guaranteed to merge without reconciliation.** If the owner later authorizes merges, integrate/rebase **B1 first**, then update B2 onto the new `main`, resolve the carousel file deliberately, and repeat B2 regressions + its private mobile smoke test on the **new exact head**. B3 (PR #223) has no tracked file overlap with B1 or B2 at this review. This is a **dependency plan, not merge authorization**.
+
 ## Verification, decisions and release gates
 
 - [x] Maintainer approved **implementation only** of B1+B2+B3; PRs opened as Draft, independent of M5 docs PR #217.
