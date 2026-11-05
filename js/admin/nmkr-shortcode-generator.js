@@ -12,6 +12,20 @@
       if (el) el.addEventListener('change', function () { form.requestSubmit(); });
     });
 
+    // Two alternative token inputs must not silently disagree: changing the
+    // dropdown clears a previously pasted UID, and typing a UID clears the
+    // dropdown. Server validation also refuses conflicting GET values without JS.
+    var tokenSelect = document.getElementById('nmkr-gen-token');
+    var manualToken = document.getElementById('nmkr-gen-token-custom');
+    if (tokenSelect && manualToken) {
+      tokenSelect.addEventListener('change', function () {
+        manualToken.value = '';
+      });
+      manualToken.addEventListener('input', function () {
+        if (manualToken.value.trim()) tokenSelect.value = '';
+      });
+    }
+
     var copy = document.getElementById('nmkr-generator-copy');
     var code = document.getElementById('nmkr-generated-shortcode');
     var status = document.getElementById('nmkr-generator-copy-feedback');
