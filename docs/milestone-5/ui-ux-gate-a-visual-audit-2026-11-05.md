@@ -78,3 +78,40 @@ These are representative **synthetic/staging collection pages**, including `ADA1
 - The dated audit, bounded screenshots and source findings can substantiate **assessment and prioritization**, but not implemented-change, user-adoption, WCAG conformance or Catalyst close-out success.
 - If a selected improvement is approved, subsequently record the PR, review/CI, DEV exact-head validation, released version and before/after observation under #165, `post-launch-enhancements.md`, and the M5 evidence/traceability registers.
 - Private capture directory (internal reference only, **not a public evidence artifact**): `/home/mihai/.local/state/nmkr-connect/m5-uiux-gatea-20261105/`. Do not commit or expose runtime files/captured page data without independent review and sanitization.
+
+
+## Gate A continuation — authenticated browser access and deeper frontend interactions (2026-11-05)
+
+### Login / administrator browser gate
+
+An isolated headless Chrome browser attempted **one login** to the canonical `https://connector-for-nmkr.rocsi.eu/wp-dev/wp-login.php` using the existing local QA credential source previously configured for the *old* `dev.nmkrconnect.io` host. The present site **did not accept that credential**. No additional passwords, resets, account creation, session spoofing, permission bypass, or administrative writes were attempted. **Authenticated WordPress Admin remains NOT TESTED**, and this attempt does not constitute an authentication-security defect in the plugin.
+
+Only isolated local browser memory held the attempted credentials; no auth-cookie export or credential screenshot was retained. The existing QA credential requires reconciliation for the **current canonical DEV installation** before a legitimate interactive admin acceptance can be completed.
+
+### Improved canonical WP-CLI Projects fixture (read-only)
+
+Using authorized WP-CLI read access to the **actual canonical `/wp-dev` installation** (not the legacy separate WordPress database), the current active WordPress theme was identified as **Hello Elementor**. **Twenty Twenty-Five** is also installed but not active; no theme was switched.
+
+The canonical database contains **10 plugin projects**, and a private PHP template/DOM inspection was prepared for the actual `NFT Projects` screen using a normal administrator capability context in WP-CLI. A local, in-memory, non-network project-selection request was simulated using WordPress's current-session nonce. It produced the **selected Cardano project overview**, summary, two filter inputs and **10 token results**. Desktop (1365px) and mobile (390px) static browser screenshots were captured; **no whole-page horizontal overflow was detected**. The selected-project template confirms the page has a three-step hierarchy: choose project → inspect summary → filter/inspect tokens.
+
+This is a **PHP/WordPress CSS fixture**, not an authenticated WordPress browser session. No administrator action was submitted to the website, and no persistent records, session settings, synchronization or plugin code were changed. Some media remained placeholders in the isolated full-page fixture due to image-loading context; this does **not** establish broken image handling on the live admin page.
+
+### Interactive frontend DOM checks
+
+The live 0.26.0 shortcode pages on the canonical `/wp-dev` URL were further checked under **390px and 1365px** isolated Chrome viewports. Only GET page loads and local keyboard/navigation interactions were exercised; unsafe AJAX and analytics calls were blocked.
+
+| Ref | Measured behavior | Interpretation |
+| --- | --- | --- |
+| `UX-02` | In the live Grid at 390px × 844px, the **first NFT card starts around document Y=942px**, below the initial viewport. In List it also starts at Y≈942px; desktop Grid/List first content begins at Y≈608px. | Concrete mobile first-viewport density issue; consider compact project metadata/filter presentation while retaining feature visibility. |
+| `UX-03` | The 390px token-list region requires around **392px internal horizontal scroll**. Focusing its `tabindex=0` region and pressing ArrowRight twice moved it by **80px**. At 1365px there is no internal horizontal overflow. | Supports keeping keyboard access; improving mobile discoverability remains a reasonable candidate, not a functional failure. The separate 320px check measured ≈462px of internal scroll. |
+| `UX-04` | Carousel previous/next controls are **hidden at 390px**, visible at 1365px. On mobile, a focused carousel region responds to ArrowRight (≈42px scroll). On desktop, clicking Next moved the carousel substantially (recorded scroll position ≈866px after action). | Carousel still works; mobile descriptive copy inaccurately instructs using buttons that CSS hides. Prefer a small contextual instruction correction or more discoverable mobile controls. |
+| `UX-05` | Canonical DEV data shows `SOL1 Neon Metropolis` explicitly has **`blockchain=Solana`**, but its `policy_id` is also populated. The public `[nmkr-project]` renderer shows a CardanoScan explorer link whenever `policy_id` is non-empty, even for this Solana project. The `[nmkr-carousel]` view similarly uses a `policy_id` existence check. | **Confirmed chain-context presentation defect in these sample data conditions.** Decide a chain-aware explorer mapping in a separate narrowly scoped implementation plan and regression; do not fabricate Solana explorer IDs. |
+| Layout | Every tested frontend view at 390px/1365px returned 200, with no document-level overflow. View/CTA analytics DOM attributes were present; the collection endpoint was blocked to prevent synthetic activity. | No broader visual/rendering regression evidenced within the measured sample. |
+
+### Remaining Gate A blockers
+
+- [ ] A valid, user-authorized QA login for the **canonical** DEV WordPress instance, followed by actual authenticated Dashboard/Projects/Shortcodes/Analytics/Settings browser interactions and permission checks.
+- [ ] Actual second-theme execution (Twenty Twenty-Five is installed but not activated), either in a safe disposable clone or through an independently authorized reversible theme test. Do not change the site's active theme merely to satisfy visual QA.
+- [ ] Representative narrow mobile touch, contrast, zoom and screen-reader acceptance before asserting accessibility conformance.
+
+**Disposition:** Gate A **PARTIALLY COMPLETE**, with sufficient evidence to rank frontend improvements but **not** to certify the full authenticated admin journey. The owner has not yet approved any code modification, merge or WordPress.org publication.
