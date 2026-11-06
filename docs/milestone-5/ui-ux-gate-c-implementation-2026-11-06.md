@@ -1,10 +1,10 @@
 # Milestone 5 — UI/UX Gate C implementation and validation register
 
-**Updated:** 2026-11-06\\
-**State:** **B1+B2+B3 MERGED / DEV DEPLOYED / DEV ACCEPTED — NOT PUBLICLY RELEASED**\\
-**Original implementation baseline:** `main@939c7f775d47bfa593f1089823f51cc9788d0e09` (public 0.26.0).\\
-**Merged main:** `42ef2a44e6a3515e84797b6e76220c7b76233e01` (6 November 2026 checkpoint).\\
-**Parent:** [M5-06/07 feedback triage #165](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/issues/165); [community intake #216](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/issues/216).\\
+**Updated:** 2026-11-06\
+**State:** **B1+B2+B3 MERGED / DEV DEPLOYED / DEV ACCEPTED — NOT PUBLICLY RELEASED**\
+**Original implementation baseline:** `main@939c7f775d47bfa593f1089823f51cc9788d0e09` (public 0.26.0).\
+**Merged main:** `42ef2a44e6a3515e84797b6e76220c7b76233e01` (6 November 2026 checkpoint).\
+**Parent:** [M5-06/07 feedback triage #165](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/issues/165); [community intake #216](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/issues/216).\
 **Earlier decisions:** [Gate A audit](ui-ux-gate-a-visual-audit-2026-11-05.md) and [Gate B approval](ui-ux-gate-b-proposal-2026-11-05.md).
 
 ## Implemented scope and GitHub provenance
