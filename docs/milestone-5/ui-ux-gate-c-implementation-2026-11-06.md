@@ -1,41 +1,45 @@
 # Milestone 5 — UI/UX Gate C implementation and validation register
 
 **Updated:** 2026-11-06  
-**State:** **IN IMPLEMENTATION / DRAFT PRs — no merge, deployed code or release**  
-**Mandate:** Owner approved Gate B packages B1, B2 and B3, each on a separate branch. B4 remains conditional; B5 deferred.  
-**Baseline:** `main@939c7f775d47bfa593f1089823f51cc9788d0e09`, release 0.26.0.  
-**Evidence links:** [Gate A](ui-ux-gate-a-visual-audit-2026-11-05.md), [Gate B proposal](ui-ux-gate-b-proposal-2026-11-05.md), [intake #216](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/issues/216), [feedback parent #165](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/issues/165).
+**State:** **B1+B2+B3 MERGED / DEV DEPLOYED / DEV ACCEPTED — NOT PUBLICLY RELEASED**  
+**Original implementation baseline:** `main@939c7f775d47bfa593f1089823f51cc9788d0e09` (public 0.26.0).  
+**Merged main:** `42ef2a44e6a3515e84797b6e76220c7b76233e01` (6 November 2026 checkpoint).  
+**Parent:** [M5-06/07 feedback triage #165](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/issues/165); [community intake #216](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/issues/216).  
+**Earlier decisions:** [Gate A audit](ui-ux-gate-a-visual-audit-2026-11-05.md) and [Gate B approval](ui-ux-gate-b-proposal-2026-11-05.md).
 
-## Three separately scoped implementation PRs
+## Implemented scope and GitHub provenance
 
-| Package | Issue and Draft PR | Implemented branch behavior | Validation completed (not final acceptance) | Outstanding gate |
-| --- | --- | --- | --- | --- |
-| **B1: chain-safe explorer** | [#218](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/issues/218), [PR #221](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/pull/221) | CardanoScan URL only for explicitly Cardano projects with nonempty policy ID; no misleading CardanoScan for Solana/unknown. No invented Solana explorer destination. | Targeted PHP helper tests and shortcode contract PASS; isolated exact-branch WordPress browser smoke **4/4 PASS** (Cardano Project/Carousel keep link, Solana Project/Carousel omit link), no horizontal overflow. Existing escaping regression updated to validate shared URL helper + final escaped URL. | **Phase 4 CI PASS** on latest exact B1 head `7c2c44fd...` (public-safe, dependency audits and synthetic security rendering). Codex reviewed original implementation head `2440d3a...` with no major findings; later commit only adjusted URL-escaping regression. Overall CI/review gate must be reconciled against latest head before merge. |
-| **B2: NFT-first mobile** | [#219](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/issues/219), [PR #222](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/pull/222) | Grid/Carousel filters and project context become accessible progressive mobile disclosures; desktop and no-JS remain expanded, active search/filter stays open. Carousel mobile arrows visible and usable with truthful instructions. | PHP/JS syntax + static regressions PASS. Isolated Hello Elementor 320/390/768/1365 browser checks PASS without document/root overflow. At **390×844px**, first Grid NFT moved from **Y=1012 to Y=455** (**557px earlier**), Carousel from **Y=1183 to Y=603** (**580px earlier**). Both elements enter first viewport. Disclosures opened and active-filter case kept open. Isolated Twenty Twenty-Five passed four widths; mobile Grid **Y=447**, Carousel **Y=582**. **Phase 4 CI on `22ec0646...`: SUCCESS.** | **Phase 4 CI PASS** on exact B2 head `22ec0646...`; Codex no major findings on that same head. Focused accessibility/interaction acceptance and owner merge authorization remain outstanding. |
-| **B3: quick publish Shortcodes Admin** | [#220](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/issues/220), [PR #223](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/pull/223) | Capability-gated read-only local project/type/token selector; verified token UID ownership; ready-to-paste shortcode with Clipboard API/manual fallback; full five-shortcode reference behind accessible disclosure; no-JS GET form supported. Single-token dropdown/manual UID values mutually exclusive; conflicting supplied values fail closed. | PHP/JS lint, PHP 7.4 scanner, generator and Projects/Shortcodes UI and public shortcode regressions PASS. Isolated exact-branch authenticated browser PASS: 2 projects, 5 tokens within selected test project, Grid and single-token shortcode valid, one-click copy + feedback, collapsed/expandable reference, no-JS preview, 390px no overflow. **Five dedicated conflict/ownership scenarios PASS**. Codex initial two review findings addressed in branch. | **Phase 4 CI PASS** on exact B3 head `d2eac0dc...` (public-safe/security rendering/dependency). Initial Codex findings (conflicting token selectors and collapsed reference E2E assertions) addressed and resolved; new exact-head Codex review requested and pending. Premerge owner merge authorization absent. |
+| Package | Issue / merged PR | Shipped to `main` (not WordPress.org) | Validation / outcome |
+| --- | --- | --- | --- |
+| **B1 — chain-safe explorer** | [#218](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/issues/218) / [#221](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/pull/221) | Squash merge `ab8c28920677678baa4453007e4b8b0abc919979` | CardanoScan shown only for explicit Cardano chain with policy ID. Solana/unknown omitted; isolated WordPress browser **4/4 PASS**. |
+| **B2 — NFT-first mobile Grid/Carousel** | [#219](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/issues/219) / [#222](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/pull/222) | Merge `3c95557d1f750b47c89116d195a202aead4f3071` | Mobile disclosures reduce visual overhead; carousel controls remain visible. In isolated Hello Elementor at 390px, Grid first NFT **Y=1012→455** and Carousel **Y=1183→603**; isolated Twenty Twenty-Five passed at 320/390/768/1365px. |
+| **B3 — project-aware shortcode quick publish** | [#220](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/issues/220) / [#223](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/pull/223) | Merge `42ef2a44e6a3515e84797b6e76220c7b76233e01`; reviewed head `2f41b340a48c0769bb796a990ae4574941ac2a1a` | Capability-gated read-only generator uses locally validated project/token IDs, safe copy fallback and collapsible reference. Token dropdown/manual input conflicts fail closed; project changes clear stale token choices. Private browser and targeted regression checks PASS. |
 
-**Validation boundaries:** Isolated local WordPress with synthetic tokens, loopback-only PHP server and private file permissions; not a real production deployment, release, live NMKR synchronization, customer installation, full WCAG 2.2 AA conformance, or WordPress.org publication. Screenshots/logs remain private until inspected/sanitized for public Catalyst evidence.
+**Codex and CI:** B1/B2/B3 completed the relevant code reviews and Phase 4 CI prior to merge. B3's initial review findings were resolved; final exact-head Codex review on `2f41b34...` completed with no new or unresolved findings. B1's final post-review follow-up affected a test, not implementation behavior.
 
-## Integration order and overlapping files
+**Combined-source integration:** B1 and B2 overlapped in the Carousel renderer. They were integrated sequentially B1→B2→B3, with clean combined Git merge-tree checks and targeted B1/B2/B3/public-shortcode/security-contract regressions passing on merged `main`.
 
-B1 (PR #221) and B2 (PR #222) both modify `includes/shortcodes/nmkr-shortcode-carousel.php`. **Even though the changes serve different behaviors, these PRs are not guaranteed to merge without reconciliation.** If the owner later authorizes merges, integrate/rebase **B1 first**, then update B2 onto the new `main`, resolve the carousel file deliberately, and repeat B2 regressions + its private mobile smoke test on the **new exact head**. B3 (PR #223) has no tracked file overlap with B1 or B2 at this review. This is a **dependency plan, not merge authorization**.
+## Exact-commit WordPress DEV deployment and acceptance
 
-## Verification, decisions and release gates
+The owner separately approved the controlled DEV deployment and validation after merge. On 2026-11-06:
 
-- [x] Maintainer approved **implementation only** of B1+B2+B3; PRs opened as Draft, independent of M5 docs PR #217.
-- [x] Main baseline pinned and preliminary source contracts tested; private exact-branch WordPress smoke for B1/B2/B3 executed.
-- [x] B2 measurable visual before/after improvement captured on two themes in isolated environments.
-- [x] B3 conflicting manual/dropdown UID issue found by Codex and handled with independent browser checks; existing E2E test modified to open the reference disclosure.
-- [x] **All three latest exact-head Phase 4 CI runs PASS**, including public-safe checks, dependency audits and synthetic security rendering: B1 `7c2c44fd...`, B2 `22ec0646...`, B3 `d2eac0dc...`.
-- [ ] Latest Codex reviews reconciled; unresolved blocking comments addressed; no stale review claim. B2 no-finding review received; B1 review had no findings on earlier code head; B3 old findings resolved with new review requested.
-- [ ] Exact-head premerge DEV acceptance and risk-based test closure as required by owner development workflow.
-- [ ] Explicit owner approval for **each merge**; then separately authorized DEV deployment/verification, release/version management, and WordPress.org publication if intended.
-- [ ] M5 final reporting should link **actual merged/released** change details, sanitized before/after, post-release impact and exact evidence; never count a Draft change as delivered.
+- Fetched the exact `main` SHA `42ef2a44...`; used the canonical clean-tree package builder to create the **0.26.0-development-candidate payload** (0.26.0 is still the public release version, **not** a new release tag).
+- Verified a purpose-built package manifest (**79 files**), without Git metadata, repository-only test tools, or documentation. Verified package checksum and runtime file readability.
+- Verified site identity, active plugin, WordPress DEV environment, and idle synchronization before changing files. Kept a private file rollback and a private database backup. WordPress remained installed and plugin active.
+- Post-deploy: manifest verification, PHP lint across installed plugin files, five focused B1/B2/B3/public shortcode/security regressions, canonical WP-CLI smoke and read-only DB-state checks **PASS**.
+- Browser acceptance: **five published frontend shortcode pages × 390px/1365px = 10/10 PASS** (HTTP 200, rendered shortcode roots, no page-wide overflow); mobile disclosures and Carousel controls present.
+- Authenticated scoped QA browser acceptance **PASS** for Shortcodes Admin (generator, project preview, reference disclosure, and project-switch stale-token clearing).
+- Final source exact-ref cleanliness, installed package manifest, plugin state, NMKR configuration-options equality and idle synchronization checks **PASS**. A temporary QA login failure was resolved by a fresh successful browser run; no product defect was asserted from that preliminary attempt.
+- Sanitized completion receipt: [PR #223 final DEV acceptance comment](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/pull/223#issuecomment-6673230095). Private screenshots, credentials, database backup and diagnostic logs remain off GitHub.
 
-## Isolated QA cleanup and canonical DEV verification
+**Scope boundary:** This is acceptance on the project's DEV WordPress instance using available local/QA data, **not** a WordPress.org release, Production installation, adopter observation, full WCAG certification or proof of audience/metric thresholds. No real NMKR synchronization was executed.
 
-After isolated exact-branch validation, the loopback-only PHP test server was stopped and the temporary WordPress filesystem, test database, local DB user, temporary login credentials and fixture source were **removed**. Private QA screenshots, metrics and approved test source worktrees were retained in a restricted directory. A fresh read-only check of canonical `/wp-dev` confirmed active theme **Hello Elementor**, **10** plugin projects, **100** tokens, and the scoped canonical QA identity still present. **No canonical plugin code, database data, theme, settings or production state was modified.** This cleanup/verification does not replace future exact merged-head acceptance if the owner authorizes integration.
+## Remaining release and Catalyst gates
 
-## Feedback count and Catalyst claims
+- [x] B1/B2/B3 implementation, code review, CI, GitHub merges, exact-commit DEV deployment and post-merge acceptance.
+- [ ] Select and approve an independent release candidate/version per [versioning policy](../versioning.md) and [WordPress.org release checklist](../wordpress-org-release.md). B3 adds visible functionality; `0.27.0` is the **proposed**, not yet approved, next minor version.
+- [ ] Prepare and review the release-version/changelog PR; validate exact package, update/install behavior and STAGING release gate before separately approved WordPress.org SVN/GitHub publication.
+- [ ] Obtain genuine post-publication usage/support observations, adoption measurements and qualifying detailed feedback. An unqualified community intake is **not** one of the five distinct detailed user records.
+- [ ] Reconcile resulting release/evidence with the M5 traceability, handover, PCR/PCV and final close-out material; do not infer adoption impact from the code change alone.
 
-The initiating Cardano/WordPress community remark remains an **unqualified qualitative intake `M5-INTAKE-001`**, not a detailed, distinct `M5-FBK-###` record. A UX PR approved and developed because of this intake is evidence of triage and engineering work but **not** evidence that the five-detailed-users requirement has been met. The project must maintain the original accepted milestones and avoid implying WordPress.org approval, download/install growth, real-user adoption, or release of these Draft changes.
+**Not selected:** B4 remains conditional on real mobile List friction; B5 is deferred. Avoid broad redesign or additional feature work without evidence.
