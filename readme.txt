@@ -4,7 +4,7 @@ Tags: nft, cardano, solana, nmkr, shortcode
 Requires at least: 5.8
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.26.0
+Stable tag: 0.27.0
 License: MIT
 License URI: https://opensource.org/license/mit/
 
@@ -47,6 +47,11 @@ No. Analytics defaults to Off and consent enforcement defaults to enabled. Local
 Deactivation clears the recurring analytics cleanup event. Uninstall removes plugin-owned roles and capabilities and core plugin data. Analytics data and admission state are removed by default; if an administrator deliberately disables “Remove Data on Uninstall,” the analytics table is retained.
 
 == Changelog ==
+
+= 0.27.0 =
+* Corrects blockchain-specific explorer links so Solana projects are not linked to CardanoScan.
+* Brings NFT artwork forward on mobile Grid and Carousel views, with compact, accessible filters and visible carousel controls.
+* Adds a project-aware, copy-ready shortcode generator in WordPress Admin, including project and token selection and safer handling when switching projects.
 
 = 0.26.0 =
 * Introduces a cohesive WordPress admin experience across Dashboard, Projects, Shortcodes, Analytics, and Settings, including a custom connector menu icon and clearer primary workflows.
