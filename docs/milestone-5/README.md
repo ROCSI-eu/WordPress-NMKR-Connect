@@ -4,13 +4,15 @@
 
 Milestone 5 is the project's final delivery stage: **Project Close-Out and Marketing**.
 
-**Status:** PLANNING
+**Status:** IN PROGRESS — WordPress.org 0.26.0 public; B1/B2/B3 merged and accepted on DEV, not yet publicly released (2026-11-06 checkpoint)
 
 This directory is a living Milestone 5 delivery workspace. Its presence does not mean the milestone, any work package, any adoption threshold, any WordPress.org submission, or any Catalyst close-out requirement has been completed.
 
 Only explicitly recorded executed evidence may support completion claims. Planning entries may be revised when implementation, WordPress.org review, adoption data, community feedback, support activity, or current Catalyst requirements provide new information.
 
 The planning baseline for this scaffold is repository commit `c375ddf76dfb8965f568253f2e3563eb3c339f6f`, tree `e3962fe11e39ac6bd06561f9b891aed198056b2f`.
+
+**Execution checkpoint (2026-11-06):** M5-01–M5-04 have progressed beyond the original planning scaffold, public 0.26.0 is available, M5-05 outreach is underway and the B1/B2/B3 post-launch refinements are integrated and accepted on DEV. The table below preserves **initial** work-package statuses; authoritative requirement progress is in [traceability](traceability.md), and the B1/B2/B3 release boundary is in [Gate C](ui-ux-gate-c-implementation-2026-11-06.md). Attendance, qualifying feedback, installations, website visits, final PCR/PCV and public release of B1/B2/B3 remain distinct evidence gates.
 
 ## Final-milestone contract summary
 
@@ -41,6 +43,10 @@ The [traceability matrix](traceability.md) is the canonical requirement-to-work-
 - [Adoption and metrics](adoption-and-metrics.md) — metric definitions, baselines, measurement sources, privacy, and limitations.
 - [Marketing and community](marketing-and-community.md) — launch channels, messaging, outreach, community event, and campaign evidence.
 - [Support and feedback](support-and-feedback.md) — early-adopter support, feedback definitions, privacy, and feedback-to-issue flow.
+- [Community UI/UX feedback assessment](ui-ux-community-feedback-2026-11-05.md) — 5 November intake, reconciliation with 0.26.0 facelift, initial source-based audit and visual-validation gates.
+- [Gate A UI/UX audit](ui-ux-gate-a-visual-audit-2026-11-05.md) — authenticated WordPress Admin, frontend screenshots, accessibility heuristics, isolated Twenty Twenty-Five QA and limitations.
+- [Gate B UI/UX decision proposal](ui-ux-gate-b-proposal-2026-11-05.md) — recommended P1/P2 packages, scope limits, regression gates and required owner approval.
+- [Gate C UI/UX implementation register](ui-ux-gate-c-implementation-2026-11-06.md) — merged B1/B2/B3, exact-source DEV acceptance, public-release and evidence gates.
 - [Post-launch enhancements](post-launch-enhancements.md) — genuine feedback/usage-driven fixes or minor adjustments and their validation.
 - [Handover](handover.md) — final user/developer/release/support documentation checklist.
 - [PCR / PCV](pcr-pcv.md) — current close-out requirements and preparation gates.

@@ -49,6 +49,16 @@ Use opaque IDs such as `M5-FBK-001` and keep any identity-to-ID mapping private.
 | --- | --- | --- | --- | --- | --- | --- |
 | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
 
+## Preliminary community feedback intake (not yet qualifying detailed-user feedback)
+
+This intake log is **separate from** the `M5-FBK-###` table, which is reserved for feedback meeting the detailed-user definition above.
+
+| Intake ID | Received UTC date | Channel / source class | Public-safe observation | Triage / linked issue | Qualification |
+| --- | --- | --- | --- | --- | --- |
+| `M5-INTAKE-001` | 2026-11-05 | Maintainer-relayed Cardano/WordPress community observation | General request to evaluate and further modernize plugin WordPress admin UI/UX and the frontend NFT rendering of shortcodes | [Post-release audit #216](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/issues/216); [M5-06/07 #165](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/issues/165); [assessment](ui-ux-community-feedback-2026-11-05.md) | **Pending details; not counted** toward five distinct detailed users |
+
+**Boundary:** no verified direct quote, identity, reproduction steps or impact statement was supplied. An intake is useful for prioritization but cannot be promoted to a qualifying `M5-FBK-###` record without sufficient additional substance. Do not count the same person twice.
+
 Planning target: seek feedback from more than five people so that the contract does not depend on every response qualifying as detailed/actionable. The exact outreach number may change.
 
 ## Feedback-to-issue workflow
