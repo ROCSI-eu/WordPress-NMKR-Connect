@@ -1,7 +1,7 @@
 # M5 Gate A — post-0.26.0 UI/UX visual audit (2026-11-05)
 
-**Status:** BOUNDED GATE A AUDIT COMPLETE FOR GATE B DECISION — real backend/AJAX, formal accessibility and broader user acceptance remain unverified.  
-**Origin:** [M5-INTAKE-001 / issue #216](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/issues/216); feedback workflow [#165](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/issues/165).  
+**Status:** BOUNDED GATE A AUDIT COMPLETE FOR GATE B DECISION — real backend/AJAX, formal accessibility and broader user acceptance remain unverified.\\
+**Origin:** [M5-INTAKE-001 / issue #216](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/issues/216); feedback workflow [#165](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/issues/165).\\
 **Implementation/release:** NONE. This report documents audit evidence and candidates, not a decision to redesign or release an update.
 
 ## Precisely what was exercised
