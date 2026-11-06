@@ -1,9 +1,9 @@
 # Milestone 5 — UI/UX Gate B decision proposal
 
-**Date:** 2026-11-05  
-**Status:** HISTORICAL GATE B APPROVAL — B1+B2+B3 SUBSEQUENTLY MERGED / DEV ACCEPTED (NOT PUBLICLY RELEASED)  
-**Source:** [community feedback intake M5-INTAKE-001 / issue #216](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/issues/216)  
-**Evidence:** [Gate A report](ui-ux-gate-a-visual-audit-2026-11-05.md), [initial assessment](ui-ux-community-feedback-2026-11-05.md), pre-existing 0.26.0 facelift #194–#200  
+**Date:** 2026-11-05\\
+**Status:** HISTORICAL GATE B APPROVAL — B1+B2+B3 SUBSEQUENTLY MERGED / DEV ACCEPTED (NOT PUBLICLY RELEASED)\\
+**Source:** [community feedback intake M5-INTAKE-001 / issue #216](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/issues/216)\\
+**Evidence:** [Gate A report](ui-ux-gate-a-visual-audit-2026-11-05.md), [initial assessment](ui-ux-community-feedback-2026-11-05.md), pre-existing 0.26.0 facelift #194–#200\\
 **Parent delivery:** [M5-06/M5-07 feedback and post-launch adjustment #165](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/issues/165)
 
 ## Decision context
