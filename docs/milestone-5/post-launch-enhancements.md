@@ -1,6 +1,6 @@
 # Post-launch enhancements
 
-**Status:** ONE PRELIMINARY COMMUNITY UI/UX INTAKE UNDER IMPLEMENTATION — NO RELEASED CHANGE CONFIRMED\
+**Status:** B1+B2+B3 MERGED / DEV ACCEPTED — AWAITING VERSIONED PUBLIC RELEASE; DETAILED USER FEEDBACK STILL PENDING\
 **Document type:** Post-launch adjustment selection and validation record
 
 The final Statement of Milestones acceptance/evidence language expects early bug fixes or minor adjustments to be documented, implemented, and verified. The project will not manufacture an artificial change solely to satisfy that wording.
@@ -24,11 +24,11 @@ Populate from M5-06/support/adoption evidence.
 
 | Candidate | Origin evidence | Impact | Scope/risk | Decision | Rationale |
 | --- | --- | --- | --- | --- | --- |
-| `M5-INTAKE-001` — post-release admin/frontend UI/UX review | Maintainer-relayed qualitative Cardano/WordPress community observation (2026-11-05); [#216](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/issues/216) | Gate A confirmed mobile NFT-first layout friction, Solana project CardanoScan mismatch and manual shortcode authoring overhead | Three bounded approved **implementation** packages, separated by risk; no shipped release | **B1+B2+B3 IN IMPLEMENTATION** — owner approved; B4 conditional, B5 deferred | See [Gate C register](ui-ux-gate-c-implementation-2026-11-06.md) and Draft [#221](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/pull/221), [#222](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/pull/222), [#223](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/pull/223). No merge/deploy/release or qualifying detailed user feedback is claimed. |
+| `M5-INTAKE-001` — post-release admin/frontend UI/UX review | Maintainer-relayed qualitative Cardano/WordPress community observation (2026-11-05); [#216](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/issues/216) | Gate A confirmed mobile NFT-first layout friction, Solana project CardanoScan mismatch and manual shortcode authoring overhead | Three bounded P1 packages; verified on DEV, **not yet shipped to WordPress.org** | **B1+B2+B3 MERGED / DEV ACCEPTED** at `main@42ef2a44...`; B4 conditional, B5 deferred | [Gate C register](ui-ux-gate-c-implementation-2026-11-06.md), merged [#221](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/pull/221), [#222](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/pull/222), [#223](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/pull/223). This intake **does not** establish five qualifying detailed users or a released user-facing adjustment. |
 
 ## Selected adjustment
 
-Owner selected **B1 (chain-safe explorer links), B2 (NFT-first mobile Grid/Carousel), and B3 (project-aware Shortcodes Admin quick-publish)** on 2026-11-06 for **implementation and testing**, not merging or shipping. See the [Gate C implementation and validation register](ui-ux-gate-c-implementation-2026-11-06.md). None currently qualifies as an implemented **and released** post-launch change; that requires separately approved merge, DEV/release validation and versioned publication evidence.
+Owner initially selected **B1 (chain-safe explorer links), B2 (NFT-first mobile Grid/Carousel), and B3 (project-aware Shortcodes Admin quick-publish)** on 2026-11-06. All three were later **merged** and **validated on DEV** under separate authorizations; see the [Gate C implementation and validation register](ui-ux-gate-c-implementation-2026-11-06.md). **No WordPress.org 0.27.0 release, public update installation, adoption outcome, or qualifying five-user feedback is established.** A public versioned release and post-release observation remain separate gates.
 
 Record:
 
