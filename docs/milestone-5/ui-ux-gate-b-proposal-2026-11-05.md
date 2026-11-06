@@ -1,7 +1,7 @@
 # Milestone 5 — UI/UX Gate B decision proposal
 
 **Date:** 2026-11-05  
-**Status:** OWNER APPROVED B1+B2+B3 FOR IMPLEMENTATION ON 2026-11-06 — NO MERGE/DEPLOYMENT APPROVAL  
+**Status:** HISTORICAL GATE B APPROVAL — B1+B2+B3 SUBSEQUENTLY MERGED / DEV ACCEPTED (NOT PUBLICLY RELEASED)  
 **Source:** [community feedback intake M5-INTAKE-001 / issue #216](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/issues/216)  
 **Evidence:** [Gate A report](ui-ux-gate-a-visual-audit-2026-11-05.md), [initial assessment](ui-ux-community-feedback-2026-11-05.md), pre-existing 0.26.0 facelift #194–#200  
 **Parent delivery:** [M5-06/M5-07 feedback and post-launch adjustment #165](https://github.com/ROCSI-eu/WordPress-NMKR-Connect/issues/165)
@@ -47,7 +47,7 @@ The 0.26.0 facelift already established coherent CSS primitives and improved **a
 3. **B3** focused WordPress Admin improvement with existing local project/token data. Validate empty state, long UIDs, accessibility, copy behavior, and no Javascript fallback. No persistence/model/API changes.
 4. Decide on **B4** only after B2 observation; **defer B5** absent a demonstrated issue.
 
-**Owner decision (2026-11-06):** B1 + B2 + B3 **approved for implementation** as separate Draft PRs #221/#222/#223; B4 remains conditional and B5 deferred. This approval **does not** authorize merge, deployment, release or WordPress.org publication. See [Gate C status](ui-ux-gate-c-implementation-2026-11-06.md).
+**Owner decision (2026-11-06, historical):** B1 + B2 + B3 were initially approved for implementation as separate Draft PRs #221/#222/#223. Distinct subsequent approvals authorized their merges and DEV deployment, completed and recorded in the [Gate C register](ui-ux-gate-c-implementation-2026-11-06.md). **No WordPress.org release was authorized or performed** by that approval. B4 remains conditional and B5 deferred.
 
 ## Acceptance and safety conditions for each selected PR
 
@@ -73,4 +73,4 @@ These artifacts support **feedback triage and prioritization**, not automaticall
 - **B4:** conditional / approve / defer / reject
 - **B5:** recommend defer
 
-**Implementation has begun on the separately approved B1/B2/B3 packages, Draft PRs #221/#222/#223.** Keep them Draft until reviewed and request distinct merge/deployment authorization.
+**Final implementation disposition (2026-11-06):** The approved packages were merged and accepted on DEV; see Gate C for exact SHAs and evidence. This document preserves the historical decision criteria rather than claiming those decisions alone authorized a public release.
