@@ -21,7 +21,7 @@ function extract_function($path, $name) {
         $part = is_array($token) ? $token[1] : $token;
         if ($part === '<?php ') { continue; }
         $function .= $part;
-        if ($part === '{') { $depth++; $opened = true; }
+        if ($part === '{' || (is_array($token) && in_array($token[0], array(T_CURLY_OPEN, T_DOLLAR_OPEN_CURLY_BRACES), true))) { $depth++; $opened = true; }
         elseif ($part === '}') { $depth--; if ($opened && $depth === 0) { break; } }
     }
     // T_CURLY_OPEN accounts for interpolated SQL table names.
