@@ -805,7 +805,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b'.dashicons{font-family:dashicons}')
     def log_message(self, *args): pass
-server = http.server.HTTPServer(('127.0.0.1', 0), Handler)
+class GracefulTLSServer(http.server.HTTPServer):
+    def shutdown_request(self, request):
+        # Send TLS close_notify instead of closing the test socket abruptly.
+        try:
+            request.settimeout(1)
+            request.unwrap()
+        except (OSError, ssl.SSLError):
+            pass  # Peer disconnected or rejected the self-signed test cert.
+        finally:
+            super().shutdown_request(request)
+server = GracefulTLSServer(('127.0.0.1', 0), Handler)
 print(server.server_port, flush=True)
 context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 context.load_cert_chain(certfile=sys.argv[1], keyfile=sys.argv[2])
