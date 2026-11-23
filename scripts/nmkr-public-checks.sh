@@ -14,6 +14,9 @@ bash scripts/nmkr-phase2-profile-regression.sh
 printf '\n== Public-safe Phase 16A controlled real-sync regression checks ==\n'
 bash scripts/nmkr-real-sync-phase16a-regression.sh
 
+printf '\n== Genuine uninstall finalization-receipt regression ==\n'
+php scripts/nmkr-uninstall-finalization-regression.php
+
 printf '\n== Canonical synchronization terminalization regression ==\n'
 bash scripts/nmkr-sync-terminalization-regression.sh
 

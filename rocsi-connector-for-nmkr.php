@@ -254,6 +254,28 @@ function nmkr_connect_uninstall() {
         } while (count($analytics_state_names) === 1000);
     }
 
+    // Historical finalization receipts are keyed by sync-history ID rather than
+    // listed in the fixed option whitelist. Genuine uninstall drops the history
+    // and metrics tables, so leaving these options behind can block fresh runs
+    // when auto-increment IDs are reused after reinstall.
+    $receipt_pattern = $wpdb->esc_like('nmkr_sync_finalizing_') . '%';
+    $receipt_cursor = '';
+
+    do {
+        $receipt_names = $wpdb->get_col($wpdb->prepare(
+            "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s AND option_name > %s ORDER BY option_name ASC LIMIT 1000",
+            $receipt_pattern,
+            $receipt_cursor
+        ));
+
+        foreach ($receipt_names as $receipt_name) {
+            $receipt_cursor = $receipt_name;
+            if (preg_match('/^nmkr_sync_finalizing_[0-9]+$/D', $receipt_name)) {
+                delete_option($receipt_name);
+            }
+        }
+    } while (count($receipt_names) === 1000);
+
     //
     // C. Delete all NMKR-related transients
     //
